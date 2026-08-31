@@ -2321,7 +2321,8 @@ async function handleApi(req, res, route) {
     db.settings.currentParticipantsLocked = false;
     db.settings.currentRoundRecoveredAt = null;
     db.economy.forcedCursors = db.economy.forcedCursors.filter((item) => item.roundId !== roundId);
-    await persist(); broadcastRefresh('round-cleared'); json(res, 200, stateFor(user)); return;
+    await persist(); broadcastRefresh('round-cleared');
+    json(res, 200, { ...stateFor(user), storageCleanup: { deletedWallpapers: roundImages.length } }); return;
   }
   throw new HttpError(404, 'Rota não encontrada.');
 }
