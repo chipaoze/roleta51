@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10284a">
+  <meta name="description" content="Área 51 — portal interno para sorteio semanal de wallpapers e Gay da Rodada.">
+  <title>Área 51</title>
+  <link rel="stylesheet" href="/styles.css?v=20260831-105">
+  <link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <main id="authView" class="auth-shell">
+    <section class="auth-art">
+      <div class="brand brand-light"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></div>
+      <img src="/area51-aliens-v2.png" alt="" class="auth-aliens" aria-hidden="true">
+      <div class="auth-carousel" aria-live="polite">
+        <article class="auth-copy auth-slide active" data-auth-slide="0">
+          <span class="eyebrow eyebrow-light">SORTEIOS INTERNOS</span>
+          <h1>A rodada começa<br><em>por aqui.</em></h1>
+          <p>Envie seu wallpaper, acompanhe as inscrições e descubra quem leva a rodada.</p>
+        </article>
+        <article class="auth-copy auth-slide" data-auth-slide="1" aria-hidden="true">
+          <span class="eyebrow eyebrow-light">TODO MUNDO JUNTO</span>
+          <h1>A sorte gira<br><em>ao vivo.</em></h1>
+          <p>Quando o administrador iniciar, toda a equipe verá a mesma roleta e o mesmo resultado.</p>
+        </article>
+        <article class="auth-copy auth-slide" data-auth-slide="2" aria-hidden="true">
+          <span class="eyebrow eyebrow-light">VOTE SEM ENTREGAR</span>
+          <h1>O segredo fica<br><em>até o final.</em></h1>
+          <p>Escolha o melhor e o pior wallpaper. Os autores só aparecem depois da votação.</p>
+        </article>
+      </div>
+      <img src="/gay-da-rodada.png" alt="Arte Gay da Rodada, sorteio de wallpapers" class="auth-mascot">
+      <div class="auth-dots" aria-label="Destaques da rodada">
+        <button class="active" type="button" data-auth-dot="0" aria-label="Mostrar destaque 1"></button>
+        <button type="button" data-auth-dot="1" aria-label="Mostrar destaque 2"></button>
+        <button type="button" data-auth-dot="2" aria-label="Mostrar destaque 3"></button>
+      </div>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-card">
+        <div class="mobile-brand brand"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></div>
+        <div class="mobile-showcase" aria-live="polite">
+          <img src="/gay-da-rodada.png" alt="Gay da Rodada">
+          <div class="mobile-showcase-copy">
+            <p class="mobile-auth-slide active" data-mobile-slide="0"><strong>A rodada começa por aqui.</strong><span>Envie seu wallpaper e entre na brincadeira.</span></p>
+            <p class="mobile-auth-slide" data-mobile-slide="1" aria-hidden="true"><strong>A roleta gira ao vivo.</strong><span>Todo celular acompanha o mesmo resultado.</span></p>
+            <p class="mobile-auth-slide" data-mobile-slide="2" aria-hidden="true"><strong>O segredo fica até o final.</strong><span>Vote antes de descobrir quem enviou.</span></p>
+          </div>
+          <div class="mobile-auth-dots" aria-label="Destaques da rodada">
+            <button class="active" type="button" data-mobile-dot="0" aria-label="Mostrar destaque 1"></button>
+            <button type="button" data-mobile-dot="1" aria-label="Mostrar destaque 2"></button>
+            <button type="button" data-mobile-dot="2" aria-label="Mostrar destaque 3"></button>
+          </div>
+        </div>
+        <div class="auth-tabs" role="tablist" aria-label="Acesso">
+          <button class="auth-tab active" data-auth-tab="login" role="tab">Entrar</button>
+          <button class="auth-tab" data-auth-tab="register" role="tab">Criar acesso</button>
+        </div>
+
+        <form id="loginForm" class="auth-form">
+          <div class="form-heading">
+            <span class="eyebrow">BEM-VINDO DE VOLTA</span>
+            <h2>Entre na rodada</h2>
+            <p>Use seu usuário e senha para acessar.</p>
+          </div>
+          <label>Usuário
+            <span class="input-wrap"><span class="input-icon">@</span><input name="username" autocomplete="username" required placeholder="seu.usuario"></span>
+          </label>
+          <label>Senha
+            <span class="input-wrap"><span class="input-icon">●</span><input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></span>
+          </label>
+          <label class="remember-me-row"><input name="rememberMe" type="checkbox"><span><strong>Lembrar de mim neste computador</strong><small>Manter meu acesso por até 30 dias.</small></span></label>
+          <p class="form-error" id="loginError" role="alert"></p>
+          <button type="submit" class="button button-primary button-wide">Entrar <span>→</span></button>
+          <p class="form-foot">Primeira vez? <button type="button" class="link-button" data-go-register>Crie seu próprio acesso</button></p>
+        </form>
+
+        <form id="registerForm" class="auth-form hidden">
+          <div class="form-heading">
+            <span class="eyebrow">PRIMEIRO ACESSO</span>
+            <h2>Crie sua conta</h2>
+            <p>Você escolhe seu usuário e sua senha.</p>
+          </div>
+          <label>Seu nome
+            <span class="input-wrap"><span class="input-icon">☺</span><input name="displayName" autocomplete="name" required maxlength="50" placeholder="Como aparecerá na roleta"></span>
+          </label>
+          <label>Usuário
+            <span class="input-wrap"><span class="input-icon">@</span><input name="username" autocomplete="username" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9._-]+" placeholder="nome.sobrenome"></span>
+          </label>
+          <label>Senha
+            <span class="input-wrap"><span class="input-icon">●</span><input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo de 8 caracteres"></span>
+          </label>
+          <p class="form-error" id="registerError" role="alert"></p>
+          <button type="submit" class="button button-primary button-wide">Solicitar acesso <span>→</span></button>
+          <p class="privacy-note">🔒 A senha é protegida no servidor e não fica visível para ninguém.</p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div id="appView" class="app hidden">
+    <header class="topbar">
+      <a class="brand" href="?pagina=sorteio" data-page="sorteio"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></a>
+      <button id="menuButton" class="menu-button" type="button" aria-label="Abrir menu principal" aria-controls="siteMenu" aria-expanded="false"><i></i><i></i><i></i><span>Menu</span></button>
+      <div class="account">
+        <button id="notificationButton" class="icon-button notification-button" type="button" title="Abrir notificações" aria-label="Abrir notificações" aria-expanded="false">🔔<b id="notificationBadge" class="hidden">0</b></button>
+        <button id="musicToggle" class="icon-button music-toggle" title="Ativar som da rodada" aria-label="Ativar som da rodada">♫</button>
+        <button id="volumeDownButton" class="icon-button volume-down-button" title="Diminuir volume" aria-label="Diminuir volume">🔉</button>
+        <button id="themeToggle" class="icon-button theme-toggle" title="Ativar modo escuro" aria-label="Ativar modo escuro" aria-pressed="false">☾</button>
+        <button id="topProfileButton" class="top-profile-button" type="button" title="Abrir meu Perfil & Loja" aria-label="Abrir meu Perfil & Loja"><span class="avatar" id="userAvatar">M</span><span class="account-copy"><strong id="userName">Participante</strong><span id="userRole">Participante</span></span></button>
+        <button id="passwordButton" class="password-button" title="Alterar minha senha" aria-label="Alterar minha senha"><span aria-hidden="true">🔑</span><span class="password-button-label"><span class="password-button-long">Alterar </span>Senha</span></button>
+        <button id="logoutButton" class="logout-button" title="Sair da minha conta" aria-label="Sair da minha conta"><span aria-hidden="true">🚪</span><span class="logout-button-label">Sair</span></button>
+      </div>
+    </header>
+
+    <aside id="notificationPanel" class="notification-panel hidden" aria-label="Minhas notificações">
+      <header><div><small>CENTRAL PESSOAL</small><h3>Notificações</h3></div><button id="closeNotificationPanel" type="button" aria-label="Fechar notificações">×</button></header>
+      <div id="notificationList" class="notification-list"></div>
+    </aside>
+
+    <div id="menuBackdrop" class="menu-backdrop hidden" aria-hidden="true"></div>
+    <aside id="siteMenu" class="site-menu" aria-hidden="true" aria-label="Menu principal">
+      <header><div class="brand"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></div><button id="closeMenuButton" type="button" aria-label="Fechar menu">×</button></header>
+      <div class="site-menu-user"><span id="menuUserAvatar">M</span><p><strong id="menuUserName">Participante</strong><small id="menuUserRole">Participante</small></p></div>
+      <nav aria-label="Páginas da Área 51">
+        <a href="?pagina=sorteio" data-page="sorteio" class="active"><span>🎡</span><p><strong>Sorteio</strong><small>Roleta e andamento da rodada</small></p></a>
+        <a href="?pagina=inscricoes" data-page="inscricoes"><span>🖼️</span><p><strong>Inscrições</strong><small>Enviar e acompanhar wallpapers</small></p></a>
+        <a href="?pagina=memes" data-page="memes"><span>😂</span><p><strong>Memes Diários</strong><small>Mural e frases da equipe</small></p></a>
+        <a href="?pagina=anonimos" data-page="anonimos"><span>🕵️</span><p><strong>Elogios / Denúncias</strong><small>Publicações anônimas</small></p></a>
+        <a href="?pagina=agua" data-page="agua"><span>💧</span><p><strong>Água</strong><small>Controle diário de hidratação</small></p></a>
+        <a href="?pagina=mentirometro" data-page="mentirometro"><span>🤥</span><p><strong>Mentirômetro</strong><small>Marcações e classificação</small></p></a>
+        <a href="?pagina=perfil" data-page="perfil"><span>🛍️</span><p><strong>Perfil & Loja</strong><small>Créditos, skins e conquistas</small></p></a>
+        <a href="?pagina=cassino" data-page="cassino"><span>🎰</span><p><strong>Cassino 51</strong><small>Apostas controladas e caixas</small></p></a>
+        <a href="?pagina=historico" data-page="historico"><span>🏆</span><p><strong>Histórico</strong><small>Vencedores anteriores</small></p></a>
+        <a href="?pagina=classificacao" data-page="classificacao"><span>📊</span><p><strong>Classificação</strong><small>Placares da equipe</small></p></a>
+        <a href="?pagina=admin" data-page="admin" id="adminNav" class="hidden"><span>⚙️</span><p><strong>Administração</strong><small>Controle do site e usuários</small></p></a>
+        <button id="installAppButton" class="menu-install-button hidden" type="button"><span>📲</span><p><strong>Instalar aplicativo</strong><small>Adicionar à tela inicial</small></p></button>
+      </nav>
+    </aside>
+
+    <section id="inicio" class="hero">
+      <div class="hero-copy">
+        <span class="round-pill"><i></i><span id="roundName">RODADA SEMANAL</span></span>
+        <span class="current-theme-pill">TEMA: <strong id="currentThemeLabel">AGUARDANDO SORTEIO</strong></span>
+        <p class="hero-kicker">SORTEIO DE WALLPAPERS</p>
+        <h1>É hora de<br><em>girar a sorte.</em></h1>
+        <p class="hero-text">Envie sua arte, reúna a galera e descubra o wallpaper — e o ícone — desta rodada.</p>
+        <div class="hero-stats">
+          <div><strong id="heroWallpaperCount">0</strong><span>Wallpapers inscritos</span></div>
+          <div><strong id="heroPeopleCount">0</strong><span>Participantes</span></div>
+        </div>
+        <div id="roundScheduleBanner" class="round-schedule-banner hidden"></div>
+      </div>
+      <div class="hero-visual">
+        <div class="rainbow-ring"></div>
+        <img src="/gay-da-rodada.png" alt="Gay da Rodada" class="hero-mascot">
+        <img src="/area51-aliens-v2.png" alt="ETs coloridos da Área 51" class="hero-aliens">
+        <span class="sparkle sparkle-one">✦</span><span class="sparkle sparkle-two">✦</span>
+        <span class="unicorn-float unicorn-float-one" aria-hidden="true">🦄</span>
+        <span class="unicorn-float unicorn-float-two" aria-hidden="true">🦄</span>
+      </div>
+    </section>
+
+    <section id="sorteio" class="section draw-section">
+      <div class="section-heading center">
+        <span class="eyebrow">O GRANDE MOMENTO</span>
+        <h2>A rodada, <em>passo a passo</em></h2>
+        <p>O sistema libera cada etapa automaticamente e mantém toda a equipe sincronizada.</p>
+      </div>
+      <div id="workflowStrip" class="workflow-strip" aria-label="Etapas da rodada">
+        <span data-workflow-step="theme"><i>1</i>Tema</span>
+        <span data-workflow-step="uploads"><i>2</i>Envios</span>
+        <span data-workflow-step="assignments"><i>3</i>Distribuição</span>
+        <span data-workflow-step="gay"><i>4</i>Gay da Rodada</span>
+        <span data-workflow-step="voting"><i>5</i>Votação</span>
+      </div>
+      <button id="launchFlyerCard" class="launch-flyer-card" type="button" aria-label="Abrir flyer de inauguração">
+        <img src="/inauguracao-area51.png" alt="Flyer Área 51 está no ar">
+        <span><small>INAUGURAÇÃO OFICIAL</small><strong>A Área 51 está no ar! 🚀</strong><em>Confira tudo o que já está disponível para a tripulação.</em></span>
+        <b>Ver flyer completo ↗</b>
+      </button>
+      <div class="draw-layout">
+        <div class="wheel-panel card">
+          <div class="mode-switch" role="tablist">
+            <button class="mode-button active" data-mode="theme"><span>✦</span> Tema da rodada</button>
+            <button class="mode-button" data-mode="wallpaper"><span>▣</span> Distribuir wallpapers</button>
+            <button class="mode-button rainbow-button" data-mode="gay"><span>★</span> Gay da Rodada</button>
+          </div>
+          <div class="wheel-stage">
+            <div class="wheel-pointer"><span></span></div>
+            <canvas id="wheelCanvas" width="760" height="760" aria-label="Roleta de sorteio"></canvas>
+            <button id="spinButton" class="spin-button" aria-label="Girar roleta"><strong>GIRAR</strong><small>A roleta</small></button>
+          </div>
+          <p class="wheel-caption" id="wheelCaption">Envie ao menos um wallpaper para começar.</p>
+        </div>
+
+        <aside class="draw-aside">
+          <div class="card status-card">
+            <span class="status-icon">◉</span>
+            <div><small>RODADA ATUAL</small><strong id="sideRoundName">Rodada semanal</strong></div>
+            <span class="live-dot" id="liveStatus" aria-live="polite">CONECTANDO</span>
+          </div>
+          <div class="card mini-stats">
+            <div><span class="mini-icon orange">▣</span><p><strong id="wallpaperCount">0</strong><small>Wallpapers</small></p></div>
+            <div><span class="mini-icon blue">☺</span><p><strong id="peopleCount">0</strong><small>Participantes</small></p></div>
+          </div>
+          <div id="roundSummaryCard" class="card round-summary-card">
+            <div class="card-title-row"><h3>Resumo da rodada</h3><span id="roundSummaryPhase">AGUARDANDO</span></div>
+            <strong id="roundSummaryTheme">Nenhum tema definido</strong>
+            <div id="roundSummarySteps" class="round-summary-steps"></div>
+            <div id="roundSummaryMine" class="round-summary-mine"></div>
+          </div>
+          <div id="adminLiveChecklist" class="card admin-live-card hidden">
+            <div class="card-title-row"><h3>Controle ao vivo</h3><span>ADMIN</span></div>
+            <p>Quem ainda falta em cada etapa</p>
+            <div id="adminLiveStages" class="admin-live-stages"></div>
+          </div>
+          <div id="receivedWallpaperCard" class="card received-wallpaper-card hidden">
+            <div class="received-wallpaper-preview"><img id="receivedWallpaperImage" alt="Seu wallpaper recebido"></div>
+            <div class="received-wallpaper-body">
+              <span id="receivedWallpaperStatus">NOVO · SEU WALLPAPER CHEGOU</span>
+              <h3 id="receivedWallpaperTitle">Wallpaper da rodada</h3>
+              <p id="receivedWallpaperAuthor">Autoria secreta até o fim da votação.</p>
+              <a id="downloadReceivedWallpaper" class="button button-dark button-wide" download>Baixar meu wallpaper <b>↓</b></a>
+              <button id="markWallpaperSeenButton" type="button" class="button button-outline button-wide">Entendi, já visualizei ✓</button>
+              <small>Disponível até o administrador encerrar esta rodada.</small>
+            </div>
+          </div>
+          <div class="card latest-card">
+            <div class="card-title-row"><h3>Últimos sorteados</h3><a href="?pagina=historico" data-page="historico">Ver todos</a></div>
+            <div id="latestDraws" class="latest-list empty-state">Ainda não houve sorteio.</div>
+          </div>
+          <div class="card latest-card assignment-card">
+            <div class="card-title-row"><h3>Wallpapers distribuídos</h3><span id="assignmentCount">0 de 0</span></div>
+            <div id="assignmentBoard" class="latest-list empty-state">A distribuição ainda não começou.</div>
+          </div>
+          <div class="fair-card"><span>✓</span><p><strong>Sorteio justo</strong><small>O resultado é escolhido com aleatoriedade segura no servidor.</small></p></div>
+        </aside>
+      </div>
+      <div id="votingPanel" class="voting-panel card hidden">
+        <div class="voting-head">
+          <div>
+            <span class="eyebrow" id="votingEyebrow">VOTAÇÃO ABERTA</span>
+            <h3 id="votingTitle">Qual foi o melhor — e o pior?</h3>
+            <p id="votingDescription">Os autores permanecem em segredo até o encerramento.</p>
+          </div>
+          <div class="vote-progress-wrap">
+            <strong id="voteProgressText">0 de 0 votos</strong>
+            <div class="vote-progress"><i id="voteProgressBar"></i></div>
+          </div>
+        </div>
+        <div id="voteSummary" class="vote-summary hidden" aria-live="polite"></div>
+        <form id="votingForm">
+          <div id="voteGrid" class="vote-grid"></div>
+          <p id="voteError" class="form-error" role="alert"></p>
+          <div class="voting-actions">
+            <p id="voteStatus">Escolha uma opção como melhor e outra como pior.</p>
+            <button id="submitVoteButton" class="button button-primary" type="submit">Confirmar meu voto</button>
+            <button id="closeVotingButton" class="button button-dark hidden" type="button">Encerrar e revelar autores</button>
+            <button id="clearFinishedRoundButton" class="button button-danger hidden" type="button">Encerrar rodada e limpar imagens</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section id="inscricoes" class="section submissions-section">
+      <div class="section-heading split-heading">
+        <div><span class="eyebrow">SUA VEZ DE BRILHAR</span><h2>Envie seu <em>wallpaper</em></h2></div>
+        <p>Um wallpaper por pessoa, sem nome e com autoria secreta. Para melhor qualidade no desktop: paisagem 16:9 em 4K UHD.</p>
+      </div>
+      <div id="uploadWindowNote" class="upload-window-note hidden" aria-live="polite"><span>⏳</span><p><strong>Período de escolha aberto</strong><small>O tema fica salvo e não existe prazo automático para enviar.</small></p></div>
+      <div class="submission-layout">
+        <form id="uploadForm" class="upload-card card">
+          <label id="dropZone" class="drop-zone" for="wallpaperFile">
+            <input id="wallpaperFile" name="wallpaper" type="file" accept="image/png,image/jpeg,image/webp" required>
+            <span class="upload-symbol">↥</span>
+            <strong>Arraste sua imagem para cá</strong>
+            <small>Ou clique para escolher o arquivo</small>
+            <span class="wallpaper-spec"><b>RECOMENDADO</b> 3840 × 2160 px · paisagem 16:9</span>
+            <span class="file-pill" id="fileName">PNG, JPG ou WEBP · até 8 MB</span>
+          </label>
+          <div id="imagePreview" class="image-preview hidden"><img alt="Prévia do wallpaper"><button type="button" id="clearFile">Remover</button></div>
+          <p id="imageQualityHint" class="image-quality-hint hidden" aria-live="polite"></p>
+          <p class="form-error" id="uploadError" role="alert"></p>
+          <p id="uploadLock" class="privacy-note hidden">🔒 Inscrições congeladas durante a votação.</p>
+          <button type="submit" class="button button-primary button-wide">Enviar wallpaper <span>↥</span></button>
+        </form>
+        <div class="gallery-wrap">
+          <div class="gallery-head"><h3>Galeria da rodada</h3><span id="galleryCount">0 inscrições</span></div>
+          <div id="gallery" class="gallery"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="memes" class="section memes-section">
+      <div class="section-heading split-heading">
+        <div><span class="eyebrow">HUMOR DA TRIPULAÇÃO</span><h2>Memes <em>diários</em></h2></div>
+        <p>Um mural compartilhado para postar memes e deixar a frase do dia.</p>
+      </div>
+      <div class="daily-wall-layout">
+        <aside class="daily-wall-controls">
+          <div class="card daily-phrase-card">
+            <header><span class="daily-wall-icon" aria-hidden="true">💬</span><div><small>MURAL DA TRIPULAÇÃO</small><strong>Frases do dia</strong></div></header>
+            <div id="dailyPhraseList" class="daily-phrase-list"><p>A tripulação ainda não publicou frases hoje.</p></div>
+          </div>
+          <form id="dailyPhraseForm" class="card daily-wall-form">
+            <label for="dailyPhraseInput">Escrever a frase do dia</label>
+            <textarea id="dailyPhraseInput" maxlength="180" rows="3" required placeholder="Digite algo memorável para hoje…"></textarea>
+            <div class="daily-wall-form-foot"><span><b id="dailyPhraseCount">0</b>/180</span><button class="button button-dark" type="submit">Publicar frase</button></div>
+          </form>
+          <form id="memeUploadForm" class="card daily-wall-form">
+            <label class="meme-file-picker" for="memeFile"><input id="memeFile" type="file" accept="image/png,image/jpeg,image/webp" required><span aria-hidden="true">🛸</span><strong id="memeFileName">Escolher meme</strong><small>PNG, JPG ou WEBP · até 5 MB</small></label>
+            <div id="memePreview" class="meme-preview hidden"><img alt="Prévia do meme"><button id="clearMemeFile" type="button">Remover</button></div>
+            <p id="memeUploadError" class="form-error" role="alert"></p>
+            <button class="button button-primary button-wide" type="submit">Publicar no mural <span>↥</span></button>
+          </form>
+          <button id="clearDailyMemesButton" class="button button-danger button-wide hidden" type="button">🧹 Limpar mural e frase do dia</button>
+        </aside>
+        <div class="daily-meme-wall">
+          <div class="daily-newspaper-head"><div><small>EDIÇÃO DE HOJE · ÁREA 51</small><h3>Mural da tripulação</h3></div><span id="dailyMemeCount">0 memes</span></div>
+          <div id="dailyMemeGallery" class="daily-meme-gallery"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="anonimos" class="section anonymous-section">
+      <div class="section-heading split-heading">
+        <div><span class="eyebrow">VOZ DA TRIPULAÇÃO</span><h2>Elogios &amp; <em>denúncias</em></h2></div>
+        <p>Um espaço anônimo, somente em texto. O nome de quem publicou não é exibido nem salvo.</p>
+      </div>
+      <div class="anonymous-layout">
+        <form id="anonymousPostForm" class="card anonymous-form">
+          <span class="anonymous-form-icon" aria-hidden="true">🛸</span>
+          <div><small>PUBLICAÇÃO ANÔNIMA</small><h3>Escreva com liberdade</h3><p>Ninguém verá quem enviou. Somente o administrador pode remover publicações.</p></div>
+          <label class="sr-only" for="anonymousPostMessage">Texto anônimo</label>
+          <textarea id="anonymousPostMessage" maxlength="1000" rows="6" required placeholder="Escreva seu elogio ou denúncia…"></textarea>
+          <div class="anonymous-form-foot"><span><b id="anonymousPostCount">0</b>/1000</span><button class="button button-primary" type="submit">Publicar anonimamente</button></div>
+        </form>
+        <div class="anonymous-wall-wrap">
+          <div class="anonymous-wall-head"><div><small>MURAL ANÔNIMO</small><h3>Recados da tripulação</h3></div><span id="anonymousPostTotal">0 publicações</span></div>
+          <div id="anonymousPostList" class="anonymous-post-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="agua" class="section hydration-section">
+      <div class="section-heading split-heading">
+        <div><span class="eyebrow">HIDRATAÇÃO DA TRIPULAÇÃO</span><h2>Controle de <em>água</em></h2></div>
+        <p>Cada pessoa acompanha o próprio consumo diário. Meta individual: 2,5 litros por dia.</p>
+      </div>
+      <div class="hydration-layout">
+        <div class="card hydration-main-card">
+          <div class="hydration-glass" aria-hidden="true"><span>💧</span></div>
+          <div class="hydration-summary"><small>MEU CONSUMO HOJE</small><strong><span id="myWaterTotal">0</span> ml</strong><p id="myWaterRemaining">Faltam 2.500 ml para sua meta.</p></div>
+          <div class="hydration-progress" aria-label="Progresso da meta diária"><i id="myWaterProgress"></i></div>
+          <div class="water-quick-actions" aria-label="Adicionar água"></div>
+          <form id="customWaterForm" class="custom-water-form"><label for="customWaterMl">Outra quantidade</label><div><input id="customWaterMl" type="number" min="50" max="2000" step="10" placeholder="Ex.: 750" required><span>ml</span><button class="button button-primary" type="submit">Adicionar</button></div></form>
+        </div>
+        <article class="card team-mission-card"><div><small>MISSÃO COOPERATIVA SEMANAL</small><h3>Oceano da tripulação</h3><p>Somem 18 litros de água na semana e todos recebem 15 créditos.</p></div><div class="team-mission-progress"><i id="teamMissionProgress"></i></div><footer><strong id="teamMissionText">0 de 18 L</strong><span id="teamMissionReward">+15 para cada pessoa</span></footer></article>
+        <div class="hydration-team-wrap">
+          <div class="hydration-team-head"><div><small>PLACAR DE HIDRATAÇÃO</small><h3>Consumo da equipe hoje</h3></div><strong><span id="teamWaterTotal">0</span> ml no total</strong></div>
+          <div id="hydrationPeople" class="hydration-people"></div>
+        </div>
+        <div class="card water-log-card">
+          <div class="card-title-row"><h3>Últimos copos</h3><span>Registros de hoje</span></div>
+          <div id="waterEntryList" class="water-entry-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="mentirometro" class="section lie-meter-section">
+      <div class="section-heading split-heading">
+        <div><span class="eyebrow">AUDITORIA DA TRIPULAÇÃO</span><h2>Contador de <em>mentiras</em></h2></div>
+        <p>Marque uma mentira ou solicite uma correção. O placar só muda após outra pessoa validar.</p>
+      </div>
+      <div class="lie-meter-layout">
+        <article class="card lie-ranking-card">
+          <div class="card-title-row"><div><h3>Maiores mentirosos</h3><p>Mentiras confirmadas pela equipe</p></div><span>Ranking</span></div>
+          <div id="lieRanking" class="lie-ranking"></div>
+        </article>
+        <article class="card lie-pending-card">
+          <div class="card-title-row"><div><h3>Aguardando validação</h3><p>Uma terceira pessoa precisa confirmar</p></div><strong id="liePendingCount">0 pendentes</strong></div>
+          <div id="liePendingList" class="lie-pending-list"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="cassino" class="section casino-section">
+      <div class="section-heading split-heading"><div><span class="eyebrow">DIVERSÃO INTERGALÁCTICA</span><h2>Cassino <em>51</em></h2></div><p>Todos recebem 250 créditos promocionais por dia. Alcance 500 para liberar o lucro na Loja 51.</p></div>
+      <div class="casino-layout">
+        <article class="card casino-machine"><small>ROLETA DE CRÉDITOS</small><h3>Tente multiplicar sua aposta</h3><p>O multiplicador é o retorno total: em uma aposta de 10, x1,5 devolve os 10 e acrescenta 5 de lucro. O setor dourado pode liberar o raro Cofre Secreto Área 51.</p><div class="casino-wheel-stage"><span class="casino-wheel-pointer">▼</span><canvas id="casinoWheel" width="440" height="440" aria-label="Roleta com multiplicadores de créditos e Cofre Secreto Área 51"></canvas><strong>51</strong></div><form id="casinoForm"><label>Valor da aposta<input id="casinoBet" type="number" min="10" max="100" step="10" value="20" required></label><button class="button button-primary" type="submit">Girar a roleta</button></form><div id="casinoResult" class="casino-result">Escolha entre 10 e 100 créditos.</div></article>
+        <aside class="card casino-status"><div><small>SALDO PROMOCIONAL</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoWallet">250</b></strong></div><div><small>SALDO DA LOJA</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoShopWallet">0</b></strong></div><div class="casino-cashout"><p><small>META PARA RESGATE</small><strong id="casinoCashoutText">0 de 500</strong></p><i><b id="casinoCashoutProgress"></b></i><button id="casinoCashoutButton" class="button button-primary" type="button" disabled>Resgatar lucro na loja</button></div><div><small>JOGADAS HOJE</small><strong id="casinoPlays">0</strong></div><h3>Últimos resultados</h3><div id="casinoHistory" class="casino-history"></div><a class="button button-dark" href="?pagina=perfil" data-page="perfil">Ver caixas misteriosas na loja</a></aside>
+      </div>
+    </section>
+
+    <section id="perfil" class="section profile-shop-section">
+      <div class="section-heading split-heading">
+        <div><span class="eyebrow">IDENTIDADE INTERGALÁCTICA</span><h2>Perfil & <em>Loja 51</em></h2></div>
+        <p>Cumpra missões, cuide da hidratação e use seus Créditos 51 para personalizar o perfil.</p>
+      </div>
+      <div class="profile-economy-layout">
+        <aside class="profile-column">
+          <article id="profileIdentityCard" class="card profile-identity-card">
+            <label class="profile-avatar-upload" title="Trocar foto de perfil"><div id="profileAvatar" class="profile-avatar">A</div><span>Trocar foto</span><input id="profileAvatarInput" type="file" accept="image/png,image/jpeg,image/webp"></label>
+            <div class="profile-name-wrap"><small>PERFIL DA TRIPULAÇÃO</small><h3 id="profileDisplayName">Participante</h3><span id="profileEquippedTitle">Tripulante da Área 51</span></div>
+            <div class="profile-wallet"><span class="coin-51 coin-51-large" aria-hidden="true">51</span><p><small>SALDO</small><strong><b id="profileWallet">0</b> Créditos 51</strong></p></div>
+            <div class="active-visuals"><small>VISUAIS ATIVOS</small><div id="activeVisualsList"></div></div>
+          </article>
+          <article class="card weekly-mission-card mission-center-card">
+            <div class="weekly-mission-head"><span id="missionIcon">🛸</span><div><small>MISSÃO SEMANAL</small><h3 id="missionTitle">Carregando missão…</h3></div></div>
+            <p id="missionDescription"></p><div class="mission-progress"><i id="missionProgressBar"></i></div>
+            <div class="mission-summary"><span id="missionProgressText">0 de 0</span><strong id="missionReward">+0 créditos</strong></div>
+            <div class="daily-missions-head"><div><small>MISSÕES DIÁRIAS</small><h3>Objetivos de hoje</h3></div><strong id="dailyMissionCount">0 de 4</strong></div>
+            <div id="dailyMissionList" class="daily-mission-list"></div>
+            <div id="cleanNameMission" class="clean-name-mission"></div>
+          </article>
+          <article class="card profile-stats-card"><div class="card-title-row"><h3>Minha jornada</h3><span>Estatísticas</span></div><div id="profileStats" class="profile-stats"></div></article>
+          <article class="card credit-ledger-card"><div class="card-title-row"><h3>Extrato de créditos</h3><span>Últimos movimentos</span></div><div id="creditLedger" class="credit-ledger"></div></article>
+        </aside>
+        <div class="profile-content-column">
+          <article id="activePowersCard" class="card active-powers-card hidden"><div class="profile-block-head"><div><small>USO PRIVADO</small><h3>Meus poderes</h3></div><span>Somente você vê</span></div><div id="activePowersList" class="active-powers-list"></div></article>
+          <div class="profile-block-head"><div><small>CONQUISTAS</small><h3>Minhas medalhas</h3></div><span id="medalCount">0 desbloqueadas</span></div>
+          <div id="profileMedals" class="profile-medals"></div>
+          <article class="card gift-center-card">
+            <div class="profile-block-head gift-center-head"><div><small>PRESENTE SECRETO</small><h3>Presentear alguém</h3></div><span class="gift-privacy-badge">🔒 O remetente não aparece</span></div>
+            <p class="gift-center-intro">Escolha uma pessoa e envie créditos ou um item da Loja 51 sem revelar sua identidade.</p>
+            <div class="gift-forms">
+              <form id="giftCreditsForm" class="gift-form gift-form-credits">
+                <div class="gift-form-title"><span>🪙</span><div><strong>Créditos surpresa</strong><small>Envie um saldo para alguém usar como quiser.</small></div></div>
+                <div class="gift-fields"><label>Quem vai receber?<select id="giftCreditsUser" required></select></label><label>Quantos créditos?<input id="giftCreditsAmount" type="number" min="5" max="100" step="5" placeholder="Ex.: 25" required></label></div>
+                <button class="button button-dark" type="submit">Enviar créditos em segredo</button><small id="giftCreditLimit">Limite semanal: 100</small>
+              </form>
+              <form id="giftItemForm" class="gift-form gift-form-item">
+                <div class="gift-form-title"><span>🎁</span><div><strong>Item da Loja 51</strong><small>Compre um item e entregue diretamente à coleção da pessoa.</small></div></div>
+                <div class="gift-fields"><label>Quem vai receber?<select id="giftItemUser" required></select></label><label>Qual item será enviado?<select id="giftShopItem" required></select></label></div>
+                <button class="button button-primary" type="submit">Comprar e presentear</button>
+              </form>
+            </div>
+          </article>
+          <div class="profile-block-head shop-heading"><div><small>SHOPPING INTERGALÁCTICO</small><h3>Loja fictícia Área 51</h3></div><span>Sem dinheiro real 👽</span></div>
+          <article id="freeShopPass" class="free-shop-pass"><span>🎟️</span><p><small>PRESENTE PARA CADA TRIPULANTE</small><strong id="freeShopPassTitle">Compra Grátis 51 disponível</strong><em id="freeShopPassText">Escolha um visual da loja e use seu único passe sem gastar créditos.</em></p><b id="freeShopPassStatus">1 USO</b></article>
+          <div id="shopFilters" class="shop-filters" aria-label="Filtrar itens da loja">
+            <button class="active" type="button" data-shop-filter="all">Tudo</button><button type="button" data-shop-filter="owned">Minha coleção</button><button type="button" data-shop-filter="box">🎁 Caixas</button><button type="button" data-shop-filter="cursor">Cursores</button><button type="button" data-shop-filter="trail">Rastros</button><button type="button" data-shop-filter="theme">Temas</button><button type="button" data-shop-filter="profile">Perfil</button><button class="power-filter-button" type="button" data-shop-filter="power">✨ Poderes</button>
+          </div>
+          <div id="shopCatalog" class="shop-catalog"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="historico" class="section history-section">
+      <div class="section-heading split-heading">
+        <div><span class="eyebrow">MEMÓRIA DA EQUIPE</span><h2>Histórico de <em>vencedores</em></h2></div>
+        <p>Os últimos resultados ficam guardados no servidor para a equipe consultar.</p>
+      </div>
+      <div id="historyGrid" class="history-grid"></div>
+    </section>
+
+    <section id="classificacao" class="section ranking-section">
+      <div class="section-heading split-heading">
+        <div><span class="eyebrow">PLACAR DA EQUIPE</span><h2>Classificação da <em>rodada</em></h2></div>
+        <p>Três históricos independentes: melhores wallpapers, piores wallpapers e Gay da Rodada.</p>
+      </div>
+      <div class="ranking-grid">
+        <div class="card ranking-card best-ranking-card">
+          <div class="card-title-row"><h3>Melhor wallpaper</h3><span>Vitórias</span></div>
+          <div id="bestRanking" class="ranking-list"></div>
+        </div>
+        <div class="card ranking-card worst-ranking-card">
+          <div class="card-title-row"><h3>Pior wallpaper</h3><span>Ocorrências</span></div>
+          <div id="worstRanking" class="ranking-list"></div>
+        </div>
+        <div class="card ranking-card gay-ranking-card">
+          <div class="card-title-row"><h3>Gay da Rodada</h3><span>Vezes sorteado</span></div>
+          <div id="gayRanking" class="ranking-list"></div>
+        </div>
+      </div>
+      <article class="card season-card"><div class="card-title-row"><div><small>TEMPORADA MENSAL</small><h3>Tripulação em destaque</h3></div><strong id="seasonMonth"></strong></div><div id="seasonRanking" class="season-ranking"></div><p id="previousSeasonWinner" class="previous-season-winner"></p></article>
+    </section>
+
+    <section id="admin" class="section admin-section hidden">
+      <div class="section-heading split-heading">
+        <div><span class="eyebrow">CONFIGURAÇÃO</span><h2>Painel do <em>administrador</em></h2></div>
+        <p>Use apenas para organizar a rodada. Os participantes criam as próprias contas.</p>
+      </div>
+      <div class="admin-grid">
+        <form id="settingsForm" class="card admin-card">
+          <h3>Rodada</h3>
+          <label>Nome da rodada<input id="roundInput" maxlength="60"></label>
+          <label>Temas para sortear<textarea id="themesInput" rows="7" maxlength="1800" placeholder="Um tema por linha"></textarea><small>Coloque um tema por linha. O sorteado libera os envios.</small></label>
+          <label class="check-row"><input id="excludeLast" type="checkbox"><span><strong>Não repetir o último Gay da Rodada</strong><small>Quando houver mais de uma pessoa elegível.</small></span></label>
+          <button class="button button-dark" type="submit">Salvar configurações</button>
+        </form>
+        <form id="scheduleForm" class="card admin-card"><h3>Calendário da rodada</h3><p>As datas aparecem para toda a equipe.</p><label>Prazo dos envios<input id="scheduleSubmissions" type="datetime-local"></label><label>Dia do sorteio<input id="scheduleDraw" type="datetime-local"></label><label>Prazo da votação<input id="scheduleVote" type="datetime-local"></label><button class="button button-dark" type="submit">Salvar calendário</button></form>
+        <div class="card admin-card security-center-card"><div class="card-title-row"><h3>Central de segurança</h3><strong id="securityDeviceCount">0 dispositivos</strong></div><form id="gateCodeForm"><label>Novo código secreto<input id="newGateCode" minlength="2" maxlength="32" required></label><label>Sua senha administrativa<input id="gateAdminPassword" type="password" required></label><button class="button button-dark" type="submit">Alterar código</button></form><div id="authorizedDevices" class="authorized-devices"></div><button id="revokeAllDevices" class="button button-danger button-wide" type="button">Revogar todos os dispositivos</button></div>
+        <div class="card admin-card"><div class="card-title-row"><div><h3>Atualização do site</h3><p>Use depois que uma nova versão for publicada. A equipe receberá o aviso para atualizar sem perder a sessão.</p></div><strong id="releaseVersionLabel">Versão 0</strong></div><button id="releaseUpdateButton" class="button button-primary button-wide" type="button">🚀 Liberar atualização para todos</button></div>
+        <div class="card admin-card backup-card"><h3>Backup do site</h3><p>Inclui contas, históricos, economia, configurações e imagens armazenadas.</p><button id="downloadBackupButton" class="button button-dark button-wide" type="button">⬇ Baixar backup completo</button><label class="backup-picker">Restaurar um backup<input id="restoreBackupFile" type="file" accept="application/json,.json"></label><button id="restoreBackupButton" class="button button-danger button-wide" type="button">Restaurar arquivo selecionado</button></div>
+        <div class="card admin-card">
+          <div class="card-title-row"><h3>Participantes</h3><span id="adminUserCount"></span></div>
+          <div id="adminUsers" class="admin-users"></div>
+        </div>
+        <div class="card admin-card admin-feedback-card">
+          <div class="card-title-row"><div><h3>Melhorias e bugs</h3><p>Caixa de entrada privada da equipe.</p></div><strong id="adminFeedbackPending">0 aguardando</strong></div>
+          <nav class="admin-feedback-filters" aria-label="Filtrar melhorias e bugs">
+            <button class="active" type="button" data-admin-feedback-filter="all" aria-pressed="true">Todas <span id="adminFeedbackAllCount">0</span></button>
+            <button type="button" data-admin-feedback-filter="pending" aria-pressed="false">Aguardando <span id="adminFeedbackPendingCount">0</span></button>
+            <button type="button" data-admin-feedback-filter="approved" aria-pressed="false">Aprovadas <span id="adminFeedbackApprovedCount">0</span></button>
+            <button type="button" data-admin-feedback-filter="done" aria-pressed="false">Concluídas <span id="adminFeedbackDoneCount">0</span></button>
+            <button type="button" data-admin-feedback-filter="rejected" aria-pressed="false">Não aprovadas <span id="adminFeedbackRejectedCount">0</span></button>
+            <button type="button" data-admin-feedback-filter="archived" aria-pressed="false">Arquivadas <span id="adminFeedbackArchivedCount">0</span></button>
+          </nav>
+          <div id="adminFeedbackList" class="admin-feedback-list"><p class="admin-feedback-empty">Nenhuma solicitação recebida.</p></div>
+        </div>
+        <div id="roundAttendanceCard" class="card admin-card attendance-card hidden">
+          <div class="card-title-row"><h3>Envios da rodada</h3><strong id="attendanceCount">0 de 0</strong></div>
+          <div class="attendance-progress"><i id="attendanceProgressBar"></i></div>
+          <div><small class="attendance-label">AINDA NÃO ENVIARAM</small><div id="missingParticipants" class="missing-participants"></div></div>
+          <p id="attendanceHelp">O envio do wallpaper já funciona como confirmação. Ninguém precisa apertar outro botão.</p>
+          <button id="useReadyParticipantsButton" class="button button-primary hidden" type="button">Fechar envios e seguir com quem enviou</button>
+          <small class="attendance-rule">É preciso ter pelo menos 2 wallpapers. Na votação final, o voto de todos os participantes mantidos continua obrigatório.</small>
+        </div>
+        <form id="adminAssistedUploadForm" class="card admin-card assisted-upload-card hidden">
+          <div class="assisted-upload-heading"><span>🛰️</span><div><small>ENVIO ASSISTIDO</small><h3>Enviar por participante</h3><p>Use uma imagem recebida por WhatsApp ou outro canal. A autoria continuará sendo da pessoa escolhida.</p></div></div>
+          <label>Participante<select id="adminUploadUser" required></select></label>
+          <label class="assisted-upload-picker" for="adminUploadFile"><input id="adminUploadFile" type="file" accept="image/png,image/jpeg,image/webp" required><span>↥</span><p><strong id="adminUploadFileName">Escolher wallpaper</strong><small>PNG, JPG ou WEBP · até 8 MB</small></p></label>
+          <div id="adminUploadPreview" class="assisted-upload-preview hidden"><img alt="Prévia do envio assistido"><button id="clearAdminUploadFile" type="button">Remover</button></div>
+          <p id="adminUploadStatus" class="assisted-upload-status">🔒 Somente o administrador verá quem realizou o envio assistido.</p>
+          <p id="adminUploadError" class="form-error" role="alert"></p>
+          <button id="adminUploadSubmit" class="button button-primary button-wide" type="submit">Enviar em nome da pessoa</button>
+          <div id="adminAssistedUploadList" class="assisted-upload-list"></div>
+        </form>
+        <div class="card admin-card danger-card">
+          <h3>Nova rodada</h3>
+          <p>Remove todas as imagens inscritas. O histórico de sorteios permanece.</p>
+          <button id="clearRoundButton" class="button button-danger" type="button">Limpar inscrições</button>
+          <hr>
+          <h3>Limpar histórico</h3>
+          <p>Apaga sorteios, votações, imagens e pontuações. Usuários e senhas permanecem.</p>
+          <button id="clearHistoryButton" class="button button-danger" type="button">Apagar todo o histórico</button>
+          <hr>
+          <h3>Limpar ambiente de testes</h3>
+          <p>Remove todas as contas, exceto Raul, e apaga imagens, sorteios, votações, resultados e placares.</p>
+          <button id="resetTestsButton" class="button button-danger" type="button">Deixar somente meu administrador</button>
+          <hr>
+          <h3>Zerar minhas compras de teste</h3>
+          <p>Remove seu inventário, visuais e poderes da Loja 51 e devolve todos os créditos gastos. As compras dos outros usuários permanecem.</p>
+          <button id="resetMyPurchasesButton" class="button button-danger" type="button">🧪 Zerar minhas compras e reembolsar</button>
+        </div>
+      </div>
+    </section>
+
+    <footer><div class="brand brand-light"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></div><p>Feito para celebrar a criatividade da equipe.</p><span>Sorteios internos · <span id="currentYear"></span></span></footer>
+  </div>
+
+  <dialog id="launchFlyerDialog" class="launch-flyer-dialog">
+    <button id="closeLaunchFlyer" class="dialog-close" aria-label="Fechar flyer">×</button>
+    <img src="/inauguracao-area51.png" alt="Área 51 está no ar — flyer de inauguração">
+    <footer><a class="button button-primary" href="/inauguracao-area51.png" download="inauguracao-area-51.png">Baixar flyer ↓</a><button id="continueLaunchFlyer" class="button button-dark" type="button">Entrar na rodada</button></footer>
+  </dialog>
+
+  <dialog id="winnerDialog" class="winner-dialog">
+    <button class="dialog-close" aria-label="Fechar">×</button>
+    <div class="winner-confetti" aria-hidden="true"></div>
+    <span class="winner-kicker" id="winnerKicker">TEMOS UM VENCEDOR</span>
+    <div class="winner-image"><img id="winnerImage" alt=""></div>
+    <p id="winnerLabel">Wallpaper da semana</p>
+    <h2 id="winnerName">Vencedor</h2>
+    <span id="winnerDetail">Por Participante</span>
+    <p id="watermarkStatus" class="watermark-status hidden"></p>
+    <a id="downloadWatermark" class="button button-dark button-wide hidden" download>Baixar wallpaper com marca d’água</a>
+    <button class="button button-primary" id="closeWinnerButton">Boa! Continuar</button>
+  </dialog>
+
+  <dialog id="passwordDialog" class="password-dialog">
+    <button id="closePasswordDialog" class="dialog-close" aria-label="Fechar">×</button>
+    <div class="dialog-form">
+      <span class="eyebrow">SEGURANÇA</span><h2 id="passwordDialogTitle">Escolha uma nova senha</h2>
+      <p id="passwordDialogText">Informe sua senha atual e escolha uma nova.</p>
+      <form id="passwordForm">
+        <label>Senha atual<input name="currentPassword" type="password" required></label>
+        <label>Nova senha<input name="newPassword" type="password" minlength="8" required></label>
+        <p class="form-error" id="passwordError"></p>
+        <button class="button button-primary button-wide">Salvar nova senha</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="area51ProDialog" class="area51-pro-dialog">
+    <button id="closeArea51Pro" class="area51-pro-close" type="button" aria-label="Fechar">×</button>
+    <div class="area51-pro-visual" aria-hidden="true"><img src="/area51-aliens-v2.png" alt=""></div>
+    <span class="area51-pro-badge">ÁREA 51 PRO INTERGALÁCTICO</span>
+    <h2>Quer abaixar<br>o volume?</h2>
+    <p class="area51-pro-price"><strong>R$ 999,99</strong><span>Por clique silencioso</span></p>
+    <p>O volume baixo é um recurso premium extremamente avançado, aprovado por alienígenas que odeiam festa.</p>
+    <button id="declineArea51Pro" class="button button-primary button-wide" type="button">Deixa alto mesmo 👽</button>
+    <small>Oferta 100% fictícia. Nenhum cartão terrestre será aceito.</small>
+  </dialog>
+
+  <dialog id="memeLightbox" class="meme-lightbox">
+    <button id="closeMemeLightbox" class="meme-lightbox-close" type="button" aria-label="Fechar imagem ampliada">×</button>
+    <img id="memeLightboxImage" alt="Meme ampliado">
+    <p><strong id="memeLightboxAuthor"></strong><span id="memeLightboxDate"></span></p>
+  </dialog>
+
+  <dialog id="waterReminderDialog" class="water-reminder-dialog">
+    <button id="closeWaterReminder" class="water-reminder-close" type="button" aria-label="Fechar lembrete">×</button>
+    <span class="water-reminder-drop" aria-hidden="true">💧</span>
+    <small>LEMBRETE DA ÁREA 51</small>
+    <h2>Hora de beber água!</h2>
+    <p id="waterReminderText">Já faz um tempo desde o seu último registro.</p>
+    <button id="waterReminderGo" class="button button-primary button-wide" type="button">Registrar água agora</button>
+    <button id="waterReminderLater" class="link-button" type="button">Agora não</button>
+  </dialog>
+
+  <dialog id="userEditDialog" class="user-edit-dialog">
+    <button id="closeUserEditDialog" class="dialog-close" type="button" aria-label="Fechar edição de usuário">×</button>
+    <div class="dialog-form">
+      <span class="eyebrow">GERENCIAR CONTA</span><h2>Editar usuário</h2>
+      <p>Altere o nome exibido ou o usuário usado para entrar.</p>
+      <form id="userEditForm">
+        <input id="editUserId" type="hidden">
+        <label>Nome exibido<input id="editUserDisplayName" maxlength="50" required></label>
+        <label>Usuário de acesso<input id="editUsername" maxlength="30" pattern="[a-zA-Z0-9._-]+" required></label>
+        <p id="userEditError" class="form-error" role="alert"></p>
+        <button class="button button-primary button-wide" type="submit">Salvar alterações</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="creditAdminDialog" class="user-edit-dialog">
+    <button id="closeCreditAdminDialog" class="dialog-close" type="button" aria-label="Fechar ajuste de créditos">×</button>
+    <div class="dialog-form">
+      <span class="eyebrow">ECONOMIA DA ÁREA 51</span><h2>Ajustar Créditos 51</h2>
+      <p id="creditAdminUser">Selecione um usuário.</p>
+      <form id="creditAdminForm">
+        <input id="creditAdminUserId" type="hidden">
+        <label>Operação<select id="creditAdminMode"><option value="add">Adicionar créditos</option><option value="remove">Remover créditos</option><option value="set">Definir saldo exato</option></select></label>
+        <label>Quantidade<input id="creditAdminAmount" type="number" min="0" max="100000" step="1" required></label>
+        <label>Motivo opcional<input id="creditAdminReason" maxlength="120" placeholder="Ex.: prêmio do evento"></label>
+        <p id="creditAdminError" class="form-error" role="alert"></p>
+        <button class="button button-primary button-wide" type="submit">Salvar saldo</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="mysteryOpeningDialog" class="mystery-opening-dialog">
+    <div class="mystery-opening-head"><span id="mysteryOpeningIcon">🎁</span><p><small>ABRINDO CAIXA MISTERIOSA</small><strong id="mysteryOpeningTitle">Preparando o prêmio…</strong></p></div>
+    <div id="mysteryCarouselViewport" class="mystery-carousel-viewport"><div id="mysteryCarouselTrack" class="mystery-carousel-track"></div><i aria-hidden="true"></i></div>
+    <div id="mysteryOpeningResult" class="mystery-opening-result"><span>🛸</span><strong>Aguarde o carrossel parar</strong></div>
+  </dialog>
+
+  <aside id="nextStepGuide" class="next-step-guide hidden" aria-live="polite">
+    <span class="next-step-alien" aria-hidden="true">👽</span>
+    <p><small>PRÓXIMO PASSO</small><strong id="nextStepTitle">Continuar</strong><span id="nextStepDetail"></span></p>
+    <button id="nextStepButton" type="button">Ir agora <b>→</b></button>
+  </aside>
+
+  <button id="feedbackLauncher" class="feedback-launcher hidden" type="button" aria-controls="feedbackPanel" aria-expanded="false" aria-label="Abrir formulário de melhorias e bugs">
+    <span class="feedback-launcher-halo" aria-hidden="true"></span>
+    <span class="feedback-alien-crop" aria-hidden="true"><img src="/area51-aliens-v2.png" alt=""></span>
+    <span class="feedback-launcher-copy"><strong>Enviar feedback</strong><small>Melhoria ou bug</small></span>
+    <span id="feedbackUnread" class="feedback-unread hidden" aria-label="Solicitações aguardando aprovação">0</span>
+  </button>
+
+  <aside id="feedbackPanel" class="feedback-panel hidden" role="dialog" aria-modal="false" aria-labelledby="feedbackTitle">
+    <header class="feedback-header">
+      <span class="feedback-header-alien" aria-hidden="true"><img src="/area51-aliens-v2.png" alt=""></span>
+      <div><small>CANAL DA TRIPULAÇÃO</small><h2 id="feedbackTitle">Enviar feedback</h2><p id="feedbackPrivacyText">Seu relato será enviado somente ao administrador.</p></div>
+      <button id="feedbackClose" class="feedback-close" type="button" aria-label="Fechar formulário">×</button>
+    </header>
+    <div class="feedback-submit-intro"><span aria-hidden="true">🔒</span><p><strong>Envio privado</strong><small>Os outros participantes não verão sua mensagem.</small></p></div>
+    <form id="feedbackForm" class="feedback-form">
+      <div class="feedback-type-switch" role="radiogroup" aria-label="Tipo da mensagem">
+        <label><input type="radio" name="type" value="improvement" checked><span>✨ Melhoria</span></label>
+        <label><input type="radio" name="type" value="bug"><span>🐞 Bug</span></label>
+        <label><input type="radio" name="type" value="praise"><span>💚 Elogio / Denúncia</span></label>
+      </div>
+      <label class="feedback-message-label" for="feedbackMessage">Sua mensagem</label>
+      <textarea id="feedbackMessage" name="message" maxlength="800" rows="3" required placeholder="O que podemos melhorar? Explique a ideia ou o problema…"></textarea>
+      <div class="feedback-form-foot">
+        <span>🔒 Privado · <b id="feedbackCount">0</b>/800</span>
+        <button class="feedback-send" type="submit">Enviar <b>↗</b></button>
+      </div>
+      <p id="feedbackError" class="form-error" role="alert"></p>
+    </form>
+    <div id="feedbackSuccess" class="feedback-success hidden" role="status">
+      <span aria-hidden="true">🛸</span><strong>Recebido pelo administrador!</strong><p>Sua solicitação entrou na fila de análise.</p>
+      <button id="feedbackAgain" type="button">Enviar outro feedback</button>
+    </div>
+    <section id="myFeedbackSection" class="my-feedback-section">
+      <div class="my-feedback-heading"><div><small>ACOMPANHAMENTO</small><h3>Minhas solicitações</h3></div><button id="refreshMyFeedback" type="button" aria-label="Atualizar minhas solicitações">↻</button></div>
+      <div id="myFeedbackList" class="my-feedback-list"><p class="my-feedback-empty">Nenhuma solicitação enviada ainda.</p></div>
+    </section>
+  </aside>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/app.js?v=20260831-105"></script>
+</body>
+</html>

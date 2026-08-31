@@ -1,0 +1,13 @@
+{
+  "name": "Área 51 — Role da Rodada",
+  "short_name": "Área 51",
+  "description": "Portal interno da tripulação Área 51.",
+  "start_url": "/?pagina=sorteio",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#10284a",
+  "icons": [
+    { "src": "/area51-aliens-v2.png", "sizes": "any", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs><clipPath id="p"><path d="M2 1.5 3 25l6.2-5.7 4.1 9.6 5-2.3-4.3-9.3h8.5z"/></clipPath></defs>
+  <path d="M2 1.5 3 25l6.2-5.7 4.1 9.6 5-2.3-4.3-9.3h8.5z" fill="#fff" stroke="#172238" stroke-width="2" stroke-linejoin="round"/>
+  <g clip-path="url(#p)" fill="none" stroke-width="4">
+    <path d="M-2 9c8-2 13 1 17 7" stroke="#286ed8"/><path d="M4-1c4 7 10 9 19 9" stroke="#ffd23f"/><path d="M1 20c8-5 15-4 23 1" stroke="#286ed8"/><path d="m10 17 6 13" stroke="#ffd23f"/>
+  </g>
+</svg>
