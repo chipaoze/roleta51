@@ -2823,8 +2823,9 @@ initialize();
 setInterval(async () => {
   if (!appState || spinning || casinoSpinInProgress || mysteryOpeningInProgress || document.hidden) return;
   try {
-    const nextState = await api('/api/state');
-    if (nextState.liveDraw) receiveLiveDraw(nextState.liveDraw);
-    applyState(nextState);
+    const sync = await api('/api/sync');
+    serverClockOffset = Number(sync.serverTime || Date.now()) - Date.now();
+    if (sync.liveDraw) receiveLiveDraw(sync.liveDraw);
+    if (Number(sync.revision) !== Number(appState.serverRevision)) applyState(await api('/api/state'));
   } catch {}
-}, 2000);
+}, 1000);

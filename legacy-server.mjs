@@ -42,10 +42,21 @@ function passwordMatches(password, user) {
 
 function persist() {
   const snapshot = JSON.stringify(db, null, 2);
-  saveQueue = saveQueue.then(async () => {
-    stateRevision += 1;
-    await runtimeEnv.DB.prepare('UPDATE app_state SET data = ?, revision = ?, updated_at = ? WHERE id = 1')
-      .bind(snapshot, stateRevision, new Date().toISOString()).run();
+  saveQueue = saveQueue.catch(() => undefined).then(async () => {
+    const expectedRevision = stateRevision;
+    const nextRevision = expectedRevision + 1;
+    const result = await runtimeEnv.DB.prepare('UPDATE app_state SET data = ?, revision = ?, updated_at = ? WHERE id = 1 AND revision = ?')
+      .bind(snapshot, nextRevision, new Date().toISOString(), expectedRevision).run();
+    if (Number(result.meta?.changes || 0) !== 1) {
+      const stored = await runtimeEnv.DB.prepare('SELECT data, revision FROM app_state WHERE id = 1').first();
+      if (stored?.data) {
+        db = JSON.parse(String(stored.data));
+        stateRevision = Number(stored.revision || expectedRevision);
+        liveDraw = db.settings?.liveDraw?.endsAt > Date.now() ? db.settings.liveDraw : null;
+      }
+      throw new HttpError(409, 'Outra pessoa atualizou o site ao mesmo tempo. Tente sua ação novamente.');
+    }
+    stateRevision = nextRevision;
   });
   return saveQueue;
 }
@@ -1004,6 +1015,7 @@ function stateFor(user) {
     isMe: person.id === user.id,
   })).sort((a, b) => b.totalMl - a.totalMl || a.displayName.localeCompare(b.displayName));
   return {
+    serverRevision: stateRevision,
     me: { ...safeUser(user), cosmetics: cosmeticsFor(user.id) }, settings: db.settings,
     liveDraw: liveDraw && liveDraw.endsAt > Date.now() ? drawForUser(liveDraw, user.id) : null,
     profile: profileFor(user), notifications: notificationsFor(user),
@@ -1238,6 +1250,16 @@ async function handleApi(req, res, route) {
   if (req.method === 'GET' && route === '/api/state') {
     const { user } = requireAuth(req); if (settleCleanNameRewards()) await persist();
     json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'GET' && route === '/api/sync') {
+    const { user } = requireAuth(req);
+    json(res, 200, {
+      revision: stateRevision,
+      serverTime: Date.now(),
+      releaseVersion: Math.max(0, Number(db.settings.releaseVersion || 0)),
+      liveDraw: liveDraw && liveDraw.endsAt > Date.now() ? drawForUser(liveDraw, user.id) : null,
+    }); return;
   }
 
   if (req.method === 'POST' && route === '/api/profile/avatar') {
