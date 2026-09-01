@@ -135,8 +135,301 @@
       "approved": true
     }
   ],
-  "submissions": [],
-  "draws": [],
+  "submissions": [
+    {
+      "id": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "uploader": "Davi",
+      "title": "Wallpaper B4DF",
+      "filename": "d092b440-ad90-4ccb-97ef-2da3ed3625eb.webp",
+      "mimeType": "image/webp",
+      "size": 3922,
+      "active": false,
+      "createdAt": "2026-08-31T11:49:05.030Z"
+    },
+    {
+      "id": "3d4f182d-699f-416b-879e-e768cbeb2876",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "2df2264f-28b0-4d8b-94d5-2d796ffde165",
+      "uploader": "Alex",
+      "title": "Wallpaper F797",
+      "filename": "fae30343-06bf-4d4b-8e0b-abfb702df569.png",
+      "mimeType": "image/png",
+      "size": 2644246,
+      "active": false,
+      "createdAt": "2026-08-31T11:49:26.408Z"
+    },
+    {
+      "id": "7f7443f7-7fb5-4396-9c3e-1664264c0104",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "aa55a2fd-1092-4863-99c2-b1c0ba87ac24",
+      "uploader": "Mateus",
+      "title": "Wallpaper 6095",
+      "filename": "6adabc9f-9ee1-4a18-b326-8f7a65dffcb7.jpg",
+      "mimeType": "image/jpeg",
+      "size": 275918,
+      "active": false,
+      "createdAt": "2026-08-31T11:49:26.470Z"
+    },
+    {
+      "id": "417ca9ff-bbb7-4da0-bd63-6115682425ac",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "uploader": "Raul Morais",
+      "title": "Wallpaper 133C",
+      "filename": "15cce6c8-615f-4a81-8372-435640ff100d.png",
+      "mimeType": "image/png",
+      "size": 2653821,
+      "active": false,
+      "createdAt": "2026-08-31T11:52:03.592Z"
+    },
+    {
+      "id": "09830470-a891-4644-bf41-7817ebc6a9dd",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "c9f4096f-db06-4a0d-985b-4dcb83747732",
+      "uploader": "Alan",
+      "title": "Wallpaper 13FD",
+      "filename": "3d6e3cdf-f3dc-4422-bd97-a93c5776274d.jpg",
+      "mimeType": "image/jpeg",
+      "size": 2696044,
+      "active": false,
+      "createdAt": "2026-08-31T11:56:24.695Z"
+    },
+    {
+      "id": "af5f21ed-40be-4878-9407-e67cb1dd14cf",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+      "uploader": "Gabriel",
+      "title": "Wallpaper E4F0",
+      "filename": "ffed3a20-5e52-4e85-8d77-d5c5edfc843c.png",
+      "mimeType": "image/png",
+      "size": 1949027,
+      "active": false,
+      "createdAt": "2026-08-31T11:57:31.155Z"
+    },
+    {
+      "id": "0ca04ecd-26a4-47bb-b5a4-e6e1f087ef20",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "d67b005a-f087-4f4c-b867-1b4115752a7d",
+      "uploader": "RAFAEL",
+      "title": "Wallpaper 6758",
+      "filename": "0c2d69ce-2129-4330-baed-c29d92102fee.png",
+      "mimeType": "image/png",
+      "size": 2520015,
+      "active": false,
+      "uploadedByAdminId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "uploadedByAdminName": "Raul Morais",
+      "createdAt": "2026-08-31T12:02:27.733Z"
+    },
+    {
+      "id": "d394150e-51c0-4028-bc01-7f3a6fdd0454",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "4b4f676f-f3b2-4dec-8b14-b924756abe79",
+      "uploader": "Luan",
+      "title": "Wallpaper B64E",
+      "filename": "b1313317-30b7-4ee9-8b64-ba1a31236f47.jpg",
+      "mimeType": "image/jpeg",
+      "size": 939813,
+      "active": false,
+      "createdAt": "2026-08-31T12:05:41.644Z"
+    },
+    {
+      "id": "5792e448-1734-4330-8b90-a0895a3b0ad8",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+      "uploader": "Pastel",
+      "title": "Wallpaper 24BB",
+      "filename": "fd3c4874-d4b8-46a2-b808-db3aeb2f4abd.png",
+      "mimeType": "image/png",
+      "size": 2625254,
+      "active": false,
+      "createdAt": "2026-08-31T12:11:07.730Z"
+    }
+  ],
+  "draws": [
+    {
+      "id": "13575902-b333-4d14-b9cf-6b256dcc6cb2",
+      "type": "theme",
+      "winnerId": "ENERGÉTICO",
+      "winner": "ENERGÉTICO",
+      "detail": "Tema da rodada",
+      "imageUrl": "/gay-da-rodada.png",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T11:40:21.462Z"
+    },
+    {
+      "id": "0f2cd34b-7ce1-492e-878c-d5a738828619",
+      "type": "wallpaper",
+      "winnerId": "af5f21ed-40be-4878-9407-e67cb1dd14cf",
+      "submissionId": "af5f21ed-40be-4878-9407-e67cb1dd14cf",
+      "assignmentId": "3a9f885d-44d1-41a0-9431-3e886138f50d",
+      "winnerUserId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "winner": "Davi",
+      "assignedTo": "Davi",
+      "wallpaperTitle": "Wallpaper E4F0",
+      "detail": "Wallpaper E4F0 · autoria secreta",
+      "imageUrl": "/uploads/ffed3a20-5e52-4e85-8d77-d5c5edfc843c.png",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:00:33.709Z"
+    },
+    {
+      "id": "ed995b1f-84e6-40d0-933e-be299f0b34ef",
+      "type": "wallpaper",
+      "winnerId": "417ca9ff-bbb7-4da0-bd63-6115682425ac",
+      "submissionId": "417ca9ff-bbb7-4da0-bd63-6115682425ac",
+      "assignmentId": "d67db9e6-d2c4-45d9-a0e6-3b7a32ffdb6c",
+      "winnerUserId": "2df2264f-28b0-4d8b-94d5-2d796ffde165",
+      "winner": "Alex",
+      "assignedTo": "Alex",
+      "wallpaperTitle": "Wallpaper 133C",
+      "detail": "Wallpaper 133C · autoria secreta",
+      "imageUrl": "/uploads/15cce6c8-615f-4a81-8372-435640ff100d.png",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:00:57.102Z"
+    },
+    {
+      "id": "a2226086-3162-4395-844f-c50d3bab3a4e",
+      "type": "wallpaper",
+      "winnerId": "3d4f182d-699f-416b-879e-e768cbeb2876",
+      "submissionId": "3d4f182d-699f-416b-879e-e768cbeb2876",
+      "assignmentId": "092520a8-358d-4b34-b97e-4af0e20e9e18",
+      "winnerUserId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "winner": "Raul Morais",
+      "assignedTo": "Raul Morais",
+      "wallpaperTitle": "Wallpaper F797",
+      "detail": "Wallpaper F797 · autoria secreta",
+      "imageUrl": "/uploads/fae30343-06bf-4d4b-8e0b-abfb702df569.png",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:01:08.560Z"
+    },
+    {
+      "id": "422a44ce-a102-4253-b5cc-1063d1fd6613",
+      "type": "wallpaper",
+      "winnerId": "5792e448-1734-4330-8b90-a0895a3b0ad8",
+      "submissionId": "5792e448-1734-4330-8b90-a0895a3b0ad8",
+      "assignmentId": "d471b273-f44a-4e5c-841b-c65590e7cdd5",
+      "winnerUserId": "c9f4096f-db06-4a0d-985b-4dcb83747732",
+      "winner": "Alan",
+      "assignedTo": "Alan",
+      "wallpaperTitle": "Wallpaper 24BB",
+      "detail": "Wallpaper 24BB · autoria secreta",
+      "imageUrl": "/uploads/fd3c4874-d4b8-46a2-b808-db3aeb2f4abd.png",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:01:19.137Z"
+    },
+    {
+      "id": "169a1d8b-5dbe-4479-b4bd-9ff73db36552",
+      "type": "wallpaper",
+      "winnerId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+      "submissionId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+      "assignmentId": "3e2b8eb8-802b-42a0-82f8-6e0c7666f3d5",
+      "winnerUserId": "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+      "winner": "Gabriel",
+      "assignedTo": "Gabriel",
+      "wallpaperTitle": "Wallpaper B4DF",
+      "detail": "Wallpaper B4DF · autoria secreta",
+      "imageUrl": "/uploads/d092b440-ad90-4ccb-97ef-2da3ed3625eb.webp",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:01:27.516Z"
+    },
+    {
+      "id": "ce63958a-8390-4c39-acd8-ccf447e7f279",
+      "type": "wallpaper",
+      "winnerId": "d394150e-51c0-4028-bc01-7f3a6fdd0454",
+      "submissionId": "d394150e-51c0-4028-bc01-7f3a6fdd0454",
+      "assignmentId": "e4bc3c0d-0daf-456b-820f-308ce7904f6a",
+      "winnerUserId": "d67b005a-f087-4f4c-b867-1b4115752a7d",
+      "winner": "RAFAEL",
+      "assignedTo": "RAFAEL",
+      "wallpaperTitle": "Wallpaper B64E",
+      "detail": "Wallpaper B64E · autoria secreta",
+      "imageUrl": "/uploads/b1313317-30b7-4ee9-8b64-ba1a31236f47.jpg",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:01:36.332Z"
+    },
+    {
+      "id": "1c689c49-66bd-4d42-983c-81851e948158",
+      "type": "wallpaper",
+      "winnerId": "7f7443f7-7fb5-4396-9c3e-1664264c0104",
+      "submissionId": "7f7443f7-7fb5-4396-9c3e-1664264c0104",
+      "assignmentId": "40f9d2b4-2081-4445-ab33-fa9dc4288a41",
+      "winnerUserId": "4b4f676f-f3b2-4dec-8b14-b924756abe79",
+      "winner": "Luan",
+      "assignedTo": "Luan",
+      "wallpaperTitle": "Wallpaper 6095",
+      "detail": "Wallpaper 6095 · autoria secreta",
+      "imageUrl": "/uploads/6adabc9f-9ee1-4a18-b326-8f7a65dffcb7.jpg",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:01:46.915Z"
+    },
+    {
+      "id": "b651b57a-1327-43cf-8f84-7783cddb628d",
+      "type": "wallpaper",
+      "winnerId": "0ca04ecd-26a4-47bb-b5a4-e6e1f087ef20",
+      "submissionId": "0ca04ecd-26a4-47bb-b5a4-e6e1f087ef20",
+      "assignmentId": "d6e2760d-e942-4a21-b97e-a3f553eba130",
+      "winnerUserId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+      "winner": "Pastel",
+      "assignedTo": "Pastel",
+      "wallpaperTitle": "Wallpaper 6758",
+      "detail": "Wallpaper 6758 · autoria secreta",
+      "imageUrl": "/uploads/0c2d69ce-2129-4330-baed-c29d92102fee.png",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:01:55.148Z"
+    },
+    {
+      "id": "4bf71f19-41de-4b50-b7bd-13ccadfe3657",
+      "type": "wallpaper",
+      "winnerId": "09830470-a891-4644-bf41-7817ebc6a9dd",
+      "submissionId": "09830470-a891-4644-bf41-7817ebc6a9dd",
+      "assignmentId": "c076740c-17ec-45ec-807e-6c067a556b74",
+      "winnerUserId": "aa55a2fd-1092-4863-99c2-b1c0ba87ac24",
+      "winner": "Mateus",
+      "assignedTo": "Mateus",
+      "wallpaperTitle": "Wallpaper 13FD",
+      "detail": "Wallpaper 13FD · autoria secreta",
+      "imageUrl": "/uploads/3d6e3cdf-f3dc-4422-bd97-a93c5776274d.jpg",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:02:07.662Z"
+    },
+    {
+      "id": "9f4d0c4b-ad06-4f0f-9e05-e9d84bf50af8",
+      "type": "gay",
+      "winnerId": "aa55a2fd-1092-4863-99c2-b1c0ba87ac24",
+      "winnerUserId": "aa55a2fd-1092-4863-99c2-b1c0ba87ac24",
+      "winner": "Mateus",
+      "detail": "Gay da Rodada",
+      "imageUrl": "/gay-da-rodada.png",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "votingId": "969be742-e3ef-4050-84d0-a6210c023386",
+      "watermarkSourceUrl": "/uploads/3d6e3cdf-f3dc-4422-bd97-a93c5776274d.jpg",
+      "watermarkSourceTitle": "Wallpaper 13FD",
+      "roundName": "Rodada semanal",
+      "drawnBy": "Raul Morais",
+      "createdAt": "2026-08-31T13:02:26.433Z"
+    }
+  ],
   "settings": {
     "roundName": "Rodada semanal",
     "excludeLastGayWinner": true,
@@ -164,19 +457,651 @@
       "drawAt": "",
       "voteAt": ""
     },
-    "missionEconomyStartWeek": "2026-08-31",
-    "liveDraw": null,
-    "releaseVersion": 1,
-    "releasePublishedAt": null,
-    "releasePublishedBy": null
+    "missionEconomyStartWeek": "2026-08-31"
   },
-  "votings": [],
-  "assignments": [],
-  "scores": {},
-  "feedbackMessages": [],
-  "dailyMemes": [],
-  "dailyPhrases": [],
-  "anonymousPosts": [],
+  "votings": [
+    {
+      "id": "969be742-e3ef-4050-84d0-a6210c023386",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "roundName": "Rodada semanal",
+      "theme": "ENERGÉTICO",
+      "submissionIds": [
+        "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+        "3d4f182d-699f-416b-879e-e768cbeb2876",
+        "7f7443f7-7fb5-4396-9c3e-1664264c0104",
+        "417ca9ff-bbb7-4da0-bd63-6115682425ac",
+        "09830470-a891-4644-bf41-7817ebc6a9dd",
+        "af5f21ed-40be-4878-9407-e67cb1dd14cf",
+        "0ca04ecd-26a4-47bb-b5a4-e6e1f087ef20",
+        "d394150e-51c0-4028-bc01-7f3a6fdd0454",
+        "5792e448-1734-4330-8b90-a0895a3b0ad8"
+      ],
+      "requiredVoterIds": [
+        "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+        "c9f4096f-db06-4a0d-985b-4dcb83747732",
+        "aa55a2fd-1092-4863-99c2-b1c0ba87ac24",
+        "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+        "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+        "4b4f676f-f3b2-4dec-8b14-b924756abe79",
+        "2df2264f-28b0-4d8b-94d5-2d796ffde165",
+        "86642fa5-8959-4d4b-9177-9f744395cff1",
+        "d67b005a-f087-4f4c-b867-1b4115752a7d"
+      ],
+      "votes": [
+        {
+          "userId": "aa55a2fd-1092-4863-99c2-b1c0ba87ac24",
+          "bestId": "09830470-a891-4644-bf41-7817ebc6a9dd",
+          "worstId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+          "createdAt": "2026-08-31T13:03:14.213Z"
+        },
+        {
+          "userId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+          "bestId": "5792e448-1734-4330-8b90-a0895a3b0ad8",
+          "worstId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+          "createdAt": "2026-08-31T13:03:29.523Z"
+        },
+        {
+          "userId": "2df2264f-28b0-4d8b-94d5-2d796ffde165",
+          "bestId": "0ca04ecd-26a4-47bb-b5a4-e6e1f087ef20",
+          "worstId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+          "createdAt": "2026-08-31T13:03:52.912Z"
+        },
+        {
+          "userId": "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+          "bestId": "417ca9ff-bbb7-4da0-bd63-6115682425ac",
+          "worstId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+          "createdAt": "2026-08-31T13:03:55.717Z"
+        },
+        {
+          "userId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+          "bestId": "0ca04ecd-26a4-47bb-b5a4-e6e1f087ef20",
+          "worstId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+          "createdAt": "2026-08-31T13:04:34.674Z"
+        },
+        {
+          "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+          "bestId": "af5f21ed-40be-4878-9407-e67cb1dd14cf",
+          "worstId": "417ca9ff-bbb7-4da0-bd63-6115682425ac",
+          "createdAt": "2026-08-31T13:05:03.069Z"
+        },
+        {
+          "userId": "c9f4096f-db06-4a0d-985b-4dcb83747732",
+          "bestId": "af5f21ed-40be-4878-9407-e67cb1dd14cf",
+          "worstId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+          "createdAt": "2026-08-31T13:05:07.633Z"
+        },
+        {
+          "userId": "4b4f676f-f3b2-4dec-8b14-b924756abe79",
+          "bestId": "09830470-a891-4644-bf41-7817ebc6a9dd",
+          "worstId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+          "createdAt": "2026-08-31T13:06:37.099Z"
+        },
+        {
+          "userId": "d67b005a-f087-4f4c-b867-1b4115752a7d",
+          "bestId": "5792e448-1734-4330-8b90-a0895a3b0ad8",
+          "worstId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+          "createdAt": "2026-08-31T13:08:48.849Z"
+        }
+      ],
+      "status": "closed",
+      "scoresApplied": true,
+      "openedAt": "2026-08-31T13:02:26.434Z",
+      "closedAt": "2026-08-31T13:08:48.849Z",
+      "bestWinnerId": "5792e448-1734-4330-8b90-a0895a3b0ad8",
+      "worstWinnerId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+      "bestWinnerVotes": 2,
+      "worstWinnerVotes": 8,
+      "bestTiebreak": true,
+      "worstTiebreak": false
+    }
+  ],
+  "assignments": [
+    {
+      "id": "3a9f885d-44d1-41a0-9431-3e886138f50d",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "submissionId": "af5f21ed-40be-4878-9407-e67cb1dd14cf",
+      "order": 0,
+      "revealed": true,
+      "seenAt": "2026-08-31T16:54:22.049Z",
+      "createdAt": "2026-08-31T13:00:33.709Z",
+      "revealedAt": "2026-08-31T13:00:33.709Z"
+    },
+    {
+      "id": "d67db9e6-d2c4-45d9-a0e6-3b7a32ffdb6c",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "2df2264f-28b0-4d8b-94d5-2d796ffde165",
+      "submissionId": "417ca9ff-bbb7-4da0-bd63-6115682425ac",
+      "order": 1,
+      "revealed": true,
+      "seenAt": null,
+      "createdAt": "2026-08-31T13:00:33.709Z",
+      "revealedAt": "2026-08-31T13:00:57.102Z"
+    },
+    {
+      "id": "092520a8-358d-4b34-b97e-4af0e20e9e18",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "submissionId": "3d4f182d-699f-416b-879e-e768cbeb2876",
+      "order": 2,
+      "revealed": true,
+      "seenAt": "2026-08-31T14:10:02.395Z",
+      "createdAt": "2026-08-31T13:00:33.709Z",
+      "revealedAt": "2026-08-31T13:01:08.560Z"
+    },
+    {
+      "id": "d471b273-f44a-4e5c-841b-c65590e7cdd5",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "c9f4096f-db06-4a0d-985b-4dcb83747732",
+      "submissionId": "5792e448-1734-4330-8b90-a0895a3b0ad8",
+      "order": 3,
+      "revealed": true,
+      "seenAt": "2026-08-31T13:05:23.078Z",
+      "createdAt": "2026-08-31T13:00:33.709Z",
+      "revealedAt": "2026-08-31T13:01:19.137Z"
+    },
+    {
+      "id": "3e2b8eb8-802b-42a0-82f8-6e0c7666f3d5",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+      "submissionId": "d89dc2d9-e4cb-4923-a197-8c58098a4987",
+      "order": 4,
+      "revealed": true,
+      "seenAt": "2026-08-31T13:02:11.965Z",
+      "createdAt": "2026-08-31T13:00:33.709Z",
+      "revealedAt": "2026-08-31T13:01:27.516Z"
+    },
+    {
+      "id": "e4bc3c0d-0daf-456b-820f-308ce7904f6a",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "d67b005a-f087-4f4c-b867-1b4115752a7d",
+      "submissionId": "d394150e-51c0-4028-bc01-7f3a6fdd0454",
+      "order": 5,
+      "revealed": true,
+      "seenAt": null,
+      "createdAt": "2026-08-31T13:00:33.709Z",
+      "revealedAt": "2026-08-31T13:01:36.332Z"
+    },
+    {
+      "id": "40f9d2b4-2081-4445-ab33-fa9dc4288a41",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "4b4f676f-f3b2-4dec-8b14-b924756abe79",
+      "submissionId": "7f7443f7-7fb5-4396-9c3e-1664264c0104",
+      "order": 6,
+      "revealed": true,
+      "seenAt": null,
+      "createdAt": "2026-08-31T13:00:33.709Z",
+      "revealedAt": "2026-08-31T13:01:46.915Z"
+    },
+    {
+      "id": "d6e2760d-e942-4a21-b97e-a3f553eba130",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+      "submissionId": "0ca04ecd-26a4-47bb-b5a4-e6e1f087ef20",
+      "order": 7,
+      "revealed": true,
+      "seenAt": "2026-08-31T13:02:26.541Z",
+      "createdAt": "2026-08-31T13:00:33.709Z",
+      "revealedAt": "2026-08-31T13:01:55.148Z"
+    },
+    {
+      "id": "c076740c-17ec-45ec-807e-6c067a556b74",
+      "roundId": "f6559df2-6ab9-44bb-bec5-df34b28ea576",
+      "userId": "aa55a2fd-1092-4863-99c2-b1c0ba87ac24",
+      "submissionId": "09830470-a891-4644-bf41-7817ebc6a9dd",
+      "order": 8,
+      "revealed": true,
+      "seenAt": "2026-08-31T13:02:20.729Z",
+      "createdAt": "2026-08-31T13:00:33.709Z",
+      "revealedAt": "2026-08-31T13:02:07.662Z"
+    }
+  ],
+  "scores": {
+    "aa55a2fd-1092-4863-99c2-b1c0ba87ac24": {
+      "points": 0,
+      "bestWins": 0,
+      "worstWins": 0,
+      "gayWins": 1
+    },
+    "86642fa5-8959-4d4b-9177-9f744395cff1": {
+      "points": 0,
+      "bestWins": 1,
+      "worstWins": 0,
+      "gayWins": 0
+    },
+    "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962": {
+      "points": 0,
+      "bestWins": 0,
+      "worstWins": 1,
+      "gayWins": 0
+    }
+  },
+  "feedbackMessages": [
+    {
+      "id": "152dfa93-15fa-436c-ad84-05aa962b6b3e",
+      "type": "bug",
+      "message": "Overlay da água está bugado",
+      "authorId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "authorName": "Davi",
+      "createdAt": "2026-08-31T11:30:55.581Z",
+      "updatedAt": "2026-08-31T11:44:00.946Z",
+      "status": "done",
+      "adminComment": "",
+      "approvedAt": "2026-08-31T11:31:19.883Z",
+      "completedAt": "2026-08-31T11:44:00.946Z",
+      "archivedAt": null
+    },
+    {
+      "id": "5a8f4326-4724-4c0f-bdc6-5851a7d93272",
+      "type": "improvement",
+      "message": "adicionar opcao pra remover validação de mentira, depois que eu envio não da pra tirar, se enviar sem querer fodeu",
+      "authorId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "authorName": "Davi",
+      "createdAt": "2026-08-31T12:17:06.340Z",
+      "updatedAt": "2026-08-31T12:21:40.137Z",
+      "status": "done",
+      "adminComment": "",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T12:21:40.137Z",
+      "archivedAt": null
+    },
+    {
+      "id": "c20b24e8-4875-4167-b614-047141c3a6f7",
+      "type": "improvement",
+      "message": "Nova aba de cassino, onde pode comprar caixas misteriosas, e apostar pontos para multiplicar ou perder tudo",
+      "authorId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+      "authorName": "Pastel",
+      "createdAt": "2026-08-31T12:40:10.531Z",
+      "updatedAt": "2026-08-31T17:05:00.000Z",
+      "status": "done",
+      "adminComment": "Concluído: Cassino 51 criado com apostas de 10 a 100 créditos, limite diário, histórico e multiplicador de até 3x.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T17:05:00.000Z",
+      "archivedAt": null
+    },
+    {
+      "id": "28197ee3-f618-48eb-a422-abd57e5f1d53",
+      "type": "improvement",
+      "message": "adicionar opcao pra informar qual foi a mentira da pessoa",
+      "authorId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "authorName": "Davi",
+      "createdAt": "2026-08-31T13:20:34.711Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Concluído: toda nova marcação informa a mentira e exibe o motivo na validação e no ranking.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "1fe2aa21-b92f-4784-8aa3-1434521c80c6",
+      "type": "bug",
+      "message": "na votação de pior e melhor, o site parece que se recarrega entao perco o voto e tenho que votar novamente",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T13:59:13.783Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Corrigido: a seleção agora permanece marcada durante as atualizações ao vivo.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "a88ed127-824c-4ae0-ad15-c38445995a05",
+      "type": "bug",
+      "message": "aparece a validacao de beber agua, clico em marcar e nao vai para tela",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T14:00:29.430Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Corrigido: o aviso agora abre diretamente a página de Água.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "cad5ec6c-92d2-4042-9f49-e330495f6a95",
+      "type": "bug",
+      "message": "melhorar as premiacoes das caixas, esta vindo coisa ruim",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T14:01:03.867Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Corrigido: probabilidades e valores mínimos das três caixas foram melhorados.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "0284e891-0002-4478-b193-a5833e228512",
+      "type": "bug",
+      "message": "cursor gay automatico para o gay da rodada",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T14:01:18.578Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Corrigido: o sorteado recebe automaticamente o cursor especial durante a rodada.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "70a69ee4-2e8e-45c0-916e-d4b2ef7c48db",
+      "type": "bug",
+      "message": "as notificacoes nao ficaram muito boas, as vezes clico e nao muda e segue aparecendo 1",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T14:07:29.874Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Corrigido: o contador é limpo imediatamente e não reaparece por atualização atrasada.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "ac9f4910-7865-438b-b0b2-5b8deb0f9861",
+      "type": "improvement",
+      "message": "adicionar na loja, seta scrum master",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T14:12:41.643Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Concluído: Cursor Scrum Master adicionado à loja com prévia e teste de 20 segundos.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "4b585a1b-8740-4867-9be8-44d18543cdb5",
+      "type": "improvement",
+      "message": "Verificar economia, estão reclamando que as coisas estao caras e os bonus estão baixos, gerando demora no processo",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T14:13:06.115Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Concluído: bônus diários e semanais foram aumentados e as caixas receberam prêmios mínimos mais justos.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "e60db23b-8cff-4bca-a7d9-936580be0810",
+      "type": "bug",
+      "message": "Flyer não abre no celular",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T14:29:50.186Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Corrigido: abertura do flyer ganhou compatibilidade adicional para navegadores móveis.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "0a588ce9-ee72-4d85-8d36-b0784f280936",
+      "type": "improvement",
+      "message": "navegando no site posso parar a musica mas no momento das roletas, seja no sorteio de tema, sorteio de wallpaper ou sorteio do gay, tem que tocar automatico e nao pode parar",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T14:54:27.126Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Concluído: a música liga automaticamente e não pode ser desligada enquanto qualquer roleta estiver girando.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "18158297-7b71-4974-baa5-8b5cac6e2b4e",
+      "type": "bug",
+      "message": "outro ponto, mostrar o wallpaper que foi enviado mas sem mostrar quem enviou",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T14:54:53.782Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Corrigido: participantes veem os wallpapers enviados, mantendo os autores em segredo.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "a1554987-38e2-493e-a280-6e4ad834a85f",
+      "type": "improvement",
+      "message": "colocar foto de perfil",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T15:47:56.083Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Concluído: cada usuário pode escolher uma foto no Perfil; ela aparece também no topo e no menu.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "17764139-aa39-43f6-bab3-13f52955f3c6",
+      "type": "improvement",
+      "message": "adicione nas setas da loja, que elas venham com um rastro já ligado a ela. EXmplo da galinha, ao mover, fica aparecendo um cocorico. Na de volei, move e aparece giba neles, na biblica, um amém",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T15:50:07.604Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Concluído: as skins exibem seus efeitos próprios em uso e também durante o teste de 20 segundos.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "cbd80927-a916-4e47-8f19-ca8101da13ab",
+      "type": "improvement",
+      "message": "criar cursor energetico, parecendo uma latinha de monster",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T15:52:40.283Z",
+      "updatedAt": "2026-08-31T16:13:46.458Z",
+      "status": "done",
+      "adminComment": "Concluído: Cursor Energético em formato de seta foi adicionado à loja.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T16:13:46.458Z",
+      "archivedAt": null
+    },
+    {
+      "id": "d1e1ff14-3766-4ec0-814b-f82945f583d4",
+      "type": "improvement",
+      "message": "Ao utilizar as opções de rastro, jogar frutas pela tela e permitir corta-las",
+      "authorId": "4b4f676f-f3b2-4dec-8b14-b924756abe79",
+      "authorName": "Luan",
+      "createdAt": "2026-08-31T16:43:09.075Z",
+      "updatedAt": "2026-08-31T17:05:00.000Z",
+      "status": "done",
+      "adminComment": "Concluído: Rastro Corta-Frutas adicionado à loja; as frutas aparecem em movimento e podem ser cortadas pelo cursor.",
+      "approvedAt": null,
+      "completedAt": "2026-08-31T17:05:00.000Z",
+      "archivedAt": null
+    },
+    {
+      "id": "7efd7717-d8b0-41a6-92f9-b54d339860a2",
+      "type": "improvement",
+      "message": "melhorar a visualizacao das mentiras, deixar a frase em destaque",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T19:08:46.169Z",
+      "updatedAt": "2026-08-31T21:25:31.142Z",
+      "status": "done",
+      "adminComment": "Concluído: a última mentira ganhou destaque visual no ranking.",
+      "approvedAt": null,
+      "completedAt": null,
+      "archivedAt": null
+    },
+    {
+      "id": "c3cd017c-0471-490e-9438-e6c7fffcfd85",
+      "type": "improvement",
+      "message": "adicionar um botão que expande para que fique o historico dos motivos das mentiras e não somente o ultimo sem quebrar o layout",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T19:09:32.905Z",
+      "updatedAt": "2026-08-31T21:25:31.144Z",
+      "status": "done",
+      "adminComment": "Concluído: cada participante agora possui histórico expansível com os motivos confirmados.",
+      "approvedAt": null,
+      "completedAt": null,
+      "archivedAt": null
+    },
+    {
+      "id": "cbdaa18d-a42a-407a-ada2-b79e24b87290",
+      "type": "improvement",
+      "message": "quando adquirir alguma das caixas e for abrir, fazer igual tem no CS, abre um carrocel e vai rodando passando pelos premios até parar em 1",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T20:09:22.632Z",
+      "updatedAt": "2026-08-31T21:25:31.144Z",
+      "status": "done",
+      "adminComment": "Concluído: as caixas misteriosas agora abrem com carrossel animado de prêmios.",
+      "approvedAt": null,
+      "completedAt": null,
+      "archivedAt": null
+    },
+    {
+      "id": "9d39125f-270c-49fb-ac44-7072d9f0888d",
+      "type": "improvement",
+      "message": "melhoria no cassino, vamos atribuir creditos diarios para utilizar na roleta, porem o player so pode usar na loja se ganhar pelo menos igual ao que tinha, exemplo, ganha 250, ganhei 250, libera eu utilizar, ai pode usar na loja, caso nao, mantem apenas para roleta",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "createdAt": "2026-08-31T20:20:48.553Z",
+      "updatedAt": "2026-08-31T21:28:02.753Z",
+      "status": "done",
+      "adminComment": "Concluído: o cassino ganhou 250 créditos promocionais diários; ao alcançar 500, todo o saldo promocional pode ser transferido para a loja.",
+      "approvedAt": null,
+      "completedAt": null,
+      "archivedAt": null
+    }
+  ],
+  "dailyMemes": [
+    {
+      "id": "4d16bedc-26a1-4c7e-b2fc-d36f2dc43602",
+      "userId": "2df2264f-28b0-4d8b-94d5-2d796ffde165",
+      "authorName": "Alex",
+      "filename": "01fc170e-02d5-4f8d-91d2-bce5088071ef.png",
+      "mimeType": "image/png",
+      "size": 2087290,
+      "createdAt": "2026-08-31T11:25:50.787Z"
+    },
+    {
+      "id": "6d7d2f20-c93c-4cea-b786-7f991bbdacbb",
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "authorName": "Davi",
+      "filename": "d8cc7643-8879-4b6e-922c-b9817a87eb21.png",
+      "mimeType": "image/png",
+      "size": 229613,
+      "createdAt": "2026-08-31T11:27:04.278Z"
+    },
+    {
+      "id": "1dfdae32-84b7-47b5-b9ac-8a09115754dd",
+      "userId": "c9f4096f-db06-4a0d-985b-4dcb83747732",
+      "authorName": "Alan",
+      "filename": "09b33cb6-569c-4b40-8ee9-82f072d0f933.jpg",
+      "mimeType": "image/jpeg",
+      "size": 3509,
+      "createdAt": "2026-08-31T11:28:25.349Z"
+    },
+    {
+      "id": "cf32d989-82f6-40fe-a731-1733080dc541",
+      "userId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+      "authorName": "Pastel",
+      "filename": "1d25c2ef-e731-47ae-801c-1ada05060d26.jpg",
+      "mimeType": "image/jpeg",
+      "size": 112376,
+      "createdAt": "2026-08-31T11:29:59.094Z"
+    },
+    {
+      "id": "19c5156e-a9de-48c0-90fb-fe2e77fa5aab",
+      "userId": "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+      "authorName": "Gabriel",
+      "filename": "78516288-4504-4e05-a28b-ad09e4cbd722.png",
+      "mimeType": "image/png",
+      "size": 391735,
+      "createdAt": "2026-08-31T13:49:52.181Z"
+    },
+    {
+      "id": "d14933d6-9820-4244-b847-af99f05210c8",
+      "userId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "authorName": "Raul Morais",
+      "filename": "3eb25bbd-bad4-477b-9321-5b9ec538dbee.png",
+      "mimeType": "image/png",
+      "size": 122583,
+      "createdAt": "2026-08-31T15:47:27.391Z"
+    },
+    {
+      "id": "7b1dfc90-c7be-4c87-a8d8-42b40704a5f3",
+      "userId": "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+      "authorName": "Gabriel",
+      "filename": "3846b003-9a71-4f4e-bdd9-8fc4ce532e65.png",
+      "mimeType": "image/png",
+      "size": 75840,
+      "createdAt": "2026-08-31T17:45:21.042Z"
+    },
+    {
+      "id": "b5eaa2f9-fce2-4b2f-9ac3-f5097043530d",
+      "userId": "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+      "authorName": "Gabriel",
+      "filename": "82ea1e8b-1726-4b94-a1a1-fcdb387f3f0c.png",
+      "mimeType": "image/png",
+      "size": 65701,
+      "createdAt": "2026-08-31T17:45:29.123Z"
+    }
+  ],
+  "dailyPhrases": [
+    {
+      "id": "a43f8d05-90bb-4504-a003-e2f6ddc3f107",
+      "userId": "c9f4096f-db06-4a0d-985b-4dcb83747732",
+      "authorName": "Alan",
+      "phrase": "O único lugar onde o sucesso vem antes do trabalho é no dicionário",
+      "createdAt": "2026-08-31T11:33:35.349Z"
+    },
+    {
+      "id": "a74f558c-4978-409d-a514-9f2c2c14b528",
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "authorName": "Davi",
+      "phrase": "Girola",
+      "createdAt": "2026-08-31T16:41:50.909Z"
+    }
+  ],
+  "anonymousPosts": [
+    {
+      "id": "dd117af0-0ccf-4bec-9094-e67369504781",
+      "authorId": "2df2264f-28b0-4d8b-94d5-2d796ffde165",
+      "message": "\"Eu acho que quem dá, é menos gay\" - Gabriel",
+      "createdAt": "2026-08-31T11:31:32.985Z"
+    },
+    {
+      "id": "b98834ac-c840-456f-bb4a-69c77c5df1cd",
+      "authorId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "message": "\"Se eu fumar me dá baguio de perseguição, por isso eu parei\" - Iza",
+      "createdAt": "2026-08-31T12:15:15.210Z"
+    },
+    {
+      "id": "9a056000-4a3d-4819-a8e7-fe7224ebf957",
+      "authorId": "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+      "message": "\"Caralho, sentei no vini jr, ainnnn 💅\"  - Davi",
+      "createdAt": "2026-08-31T12:26:02.266Z"
+    },
+    {
+      "id": "e9550c5c-6193-47c8-ad92-9ad93003c4fc",
+      "authorId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+      "message": "\"Aí não consigo 💅 \" - Yuri Martins",
+      "createdAt": "2026-08-31T12:33:35.899Z"
+    }
+  ],
   "waterEntries": [
     {
       "id": "7fc999c5-c2b1-4e26-bc5a-e37563a3badf",
@@ -368,7 +1293,47 @@
       "createdAt": "2026-08-31T20:22:47.465Z"
     }
   ],
-  "rememberTokens": [],
+  "rememberTokens": [
+    {
+      "userId": "617b1c81-2124-4564-8bfc-baf3c73b62c1",
+      "tokenHash": "7c562ec5e477d034762bd8375b5e6c55dbf3e23feea6bafab40c6a1e8a0765e7",
+      "expiresAt": 1790767258426
+    },
+    {
+      "userId": "aa55a2fd-1092-4863-99c2-b1c0ba87ac24",
+      "tokenHash": "56843459806f2aa856ca718e23395949ab109926dca446914f81877b5f2e9fee",
+      "expiresAt": 1790767270914
+    },
+    {
+      "userId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+      "tokenHash": "5064102ee10d3b3288ad08e2feb851ad8753e5a0c44bc72a0b986a9c586c37bc",
+      "expiresAt": 1790767293689
+    },
+    {
+      "userId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "tokenHash": "09cb0308abd64d10d71ff585692a07dc265a713ea8b6348e74e3040f2cfc4e50",
+      "expiresAt": 1788235957222,
+      "remember": false
+    },
+    {
+      "userId": "4b4f676f-f3b2-4dec-8b14-b924756abe79",
+      "tokenHash": "2ba1d8ca1bd93c4ae041910449cf8d2bff30b61444a9022bbc9ff763916493e8",
+      "expiresAt": 1788237442481,
+      "remember": false
+    },
+    {
+      "userId": "c9f4096f-db06-4a0d-985b-4dcb83747732",
+      "tokenHash": "c742baf4afcddb56096c7e3d285c96f5fd812720188166796cc51794e0af862c",
+      "expiresAt": 1788237463932,
+      "remember": false
+    },
+    {
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "tokenHash": "12a3ce7b4e8ff9ef099f1f15dc3c54efe6569e1a37b9834017c8572436b126aa",
+      "expiresAt": 1788242593737,
+      "remember": false
+    }
+  ],
   "economy": {
     "wallets": {
       "bfe515be-72df-45c7-9ec0-b889979ae5d6": 8,
@@ -4068,7 +5033,314 @@
       "confirmedAt": null
     }
   ],
-  "notificationsReadAt": {},
-  "dailyReactions": [],
-  "gateAuthorizations": []
+  "notificationsReadAt": {
+    "bfe515be-72df-45c7-9ec0-b889979ae5d6": "2026-08-31T21:37:29.051Z",
+    "617b1c81-2124-4564-8bfc-baf3c73b62c1": "2026-08-31T18:03:28.918Z",
+    "aa55a2fd-1092-4863-99c2-b1c0ba87ac24": "2026-08-31T19:11:54.916Z",
+    "86642fa5-8959-4d4b-9177-9f744395cff1": "2026-08-31T20:22:52.907Z",
+    "c9f4096f-db06-4a0d-985b-4dcb83747732": "2026-08-31T13:05:26.992Z",
+    "2df2264f-28b0-4d8b-94d5-2d796ffde165": "2026-08-31T19:10:04.757Z",
+    "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962": "2026-08-31T19:06:23.225Z",
+    "4b4f676f-f3b2-4dec-8b14-b924756abe79": "2026-08-31T19:10:04.642Z"
+  },
+  "dailyReactions": [
+    {
+      "id": "75d0c388-56e4-4888-af9c-1559e1457990",
+      "targetType": "meme",
+      "targetId": "4d16bedc-26a1-4c7e-b2fc-d36f2dc43602",
+      "userId": "aa55a2fd-1092-4863-99c2-b1c0ba87ac24",
+      "emoji": "😂",
+      "createdAt": "2026-08-31T11:26:05.014Z"
+    },
+    {
+      "id": "776955bd-fedf-4451-9f36-a08abdc486de",
+      "targetType": "meme",
+      "targetId": "4d16bedc-26a1-4c7e-b2fc-d36f2dc43602",
+      "userId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+      "emoji": "👽",
+      "createdAt": "2026-08-31T11:26:54.457Z"
+    },
+    {
+      "id": "4179f549-e14d-46e8-b7a2-28c564e74af4",
+      "targetType": "meme",
+      "targetId": "4d16bedc-26a1-4c7e-b2fc-d36f2dc43602",
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "emoji": "😂",
+      "createdAt": "2026-08-31T11:27:11.393Z"
+    },
+    {
+      "id": "b0119cb5-4b87-42ec-a3fa-07bbfca3b79c",
+      "targetType": "meme",
+      "targetId": "4d16bedc-26a1-4c7e-b2fc-d36f2dc43602",
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "emoji": "👽",
+      "createdAt": "2026-08-31T11:27:13.224Z"
+    },
+    {
+      "id": "03a5826d-a467-4f19-bc40-e47b566c5f83",
+      "targetType": "meme",
+      "targetId": "1dfdae32-84b7-47b5-b9ac-8a09115754dd",
+      "userId": "c9f4096f-db06-4a0d-985b-4dcb83747732",
+      "emoji": "😂",
+      "createdAt": "2026-08-31T11:28:41.792Z"
+    },
+    {
+      "id": "18bcb808-46fa-4c76-be8a-d9440d20183c",
+      "targetType": "phrase",
+      "targetId": "a43f8d05-90bb-4504-a003-e2f6ddc3f107",
+      "userId": "bfe515be-72df-45c7-9ec0-b889979ae5d6",
+      "emoji": "🤨",
+      "createdAt": "2026-08-31T12:10:11.068Z"
+    },
+    {
+      "id": "b57bcae7-8891-43a7-9dd0-196aa54902e8",
+      "targetType": "meme",
+      "targetId": "1dfdae32-84b7-47b5-b9ac-8a09115754dd",
+      "userId": "86642fa5-8959-4d4b-9177-9f744395cff1",
+      "emoji": "😂",
+      "createdAt": "2026-08-31T12:32:18.073Z"
+    },
+    {
+      "id": "2dc43450-1323-4b83-8288-d4944a0451ce",
+      "targetType": "meme",
+      "targetId": "d14933d6-9820-4244-b847-af99f05210c8",
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "emoji": "😂",
+      "createdAt": "2026-08-31T16:51:40.949Z"
+    },
+    {
+      "id": "649a0025-93b9-49df-bba0-a63c348e004e",
+      "targetType": "meme",
+      "targetId": "6d7d2f20-c93c-4cea-b786-7f991bbdacbb",
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "emoji": "😂",
+      "createdAt": "2026-08-31T16:51:50.732Z"
+    },
+    {
+      "id": "dcb07f54-464b-4757-87c0-1deb69e84141",
+      "targetType": "phrase",
+      "targetId": "a74f558c-4978-409d-a514-9f2c2c14b528",
+      "userId": "85b1ad66-7bb2-4cc7-ad5f-6f6f5f8d9962",
+      "emoji": "😂",
+      "createdAt": "2026-08-31T16:53:00.752Z"
+    }
+  ],
+  "gateAuthorizations": [
+    {
+      "id": "b2b29f9e-20be-4662-a294-20b9de6f11ad",
+      "tokenHash": "f88024b9d876e6b9acc8b1671bdc12f35c35198f36e121f4292fb49cf8f960c7",
+      "createdAt": "2026-08-30T16:41:12.496Z",
+      "expiresAt": 1790700072496,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "955a9662-2f1c-4160-add8-22b65155f93b",
+      "tokenHash": "4521fb6d44bc35d747805b0e962763b54d840694610bb65d9f5391410f7f713d",
+      "createdAt": "2026-08-30T16:45:46.450Z",
+      "expiresAt": 1790700346450,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "ip": "192.168.3.252"
+    },
+    {
+      "id": "9634c3fa-a984-4872-9a0d-5082633c809a",
+      "tokenHash": "7157ca7db3db2c0cb54c542f3097eda09d8275eed2866fc58a5944eac2c48d09",
+      "createdAt": "2026-08-30T16:48:37.088Z",
+      "expiresAt": 1790700517088,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 OPR/134.0.0.0",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "57e4ad99-5344-4763-8581-459f85dcf9ae",
+      "tokenHash": "bfb28e36efd619e1898b734f573bda330958e4721c25517464a3ade9b6f34cf2",
+      "createdAt": "2026-08-30T16:58:34.532Z",
+      "expiresAt": 1790701114532,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "0b455280-fa9f-4b55-9b66-1d4ef26844f0",
+      "tokenHash": "ce9c49a13f41aad30030fcf6c2ef1e5ceb359679005bdf5b1a50de3e20610f29",
+      "createdAt": "2026-08-31T11:20:50.930Z",
+      "expiresAt": 1790767250930,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+      "ip": "192.168.0.89"
+    },
+    {
+      "id": "875e4d8e-be62-4a88-a080-513ffd0127ef",
+      "tokenHash": "0cee00c390c2b13a1abafe54525eb8acf8798e5d53605b2d119fb9c81f7d6341",
+      "createdAt": "2026-08-31T11:20:52.156Z",
+      "expiresAt": 1790767252156,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+      "ip": "192.168.0.210"
+    },
+    {
+      "id": "5e83adb9-b91c-4af2-b691-8c7e5c98c6e0",
+      "tokenHash": "69ef5da4d278dd8e699cc0170729e137365af7ace9c37a363374012cb176bc01",
+      "createdAt": "2026-08-31T11:21:04.338Z",
+      "expiresAt": 1790767264338,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+      "ip": "192.168.0.216"
+    },
+    {
+      "id": "62967cfe-c37c-4ee1-b2a3-da4be1ebe6a0",
+      "tokenHash": "0fb809b21c4d6d52f77cad658a8582a349fb98ceb89c7033cdd013a6d9445827",
+      "createdAt": "2026-08-31T11:21:22.932Z",
+      "expiresAt": 1790767282932,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+      "ip": "192.168.0.88"
+    },
+    {
+      "id": "a797bbed-46f4-4830-8e1e-5f15335aed28",
+      "tokenHash": "f7e11bb11c78652e36bfc2623d0a72ff14b0d9d76b30d22f635a12870ba02849",
+      "createdAt": "2026-08-31T11:21:37.030Z",
+      "expiresAt": 1790767297030,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+      "ip": "192.168.0.225"
+    },
+    {
+      "id": "c6ec4f6b-9661-4a27-ad69-68d0a64f813c",
+      "tokenHash": "61f3b7d801687c7d9ce26d8d32e445a1f09050402da0e2bacf2afe774d53abe1",
+      "createdAt": "2026-08-31T11:23:17.399Z",
+      "expiresAt": 1790767397399,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+      "ip": "192.168.0.127"
+    },
+    {
+      "id": "f238b817-42d3-4b59-8f66-918278f369b0",
+      "tokenHash": "0d79217c745ebc0cad318b43c16f1c0d962742c063b79058e195cfacb01064d9",
+      "createdAt": "2026-08-31T11:39:47.054Z",
+      "expiresAt": 1790768387054,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+      "ip": "192.168.0.197"
+    },
+    {
+      "id": "3870150a-196c-453d-bb55-94d1d06cc4b5",
+      "tokenHash": "a5fcc8933e1edfec988a77d4a34748ea47e825c57adc48783935ae4ee3aa0df0",
+      "createdAt": "2026-08-31T13:04:12.917Z",
+      "expiresAt": 1790773452917,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+      "ip": "192.168.0.197"
+    },
+    {
+      "id": "6f761d70-152d-4208-8dce-adb0ac881d68",
+      "tokenHash": "445461bb26196e2d359ab3875c9d7ca76e85863b775bed794b478587e64b21b5",
+      "createdAt": "2026-08-31T14:28:59.405Z",
+      "expiresAt": 1790778539405,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+      "ip": "192.168.0.125"
+    },
+    {
+      "id": "01189ade-9ee6-42a1-9ede-03f918871d2b",
+      "tokenHash": "a292eb84f90f6df5071cb22edcb78ecfb8a8fbb9a83a17953e78715a451bf31d",
+      "createdAt": "2026-08-31T16:10:04.662Z",
+      "expiresAt": 1790784604662,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "ip": "192.168.0.225"
+    },
+    {
+      "id": "860d50be-e798-4839-a441-07de3a0f74c4",
+      "tokenHash": "9d71c386e323ff2cc4284a13255bb446bfa71ff7cf4d0441ba319e66eb45ffcb",
+      "createdAt": "2026-08-31T17:38:00.774Z",
+      "expiresAt": 1790789880774,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "4c83525a-d849-4f51-9785-d21fd5a17b82",
+      "tokenHash": "97502d5f425976e35a4d89ee24df41ae2ee35ad0f65fd723e0532e4a142ee502",
+      "createdAt": "2026-08-31T17:38:32.601Z",
+      "expiresAt": 1790789912601,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "13aa693b-adda-4d58-ac23-934a5e3cf581",
+      "tokenHash": "d98eb5bbfa0524e4f1b58a36b28bf47d3c69cdee57835cf31aebc37ae59906b8",
+      "createdAt": "2026-08-31T17:53:59.875Z",
+      "expiresAt": 1790790839875,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "18b85b03-e61d-425a-a2fd-7a320711d542",
+      "tokenHash": "067ac8fb076b3a4677448669a5444a2ddff957a6c8292febe8ca790f4cafa8b9",
+      "createdAt": "2026-08-31T17:55:37.904Z",
+      "expiresAt": 1790790937904,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "57eece8a-bd43-4509-9d1a-95ae3a327fab",
+      "tokenHash": "7e26262d6689ef8ea50365ec9fec399d012182985ced001186efb31911983890",
+      "createdAt": "2026-08-31T17:56:00.022Z",
+      "expiresAt": 1790790960022,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "541089e5-77d3-463a-bc84-ff2be4a73305",
+      "tokenHash": "1aa4ad19217ee713971addfaacc14949132d6193ab735003c4bc958d8331d4bf",
+      "createdAt": "2026-08-31T18:11:01.931Z",
+      "expiresAt": 1790791861931,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "74309cbd-50f7-4b11-a142-96ad1682cf36",
+      "tokenHash": "c15292c6bdc4f859508db7a38bb33943e6f26794a08a8be8ace30013745df5e2",
+      "createdAt": "2026-08-31T18:20:59.354Z",
+      "expiresAt": 1790792459354,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "1b57955e-f0b6-4805-ba50-e2960b31da98",
+      "tokenHash": "08ce15f954350bca7f4e9c09966b2b3dd21653b9b214e5aa4ad3f74887d19b76",
+      "createdAt": "2026-08-31T21:25:56.472Z",
+      "expiresAt": 1790803556472,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "bdbfef3e-4589-4891-bba4-cd1a6139c096",
+      "tokenHash": "6216d0385d93861bb80abe4e1268f92293bb5067567e038ce034f3c93efd9810",
+      "createdAt": "2026-08-31T21:26:15.059Z",
+      "expiresAt": 1790803575059,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "11c16794-9585-4fcd-9e45-0e48def20792",
+      "tokenHash": "6b0db1dc8a9675b4911b26767d94c6b6463c901936988789e7364110ed98b6af",
+      "createdAt": "2026-08-31T21:28:22.764Z",
+      "expiresAt": 1790803702764,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "67a38018-6337-4fb4-ad40-80c9dfbdbe8c",
+      "tokenHash": "4efb6c06ead9d004efce2f46d12ac60d7e2c3ff880fa2caa55177d3d14289b99",
+      "createdAt": "2026-08-31T21:36:35.278Z",
+      "expiresAt": 1790804195278,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.26200; pt-BR) PowerShell/7.6.4",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "c84b5075-634a-40e2-a623-76ec69b8e9ab",
+      "tokenHash": "5d2ff8be34fabe59949e112ff6b7a42b6a453fa401993b8df8e1a9f2c08e6a50",
+      "createdAt": "2026-08-31T22:52:54.808Z",
+      "expiresAt": 1790808774808,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+      "ip": "127.0.0.1"
+    },
+    {
+      "id": "ca73c611-d35b-437f-9cc9-ea9470e4248e",
+      "tokenHash": "1d032a4bf009bb7f92d9babe84f6281a32812df0a736a10d9faec5e0908e8478",
+      "createdAt": "2026-08-31T22:58:01.362Z",
+      "expiresAt": 1790809081362,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+      "ip": "127.0.0.1"
+    }
+  ]
 }

@@ -5,6 +5,7 @@ const SESSION_TTL = 12 * 60 * 60 * 1000;
 const REMEMBER_TTL = 30 * 24 * 60 * 60 * 1000;
 const GATE_TTL = 30 * 24 * 60 * 60;
 const GATE_CODE = String(process.env.AREA51_GATE_CODE || '51');
+const GATE_DISABLED = String(process.env.AREA51_GATE_DISABLED || '').toLowerCase() === 'true';
 const sessions = new Map();
 const attempts = new Map();
 const feedbackPostTimes = new Map();
@@ -25,7 +26,11 @@ let stateRevision = 0;
 let databaseReady = false;
 
 class HttpError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message, options = {}) {
+    super(message);
+    this.status = status;
+    this.retryableConcurrency = Boolean(options.retryableConcurrency);
+  }
 }
 
 function makePassword(password) {
@@ -54,7 +59,7 @@ function persist() {
         stateRevision = Number(stored.revision || expectedRevision);
         liveDraw = db.settings?.liveDraw?.endsAt > Date.now() ? db.settings.liveDraw : null;
       }
-      throw new HttpError(409, 'Outra pessoa atualizou o site ao mesmo tempo. Tente sua ação novamente.');
+      throw new HttpError(409, 'Outra pessoa atualizou o site ao mesmo tempo. Tente sua ação novamente.', { retryableConcurrency: true });
     }
     stateRevision = nextRevision;
   });
@@ -63,7 +68,7 @@ function persist() {
 
 async function storeImage(filename, buffer, mimeType) {
   imageStore.set(filename, { buffer, mimeType });
-  await runtimeEnv.MEDIA.put(filename, buffer, { httpMetadata: { contentType: mimeType } });
+  await runtimeEnv.MEDIA.put(filename, buffer, { metadata: { contentType: mimeType } });
 }
 
 async function deleteStoredImage(filename) {
@@ -198,6 +203,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.forcedCursors)) { db.economy.forcedCursors = []; changed = true; }
   if (!Array.isArray(db.economy.casinoPlays)) { db.economy.casinoPlays = []; changed = true; }
   if (!db.economy.casinoAccounts || typeof db.economy.casinoAccounts !== 'object') { db.economy.casinoAccounts = {}; changed = true; }
+  if (!Array.isArray(db.economy.mysteryBoxes)) { db.economy.mysteryBoxes = []; changed = true; }
   if (!Array.isArray(db.economy.scoreTrades)) { db.economy.scoreTrades = []; changed = true; }
   if (!db.economy.casinoFairnessRefundV1) {
     const casinoTotals = new Map();
@@ -240,6 +246,7 @@ async function ensureDatabase(seedDatabase) {
   if (!db.settings.gateSeed) { db.settings.gateSeed = randomBytes(24).toString('hex'); changed = true; }
   if (!db.settings.gateCodeHash) { db.settings.gateCodeHash = createHash('sha256').update(db.settings.gateSeed + ':' + GATE_CODE).digest('hex'); changed = true; }
   if (!db.settings.roundSchedule || typeof db.settings.roundSchedule !== 'object') { db.settings.roundSchedule = { submissionsAt: '', drawAt: '', voteAt: '' }; changed = true; }
+  if (!Object.hasOwn(db.settings, 'announcement')) { db.settings.announcement = null; changed = true; }
   if (!db.settings.missionEconomyStartWeek) {
     const start = new Date(saoPauloWeekKey() + 'T12:00:00Z'); start.setUTCDate(start.getUTCDate() + 7);
     db.settings.missionEconomyStartWeek = start.toISOString().slice(0, 10); changed = true;
@@ -296,10 +303,16 @@ const SHOP_CATALOG = [
   { id: 'title-star', name: 'Título Estrela 51', description: 'Exibe “Estrela da Área 51” no perfil, cabeçalho e menu.', price: 120, type: 'title', value: 'Estrela da Área 51', icon: '⭐' },
   { id: 'title-hydrated', name: 'Título Hidratado', description: 'Exibe “Hidratado Intergaláctico” no perfil, cabeçalho e menu.', price: 160, type: 'title', value: 'Hidratado Intergaláctico', icon: '💧' },
   { id: 'name-neon', name: 'Nome Neon', description: 'Aplica brilho violeta ao seu nome no perfil, cabeçalho e menu.', price: 180, type: 'nameStyle', value: 'neon', icon: '💜' },
+  { id: 'name-emerald', name: 'Nome Esmeralda Alienígena', description: 'Aplica verde luminoso e brilho extraterrestre ao seu nome em todo o site.', price: 230, type: 'nameStyle', value: 'emerald', icon: '💚' },
+  { id: 'name-gold', name: 'Nome Ouro Solar', description: 'Aplica dourado premium com brilho quente ao seu nome em todo o site.', price: 290, type: 'nameStyle', value: 'gold', icon: '🌟' },
+  { id: 'name-plasma', name: 'Nome Plasma Azul', description: 'Aplica azul elétrico e brilho de plasma ao seu nome em todo o site.', price: 260, type: 'nameStyle', value: 'plasma', icon: '⚡' },
   { id: 'frame-cosmic', name: 'Moldura Cósmica', description: 'Moldura espacial azul-violeta com brilho estelar no perfil, cabeçalho e menu.', price: 220, type: 'frame', value: 'cosmic', icon: '🪐' },
   { id: 'frame-gold', name: 'Moldura Dourada', description: 'Moldura dourada de campeão no perfil, cabeçalho e menu.', price: 260, type: 'frame', value: 'gold', icon: '👑' },
   { id: 'frame-neon', name: 'Moldura Neon', description: 'Moldura rosa e azul brilhante no perfil, cabeçalho e menu.', price: 300, type: 'frame', value: 'neon', icon: '💡' },
   { id: 'frame-ice', name: 'Moldura Glacial', description: 'Moldura azul cristalina no perfil, cabeçalho e menu.', price: 240, type: 'frame', value: 'ice', icon: '🧊' },
+  { id: 'frame-emerald', name: 'Moldura Esmeralda', description: 'Laterais verdes luminosas no perfil, cabeçalho e menu.', price: 280, type: 'frame', value: 'emerald', icon: '💚' },
+  { id: 'frame-fire', name: 'Moldura Fogo Solar', description: 'Laterais em vermelho, laranja e ouro com brilho de chama.', price: 320, type: 'frame', value: 'fire', icon: '🔥' },
+  { id: 'frame-royal', name: 'Moldura Comando Real', description: 'Laterais azul-marinho e douradas com acabamento de comandante.', price: 390, type: 'frame', value: 'royal', icon: '🏅' },
   { id: 'name-rainbow', name: 'Nome Arco-íris', description: 'Aplica cores do arco-íris ao seu nome no perfil, cabeçalho e menu.', price: 350, type: 'nameStyle', value: 'rainbow', icon: '🌈' },
   { id: 'site-galaxy', name: 'Tema Galáxia', description: 'Transforma sua Área 51 em uma experiência espacial pessoal.', price: 300, type: 'siteTheme', value: 'galaxy', icon: '🌌' },
   { id: 'site-sunset', name: 'Tema Pôr do Sol', description: 'Aplica tons quentes de laranja, rosa e violeta em todo o site.', price: 280, type: 'siteTheme', value: 'sunset', icon: '🌅' },
@@ -307,6 +320,8 @@ const SHOP_CATALOG = [
   { id: 'site-retro', name: 'Tema Arcade 51', description: 'Visual retrô com roxo, ciano e detalhes inspirados em fliperama.', price: 340, type: 'siteTheme', value: 'retro', icon: '🕹️' },
   { id: 'site-matrix', name: 'Tema Matrix Alienígena', description: 'Interface tecnológica em preto e verde radioativo, com grade digital em todo o site.', price: 380, type: 'siteTheme', value: 'matrix', icon: '👾' },
   { id: 'site-eclipse', name: 'Tema Eclipse Dourado', description: 'Visual premium em preto, dourado e âmbar para transformar a Área 51 em uma central de comando.', price: 420, type: 'siteTheme', value: 'eclipse', icon: '🌘' },
+  { id: 'site-aurora', name: 'Tema Aurora Alienígena', description: 'Auroras verdes, ciano e violeta atravessam todas as páginas com alto contraste.', price: 390, type: 'siteTheme', value: 'aurora', icon: '🌌' },
+  { id: 'site-mars', name: 'Tema Base de Marte', description: 'Visual marciano em vermelho, cobre e laranja com painéis escuros legíveis.', price: 410, type: 'siteTheme', value: 'mars', icon: '🪐' },
   { id: 'cursor-horn', name: 'Cursor Seta Unicórnio', description: 'Uma seta de mouse de verdade, com as cores do unicórnio e formato de chifre.', price: 180, type: 'cursorStyle', value: 'horn', icon: '🖱️' },
   { id: 'cursor-dipirona', name: 'Cursor Dipirona', description: 'Seta clássica inspirada na cápsula, com ponta de clique clara e precisa.', price: 260, type: 'cursorStyle', value: 'dipirona', icon: '💊' },
   { id: 'cursor-anvisa', name: 'Seta Anvisa Intergaláctica', description: 'Seta medicinal branca com cápsula colorida e ponto de clique preciso.', price: 340, type: 'cursorStyle', value: 'anvisa', icon: '🩺' },
@@ -317,6 +332,9 @@ const SHOP_CATALOG = [
   { id: 'cursor-biblia', name: 'Cursor Bíblia Sagrada', description: 'Seta clássica inspirada em uma Bíblia, com cruz dourada e clique preciso.', price: 330, type: 'cursorStyle', value: 'biblia', icon: '📖' },
   { id: 'cursor-scrum-master', name: 'Cursor Scrum Master', description: 'Seta ágil com quadro Kanban e marcador de tarefa concluída.', price: 320, type: 'cursorStyle', value: 'scrum-master', icon: '📋' },
   { id: 'cursor-energetico', name: 'Cursor Energético', description: 'Seta neon inspirada em uma latinha de energético intergaláctico.', price: 360, type: 'cursorStyle', value: 'energetico', icon: '⚡' },
+  { id: 'cursor-laser', name: 'Cursor Laser Alienígena', description: 'Seta clássica verde e ciano com mira luminosa e ponto de clique preciso.', price: 300, type: 'cursorStyle', value: 'laser', icon: '🔫' },
+  { id: 'cursor-rocket', name: 'Cursor Foguete 51', description: 'Seta de mouse em formato de foguete, com ponta clara e propulsão colorida.', price: 340, type: 'cursorStyle', value: 'rocket', icon: '🚀' },
+  { id: 'cursor-alien', name: 'Cursor Agente ET', description: 'Seta clássica verde com visor alienígena, fácil de enxergar e clicar.', price: 280, type: 'cursorStyle', value: 'alien', icon: '👽' },
   { id: 'cursor-unicorn', name: 'Unicórnio Galopante Premium', description: 'Libera o unicórnio completo que galopa, vira e reage ao clique.', price: 590, type: 'cursorStyle', value: 'unicorn', icon: '🏇' },
   { id: 'trail-rainbow', name: 'Rastro Arco-íris Original', description: 'Libera a cauda colorida clássica atrás do cursor.', price: 160, type: 'trailStyle', value: 'rainbow', icon: '🌈' },
   { id: 'trail-gold', name: 'Rastro Estelar Dourado', description: 'Troca seu arco-íris por uma cauda de estrelas douradas.', price: 270, type: 'trailStyle', value: 'gold', icon: '✨' },
@@ -326,21 +344,26 @@ const SHOP_CATALOG = [
   { id: 'trail-purple', name: 'Rastro Violeta', description: 'Uma trilha violeta intensa no movimento do cursor.', price: 210, type: 'trailStyle', value: 'purple', icon: '💜' },
   { id: 'trail-fire', name: 'Rastro Fogo Solar', description: 'Mistura vermelho, laranja e amarelo como uma chama.', price: 290, type: 'trailStyle', value: 'fire', icon: '🔥' },
   { id: 'trail-fruit', name: 'Rastro Corta-Frutas', description: 'Lança frutas pelo caminho do cursor para você cortar enquanto navega.', price: 300, type: 'trailStyle', value: 'fruit', icon: '🍉' },
+  { id: 'trail-laser', name: 'Rastro Laser Verde', description: 'Linha verde-ciano luminosa e precisa atrás de qualquer cursor equipado.', price: 240, type: 'trailStyle', value: 'laser', icon: '💚' },
+  { id: 'trail-rocket', name: 'Rastro Propulsão 51', description: 'Cauda de fogo azul, laranja e amarelo inspirada em propulsão espacial.', price: 310, type: 'trailStyle', value: 'rocket', icon: '🚀' },
+  { id: 'trail-alien', name: 'Rastro Pegadas Alienígenas', description: 'Trilha verde radioativa para qualquer skin de cursor da coleção.', price: 260, type: 'trailStyle', value: 'alien', icon: '👣' },
   { id: 'power-reveal-author', name: 'Raio-X Total de Autoria', description: 'Use durante uma rodada com envios. Revela todas as autorias somente para você.', price: 420, type: 'power', value: 'revealAuthor', icon: '🔎', consumable: true },
   { id: 'power-shield-gay', name: 'Escudo da Rodada', description: 'Ative durante a rodada, antes do Gay da Rodada ser definido.', price: 320, type: 'power', value: 'shieldGay', icon: '🛡️', consumable: true },
   { id: 'power-theme', name: 'Controle de Tema', description: 'Use entre rodadas para abrir a próxima já com o tema escolhido.', price: 450, type: 'power', value: 'chooseTheme', icon: '🎨', consumable: true },
   { id: 'power-force-gay-cursor', name: 'Seta Gay Compulsória', description: 'Escolha um participante para usar a seta arco-íris cômica durante a rodada atual.', price: 520, type: 'power', value: 'forceGayCursor', icon: '🌈', consumable: true },
   { id: 'power-choose-gay', name: 'Controle Gay da Rodada', description: 'Use durante a rodada, antes do sorteio especial. Escudos ativos são respeitados.', price: 650, type: 'power', value: 'chooseGay', icon: '👑', consumable: true },
-  { id: 'box-sonda', name: 'Caixa Sonda Surpresa', description: 'Sempre devolve um prêmio útil: créditos próximos do valor pago, um visual ou, com sorte, um poder.', price: 140, type: 'mysteryBox', value: 'sonda', icon: '📦', mysteryBox: true, tier: 'sonda', creditChance: .42, powerChance: .12, minRewardPrice: 120, maxRewardPrice: 300, creditMin: 110, creditMax: 180 },
-  { id: 'box-cosmic', name: 'Caixa Cósmica', description: 'Prêmios intermediários valorizados, com boa chance de visuais especiais e poderes da Loja 51.', price: 300, type: 'mysteryBox', value: 'cosmic', icon: '🎁', mysteryBox: true, tier: 'cosmic', creditChance: .32, powerChance: .24, minRewardPrice: 240, maxRewardPrice: 520, creditMin: 240, creditMax: 380 },
-  { id: 'box-area51', name: 'Cofre Secreto Área 51', description: 'A caixa premium garante uma recompensa rara ou créditos altos, com a melhor chance de poderes.', price: 520, type: 'mysteryBox', value: 'area51', icon: '🛸', mysteryBox: true, tier: 'area51', creditChance: .22, powerChance: .36, minRewardPrice: 330, maxRewardPrice: 650, creditMin: 430, creditMax: 650 },
+  { id: 'power-choose-wallpaper', name: 'Escolha Meu Wallpaper', description: 'Depois de todos enviarem, veja os wallpapers sem autoria e reserve um deles para você.', price: 580, type: 'power', value: 'chooseWallpaper', icon: '🖼️', consumable: true },
+  { id: 'power-assign-wallpaper', name: 'Definir Wallpaper de Outro Player', description: 'Depois de todos enviarem, escolha anonimamente qual wallpaper outro participante receberá.', price: 680, type: 'power', value: 'assignWallpaper', icon: '🎯', consumable: true },
+  { id: 'box-sonda', name: 'Caixa Sonda Surpresa', description: 'Vai fechada para o perfil. Abra quando quiser ou venda por créditos.', price: 140, sellPrice: 80, type: 'mysteryBox', value: 'sonda', icon: '📦', mysteryBox: true, tier: 'sonda', creditChance: .42, powerChance: .12, minRewardPrice: 120, maxRewardPrice: 300, creditMin: 110, creditMax: 180 },
+  { id: 'box-cosmic', name: 'Caixa Cósmica', description: 'Vai fechada para o perfil. Pode revelar um visual especial, créditos ou um poder.', price: 300, sellPrice: 180, type: 'mysteryBox', value: 'cosmic', icon: '🎁', mysteryBox: true, tier: 'cosmic', creditChance: .32, powerChance: .24, minRewardPrice: 240, maxRewardPrice: 520, creditMin: 240, creditMax: 380 },
+  { id: 'box-area51', name: 'Cofre Secreto Área 51', description: 'O baú premium mais raro. Guarde, abra com a roleta de prêmios ou venda por créditos.', price: 520, sellPrice: 330, type: 'mysteryBox', value: 'area51', icon: '🛸', mysteryBox: true, tier: 'area51', creditChance: .22, powerChance: .36, minRewardPrice: 330, maxRewardPrice: 650, creditMin: 430, creditMax: 650 },
 ];
 
 // Cada posição representa exatamente um setor visual da roleta. O servidor
 // sorteia o índice e o navegador anima até esse mesmo setor.
 const CASINO_WHEEL_OUTCOMES = [
-  0, .5, 1, 1.5, 0, .5, 1, 2, 1.5, .5, 0, 1, 3, 1.5, .5, 0, 1, 2, 1.5, 1,
-  0, .5, 1, 1.5, 0, .5, 1, 'area51', 1.5, .5, 0, 1, 3, 1.5, .5, 0, 1, 2, 1.5, 1,
+  0, .5, 1, 1.5, 'box-sonda', .5, 1, 2, 1.5, .5, 0, 1, 3, 1.5, 'box-cosmic', 0, 1, 2, 1.5, 1,
+  0, .5, 'box-sonda', 1.5, 0, .5, 1, 'box-area51', 1.5, .5, 0, 1, 3, 'box-cosmic', .5, 0, 1, 2, 'box-sonda', 1,
 ];
 
 const WEEKLY_MISSIONS = [
@@ -395,8 +418,17 @@ function grantMysteryBoxReward(user, box) {
   const pool = eligible.length ? eligible : fallback;
   if (!pool.length) return creditReward();
   const reward = pool[Math.floor(Math.random() * pool.length)];
-  db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: reward.id, price: 0, originalPrice: reward.price, sourceMysteryBoxId: box.id, createdAt: new Date().toISOString() });
-  return { kind: reward.type === 'power' ? 'power' : 'item', icon: reward.icon, name: reward.name, itemId: reward.id };
+  const purchaseId = randomUUID();
+  db.economy.purchases.push({ id: purchaseId, userId: user.id, itemId: reward.id, price: 0, originalPrice: reward.price, sourceMysteryBoxId: box.id, mysteryDecisionPending: true, createdAt: new Date().toISOString() });
+  return { kind: reward.type === 'power' ? 'power' : 'item', icon: reward.icon, name: reward.name, itemId: reward.id, purchaseId, sellPrice: Math.max(10, Math.floor(Number(reward.price || 0) * .55 / 10) * 10) };
+}
+
+function addMysteryBox(userId, boxId, source, bet = null) {
+  const box = SHOP_CATALOG.find((item) => item.id === boxId && item.mysteryBox);
+  if (!box) throw new HttpError(404, 'Baú misterioso não encontrado.');
+  const inventoryItem = { id: randomUUID(), userId, boxId, source, bet, acquiredAt: new Date().toISOString() };
+  db.economy.mysteryBoxes.push(inventoryItem);
+  return { ...inventoryItem, name: box.name, icon: box.icon, tier: box.tier, sellPrice: box.sellPrice };
 }
 
 function weeklyMissionFor(userId) {
@@ -546,7 +578,7 @@ function cosmeticsFor(userId) {
 
 function availablePowerPurchases(userId, itemId) {
   const used = new Set(db.economy.powerUses.map((item) => item.purchaseId));
-  return db.economy.purchases.filter((item) => item.userId === userId && item.itemId === itemId && !used.has(item.id));
+  return db.economy.purchases.filter((item) => item.userId === userId && item.itemId === itemId && !item.mysteryDecisionPending && !used.has(item.id));
 }
 
 function consumePower(userId, itemId, details = {}) {
@@ -871,9 +903,8 @@ function profileFor(user) {
   const forcedCursor = db.settings.currentRoundId
     ? [...db.economy.forcedCursors].reverse().find((item) => item.roundId === db.settings.currentRoundId && item.targetUserId === user.id)
     : null;
-  const gayWinnerDraw = db.settings.currentRoundId
-    ? [...db.draws].reverse().find((item) => item.type === 'gay' && item.roundId === db.settings.currentRoundId && item.winnerId === user.id)
-    : null;
+  const latestGayWinnerDraw = [...db.draws].reverse().find((item) => item.type === 'gay');
+  const gayWinnerDraw = latestGayWinnerDraw?.winnerId === user.id ? latestGayWinnerDraw : null;
   const previousSeason = seasonSummary(previousMonthKey());
   const medals = [
     { id: 'first-step', icon: '🚀', name: 'Primeiro contato', description: 'Entrou para a tripulação.', unlocked: true },
@@ -887,6 +918,18 @@ function profileFor(user) {
   ];
   return {
     wallet: walletFor(user.id), equipped,
+    mysteryBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).map((entry) => {
+      const box = SHOP_CATALOG.find((item) => item.id === entry.boxId && item.mysteryBox);
+      return { ...entry, name: box?.name || 'Baú misterioso', icon: box?.icon || '🎁', tier: box?.tier || 'sonda', sellPrice: Number(box?.sellPrice || 0) };
+    }).sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt)),
+    mysteryRewards: db.economy.purchases.filter((entry) => entry.userId === user.id && entry.sourceMysteryBoxId && entry.mysteryDecisionPending).filter((entry) => {
+      const catalog = SHOP_CATALOG.find((item) => item.id === entry.itemId);
+      return catalog && (!catalog.consumable || !db.economy.powerUses.some((use) => use.purchaseId === entry.id));
+    }).map((entry) => {
+      const catalog = SHOP_CATALOG.find((item) => item.id === entry.itemId);
+      const sellPrice = Math.max(10, Math.floor(Number(catalog?.price || entry.originalPrice || 0) * .55 / 10) * 10);
+      return { purchaseId: entry.id, itemId: entry.itemId, name: catalog?.name || 'Prêmio do baú', icon: catalog?.icon || '🎁', type: catalog?.type || '', sellPrice, equipped: equipped[catalog?.type] === entry.itemId, acquiredAt: entry.createdAt };
+    }).sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt)),
     freeShopPurchaseAvailable: !db.economy.freeShopUses.includes(user.id),
     forcedCursor: forcedCursor
       ? { style: 'gay', appliedBy: forcedCursor.usedByName, createdAt: forcedCursor.createdAt }
@@ -907,8 +950,8 @@ function profileFor(user) {
     },
     shop: SHOP_CATALOG.filter((item) => !item.adminOnly || user.role === 'admin').map((item) => {
       const granted = Boolean(item.adminOnly && user.role === 'admin');
-      const quantity = item.mysteryBox ? 0 : item.consumable ? availablePowerPurchases(user.id, item.id).length : (ownedIds.has(item.id) || granted ? 1 : 0);
-      return { ...item, quantity, availablePoints: item.service ? score.bestWins : 0, owned: item.mysteryBox || item.service ? false : granted || quantity > 0 || ownedIds.has(item.id), granted, equipped: !item.consumable && !item.mysteryBox && !item.service && equipped[item.type] === item.id };
+      const quantity = item.mysteryBox ? db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id && entry.boxId === item.id).length : item.consumable ? availablePowerPurchases(user.id, item.id).length : (ownedIds.has(item.id) || granted ? 1 : 0);
+      return { ...item, quantity, availablePoints: item.service ? score.bestWins : 0, owned: item.mysteryBox ? quantity > 0 : item.service ? false : granted || quantity > 0 || ownedIds.has(item.id), granted, equipped: !item.consumable && !item.mysteryBox && !item.service && equipped[item.type] === item.id };
     }),
     giftOptions: {
       people: db.users.filter((item) => item.active && item.approved !== false && item.id !== user.id).map((item) => ({ id: item.id, displayName: item.displayName })),
@@ -1016,12 +1059,13 @@ function stateFor(user) {
   })).sort((a, b) => b.totalMl - a.totalMl || a.displayName.localeCompare(b.displayName));
   return {
     serverRevision: stateRevision,
-    me: { ...safeUser(user), cosmetics: cosmeticsFor(user.id) }, settings: db.settings,
+    me: { ...safeUser(user), cosmetics: cosmeticsFor(user.id) }, settings: { ...db.settings, announcement: undefined },
+    announcement: db.settings.announcement ? { id: db.settings.announcement.id, title: db.settings.announcement.title, message: db.settings.announcement.message, createdAt: db.settings.announcement.createdAt, createdBy: db.settings.announcement.createdBy, unread: !db.settings.announcement.seenUserIds.includes(user.id), seenCount: user.role === 'admin' ? db.settings.announcement.seenUserIds.length : undefined } : null,
     liveDraw: liveDraw && liveDraw.endsAt > Date.now() ? drawForUser(liveDraw, user.id) : null,
     profile: profileFor(user), notifications: notificationsFor(user),
     casino: (() => {
       const dayKey = saoPauloDayKey(); const plays = db.economy.casinoPlays.filter((item) => item.userId === user.id && item.dayKey === dayKey); const account = casinoAccountFor(user.id);
-      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday: plays.length, recent: plays.slice(-8).reverse() };
+      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday: plays.length, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recent: plays.slice(-8).reverse() };
     })(),
     visualTheme: latestGayDraw && latestGayDraw.winnerId === user.id ? 'rainbow' : latestWorstSubmission && latestWorstSubmission.userId === user.id ? 'punishment' : 'user-choice',
     themes: db.settings.themes.map((name) => ({ id: name, name })),
@@ -1157,23 +1201,47 @@ function shuffled(items) {
   return result;
 }
 
+function buildAssignmentMap(users, submissions, reservations = []) {
+  const submissionById = new Map(submissions.map((item) => [item.id, item]));
+  const byUser = new Map(); const usedSubmissionIds = new Set();
+  for (const reservation of reservations) {
+    const targetUser = users.find((item) => item.id === reservation.targetId);
+    const submission = submissionById.get(reservation.submissionId);
+    if (!targetUser || !submission || (!reservation.allowSelf && submission.userId === targetUser.id) || byUser.has(targetUser.id) || usedSubmissionIds.has(submission.id)) return null;
+    byUser.set(targetUser.id, submission); usedSubmissionIds.add(submission.id);
+  }
+  const remainingUsers = users.filter((item) => !byUser.has(item.id));
+  const search = (index) => {
+    if (index >= remainingUsers.length) return true;
+    let best = index; let bestOptions = Infinity;
+    for (let cursor = index; cursor < remainingUsers.length; cursor += 1) {
+      const count = submissions.filter((entry) => !usedSubmissionIds.has(entry.id) && entry.userId !== remainingUsers[cursor].id).length;
+      if (count < bestOptions) { best = cursor; bestOptions = count; }
+    }
+    [remainingUsers[index], remainingUsers[best]] = [remainingUsers[best], remainingUsers[index]];
+    const participant = remainingUsers[index];
+    const options = shuffled(submissions.filter((entry) => !usedSubmissionIds.has(entry.id) && entry.userId !== participant.id));
+    for (const submission of options) {
+      byUser.set(participant.id, submission); usedSubmissionIds.add(submission.id);
+      if (search(index + 1)) return true;
+      byUser.delete(participant.id); usedSubmissionIds.delete(submission.id);
+    }
+    [remainingUsers[index], remainingUsers[best]] = [remainingUsers[best], remainingUsers[index]];
+    return false;
+  };
+  return search(0) ? byUser : null;
+}
+
+function wallpaperReservations(roundId) {
+  return db.economy.powerUses.filter((entry) => entry.roundId === roundId && ['power-choose-wallpaper', 'power-assign-wallpaper'].includes(entry.itemId))
+    .map((entry) => ({ targetId: entry.targetId || entry.userId, submissionId: entry.submissionId, allowSelf: entry.itemId === 'power-choose-wallpaper' }));
+}
+
 function ensureAssignmentPlan(roundId, users, submissions) {
   const existing = db.assignments.filter((item) => item.roundId === roundId);
   if (existing.length) return existing;
-  let wallpaperOrder = [...submissions];
-  if (users.length > 1) {
-    for (let attempt = 0; attempt < 200; attempt += 1) {
-      const candidate = shuffled(submissions);
-      if (candidate.every((submission, index) => submission.userId !== users[index].id)) {
-        wallpaperOrder = candidate; break;
-      }
-    }
-    if (wallpaperOrder.some((submission, index) => submission.userId === users[index].id)) {
-      const orderedByOwner = users.map((participant) => submissions.find((item) => item.userId === participant.id));
-      wallpaperOrder = orderedByOwner.map((_, index) => orderedByOwner[(index + 1) % orderedByOwner.length]);
-    }
-  }
-  const byUser = new Map(users.map((participant, index) => [participant.id, wallpaperOrder[index]]));
+  const byUser = buildAssignmentMap(users, submissions, wallpaperReservations(roundId));
+  if (!byUser) throw new HttpError(409, 'As escolhas de wallpaper não permitem uma distribuição válida. Revise as reservas antes do sorteio.');
   const recipientOrder = shuffled(users);
   const plan = recipientOrder.map((participant, order) => ({
     id: randomUUID(), roundId, userId: participant.id,
@@ -1279,22 +1347,27 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'POST' && route === '/api/casino/play') {
     const { user } = requireAuth(req);
-    const body = await readJson(req); const bet = Number(body.bet);
-    if (!Number.isInteger(bet) || bet < 10 || bet > 100 || bet % 10 !== 0) throw new HttpError(400, 'A aposta deve ser de 10 a 100 créditos, em dezenas.');
+    const body = await readJson(req); const bet = Number(body.bet); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
+    if (!Number.isInteger(bet) || bet < 1 || bet > 100) throw new HttpError(400, 'A aposta deve ser um valor inteiro de 1 a 100 créditos.');
     const dayKey = saoPauloDayKey();
     const casinoAccount = casinoAccountFor(user.id, true);
-    if (Number(casinoAccount.balance) < bet) throw new HttpError(409, 'Saldo promocional do cassino insuficiente para esta aposta.');
+    const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
+    if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta aposta.' : 'Saldo promocional do cassino insuficiente para esta aposta.');
     const segmentIndex = Math.floor(Math.random() * CASINO_WHEEL_OUTCOMES.length);
-    const outcome = CASINO_WHEEL_OUTCOMES[segmentIndex]; const before = Number(casinoAccount.balance); const createdAt = new Date().toISOString();
-    let multiplier = null; let payout = 0; let net = -bet; let mysteryReward = null; let resultType = 'multiplier';
-    if (outcome === 'area51') {
-      resultType = 'mysteryBox'; casinoAccount.balance = before - bet;
-      const box = SHOP_CATALOG.find((item) => item.id === 'box-area51');
-      mysteryReward = grantMysteryBoxReward(user, box);
+    const outcome = CASINO_WHEEL_OUTCOMES[segmentIndex]; const before = sourceBalance; const createdAt = new Date().toISOString();
+    let multiplier = null; let payout = 0; let net = -bet; let mysteryBox = null; let resultType = 'multiplier';
+    if (typeof outcome === 'string' && outcome.startsWith('box-')) {
+      resultType = 'mysteryBox'; net = 0; payout = bet;
+      mysteryBox = addMysteryBox(user.id, outcome, 'casino', bet);
     } else {
-      multiplier = Number(outcome); payout = Math.round(bet * multiplier); net = payout - bet; casinoAccount.balance = before + net;
+      multiplier = Number(outcome); payout = Math.round(bet * multiplier); net = payout - bet;
     }
-    const play = { id: randomUUID(), userId: user.id, dayKey, bet, resultType, segmentIndex, multiplier, payout, net, mysteryReward, balanceAfter: Number(casinoAccount.balance), createdAt };
+    if (walletSource === 'shop') {
+      addCredits(user.id, net);
+      if (net !== 0) db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before, after: before + net, reason: 'Resultado da Roleta 51 usando saldo da loja', createdAt });
+    } else casinoAccount.balance = before + net;
+    const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
+    const play = { id: randomUUID(), userId: user.id, dayKey, walletSource, bet, resultType, segmentIndex, wheelValue: outcome, multiplier, payout, net, mysteryBox, balanceAfter, createdAt };
     db.economy.casinoPlays.push(play);
     await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), casinoResult: play }); return;
   }
@@ -1555,10 +1628,63 @@ async function handleApi(req, res, route) {
     if (!item.consumable && !item.mysteryBox && db.economy.purchases.some((purchase) => purchase.userId === user.id && purchase.itemId === item.id)) throw new HttpError(409, 'Você já possui este item.');
     if (walletFor(user.id) < item.price) throw new HttpError(409, 'Créditos 51 insuficientes para esta compra.');
     addCredits(user.id, -item.price);
-    db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: item.id, price: item.price, createdAt: new Date().toISOString() });
-    const mysteryReward = item.mysteryBox ? grantMysteryBoxReward(user, item) : null;
+    db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: item.id, price: item.price, closedBox: Boolean(item.mysteryBox), createdAt: new Date().toISOString() });
+    const mysteryBox = item.mysteryBox ? addMysteryBox(user.id, item.id, 'shop') : null;
     if (!item.consumable && !item.mysteryBox) db.economy.equipped[user.id] = { ...cosmeticsFor(user.id), [item.type]: item.id };
-    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), mysteryReward }); return;
+    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), mysteryBox }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery-boxes/open') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const index = db.economy.mysteryBoxes.findIndex((entry) => entry.id === body.inventoryId && entry.userId === user.id);
+    if (index < 0) throw new HttpError(404, 'Este baú não está mais no seu inventário.');
+    const inventoryItem = db.economy.mysteryBoxes[index];
+    const box = SHOP_CATALOG.find((item) => item.id === inventoryItem.boxId && item.mysteryBox);
+    if (!box) throw new HttpError(404, 'Tipo de baú não encontrado.');
+    db.economy.mysteryBoxes.splice(index, 1);
+    const mysteryReward = grantMysteryBoxReward(user, box);
+    await persist(); broadcastRefresh('economy');
+    json(res, 200, { ...stateFor(user), mysteryReward, openedBox: { id: inventoryItem.id, name: box.name, icon: box.icon } }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery-boxes/sell') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const index = db.economy.mysteryBoxes.findIndex((entry) => entry.id === body.inventoryId && entry.userId === user.id);
+    if (index < 0) throw new HttpError(404, 'Este baú não está mais no seu inventário.');
+    const inventoryItem = db.economy.mysteryBoxes[index];
+    const box = SHOP_CATALOG.find((item) => item.id === inventoryItem.boxId && item.mysteryBox);
+    if (!box) throw new HttpError(404, 'Tipo de baú não encontrado.');
+    const amount = Number(box.sellPrice || 0); const before = walletFor(user.id); const createdAt = new Date().toISOString();
+    db.economy.mysteryBoxes.splice(index, 1); addCredits(user.id, amount);
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'mystery-box-sale', amount, before, after: before + amount, reason: 'Venda de ' + box.name, createdAt });
+    await persist(); broadcastRefresh('economy');
+    json(res, 200, { ...stateFor(user), soldBox: { name: box.name, amount } }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery-rewards/sell') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const index = db.economy.purchases.findIndex((entry) => entry.id === body.purchaseId && entry.userId === user.id && entry.sourceMysteryBoxId && entry.mysteryDecisionPending);
+    if (index < 0) throw new HttpError(404, 'Este prêmio não está mais disponível para venda.');
+    const purchase = db.economy.purchases[index];
+    const item = SHOP_CATALOG.find((entry) => entry.id === purchase.itemId && !entry.mysteryBox && !entry.service);
+    if (!item) throw new HttpError(404, 'Item premiado não encontrado na loja.');
+    if (item.consumable && db.economy.powerUses.some((use) => use.purchaseId === purchase.id)) throw new HttpError(409, 'Este poder já foi utilizado e não pode ser vendido.');
+    const amount = Math.max(10, Math.floor(Number(item.price || purchase.originalPrice || 0) * .55 / 10) * 10);
+    const before = walletFor(user.id); const createdAt = new Date().toISOString();
+    db.economy.purchases.splice(index, 1);
+    if (db.economy.equipped[user.id]?.[item.type] === item.id) delete db.economy.equipped[user.id][item.type];
+    addCredits(user.id, amount);
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'mystery-reward-sale', amount, before, after: before + amount, reason: 'Revenda de prêmio: ' + item.name, createdAt });
+    await persist(); broadcastRefresh('economy');
+    json(res, 200, { ...stateFor(user), soldReward: { name: item.name, amount } }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery-rewards/keep') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const purchase = db.economy.purchases.find((entry) => entry.id === body.purchaseId && entry.userId === user.id && entry.sourceMysteryBoxId && entry.mysteryDecisionPending);
+    if (!purchase) throw new HttpError(404, 'Este prêmio já teve sua decisão concluída.');
+    purchase.mysteryDecisionPending = false; purchase.mysteryDecisionAt = new Date().toISOString();
+    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), keptReward: true }); return;
   }
 
   if (req.method === 'POST' && route === '/api/shop/sell-best-win') {
@@ -1591,7 +1717,7 @@ async function handleApi(req, res, route) {
     const target = db.users.find((item) => item.id === body.targetId && item.active && item.approved !== false);
     const amount = Number(body.amount); const weekKey = saoPauloWeekKey();
     if (!target || target.id === user.id) throw new HttpError(404, 'Participante escolhido não encontrado.');
-    if (!Number.isInteger(amount) || amount < 5 || amount > 100) throw new HttpError(400, 'Envie entre 5 e 100 créditos.');
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) throw new HttpError(400, 'Envie um valor inteiro entre 1 e 100 créditos.');
     const sent = db.economy.gifts.filter((item) => item.type === 'credits' && item.fromUserId === user.id && item.createdAt.slice(0, 10) >= weekKey).reduce((sum, item) => sum + item.amount, 0);
     if (sent + amount > 100) throw new HttpError(409, 'Seu limite semanal restante é de ' + Math.max(0, 100 - sent) + ' créditos.');
     if (walletFor(user.id) < amount) throw new HttpError(409, 'Créditos 51 insuficientes.');
@@ -1624,6 +1750,7 @@ async function handleApi(req, res, route) {
       const item = SHOP_CATALOG.find((candidate) => candidate.id === body.itemId && candidate.type === body.type);
       const owned = item && ((item.adminOnly && user.role === 'admin') || db.economy.purchases.some((purchase) => purchase.userId === user.id && purchase.itemId === item.id));
       if (!owned) throw new HttpError(403, 'Compre este item antes de equipá-lo.');
+      if (db.economy.purchases.some((purchase) => purchase.userId === user.id && purchase.itemId === item.id && purchase.mysteryDecisionPending)) throw new HttpError(409, 'Escolha ficar com o prêmio antes de equipá-lo.');
       db.economy.equipped[user.id] = { ...cosmeticsFor(user.id), [body.type]: item.id };
     }
     await persist(); broadcastRefresh('economy'); json(res, 200, stateFor(user)); return;
@@ -1666,6 +1793,24 @@ async function handleApi(req, res, route) {
       consumePower(user.id, item.id, { roundId, revealCount: submissions.length });
       const createdAt = new Date().toISOString();
       submissions.forEach((submission) => db.economy.authorReveals.push({ roundId, userId: user.id, submissionId: submission.id, createdAt }));
+    } else if (item.value === 'chooseWallpaper' || item.value === 'assignWallpaper') {
+      if (!roundId) throw new HttpError(409, 'Não há uma rodada ativa.');
+      const participants = eligibleUsers();
+      const submissions = db.submissions.filter((entry) => entry.roundId === roundId && entry.active);
+      if (submissions.length !== participants.length) throw new HttpError(409, 'Este poder só pode ser usado depois que todos os participantes enviarem seus wallpapers.');
+      if (db.assignments.some((entry) => entry.roundId === roundId)) throw new HttpError(409, 'A distribuição dos wallpapers já começou.');
+      const targetId = item.value === 'chooseWallpaper' ? user.id : String(body.targetId || '');
+      const target = participants.find((person) => person.id === targetId);
+      const submission = submissions.find((entry) => entry.id === body.submissionId);
+      if (!target) throw new HttpError(404, 'Participante escolhido não encontrado nesta rodada.');
+      if (!submission) throw new HttpError(404, 'Wallpaper escolhido não encontrado nesta rodada.');
+      if (item.value !== 'chooseWallpaper' && submission.userId === target.id) throw new HttpError(409, 'Não é possível impor a alguém o wallpaper que essa própria pessoa enviou.');
+      const reservations = wallpaperReservations(roundId);
+      if (reservations.some((entry) => entry.targetId === target.id)) throw new HttpError(409, 'Essa pessoa já possui um wallpaper reservado nesta rodada.');
+      if (reservations.some((entry) => entry.submissionId === submission.id)) throw new HttpError(409, 'Esse wallpaper já foi reservado para outra pessoa.');
+      const prospective = [...reservations, { targetId: target.id, submissionId: submission.id, allowSelf: item.value === 'chooseWallpaper' }];
+      if (!buildAssignmentMap(participants, submissions, prospective)) throw new HttpError(409, 'Esta escolha impediria uma distribuição válida para o restante da equipe. Escolha outro wallpaper.');
+      consumePower(user.id, item.id, { roundId, targetId: target.id, submissionId: submission.id });
     } else if (item.value === 'forceGayCursor') {
       if (!roundId) throw new HttpError(409, 'Use este poder durante uma rodada ativa.');
       const target = eligibleUsers().find((person) => person.id === body.targetId);
@@ -2065,6 +2210,7 @@ async function handleApi(req, res, route) {
     db.economy.teamMissionRewards ||= []; db.economy.gifts ||= []; db.economy.activityTotals ||= {};
     db.economy.powerUses ||= []; db.economy.shields ||= []; db.economy.authorReveals ||= [];
     db.economy.creditAdjustments ||= []; db.economy.forcedCursors ||= [];
+    db.economy.mysteryBoxes ||= []; db.economy.casinoPlays ||= []; db.economy.casinoAccounts ||= {};
     db.settings.roundSchedule ||= { submissionsAt: '', drawAt: '', voteAt: '' };
     db.settings.missionEconomyStartWeek ||= saoPauloWeekKey();
     db.users.forEach((item) => { if (typeof item.approved !== 'boolean') item.approved = true; });
@@ -2180,6 +2326,9 @@ async function handleApi(req, res, route) {
     db.economy.shields = db.economy.shields.filter((item) => item.userId !== target.id);
     db.economy.authorReveals = db.economy.authorReveals.filter((item) => item.userId !== target.id);
     db.economy.creditAdjustments = db.economy.creditAdjustments.filter((item) => item.userId !== target.id);
+    db.economy.mysteryBoxes = db.economy.mysteryBoxes.filter((item) => item.userId !== target.id);
+    db.economy.casinoPlays = db.economy.casinoPlays.filter((item) => item.userId !== target.id);
+    delete db.economy.casinoAccounts[target.id];
     db.economy.forcedCursors = db.economy.forcedCursors.filter((item) => item.targetUserId !== target.id && item.usedByUserId !== target.id);
     if (db.economy.forcedGay && (db.economy.forcedGay.userId === target.id || db.economy.forcedGay.targetId === target.id)) db.economy.forcedGay = null;
     if (db.economy.forcedTheme?.userId === target.id) db.economy.forcedTheme = null;
@@ -2216,6 +2365,27 @@ async function handleApi(req, res, route) {
     json(res, 200, stateFor(user)); return;
   }
 
+  if (req.method === 'POST' && route === '/api/admin/announcement') {
+    const { user } = requireAdmin(req); const body = await readJson(req);
+    const title = String(body.title || '').trim().replace(/\s+/g, ' ').slice(0, 70);
+    const message = String(body.message || '').trim().replace(/\r\n/g, '\n').slice(0, 700);
+    if (title.length < 3 || message.length < 3) throw new HttpError(400, 'Informe um título e uma mensagem para publicar o aviso.');
+    db.settings.announcement = { id: randomUUID(), title, message, createdAt: new Date().toISOString(), createdBy: user.displayName, seenUserIds: [] };
+    await persist(); broadcastRefresh('announcement'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'DELETE' && route === '/api/admin/announcement') {
+    const { user } = requireAdmin(req); db.settings.announcement = null;
+    await persist(); broadcastRefresh('announcement'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/announcement/seen') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const announcement = db.settings.announcement;
+    if (announcement && announcement.id === body.id && !announcement.seenUserIds.includes(user.id)) announcement.seenUserIds.push(user.id);
+    await persist(); json(res, 200, stateFor(user)); return;
+  }
+
   if (req.method === 'POST' && route === '/api/admin/clear-history') {
     const { user } = requireAdmin(req);
     if (liveDraw && liveDraw.endsAt > Date.now()) throw new HttpError(409, 'Aguarde o sorteio ao vivo terminar antes de limpar o histórico.');
@@ -2236,6 +2406,14 @@ async function handleApi(req, res, route) {
     json(res, 200, stateFor(user)); return;
   }
 
+  if (req.method === 'POST' && route === '/api/admin/clear-lies') {
+    const { user } = requireAdmin(req);
+    db.lieAccusations = [];
+    await persist();
+    broadcastRefresh('lie-meter');
+    json(res, 200, stateFor(user)); return;
+  }
+
   if (req.method === 'POST' && route === '/api/admin/reset-my-purchases') {
     const { user } = requireAdmin(req);
     const ownPurchases = db.economy.purchases.filter((item) => item.userId === user.id);
@@ -2247,6 +2425,7 @@ async function handleApi(req, res, route) {
     db.economy.powerUses = db.economy.powerUses.filter((item) => item.userId !== user.id && !purchaseIds.has(item.purchaseId));
     db.economy.shields = db.economy.shields.filter((item) => item.userId !== user.id);
     db.economy.authorReveals = db.economy.authorReveals.filter((item) => item.userId !== user.id);
+    db.economy.mysteryBoxes = db.economy.mysteryBoxes.filter((item) => item.userId !== user.id || item.source === 'casino');
     if (db.economy.forcedGay?.userId === user.id) db.economy.forcedGay = null;
     if (db.economy.forcedTheme?.userId === user.id) db.economy.forcedTheme = null;
     delete db.economy.equipped[user.id];
@@ -2283,6 +2462,9 @@ async function handleApi(req, res, route) {
     db.economy.powerUses = db.economy.powerUses.filter((item) => item.userId === user.id);
     db.economy.shields = db.economy.shields.filter((item) => item.userId === user.id);
     db.economy.authorReveals = db.economy.authorReveals.filter((item) => item.userId === user.id);
+    db.economy.mysteryBoxes = db.economy.mysteryBoxes.filter((item) => item.userId === user.id);
+    db.economy.casinoPlays = db.economy.casinoPlays.filter((item) => item.userId === user.id);
+    db.economy.casinoAccounts = Object.fromEntries(Object.entries(db.economy.casinoAccounts).filter(([userId]) => userId === user.id));
     db.economy.creditAdjustments = db.economy.creditAdjustments.filter((item) => item.userId === user.id);
     db.economy.forcedCursors = [];
     db.economy.activityTotals = { [user.id]: db.economy.activityTotals[user.id] || {} };
@@ -2361,11 +2543,11 @@ async function serveFile(req, res, filename, cache = false) {
 async function serveMemoryImage(res, filename, downloadName = null) {
   let image = imageStore.get(filename);
   if (!image) {
-    const object = await runtimeEnv.MEDIA.get(filename);
-    if (!object) throw new HttpError(404, 'Esta imagem já foi removida para economizar espaço.');
+    const object = await runtimeEnv.MEDIA.getWithMetadata(filename, 'arrayBuffer');
+    if (!object?.value) throw new HttpError(404, 'Esta imagem já foi removida para economizar espaço.');
     image = {
-      buffer: Buffer.from(await object.arrayBuffer()),
-      mimeType: object.httpMetadata?.contentType || 'application/octet-stream',
+      buffer: Buffer.from(object.value),
+      mimeType: object.metadata?.contentType || 'application/octet-stream',
     };
     imageStore.set(filename, image);
   }
@@ -2393,7 +2575,7 @@ export async function requestHandler(req, res) {
   res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
   const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
   try {
-    if (req.method === 'POST' && url.pathname === '/api/gate') {
+    if (!GATE_DISABLED && req.method === 'POST' && url.pathname === '/api/gate') {
       const key = rateLimit(req);
       const body = await readJson(req);
       const received = Buffer.from(createHash('sha256').update(db.settings.gateSeed + ':' + String(body.code || '')).digest('hex'), 'utf8');
@@ -2407,7 +2589,7 @@ export async function requestHandler(req, res) {
       await persist();
       json(res, 200, { ok: true }, { 'Set-Cookie': 'area51_gate=' + token + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=' + GATE_TTL }); return;
     }
-    if (!hasGateAccess(req)) {
+    if (!GATE_DISABLED && !hasGateAccess(req)) {
       if ((req.method === 'GET' || req.method === 'HEAD') && !url.pathname.startsWith('/api/')) serveGatePage(res);
       else json(res, 404, { error: 'Arquivo não encontrado.' });
       return;
@@ -2431,6 +2613,7 @@ export async function requestHandler(req, res) {
     res.writeHead(302, { Location: destination, 'Cache-Control': 'no-store' });
     res.end();
   } catch (error) {
+    if (error.retryableConcurrency) throw error;
     if (error.code === 'ENOENT') { json(res, 404, { error: 'Arquivo não encontrado.' }); return; }
     const status = error.status || 500; if (status >= 500) console.error(error);
     json(res, status, { error: status >= 500 ? 'O servidor encontrou um problema.' : error.message });

@@ -1,6 +1,21 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M22 19.2727C22 20.779 20.779 22 19.2727 22H14.7273C13.221 22 12 20.779 12 19.2727V12H19.2727C20.779 12 22 13.221 22 14.7273V19.2727Z" fill="#68C4FF"/>
-<path d="M20 2C21.1046 2 22 2.89543 22 4V7C22 8.10457 21.1046 9 20 9H17C15.8954 9 15 8.10457 15 7V4C15 2.89543 15.8954 2 17 2H20Z" fill="#0C79D8"/>
-<path d="M7 15C8.10457 15 9 15.8954 9 17V20C9 21.1046 8.10457 22 7 22H4C2.89543 22 2 21.1046 2 20V17C2 15.8954 2.89543 15 4 15H7Z" fill="#0C79D8"/>
-<path d="M12 12H4.72727C3.22104 12 2 10.779 2 9.27273V4.72727C2 3.22104 3.22104 2 4.72727 2H9.27273C10.779 2 12 3.22104 12 4.72727V12Z" fill="#2E9EFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff7a45"/>
+      <stop offset=".34" stop-color="#ffd84d"/>
+      <stop offset=".66" stop-color="#36d69a"/>
+      <stop offset="1" stop-color="#8c63ff"/>
+    </linearGradient>
+    <linearGradient id="alien" x1="22" y1="15" x2="43" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d9ff86"/>
+      <stop offset="1" stop-color="#61ef9d"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="#0c1729"/>
+  <rect x="4" y="4" width="56" height="56" rx="15" fill="none" stroke="url(#bg)" stroke-width="4"/>
+  <path d="M32 12c-10 0-18 8-18 19 0 12 9 22 18 22s18-10 18-22c0-11-8-19-18-19Z" fill="url(#alien)"/>
+  <path d="M18 28c5-5 12-5 13 0 1 6-4 11-9 8-3-2-4-5-4-8Zm28 0c-5-5-12-5-13 0-1 6 4 11 9 8 3-2 4-5 4-8Z" fill="#08111f"/>
+  <circle cx="25" cy="29" r="2.2" fill="#fff" opacity=".85"/>
+  <circle cx="39" cy="29" r="2.2" fill="#fff" opacity=".85"/>
+  <path d="M26 43c4 3 8 3 12 0" fill="none" stroke="#0b4b45" stroke-width="2.5" stroke-linecap="round"/>
 </svg>

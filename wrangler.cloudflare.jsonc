@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "roleta51",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist/client",
+    "binding": "ASSETS",
+    "run_worker_first": false
+  },
+  "vars": {
+    "AREA51_GATE_DISABLED": "true"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "roleta51-db",
+      "database_id": "0416466f-80db-4586-9f93-186e24c8abfc"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "MEDIA",
+      "id": "2e048e39389e4a6eae93ee2137a9bfcb"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

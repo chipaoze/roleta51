@@ -45,6 +45,7 @@ let shopPreviewItemId = null;
 let shopPreviewTimer = null;
 let shopPreviewInterval = null;
 let shopFilter = 'all';
+let hideOwnedVisuals = localStorage.getItem('area51-hide-owned-visuals') === 'true';
 let deferredInstallPrompt = null;
 let votingDraft = { votingId: null, bestId: null, worstId: null };
 let notificationsReadAtLocal = null;
@@ -52,8 +53,8 @@ let casinoWheelRotation = 0;
 let casinoSpinInProgress = false;
 let mysteryOpeningInProgress = false;
 const casinoWheelValues = [
-  0,.5,1,1.5,0,.5,1,2,1.5,.5,0,1,3,1.5,.5,0,1,2,1.5,1,
-  0,.5,1,1.5,0,.5,1,'area51',1.5,.5,0,1,3,1.5,.5,0,1,2,1.5,1,
+  0,.5,1,1.5,'box-sonda',.5,1,2,1.5,.5,0,1,3,1.5,'box-cosmic',0,1,2,1.5,1,
+  0,.5,'box-sonda',1.5,0,.5,1,'box-area51',1.5,.5,0,1,3,'box-cosmic',.5,0,1,2,'box-sonda',1,
 ];
 
 const palette = ['#f47721','#173b67','#f5b52c','#2f76a9','#dc5c46','#48a47a','#815ba6','#dd7a2c','#31598b','#e2a627'];
@@ -148,11 +149,12 @@ function startRainbowMouseTrail() {
       trailContext.lineTo(point.x, point.y);
       trailContext.lineWidth = 1.25 + (opacity * 3.25);
       const trailStyle = document.body.dataset.trailStyle || 'rainbow';
-      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67] };
+      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67],laser:[158,100,58],alien:[112,100,55] };
       const fixedColor = trailPalette[trailStyle];
-      const hue = trailStyle === 'fire' ? 5 + ((point.hue / 360) * 48) : fixedColor ? fixedColor[0] : point.hue;
+      const rocketAge = Math.max(0, Math.min(1, (now - point.time) / lifetime));
+      const hue = trailStyle === 'fire' ? 5 + ((point.hue / 360) * 48) : trailStyle === 'rocket' ? (rocketAge < .2 ? 198 : Math.max(5, 48 - ((rocketAge - .2) * 54))) : fixedColor ? fixedColor[0] : point.hue;
       const saturation = fixedColor ? fixedColor[1] : 100;
-      const lightness = fixedColor ? fixedColor[2] : 61;
+      const lightness = trailStyle === 'rocket' && rocketAge < .2 ? 78 : fixedColor ? fixedColor[2] : 61;
       trailContext.strokeStyle = `hsla(${hue},${saturation}%,${lightness}%,${opacity * .9})`;
       trailContext.shadowColor = `hsla(${hue},100%,68%,${opacity})`;
       trailContext.shadowBlur = 5 * opacity;
@@ -439,7 +441,7 @@ function openFeedbackPanel() {
   $('#feedbackMessage').focus();
 }
 
-const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','perfil','cassino','historico','classificacao','admin'];
+const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','perfil','loja','cassino','historico','classificacao','admin'];
 const portalSections = ['inicio', ...portalPages];
 
 function setMenuOpen(open) {
@@ -961,13 +963,14 @@ function renderCasino(casino = {}) {
   if (casinoSpinInProgress) { drawCasinoWheel(); return; }
   $('#casinoWallet').textContent = Number(casino.wallet || 0).toLocaleString('pt-BR');
   $('#casinoShopWallet').textContent = Number(casino.shopWallet || 0).toLocaleString('pt-BR');
+  $('#casinoClosedBoxes').textContent = Number(casino.closedBoxes || 0).toLocaleString('pt-BR');
   $('#casinoPlays').textContent = String(Number(casino.playsToday || 0));
   const cashoutTarget = Number(casino.cashoutThreshold || 500); const cashoutBalance = Number(casino.wallet || 0); const cashoutButton = $('#casinoCashoutButton');
   $('#casinoCashoutText').textContent = casino.cashedOut ? 'Lucro de hoje já resgatado' : `${Math.min(cashoutBalance, cashoutTarget).toLocaleString('pt-BR')} de ${cashoutTarget.toLocaleString('pt-BR')}`;
   $('#casinoCashoutProgress').style.width = `${Math.min(100, Math.round(cashoutBalance / cashoutTarget * 100))}%`;
   cashoutButton.disabled = !casino.canCashOut; cashoutButton.textContent = casino.cashedOut ? 'Resgate realizado hoje' : casino.canCashOut ? `Resgatar ${Number(casino.cashoutAmount || cashoutBalance).toLocaleString('pt-BR')} créditos` : `Faltam ${Math.max(0, cashoutTarget - cashoutBalance).toLocaleString('pt-BR')}`;
   const history = Array.isArray(casino.recent) ? casino.recent : [];
-  $('#casinoHistory').innerHTML = history.length ? history.map((play) => play.resultType === 'mysteryBox' ? `<div class="casino-history-item jackpot"><span>🛸</span><p><strong>Cofre Secreto Área 51</strong><small>Aposta ${play.bet} · ${escapeHtml(play.mysteryReward?.name || 'prêmio premium')}</small></p></div>` : `<div class="casino-history-item ${play.net > 0 ? 'win' : play.net < 0 ? 'loss' : 'draw'}"><span>${play.net > 0 ? '🚀' : play.net < 0 ? '🕳️' : '🛸'}</span><p><strong>x${String(play.multiplier).replace('.', ',')}</strong><small>Aposta ${play.bet} · retorno ${play.payout} · saldo ${play.net > 0 ? '+' : ''}${play.net}</small></p></div>`).join('') : '<p class="casino-empty">Sua primeira jogada aparecerá aqui.</p>';
+  $('#casinoHistory').innerHTML = history.length ? history.map((play) => { const source = play.walletSource === 'shop' ? 'Loja 51' : 'Bônus diário'; return play.resultType === 'mysteryBox' ? `<div class="casino-history-item jackpot"><span>${play.mysteryBox?.icon || '🎁'}</span><p><strong>${escapeHtml(play.mysteryBox?.name || 'Baú misterioso')}</strong><small>${source} · aposta ${play.bet} devolvida · baú enviado ao perfil</small></p></div>` : `<div class="casino-history-item ${play.net > 0 ? 'win' : play.net < 0 ? 'loss' : 'draw'}"><span>${play.net > 0 ? '🚀' : play.net < 0 ? '🕳️' : '🛸'}</span><p><strong>x${String(play.multiplier).replace('.', ',')}</strong><small>${source} · aposta ${play.bet} · retorno ${play.payout} · saldo ${play.net > 0 ? '+' : ''}${play.net}</small></p></div>`; }).join('') : '<p class="casino-empty">Sua primeira jogada aparecerá aqui.</p>';
   drawCasinoWheel();
 }
 
@@ -978,31 +981,51 @@ function drawCasinoWheel() {
   context.clearRect(0, 0, size, size); context.save(); context.translate(radius, radius);
   casinoWheelValues.forEach((value, index) => {
     const start = -Math.PI / 2 + index * step; const end = start + step;
-    context.beginPath(); context.moveTo(0, 0); context.arc(0, 0, radius - 7, start, end); context.closePath(); context.fillStyle = value === 'area51' ? '#d39b27' : colors[index % colors.length]; context.fill(); context.strokeStyle = '#fff9'; context.lineWidth = 1.5; context.stroke();
-    context.save(); context.rotate(start + step / 2); context.translate(radius * .73, 0); context.rotate(Math.PI / 2); context.fillStyle = '#fff'; context.font = value === 'area51' ? '900 14px Segoe UI' : '900 10px Segoe UI'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillText(value === 'area51' ? '🛸' : 'x' + String(value).replace('.', ','), 0, 0); context.restore();
+    const isBox = typeof value === 'string' && value.startsWith('box-');
+    const boxColors = { 'box-sonda': '#3c90bb', 'box-cosmic': '#895dc4', 'box-area51': '#d39b27' };
+    const boxIcons = { 'box-sonda': '📦', 'box-cosmic': '🎁', 'box-area51': '🛸' };
+    context.beginPath(); context.moveTo(0, 0); context.arc(0, 0, radius - 7, start, end); context.closePath(); context.fillStyle = isBox ? boxColors[value] : colors[index % colors.length]; context.fill(); context.strokeStyle = '#fff9'; context.lineWidth = 1.5; context.stroke();
+    context.save(); context.rotate(start + step / 2); context.translate(radius * .73, 0); context.rotate(Math.PI / 2); context.fillStyle = '#fff'; context.font = isBox ? '900 14px Segoe UI' : '900 10px Segoe UI'; context.textAlign = 'center'; context.textBaseline = 'middle'; context.fillText(isBox ? boxIcons[value] : 'x' + String(value).replace('.', ','), 0, 0); context.restore();
   });
   context.beginPath(); context.arc(0, 0, radius * .25, 0, Math.PI * 2); context.fillStyle = '#101a2d'; context.fill(); context.strokeStyle = '#ffe083'; context.lineWidth = 6; context.stroke(); context.restore();
 }
 
-function animateCasinoWheel(segmentIndex, multiplier) {
-  const wheel = $('#casinoWheel'); const matches = casinoWheelValues.map((value, index) => value === multiplier ? index : -1).filter((index) => index >= 0);
+function animateCasinoWheel(segmentIndex, wheelValue) {
+  const wheel = $('#casinoWheel'); const matches = casinoWheelValues.map((value, index) => value === wheelValue ? index : -1).filter((index) => index >= 0);
   const index = Number.isInteger(segmentIndex) && segmentIndex >= 0 && segmentIndex < casinoWheelValues.length ? segmentIndex : (matches[Math.floor(Math.random() * matches.length)] ?? 0); const step = 360 / casinoWheelValues.length;
-  const desired = 360 - (index * step + step / 2); casinoWheelRotation += 360 * 6 + ((desired - casinoWheelRotation) % 360 + 360) % 360;
+  const desired = 360 - (index * step + step / 2); casinoWheelRotation += 360 * 7 + ((desired - casinoWheelRotation) % 360 + 360) % 360;
+  wheel.style.transition = 'transform 5.2s cubic-bezier(.08,.72,.04,1)';
   wheel.style.transform = `rotate(${casinoWheelRotation}deg)`;
-  return new Promise((resolve) => setTimeout(resolve, 3650));
+  return new Promise((resolve) => setTimeout(resolve, 5300));
+}
+
+function beginCasinoWheelSpin() {
+  const wheel = $('#casinoWheel');
+  wheel.style.transition = 'transform 1.4s cubic-bezier(.18,.62,.42,1)';
+  casinoWheelRotation += 360 * 3;
+  requestAnimationFrame(() => { wheel.style.transform = `rotate(${casinoWheelRotation}deg)`; });
 }
 
 async function showMysteryOpening(boxName, reward) {
-  const dialog = $('#mysteryOpeningDialog'); const track = $('#mysteryCarouselTrack'); const result = $('#mysteryOpeningResult');
+  const dialog = $('#mysteryOpeningDialog'); const track = $('#mysteryCarouselTrack'); const result = $('#mysteryOpeningResult'); const decision = $('#mysteryOpeningDecision');
   const prizes = (appState?.profile?.shop || []).filter((item) => !item.mysteryBox && !item.service && !item.adminOnly);
   if (!dialog?.showModal || !prizes.length) return;
-  mysteryOpeningInProgress = true; $('#mysteryOpeningTitle').textContent = boxName; result.classList.remove('revealed'); result.innerHTML = '<span>🛸</span><strong>Aguarde o carrossel parar</strong>';
-  const winningIndex = 20; const entries = Array.from({ length: 25 }, (_, index) => index === winningIndex ? reward : prizes[Math.floor(Math.random() * prizes.length)]);
-  track.innerHTML = entries.map((item, index) => `<article${index === winningIndex ? ' class="winner"' : ''}><span>${item.icon || '🎁'}</span><strong>${escapeHtml(item.name || 'Prêmio secreto')}</strong></article>`).join('');
+  mysteryOpeningInProgress = true; $('#mysteryOpeningTitle').textContent = boxName; result.classList.remove('revealed'); result.innerHTML = '<span>🛸</span><strong>Aguarde o carrossel parar</strong>'; setBusy(decision, false); decision.classList.add('hidden');
+  const winningIndex = 31; const entries = Array.from({ length: 36 }, (_, index) => index === winningIndex ? reward : prizes[Math.floor(Math.random() * prizes.length)]);
+  track.innerHTML = entries.map((item) => `<article><span>${item.icon || '🎁'}</span><strong>${escapeHtml(item.name || 'Prêmio secreto')}</strong></article>`).join('');
   track.style.transition = 'none'; track.style.transform = 'translateX(0)'; dialog.showModal(); await new Promise((resolve) => setTimeout(resolve, 80));
   const itemWidth = 124; const target = $('#mysteryCarouselViewport').clientWidth / 2 - (winningIndex * itemWidth + itemWidth / 2);
-  track.style.transition = 'transform 4.2s cubic-bezier(.08,.72,.06,1)'; track.style.transform = `translateX(${target}px)`; await new Promise((resolve) => setTimeout(resolve, 4300));
-  result.innerHTML = `<span>${reward.icon || '🎁'}</span><strong>Você recebeu ${escapeHtml(reward.name || 'um prêmio secreto')}!</strong>`; result.classList.add('revealed'); await new Promise((resolve) => setTimeout(resolve, 1500)); dialog.close(); mysteryOpeningInProgress = false;
+  track.style.transition = 'transform 7.2s cubic-bezier(.04,.78,.04,1)'; track.style.transform = `translateX(${target}px)`; await new Promise((resolve) => setTimeout(resolve, 7300));
+  track.children[winningIndex]?.classList.add('winner');
+  result.innerHTML = `<span>${reward.icon || '🎁'}</span><strong>Você recebeu ${escapeHtml(reward.name || 'um prêmio secreto')}!</strong>`; result.classList.add('revealed');
+  if (!reward.purchaseId) { await new Promise((resolve) => setTimeout(resolve, 2200)); dialog.close(); mysteryOpeningInProgress = false; return null; }
+  $('#sellMysteryReward').textContent = `Vender agora por ${Number(reward.sellPrice || 0).toLocaleString('pt-BR')} créditos`;
+  decision.classList.remove('hidden');
+  const finalState = await new Promise((resolve) => {
+    $('#keepMysteryReward').onclick = async () => { setBusy(decision, true); try { resolve(await api('/api/mystery-rewards/keep', { method: 'POST', body: { purchaseId: reward.purchaseId } })); } catch (error) { showToast(error.message, 'error'); setBusy(decision, false); } };
+    $('#sellMysteryReward').onclick = async () => { setBusy(decision, true); try { const data = await api('/api/mystery-rewards/sell', { method: 'POST', body: { purchaseId: reward.purchaseId } }); showToast(`${data.soldReward.name} vendido por ${Number(data.soldReward.amount).toLocaleString('pt-BR')} créditos.`); resolve(data); } catch (error) { showToast(error.message, 'error'); setBusy(decision, false); } };
+  });
+  dialog.close(); decision.classList.add('hidden'); mysteryOpeningInProgress = false; return finalState;
 }
 
 function renderRoundSummary() {
@@ -1293,6 +1316,9 @@ function shopVisualPreview(item) {
     if (item.value === 'biblia') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-biblia.svg" alt="Seta Bíblia"><b>Seta Bíblia Sagrada</b></span></div>';
     if (item.value === 'scrum-master') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-scrum-master.svg?v=2" alt="Seta Scrum Master"><b>Seta Planilha Scrum</b></span></div>';
     if (item.value === 'energetico') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-energetico.svg?v=2" alt="Seta Energético"><b>Latinha Energética</b></span></div>';
+    if (item.value === 'laser') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-laser.svg" alt="Cursor Laser Alienígena"><b>Laser Alienígena</b></span></div>';
+    if (item.value === 'rocket') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-rocket.svg" alt="Cursor Foguete 51"><b>Foguete 51</b></span></div>';
+    if (item.value === 'alien') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-alien.svg" alt="Cursor Agente ET"><b>Agente ET</b></span></div>';
     return '<div class="shop-visual-preview cursor-preview cursor-preview-horn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-arrow-cursor.png" alt="Seta de mouse arco-íris em formato de chifre"> <b>Seta Unicórnio</b></span></div>';
   }
   if (item.type === 'trailStyle') return `<div class="shop-visual-preview trail-preview trail-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO RASTRO</small><span><i></i><b>${item.value === 'fruit' ? '🍉 🍊 🍓' : '🦄'}</b></span></div>`;
@@ -1304,9 +1330,9 @@ function shopVisualPreview(item) {
 }
 
 function setPreviewCursor(value) {
-  const classes = ['unicorn-cursor-active', 'horn-cursor-active', 'medicine-cursor-active', 'anvisa-cursor-active', 'commander-cursor-active', 'gay-power-cursor-active', 'black-hen-cursor-active', 'volleyball-cursor-active', 'bible-cursor-active', 'scrum-cursor-active', 'energy-cursor-active'];
+  const classes = ['unicorn-cursor-active', 'horn-cursor-active', 'medicine-cursor-active', 'anvisa-cursor-active', 'commander-cursor-active', 'gay-power-cursor-active', 'black-hen-cursor-active', 'volleyball-cursor-active', 'bible-cursor-active', 'scrum-cursor-active', 'energy-cursor-active', 'laser-cursor-active', 'rocket-cursor-active', 'alien-cursor-active'];
   classes.forEach((name) => document.documentElement.classList.remove(name));
-  const classByValue = { unicorn: 'unicorn-cursor-active', horn: 'horn-cursor-active', dipirona: 'medicine-cursor-active', anvisa: 'anvisa-cursor-active', gay: 'gay-power-cursor-active', commander: 'commander-cursor-active', 'galinha-preta': 'black-hen-cursor-active', volei: 'volleyball-cursor-active', biblia: 'bible-cursor-active', 'scrum-master': 'scrum-cursor-active', energetico: 'energy-cursor-active' };
+  const classByValue = { unicorn: 'unicorn-cursor-active', horn: 'horn-cursor-active', dipirona: 'medicine-cursor-active', anvisa: 'anvisa-cursor-active', gay: 'gay-power-cursor-active', commander: 'commander-cursor-active', 'galinha-preta': 'black-hen-cursor-active', volei: 'volleyball-cursor-active', biblia: 'bible-cursor-active', 'scrum-master': 'scrum-cursor-active', energetico: 'energy-cursor-active', laser: 'laser-cursor-active', rocket: 'rocket-cursor-active', alien: 'alien-cursor-active' };
   if (classByValue[value]) document.documentElement.classList.add(classByValue[value]);
 }
 
@@ -1315,10 +1341,10 @@ function applyShopPreviewVisual(item) {
   if (item.type === 'siteTheme') {
     document.body.classList.add('shop-theme-preview-active');
     document.body.dataset.previewTheme = item.value;
-    ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse'].forEach((value) => document.body.classList.toggle('profile-theme-' + value, value === item.value));
+    ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars'].forEach((value) => document.body.classList.toggle('profile-theme-' + value, value === item.value));
   } else if (item.type === 'cursorStyle') {
     setPreviewCursor(item.value);
-    document.body.dataset.trailStyle = 'none';
+    document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : 'none';
     document.body.dataset.cursorEffect = ['galinha-preta', 'volei', 'biblia', 'scrum-master', 'energetico'].includes(item.value) ? item.value : '';
   }
   else if (item.type === 'trailStyle') document.body.dataset.trailStyle = item.value;
@@ -1391,7 +1417,9 @@ function renderProfileEconomy(profile = {}) {
   document.body.classList.toggle('profile-theme-retro', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'retro'));
   document.body.classList.toggle('profile-theme-matrix', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'matrix'));
   document.body.classList.toggle('profile-theme-eclipse', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'eclipse'));
-  document.body.dataset.trailStyle = trailItem ? trailItem.value : 'none';
+  document.body.classList.toggle('profile-theme-aurora', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'aurora'));
+  document.body.classList.toggle('profile-theme-mars', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'mars'));
+  document.body.dataset.trailStyle = trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(cursorItem?.value) ? cursorItem.value : 'none');
   document.body.dataset.cursorEffect = !trailItem && ['galinha-preta', 'volei', 'biblia', 'scrum-master', 'energetico'].includes(cursorItem?.value) ? cursorItem.value : '';
   document.documentElement.classList.toggle('unicorn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'unicorn'));
   document.documentElement.classList.toggle('horn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'horn'));
@@ -1403,6 +1431,9 @@ function renderProfileEconomy(profile = {}) {
   document.documentElement.classList.toggle('bible-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'biblia'));
   document.documentElement.classList.toggle('scrum-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'scrum-master'));
   document.documentElement.classList.toggle('energy-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'energetico'));
+  document.documentElement.classList.toggle('laser-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'laser'));
+  document.documentElement.classList.toggle('rocket-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'rocket'));
+  document.documentElement.classList.toggle('alien-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'alien'));
   document.documentElement.classList.toggle('gay-power-cursor-active', Boolean(forcedGayCursor || (cursorItem && cursorItem.value === 'gay')));
   document.body.classList.toggle('forced-gay-cursor-mode', forcedGayCursor);
   const cursorVisual = $('.unicorn-mouse-cursor>span');
@@ -1411,6 +1442,7 @@ function renderProfileEconomy(profile = {}) {
     cursorVisual.innerHTML = '<img src="/unicorn-cursor-full-v2.png" alt="">';
   }
   $('#profileWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
+  $('#shopPageWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
   renderAvatar($('#profileAvatar'), appState.me.avatarDataUrl, initials(appState.me.displayName));
   $('#profileDisplayName').textContent = formatDisplayName(appState.me.displayName);
   $('#profileEquippedTitle').textContent = liveTitles.length ? liveTitles.map((item) => item.icon + ' ' + item.name).join(' · ') : titleItem ? titleItem.value : 'Tripulante da Área 51';
@@ -1444,6 +1476,12 @@ function renderProfileEconomy(profile = {}) {
   (powers.recentUses || []).forEach((entry) => powerRows.push([entry.icon, entry.name, (entry.detail ? entry.detail + ' · ' : '') + formatDate(entry.usedAt), false]));
   $('#activePowersCard').classList.toggle('hidden', powerRows.length === 0);
   $('#activePowersList').innerHTML = powerRows.map(([icon, title, detail, active, cancelId]) => `<div class="active-power-row${active ? ' is-active' : ''}"><span>${icon}</span><p><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></p>${cancelId ? `<button type="button" data-cancel-power="${cancelId}">Cancelar</button>` : active ? '<b>ATIVO</b>' : '<b>USADO</b>'}</div>`).join('');
+  const mysteryBoxes = Array.isArray(profile.mysteryBoxes) ? profile.mysteryBoxes : [];
+  const mysteryRewards = Array.isArray(profile.mysteryRewards) ? profile.mysteryRewards : [];
+  $('#mysteryInventoryCard').classList.toggle('hidden', mysteryBoxes.length + mysteryRewards.length === 0);
+  $('#mysteryInventoryCount').textContent = (mysteryBoxes.length + mysteryRewards.length) + ((mysteryBoxes.length + mysteryRewards.length) === 1 ? ' item' : ' itens');
+  $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel = box.source === 'casino' ? 'Ganho na Roleta 51' : box.source === 'feature-gift-v108' ? 'Brinde das novas funcionalidades' : 'Comprado na Loja 51'; return `<article class="mystery-inventory-item mystery-${escapeHtml(box.tier)}"><span>${box.icon || '🎁'}</span><p><strong>${escapeHtml(box.name)}</strong><small>${sourceLabel} · ${escapeHtml(formatDate(box.acquiredAt))}</small></p><div><button type="button" data-box-open="${escapeHtml(box.id)}" data-box-name="${escapeHtml(box.name)}">Abrir</button><button type="button" data-box-sell="${escapeHtml(box.id)}" data-box-name="${escapeHtml(box.name)}" data-box-price="${Number(box.sellPrice || 0)}">Vender por ${Number(box.sellPrice || 0).toLocaleString('pt-BR')}</button></div></article>`; }).join('');
+  $('#mysteryRewardInventory').innerHTML = mysteryRewards.length ? '<h4>Decisão pendente</h4>' + mysteryRewards.map((reward) => `<article class="mystery-reward-item"><span>${reward.icon || '🎁'}</span><p><strong>${escapeHtml(reward.name)}</strong><small>Você ainda não usou este prêmio.</small></p><div><button type="button" data-reward-keep="${escapeHtml(reward.purchaseId)}">Ficar</button><button type="button" data-reward-sell="${escapeHtml(reward.purchaseId)}" data-reward-name="${escapeHtml(reward.name)}" data-reward-price="${Number(reward.sellPrice || 0)}">Vender por ${Number(reward.sellPrice || 0).toLocaleString('pt-BR')}</button></div></article>`).join('') : '';
   const mission = profile.mission || { progress: 0, target: 1, reward: 0 };
   const missionPercent = Math.min(100, Math.round(Number(mission.progress || 0) / Math.max(1, Number(mission.target || 1)) * 100));
   $('#missionIcon').textContent = mission.icon || '🛸';
@@ -1495,11 +1533,12 @@ function renderProfileEconomy(profile = {}) {
   const orderedShop = [...shop].sort((a, b) => shopPriority(a) - shopPriority(b));
   $('#shopCatalog').innerHTML = orderedShop.map((item) => {
     const category = item.mysteryBox ? 'box' : item.type === 'cursorStyle' ? 'cursor' : item.type === 'trailStyle' ? 'trail' : item.type === 'siteTheme' ? 'theme' : item.type === 'power' ? 'power' : 'profile';
-    const filteredOut = shopFilter === 'owned' ? !item.owned : shopFilter !== 'all' && shopFilter !== category;
+    const isOwnedVisual = item.owned && !item.consumable && !item.mysteryBox && !item.service;
+    const filteredOut = (shopFilter !== 'all' && shopFilter !== category) || (hideOwnedVisuals && isOwnedVisual);
     const label = item.service ? 'TROCA DE CONQUISTA' : item.mysteryBox ? 'CAIXA MISTERIOSA' : item.type === 'title' ? 'TÍTULO' : item.type === 'frame' ? 'MOLDURA' : item.type === 'nameStyle' ? 'ESTILO DO NOME' : item.type === 'siteTheme' ? 'TEMA VISUAL' : item.type === 'cursorStyle' ? 'SKIN DO CURSOR' : item.type === 'trailStyle' ? 'RASTRO DO CURSOR' : 'PODER CONSUMÍVEL';
-    const action = item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Abrir caixa' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
-    const shopAction = item.service ? 'sell-best-win' : item.mysteryBox ? 'mystery' : item.consumable ? (item.quantity > 0 ? 'use' : 'purchase') : item.owned ? 'equip' : 'purchase';
-    const status = item.service ? '🏆 ' + Number(item.availablePoints || 0) + ' disponível · receba 500 créditos' : item.mysteryBox ? '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos' : item.granted ? (item.equipped ? '★ Cursor oficial em uso' : '★ Concedido ao administrador') : item.consumable && item.quantity > 0 ? '🎟️ ' + item.quantity + ' disponível' : item.equipped ? (item.type === 'siteTheme' ? '✓ Tema aplicado em todo o site' : '● Em uso') : item.owned ? '✓ Na sua coleção' : '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos';
+    const action = item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Comprar fechada' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
+    const shopAction = item.service ? 'sell-best-win' : item.mysteryBox ? 'mystery-purchase' : item.consumable ? (item.quantity > 0 ? 'use' : 'purchase') : item.owned ? 'equip' : 'purchase';
+    const status = item.service ? '🏆 ' + Number(item.availablePoints || 0) + ' disponível · receba 500 créditos' : item.mysteryBox ? (Number(item.quantity || 0) ? '🎁 ' + item.quantity + ' fechado' + (Number(item.quantity) === 1 ? '' : 's') + ' no perfil · ' : '') + '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos' : item.granted ? (item.equipped ? '★ Cursor oficial em uso' : '★ Concedido ao administrador') : item.consumable && item.quantity > 0 ? '🎟️ ' + item.quantity + ' disponível' : item.equipped ? (item.type === 'siteTheme' ? '✓ Tema aplicado em todo o site' : '● Em uso') : item.owned ? '✓ Na sua coleção' : '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos';
     const themeConfirmation = item.type === 'siteTheme' && item.equipped ? '<div class="theme-applied-confirmation"><span>✓</span><strong>ESTE TEMA ESTÁ ATIVO</strong><small>Você está vendo este visual em todo o site agora.</small></div>' : '';
     const previewButton = item.service || item.consumable || item.mysteryBox ? '' : `<button class="shop-test-button" type="button" data-shop-preview="${escapeHtml(item.id)}" data-preview-type="${escapeHtml(item.type)}" data-preview-value="${escapeHtml(item.value)}">Testar 20s</button>`;
     const freeVisualTypes = ['title', 'frame', 'nameStyle', 'siteTheme', 'cursorStyle', 'trailStyle'];
@@ -1508,6 +1547,13 @@ function renderProfileEconomy(profile = {}) {
     const featuredPower = item.id === 'power-force-gay-cursor';
     return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}">${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}<span class="shop-item-icon">${item.icon}</span><div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong><span class="shop-card-actions">${previewButton}${freeButton}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-equipped="${item.equipped}"${item.service && Number(item.availablePoints || 0) < 1 ? ' disabled' : ''}>${action}</button></span></footer></article>`;
   }).join('');
+  const collectionCatalog = $('#collectionCatalog');
+  collectionCatalog.innerHTML = '';
+  $$('.shop-item.owned:not(.consumable):not(.mystery-box):not(.shop-service)', $('#shopCatalog')).forEach((card) => {
+    const clone = card.cloneNode(true); clone.classList.remove('hidden'); collectionCatalog.appendChild(clone);
+  });
+  $('#collectionEmpty').classList.toggle('hidden', collectionCatalog.children.length > 0);
+  $('#hideOwnedVisuals').checked = hideOwnedVisuals;
   if (shopPreviewItemId) applyShopPreviewVisual(shop.find((item) => item.id === shopPreviewItemId));
 }
 
@@ -1524,6 +1570,9 @@ function renderAdmin() {
   $('#scheduleSubmissions').value = schedule.submissionsAt || '';
   $('#scheduleDraw').value = schedule.drawAt || '';
   $('#scheduleVote').value = schedule.voteAt || '';
+  const announcement = appState.announcement;
+  $('#announcementStatus').textContent = announcement ? `Publicado por ${announcement.createdBy} · ${Number(announcement.seenCount || 0)} visualizações` : 'Nenhum aviso publicado.';
+  $('#clearAnnouncementButton').disabled = !announcement;
   const users = appState.adminUsers || [];
   $('#adminUserCount').textContent = users.length + ' contas';
   $('#adminUsers').innerHTML = users.map((user) =>
@@ -1585,6 +1634,23 @@ function renderAdmin() {
     stageRow('Votação', 4, progress.missingVotes, 'Aguardando o sorteio especial');
 }
 
+function renderAnnouncement(announcement) {
+  const dialog = $('#announcementDialog');
+  if (!announcement || !announcement.unread || dialog.dataset.announcementId === announcement.id) return;
+  dialog.dataset.announcementId = announcement.id;
+  $('#announcementDialogTitle').textContent = announcement.title;
+  $('#announcementDialogMessage').textContent = announcement.message;
+  if (!dialog.open) dialog.showModal();
+}
+
+async function acknowledgeAnnouncement() {
+  const dialog = $('#announcementDialog'); const id = dialog.dataset.announcementId;
+  if (dialog.open) dialog.close();
+  if (!id) return;
+  try { applyState(await api('/api/announcement/seen', { method: 'POST', body: { id } })); }
+  catch (error) { showToast(error.message, 'error'); }
+}
+
 function applyState(data) {
   const previousPhase = appState && appState.workflow ? appState.workflow.phase : null;
   const incomingReleaseVersion = Math.max(0, Number(data.settings?.releaseVersion || 0));
@@ -1636,7 +1702,7 @@ function applyState(data) {
       noteText.textContent = 'Escolham com calma: não existe prazo automático e o tema “' + data.workflow.currentTheme + '” fica mantido até a distribuição.';
     }
   }
-  renderWorkflow(); renderNotifications(); renderCasino(data.casino); renderRoundSummary(); renderGallery(); renderAssignments(); renderDraws(); renderDailyWall(data.dailyWall); renderAnonymousWall(data.anonymousWall); renderHydration(data.hydration); renderLieMeter(data.lieMeter); renderProfileEconomy(data.profile); renderAdmin(); renderVoting(); renderRankings(); renderSeason(data.season); drawWheel();
+  renderWorkflow(); renderNotifications(); renderCasino(data.casino); renderRoundSummary(); renderGallery(); renderAssignments(); renderDraws(); renderDailyWall(data.dailyWall); renderAnonymousWall(data.anonymousWall); renderHydration(data.hydration); renderLieMeter(data.lieMeter); renderProfileEconomy(data.profile); renderAdmin(); renderVoting(); renderRankings(); renderSeason(data.season); renderAnnouncement(data.announcement); drawWheel();
   const canUpload = Boolean(data.meCanUpload);
   $$('input,button', $('#uploadForm')).forEach((control) => { control.disabled = !canUpload; });
   const uploadLock = $('#uploadLock');
@@ -2084,19 +2150,9 @@ $('#adminAssistedUploadForm').addEventListener('submit', async (event) => {
   finally { setBusy(form, false); }
 });
 
-const launchFlyerDialog = $('#launchFlyerDialog');
-function openLaunchFlyer() {
-  if (typeof launchFlyerDialog.showModal === 'function') launchFlyerDialog.showModal();
-  else launchFlyerDialog.setAttribute('open', '');
-}
-function closeLaunchFlyer() {
-  if (typeof launchFlyerDialog.close === 'function') launchFlyerDialog.close();
-  else launchFlyerDialog.removeAttribute('open');
-}
-$('#launchFlyerCard').addEventListener('click', openLaunchFlyer);
-$('#closeLaunchFlyer').addEventListener('click', closeLaunchFlyer);
-$('#continueLaunchFlyer').addEventListener('click', closeLaunchFlyer);
-launchFlyerDialog.addEventListener('click', (event) => { if (event.target === launchFlyerDialog) closeLaunchFlyer(); });
+$('#closeAnnouncement').addEventListener('click', acknowledgeAnnouncement);
+$('#acknowledgeAnnouncement').addEventListener('click', acknowledgeAnnouncement);
+$('#announcementDialog').addEventListener('cancel', (event) => { event.preventDefault(); acknowledgeAnnouncement(); });
 
 $('#gallery').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-delete-upload]');
@@ -2291,14 +2347,16 @@ $('#waterReminderGo').addEventListener('click', () => {
 $('#waterReminderDialog').addEventListener('click', (event) => { if (event.target === $('#waterReminderDialog')) closeWaterReminder(); });
 
 $('#casinoForm').addEventListener('submit', async (event) => {
-  event.preventDefault(); const form = event.currentTarget; const bet = Number($('#casinoBet').value);
-  if (!Number.isInteger(bet) || bet < 10 || bet > 100 || bet % 10 !== 0) { showToast('Aposte de 10 a 100 créditos, em dezenas.', 'error'); return; }
+  event.preventDefault(); const form = event.currentTarget; const bet = Number($('#casinoBet').value); const walletSource = $('#casinoWalletSource').value;
+  if (!Number.isInteger(bet) || bet < 1 || bet > 100) { showToast('Aposte um valor inteiro de 1 a 100 créditos.', 'error'); return; }
   casinoSpinInProgress = true; setBusy(form, true); $('#casinoResult').textContent = 'A roleta está girando… o resultado será revelado quando ela parar.';
   try {
-    const data = await api('/api/casino/play', { method: 'POST', body: { bet } });
-    const result = data.casinoResult; await animateCasinoWheel(result.segmentIndex, result.multiplier); casinoSpinInProgress = false; applyState(data);
+    beginCasinoWheelSpin();
+    await new Promise((resolve) => setTimeout(resolve, 650));
+    const data = await api('/api/casino/play', { method: 'POST', body: { bet, walletSource } });
+    const result = data.casinoResult; await animateCasinoWheel(result.segmentIndex, result.wheelValue ?? result.multiplier); casinoSpinInProgress = false; applyState(data);
     if (result.resultType === 'mysteryBox') {
-      const message = `Cofre Secreto! Você recebeu ${result.mysteryReward?.icon || '🎁'} ${result.mysteryReward?.name || 'um prêmio premium'}!`;
+      const message = `${result.mysteryBox?.icon || '🎁'} ${result.mysteryBox?.name || 'Baú misterioso'} ganho! Sua aposta voltou e o baú está fechado no perfil.`;
       $('#casinoResult').textContent = message; showToast(message);
     } else {
       const message = result.net > 0 ? `Você ganhou ${result.net} créditos de lucro! 🚀` : result.net < 0 ? `Você perdeu ${Math.abs(result.net)} créditos. 👽` : 'Empate: seus créditos voltaram. 🛸';
@@ -2317,12 +2375,70 @@ $('#casinoCashoutButton').addEventListener('click', async () => {
 
 $('#mysteryOpeningDialog').addEventListener('cancel', (event) => event.preventDefault());
 
+$('#mysteryInventory').addEventListener('click', async (event) => {
+  const openButton = event.target.closest('[data-box-open]');
+  const sellButton = event.target.closest('[data-box-sell]');
+  const button = openButton || sellButton;
+  if (!button) return;
+  const boxName = button.dataset.boxName || 'Baú misterioso';
+  if (sellButton && !confirm(`Vender “${boxName}” fechado por ${Number(button.dataset.boxPrice || 0).toLocaleString('pt-BR')} Créditos 51?`)) return;
+  if (openButton && !confirm(`Abrir “${boxName}” agora? O prêmio será definido pela roleta e o baú será consumido.`)) return;
+  button.disabled = true;
+  try {
+    if (openButton) {
+      const data = await api('/api/mystery-boxes/open', { method: 'POST', body: { inventoryId: button.dataset.boxOpen } });
+      const decidedState = await showMysteryOpening(boxName, data.mysteryReward); applyState(decidedState || data);
+      showToast('O baú revelou: ' + data.mysteryReward.icon + ' ' + data.mysteryReward.name + '!');
+    } else {
+      const data = await api('/api/mystery-boxes/sell', { method: 'POST', body: { inventoryId: button.dataset.boxSell } });
+      applyState(data); showToast(`${data.soldBox.name} vendido por ${Number(data.soldBox.amount).toLocaleString('pt-BR')} Créditos 51. 🪙`);
+    }
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { button.disabled = false; }
+});
+
+$('#mysteryRewardInventory').addEventListener('click', async (event) => {
+  const keepButton = event.target.closest('[data-reward-keep]');
+  const sellButton = event.target.closest('[data-reward-sell]');
+  const button = keepButton || sellButton;
+  if (!button) return;
+  const name = sellButton?.dataset.rewardName || 'este prêmio';
+  if (sellButton && !confirm(`Vender “${name}” agora por ${Number(sellButton.dataset.rewardPrice || 0).toLocaleString('pt-BR')} Créditos 51? Depois não será possível recuperar o item.`)) return;
+  button.disabled = true;
+  try {
+    if (keepButton) {
+      applyState(await api('/api/mystery-rewards/keep', { method: 'POST', body: { purchaseId: keepButton.dataset.rewardKeep } }));
+      showToast('Prêmio guardado na sua coleção. Agora você já pode usá-lo.');
+    } else {
+      const data = await api('/api/mystery-rewards/sell', { method: 'POST', body: { purchaseId: sellButton.dataset.rewardSell } });
+      applyState(data); showToast(`${data.soldReward.name} vendido por ${Number(data.soldReward.amount).toLocaleString('pt-BR')} créditos.`);
+    }
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { button.disabled = false; }
+});
+
 $('#shopFilters').addEventListener('click', (event) => {
   const button = event.target.closest('[data-shop-filter]');
   if (!button) return;
   shopFilter = button.dataset.shopFilter;
   $$('[data-shop-filter]', $('#shopFilters')).forEach((item) => item.classList.toggle('active', item === button));
   renderProfileEconomy(appState.profile);
+});
+$('#hideOwnedVisuals').addEventListener('change', (event) => {
+  hideOwnedVisuals = event.currentTarget.checked;
+  localStorage.setItem('area51-hide-owned-visuals', String(hideOwnedVisuals));
+  renderProfileEconomy(appState.profile);
+});
+$('#collectionCatalog').addEventListener('click', (event) => {
+  const preview = event.target.closest('[data-shop-preview]');
+  const free = event.target.closest('[data-shop-free]');
+  const action = event.target.closest('[data-shop-action]');
+  const source = preview || free || action;
+  if (!source) return;
+  const attribute = preview ? 'data-shop-preview' : free ? 'data-shop-free' : 'data-shop-item';
+  const value = source.getAttribute(attribute);
+  const original = $('#shopCatalog').querySelector(`[${attribute}="${CSS.escape(value)}"]`);
+  if (original) original.click();
 });
 $('#giftCreditsForm').addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
@@ -2371,12 +2487,11 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       if (!confirm('Comprar este item com seus Créditos 51?')) return;
       applyState(await api('/api/shop/purchase', { method: 'POST', body: { itemId: button.dataset.shopItem } }));
       showToast(button.dataset.shopType === 'power' ? 'Poder comprado! Agora você pode usá-lo. 🎟️' : 'Item comprado e equipado! 🛍️');
-    } else if (button.dataset.shopAction === 'mystery') {
+    } else if (button.dataset.shopAction === 'mystery-purchase') {
       const itemName = button.closest('.shop-item')?.querySelector('h4')?.textContent || 'Caixa misteriosa';
-      if (!confirm('Comprar e abrir “' + itemName + '” agora?\n\nO prêmio é aleatório e será entregue imediatamente.')) return;
+      if (!confirm('Comprar “' + itemName + '” fechada?\n\nEla irá para Meus baús no perfil, onde você poderá abrir ou vender.')) return;
       const data = await api('/api/shop/purchase', { method: 'POST', body: { itemId: button.dataset.shopItem } });
-      await showMysteryOpening(itemName, data.mysteryReward); applyState(data);
-      showToast('A caixa revelou: ' + data.mysteryReward.icon + ' ' + data.mysteryReward.name + '!');
+      applyState(data); showToast(itemName + ' adicionada fechada ao seu perfil! 🎁');
     } else if (button.dataset.shopAction === 'equip') {
       const itemId = button.dataset.equipped === 'true' ? null : button.dataset.shopItem;
       applyState(await api('/api/profile/equip', { method: 'POST', body: { type: button.dataset.shopType, itemId } }));
@@ -2407,13 +2522,30 @@ $('#shopCatalog').addEventListener('click', async (event) => {
         if (!target) throw new Error('Digite exatamente um dos nomes exibidos.');
         body.targetId = target.id;
         if (!confirm('Confirmar o uso deste poder?\n\n' + target.displayName + ' usará a seta especial até esta rodada terminar.')) return;
+      } else if (button.dataset.shopValue === 'chooseWallpaper' || button.dataset.shopValue === 'assignWallpaper') {
+        const wallpapers = appState.submissions || [];
+        if (!wallpapers.length) throw new Error('Não há wallpapers disponíveis.');
+        let target = appState.me;
+        if (button.dataset.shopValue === 'assignWallpaper') {
+          const people = appState.participants || [];
+          const targetAnswer = prompt('Para quem você quer definir o wallpaper?\n\n' + people.map((person, index) => `${index + 1}. ${person.displayName}`).join('\n'));
+          const targetIndex = Number(targetAnswer) - 1;
+          if (!Number.isInteger(targetIndex) || !people[targetIndex]) return;
+          target = people[targetIndex]; body.targetId = target.id;
+        }
+        const eligible = appState.submissions || [];
+        const answer = prompt(`Escolha anonimamente o wallpaper que ${button.dataset.shopValue === 'chooseWallpaper' ? 'você receberá' : target.displayName + ' receberá'}:\n\n` + eligible.map((item, index) => `${index + 1}. ${item.title || 'Wallpaper ' + (index + 1)}`).join('\n') + '\n\nDigite o número:');
+        const selected = eligible[Number(answer) - 1];
+        if (!selected) return;
+        body.submissionId = selected.id;
+        if (!confirm(`Confirmar “${selected.title || 'Wallpaper escolhido'}” para ${button.dataset.shopValue === 'chooseWallpaper' ? 'você' : target.displayName}?\n\nA autoria continuará secreta e o poder será consumido.`)) return;
       } else if (button.dataset.shopValue === 'revealAuthor') {
         const wallpapers = (appState.submissions || []).filter((item) => !item.revealed && !item.isMine);
         if (!wallpapers.length) throw new Error('Não há wallpapers secretos disponíveis para revelar.');
         if (!confirm('Usar o Raio-X Total para revelar quem enviou todos os ' + wallpapers.length + ' wallpapers secretos desta rodada? Somente você verá os nomes.')) return;
       } else if (!confirm('Ativar o Escudo da Rodada agora?')) return;
       applyState(await api('/api/powers/use', { method: 'POST', body }));
-      showToast(button.dataset.shopValue === 'chooseTheme' ? 'Tema escolhido e rodada aberta sem sorteio! 🎨' : button.dataset.shopValue === 'chooseGay' ? 'Escolha reservada para o sorteio especial. 👑' : button.dataset.shopValue === 'forceGayCursor' ? 'Seta compulsória aplicada durante esta rodada! 🌈' : button.dataset.shopValue === 'revealAuthor' ? 'Todos os autores foram revelados somente para você. 🔎' : 'Escudo ativado nesta rodada! 🛡️');
+      showToast(button.dataset.shopValue === 'chooseTheme' ? 'Tema escolhido e rodada aberta sem sorteio! 🎨' : button.dataset.shopValue === 'chooseGay' ? 'Escolha reservada para o sorteio especial. 👑' : button.dataset.shopValue === 'forceGayCursor' ? 'Seta compulsória aplicada durante esta rodada! 🌈' : button.dataset.shopValue === 'chooseWallpaper' ? 'Seu wallpaper foi reservado anonimamente! 🖼️' : button.dataset.shopValue === 'assignWallpaper' ? 'Wallpaper do participante reservado anonimamente! 🎯' : button.dataset.shopValue === 'revealAuthor' ? 'Todos os autores foram revelados somente para você. 🔎' : 'Escudo ativado nesta rodada! 🛡️');
     }
   } catch (error) { showToast(error.message, 'error'); }
   finally { button.disabled = false; }
@@ -2466,6 +2598,19 @@ $('#releaseUpdateButton').addEventListener('click', async () => {
     applyState(await api('/api/admin/release-update', { method: 'POST' }));
     showToast('Atualização liberada para toda a equipe! 🚀');
   } catch (error) { showToast(error.message, 'error'); }
+});
+$('#announcementForm').addEventListener('submit', async (event) => {
+  event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
+  try {
+    applyState(await api('/api/admin/announcement', { method: 'POST', body: { title: $('#announcementTitle').value, message: $('#announcementMessage').value } }));
+    form.reset(); showToast('Novo aviso publicado para toda a equipe! 📢');
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { setBusy(form, false); }
+});
+$('#clearAnnouncementButton').addEventListener('click', async () => {
+  if (!confirm('Remover o aviso atual? Quem ainda não visualizou deixará de recebê-lo.')) return;
+  try { applyState(await api('/api/admin/announcement', { method: 'DELETE' })); showToast('Aviso removido.'); }
+  catch (error) { showToast(error.message, 'error'); }
 });
 
 $('#settingsForm').addEventListener('submit', async (event) => {
@@ -2602,6 +2747,14 @@ $('#clearHistoryButton').addEventListener('click', async () => {
   try {
     applyState(await api('/api/admin/clear-history', { method: 'POST' }));
     showToast('Histórico apagado. O sistema está pronto para uma nova rodada!');
+  } catch (error) { showToast(error.message, 'error'); }
+});
+
+$('#clearLiesButton').addEventListener('click', async () => {
+  if (!confirm('Zerar todas as mentiras confirmadas e apagar também as solicitações pendentes e recusadas? Esta ação não pode ser desfeita.')) return;
+  try {
+    applyState(await api('/api/admin/clear-lies', { method: 'POST' }));
+    showToast('Contador de mentiras limpo com sucesso.');
   } catch (error) { showToast(error.message, 'error'); }
 });
 
@@ -2828,4 +2981,4 @@ setInterval(async () => {
     if (sync.liveDraw) receiveLiveDraw(sync.liveDraw);
     if (Number(sync.revision) !== Number(appState.serverRevision)) applyState(await api('/api/state'));
   } catch {}
-}, 1000);
+}, 15000);

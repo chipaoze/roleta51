@@ -6,7 +6,9 @@
   <meta name="theme-color" content="#10284a">
   <meta name="description" content="Área 51 — portal interno para sorteio semanal de wallpapers e Gay da Rodada.">
   <title>Área 51</title>
-  <link rel="stylesheet" href="/styles.css?v=20260831-105">
+  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="shortcut icon" href="/favicon.svg?v=2">
+  <link rel="stylesheet" href="/styles.css?v=20260901-115">
   <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
@@ -135,7 +137,8 @@
         <a href="?pagina=anonimos" data-page="anonimos"><span>🕵️</span><p><strong>Elogios / Denúncias</strong><small>Publicações anônimas</small></p></a>
         <a href="?pagina=agua" data-page="agua"><span>💧</span><p><strong>Água</strong><small>Controle diário de hidratação</small></p></a>
         <a href="?pagina=mentirometro" data-page="mentirometro"><span>🤥</span><p><strong>Mentirômetro</strong><small>Marcações e classificação</small></p></a>
-        <a href="?pagina=perfil" data-page="perfil"><span>🛍️</span><p><strong>Perfil & Loja</strong><small>Créditos, skins e conquistas</small></p></a>
+        <a href="?pagina=perfil" data-page="perfil"><span>👤</span><p><strong>Meu Perfil</strong><small>Baús, coleção e conquistas</small></p></a>
+        <a href="?pagina=loja" data-page="loja"><span>🛍️</span><p><strong>Loja 51</strong><small>Visuais, poderes e presentes</small></p></a>
         <a href="?pagina=cassino" data-page="cassino"><span>🎰</span><p><strong>Cassino 51</strong><small>Apostas controladas e caixas</small></p></a>
         <a href="?pagina=historico" data-page="historico"><span>🏆</span><p><strong>Histórico</strong><small>Vencedores anteriores</small></p></a>
         <a href="?pagina=classificacao" data-page="classificacao"><span>📊</span><p><strong>Classificação</strong><small>Placares da equipe</small></p></a>
@@ -180,11 +183,6 @@
         <span data-workflow-step="gay"><i>4</i>Gay da Rodada</span>
         <span data-workflow-step="voting"><i>5</i>Votação</span>
       </div>
-      <button id="launchFlyerCard" class="launch-flyer-card" type="button" aria-label="Abrir flyer de inauguração">
-        <img src="/inauguracao-area51.png" alt="Flyer Área 51 está no ar">
-        <span><small>INAUGURAÇÃO OFICIAL</small><strong>A Área 51 está no ar! 🚀</strong><em>Confira tudo o que já está disponível para a tripulação.</em></span>
-        <b>Ver flyer completo ↗</b>
-      </button>
       <div class="draw-layout">
         <div class="wheel-panel card">
           <div class="mode-switch" role="tablist">
@@ -392,17 +390,17 @@
     </section>
 
     <section id="cassino" class="section casino-section">
-      <div class="section-heading split-heading"><div><span class="eyebrow">DIVERSÃO INTERGALÁCTICA</span><h2>Cassino <em>51</em></h2></div><p>Todos recebem 250 créditos promocionais por dia. Alcance 500 para liberar o lucro na Loja 51.</p></div>
+      <div class="section-heading split-heading"><div><span class="eyebrow">DIVERSÃO INTERGALÁCTICA</span><h2>Cassino <em>51</em></h2></div><p>Todos recebem 250 créditos promocionais por dia. Baús ganhos preservam a aposta e ficam fechados no perfil.</p></div>
       <div class="casino-layout">
-        <article class="card casino-machine"><small>ROLETA DE CRÉDITOS</small><h3>Tente multiplicar sua aposta</h3><p>O multiplicador é o retorno total: em uma aposta de 10, x1,5 devolve os 10 e acrescenta 5 de lucro. O setor dourado pode liberar o raro Cofre Secreto Área 51.</p><div class="casino-wheel-stage"><span class="casino-wheel-pointer">▼</span><canvas id="casinoWheel" width="440" height="440" aria-label="Roleta com multiplicadores de créditos e Cofre Secreto Área 51"></canvas><strong>51</strong></div><form id="casinoForm"><label>Valor da aposta<input id="casinoBet" type="number" min="10" max="100" step="10" value="20" required></label><button class="button button-primary" type="submit">Girar a roleta</button></form><div id="casinoResult" class="casino-result">Escolha entre 10 e 100 créditos.</div></article>
-        <aside class="card casino-status"><div><small>SALDO PROMOCIONAL</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoWallet">250</b></strong></div><div><small>SALDO DA LOJA</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoShopWallet">0</b></strong></div><div class="casino-cashout"><p><small>META PARA RESGATE</small><strong id="casinoCashoutText">0 de 500</strong></p><i><b id="casinoCashoutProgress"></b></i><button id="casinoCashoutButton" class="button button-primary" type="button" disabled>Resgatar lucro na loja</button></div><div><small>JOGADAS HOJE</small><strong id="casinoPlays">0</strong></div><h3>Últimos resultados</h3><div id="casinoHistory" class="casino-history"></div><a class="button button-dark" href="?pagina=perfil" data-page="perfil">Ver caixas misteriosas na loja</a></aside>
+        <article class="card casino-machine"><small>ROLETA DE CRÉDITOS E BAÚS</small><h3>Multiplique ou encontre um baú</h3><p>O multiplicador é o retorno total: em uma aposta de 10, x1,5 devolve os 10 e acrescenta 5. Ao ganhar um baú, a aposta volta inteira e o baú fechado vai para o perfil.</p><div class="casino-wheel-stage"><span class="casino-wheel-pointer">▼</span><canvas id="casinoWheel" width="440" height="440" aria-label="Roleta com multiplicadores e três tipos de baús misteriosos"></canvas><strong>51</strong></div><form id="casinoForm"><label>Usar saldo de<select id="casinoWalletSource"><option value="promotional">Bônus promocional diário</option><option value="shop">Minha Loja 51</option></select></label><label>Valor da aposta<input id="casinoBet" type="number" min="1" max="100" step="1" value="10" required></label><button class="button button-primary" type="submit">Girar a roleta</button></form><div id="casinoResult" class="casino-result">Escolha qualquer valor inteiro entre 1 e 100 créditos.</div></article>
+        <aside class="card casino-status"><div><small>SALDO PROMOCIONAL</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoWallet">250</b></strong></div><div><small>SALDO DA LOJA</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoShopWallet">0</b></strong></div><div class="casino-cashout"><p><small>META PARA RESGATE</small><strong id="casinoCashoutText">0 de 500</strong></p><i><b id="casinoCashoutProgress"></b></i><button id="casinoCashoutButton" class="button button-primary" type="button" disabled>Resgatar lucro na loja</button></div><div><small>BAÚS FECHADOS</small><strong>🎁 <b id="casinoClosedBoxes">0</b></strong></div><div><small>JOGADAS HOJE</small><strong id="casinoPlays">0</strong></div><h3>Últimos resultados</h3><div id="casinoHistory" class="casino-history"></div><a class="button button-dark" href="?pagina=perfil" data-page="perfil">Abrir ou vender meus baús</a></aside>
       </div>
     </section>
 
     <section id="perfil" class="section profile-shop-section">
       <div class="section-heading split-heading">
-        <div><span class="eyebrow">IDENTIDADE INTERGALÁCTICA</span><h2>Perfil & <em>Loja 51</em></h2></div>
-        <p>Cumpra missões, cuide da hidratação e use seus Créditos 51 para personalizar o perfil.</p>
+        <div><span class="eyebrow">IDENTIDADE INTERGALÁCTICA</span><h2>Meu <em>Perfil</em></h2></div>
+        <p>Acompanhe sua jornada, abra baús e aplique os visuais que já fazem parte da sua coleção.</p>
       </div>
       <div class="profile-economy-layout">
         <aside class="profile-column">
@@ -425,6 +423,7 @@
         </aside>
         <div class="profile-content-column">
           <article id="activePowersCard" class="card active-powers-card hidden"><div class="profile-block-head"><div><small>USO PRIVADO</small><h3>Meus poderes</h3></div><span>Somente você vê</span></div><div id="activePowersList" class="active-powers-list"></div></article>
+          <article id="mysteryInventoryCard" class="card mystery-inventory-card hidden"><div class="profile-block-head"><div><small>COFRE DA TRIPULAÇÃO</small><h3>Baús e prêmios</h3></div><span id="mysteryInventoryCount">0 itens</span></div><p>Abra ou venda seus baús. Ao ganhar um item, decida na hora se deseja ficar com ele ou vender por um valor menor.</p><div id="mysteryInventory" class="mystery-inventory"></div><div id="mysteryRewardInventory" class="mystery-reward-inventory"></div></article>
           <div class="profile-block-head"><div><small>CONQUISTAS</small><h3>Minhas medalhas</h3></div><span id="medalCount">0 desbloqueadas</span></div>
           <div id="profileMedals" class="profile-medals"></div>
           <article class="card gift-center-card">
@@ -433,7 +432,7 @@
             <div class="gift-forms">
               <form id="giftCreditsForm" class="gift-form gift-form-credits">
                 <div class="gift-form-title"><span>🪙</span><div><strong>Créditos surpresa</strong><small>Envie um saldo para alguém usar como quiser.</small></div></div>
-                <div class="gift-fields"><label>Quem vai receber?<select id="giftCreditsUser" required></select></label><label>Quantos créditos?<input id="giftCreditsAmount" type="number" min="5" max="100" step="5" placeholder="Ex.: 25" required></label></div>
+                <div class="gift-fields"><label>Quem vai receber?<select id="giftCreditsUser" required></select></label><label>Quantos créditos?<input id="giftCreditsAmount" type="number" min="1" max="100" step="1" placeholder="Ex.: 8" required></label></div>
                 <button class="button button-dark" type="submit">Enviar créditos em segredo</button><small id="giftCreditLimit">Limite semanal: 100</small>
               </form>
               <form id="giftItemForm" class="gift-form gift-form-item">
@@ -443,13 +442,20 @@
               </form>
             </div>
           </article>
-          <div class="profile-block-head shop-heading"><div><small>SHOPPING INTERGALÁCTICO</small><h3>Loja fictícia Área 51</h3></div><span>Sem dinheiro real 👽</span></div>
-          <article id="freeShopPass" class="free-shop-pass"><span>🎟️</span><p><small>PRESENTE PARA CADA TRIPULANTE</small><strong id="freeShopPassTitle">Compra Grátis 51 disponível</strong><em id="freeShopPassText">Escolha um visual da loja e use seu único passe sem gastar créditos.</em></p><b id="freeShopPassStatus">1 USO</b></article>
-          <div id="shopFilters" class="shop-filters" aria-label="Filtrar itens da loja">
-            <button class="active" type="button" data-shop-filter="all">Tudo</button><button type="button" data-shop-filter="owned">Minha coleção</button><button type="button" data-shop-filter="box">🎁 Caixas</button><button type="button" data-shop-filter="cursor">Cursores</button><button type="button" data-shop-filter="trail">Rastros</button><button type="button" data-shop-filter="theme">Temas</button><button type="button" data-shop-filter="profile">Perfil</button><button class="power-filter-button" type="button" data-shop-filter="power">✨ Poderes</button>
-          </div>
-          <div id="shopCatalog" class="shop-catalog"></div>
+          <div class="profile-block-head shop-heading"><div><small>MINHA COLEÇÃO</small><h3>Visuais adquiridos</h3></div><a class="button button-dark" href="?pagina=loja" data-page="loja">Ir para a Loja 51</a></div>
+          <p id="collectionEmpty" class="collection-empty hidden">Você ainda não possui visuais. Visite a Loja 51 para começar sua coleção.</p>
+          <div id="collectionCatalog" class="shop-catalog collection-catalog"></div>
         </div>
+      </div>
+    </section>
+
+    <section id="loja" class="section profile-shop-section shop-only-section">
+      <div class="section-heading split-heading"><div><span class="eyebrow">SHOPPING INTERGALÁCTICO</span><h2>Loja <em>Área 51</em></h2></div><p>Compre visuais, poderes e baús usando seus Créditos 51. Nenhum dinheiro real é utilizado.</p></div>
+      <div class="shop-page-shell">
+        <div class="shop-page-toolbar"><div><small>SEU SALDO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="shopPageWallet">0</b> créditos</strong></div><label class="shop-owned-toggle"><input id="hideOwnedVisuals" type="checkbox"><span>Ocultar visuais que já adquiri</span></label></div>
+        <article id="freeShopPass" class="free-shop-pass"><span>🎟️</span><p><small>PRESENTE PARA CADA TRIPULANTE</small><strong id="freeShopPassTitle">Compra Grátis 51 disponível</strong><em id="freeShopPassText">Escolha um visual da loja e use seu único passe sem gastar créditos.</em></p><b id="freeShopPassStatus">1 USO</b></article>
+        <div id="shopFilters" class="shop-filters" aria-label="Filtrar itens da loja"><button class="active" type="button" data-shop-filter="all">Tudo</button><button type="button" data-shop-filter="box">🎁 Caixas</button><button type="button" data-shop-filter="cursor">Cursores</button><button type="button" data-shop-filter="trail">Rastros</button><button type="button" data-shop-filter="theme">Temas</button><button type="button" data-shop-filter="profile">Perfil</button><button class="power-filter-button" type="button" data-shop-filter="power">✨ Poderes</button></div>
+        <div id="shopCatalog" class="shop-catalog"></div>
       </div>
     </section>
 
@@ -499,6 +505,7 @@
         <form id="scheduleForm" class="card admin-card"><h3>Calendário da rodada</h3><p>As datas aparecem para toda a equipe.</p><label>Prazo dos envios<input id="scheduleSubmissions" type="datetime-local"></label><label>Dia do sorteio<input id="scheduleDraw" type="datetime-local"></label><label>Prazo da votação<input id="scheduleVote" type="datetime-local"></label><button class="button button-dark" type="submit">Salvar calendário</button></form>
         <div class="card admin-card security-center-card"><div class="card-title-row"><h3>Central de segurança</h3><strong id="securityDeviceCount">0 dispositivos</strong></div><form id="gateCodeForm"><label>Novo código secreto<input id="newGateCode" minlength="2" maxlength="32" required></label><label>Sua senha administrativa<input id="gateAdminPassword" type="password" required></label><button class="button button-dark" type="submit">Alterar código</button></form><div id="authorizedDevices" class="authorized-devices"></div><button id="revokeAllDevices" class="button button-danger button-wide" type="button">Revogar todos os dispositivos</button></div>
         <div class="card admin-card"><div class="card-title-row"><div><h3>Atualização do site</h3><p>Use depois que uma nova versão for publicada. A equipe receberá o aviso para atualizar sem perder a sessão.</p></div><strong id="releaseVersionLabel">Versão 0</strong></div><button id="releaseUpdateButton" class="button button-primary button-wide" type="button">🚀 Liberar atualização para todos</button></div>
+        <div class="card admin-card announcement-admin-card"><div class="card-title-row"><div><h3>Aviso para toda a equipe</h3><p>Cada usuário verá o aviso uma vez. Um novo aviso será exibido novamente para todos.</p></div><span>📢</span></div><form id="announcementForm"><label>Título<input id="announcementTitle" maxlength="70" placeholder="Ex.: Novidades da rodada" required></label><label>Mensagem<textarea id="announcementMessage" maxlength="700" rows="5" placeholder="Escreva o aviso para a equipe…" required></textarea></label><button class="button button-primary button-wide" type="submit">Publicar novo aviso</button><button id="clearAnnouncementButton" class="button button-dark button-wide" type="button">Remover aviso atual</button></form><small id="announcementStatus">Nenhum aviso publicado.</small></div>
         <div class="card admin-card backup-card"><h3>Backup do site</h3><p>Inclui contas, históricos, economia, configurações e imagens armazenadas.</p><button id="downloadBackupButton" class="button button-dark button-wide" type="button">⬇ Baixar backup completo</button><label class="backup-picker">Restaurar um backup<input id="restoreBackupFile" type="file" accept="application/json,.json"></label><button id="restoreBackupButton" class="button button-danger button-wide" type="button">Restaurar arquivo selecionado</button></div>
         <div class="card admin-card">
           <div class="card-title-row"><h3>Participantes</h3><span id="adminUserCount"></span></div>
@@ -543,6 +550,10 @@
           <p>Apaga sorteios, votações, imagens e pontuações. Usuários e senhas permanecem.</p>
           <button id="clearHistoryButton" class="button button-danger" type="button">Apagar todo o histórico</button>
           <hr>
+          <h3>Limpar contador de mentiras</h3>
+          <p>Apaga mentiras confirmadas, recusadas e solicitações pendentes. Contas, créditos e demais históricos permanecem.</p>
+          <button id="clearLiesButton" class="button button-danger" type="button">🤥 Zerar todas as mentiras</button>
+          <hr>
           <h3>Limpar ambiente de testes</h3>
           <p>Remove todas as contas, exceto Raul, e apaga imagens, sorteios, votações, resultados e placares.</p>
           <button id="resetTestsButton" class="button button-danger" type="button">Deixar somente meu administrador</button>
@@ -557,11 +568,7 @@
     <footer><div class="brand brand-light"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></div><p>Feito para celebrar a criatividade da equipe.</p><span>Sorteios internos · <span id="currentYear"></span></span></footer>
   </div>
 
-  <dialog id="launchFlyerDialog" class="launch-flyer-dialog">
-    <button id="closeLaunchFlyer" class="dialog-close" aria-label="Fechar flyer">×</button>
-    <img src="/inauguracao-area51.png" alt="Área 51 está no ar — flyer de inauguração">
-    <footer><a class="button button-primary" href="/inauguracao-area51.png" download="inauguracao-area-51.png">Baixar flyer ↓</a><button id="continueLaunchFlyer" class="button button-dark" type="button">Entrar na rodada</button></footer>
-  </dialog>
+  <dialog id="announcementDialog" class="announcement-dialog"><button id="closeAnnouncement" class="dialog-close" type="button" aria-label="Fechar aviso">×</button><span>📢</span><small>AVISO DA ÁREA 51</small><h2 id="announcementDialogTitle">Aviso</h2><p id="announcementDialogMessage"></p><button id="acknowledgeAnnouncement" class="button button-primary" type="button">Entendi</button></dialog>
 
   <dialog id="winnerDialog" class="winner-dialog">
     <button class="dialog-close" aria-label="Fechar">×</button>
@@ -652,6 +659,7 @@
     <div class="mystery-opening-head"><span id="mysteryOpeningIcon">🎁</span><p><small>ABRINDO CAIXA MISTERIOSA</small><strong id="mysteryOpeningTitle">Preparando o prêmio…</strong></p></div>
     <div id="mysteryCarouselViewport" class="mystery-carousel-viewport"><div id="mysteryCarouselTrack" class="mystery-carousel-track"></div><i aria-hidden="true"></i></div>
     <div id="mysteryOpeningResult" class="mystery-opening-result"><span>🛸</span><strong>Aguarde o carrossel parar</strong></div>
+    <div id="mysteryOpeningDecision" class="mystery-opening-decision hidden"><p>Decida agora: depois de ficar com o item, ele não poderá mais ser vendido.</p><button id="keepMysteryReward" type="button">Ficar com o prêmio</button><button id="sellMysteryReward" type="button">Vender agora</button></div>
   </dialog>
 
   <aside id="nextStepGuide" class="next-step-guide hidden" aria-live="polite">
@@ -699,6 +707,6 @@
   </aside>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="/app.js?v=20260831-105"></script>
+  <script src="/app.js?v=20260901-115"></script>
 </body>
 </html>

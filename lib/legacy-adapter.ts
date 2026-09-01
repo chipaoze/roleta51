@@ -86,13 +86,46 @@ class LegacyResponse {
   }
 }
 
-async function execute(request: Request) {
+async function executeOnce(request: Request) {
   await initializeOnline(env, seedDatabase);
   await refreshOnlineState();
   const legacyRequest = new LegacyRequest(request);
   const legacyResponse = new LegacyResponse();
   await requestHandler(legacyRequest, legacyResponse);
   return legacyResponse.toResponse(request.method);
+}
+
+async function execute(request: Request) {
+  const method = request.method;
+  const headers = new Headers(request.headers);
+  const body = method === 'GET' || method === 'HEAD' ? undefined : await request.arrayBuffer();
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const replay = new Request(request.url, {
+      method,
+      headers,
+      body: body ? body.slice(0) : undefined,
+    });
+    try {
+      return await executeOnce(replay);
+    } catch (error) {
+      const conflict = Boolean(
+        error && typeof error === 'object' && 'retryableConcurrency' in error && error.retryableConcurrency,
+      );
+      if (!conflict || attempt === 2) {
+        if (conflict) {
+          return Response.json(
+            { error: 'O site recebeu várias alterações simultâneas. Tente novamente em um instante.' },
+            { status: 409 },
+          );
+        }
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+    }
+  }
+
+  return Response.json({ error: 'Não foi possível concluir a operação.' }, { status: 500 });
 }
 
 export function handleLegacyRequest(request: Request) {
