@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff2a3"/><stop offset=".48" stop-color="#d6a62d"/><stop offset="1" stop-color="#78500a"/></linearGradient><radialGradient id="c"><stop stop-color="#d8ffad"/><stop offset=".45" stop-color="#55e68a"/><stop offset="1" stop-color="#087344"/></radialGradient></defs>
-  <path d="M2 1.5v22.2l6.1-5.1 4.8 11 5-2.2-4.8-10.8 8-.7z" fill="#07101b" stroke="url(#g)" stroke-width="2.1" stroke-linejoin="round"/>
-  <path d="M5.1 5.1v12.2l3.7-3.1 2.2 1.1 5.2-.5z" fill="#172a3b"/><circle cx="9.4" cy="11.2" r="2.5" fill="url(#c)" stroke="#d7ffb5" stroke-width=".8"/><path d="M15.1 19.9l2.1-.9 3.1 7-2.1.9z" fill="#d6a62d"/><path d="M22.5 8.2h6M25.5 5.2v6" stroke="#66ee9b" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M2 1.5v22.2l6.1-5.1 4.8 11 5-2.2-4.8-10.8 8-.7z" fill="#07101b" stroke="url(#g)" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M5.1 5.1v12.2l3.7-3.1 2.2 1.1 5.2-.5z" fill="#172a3b"/><circle cx="9.4" cy="11.2" r="2.8" fill="url(#c)" stroke="#f3ffd9" stroke-width="1.2"/><path d="M15.1 19.9l2.1-.9 3.1 7-2.1.9z" fill="#d6a62d"/><path d="M22.5 8.2h6M25.5 5.2v6" stroke="#66ee9b" stroke-width="1.2" stroke-linecap="round"/><path d="M4 3l2.2-2 2 2 2-2 2.2 2-.8 2.2H4.8z" fill="#ffd85a" stroke="#6e4800" stroke-width=".7"/><path d="M19 12l4-3 1.2 2 3.8-1-2 4.2z" fill="#d6a62d" opacity=".9"/>
 </svg>

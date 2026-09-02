@@ -2,7 +2,7 @@
   "name": "Área 51 — Role da Rodada",
   "short_name": "Área 51",
   "description": "Portal interno da tripulação Área 51.",
-  "start_url": "/?pagina=sorteio",
+  "start_url": "/?pagina=memes",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b1220",

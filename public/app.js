@@ -37,7 +37,7 @@ let pendingGuidedNavigation = false;
 let rainbowThemeForced = false;
 let feedbackMessages = [];
 let feedbackPanelOpen = false;
-let adminFeedbackFilter = 'all';
+let adminFeedbackFilter = 'pending';
 let knownReleaseVersion = null;
 let updatePromptOpen = false;
 let navigationFrame = null;
@@ -51,6 +51,11 @@ let votingDraft = { votingId: null, bestId: null, worstId: null };
 let notificationsReadAtLocal = null;
 let casinoWheelRotation = 0;
 let casinoSpinInProgress = false;
+let flightPollTimer = null;
+let flightInProgress = false;
+let flightCashoutReadyTimer = null;
+let flightCashoutLocallyReady = false;
+let flightPollGeneration = 0;
 let mysteryOpeningInProgress = false;
 const casinoWheelValues = [
   0,.5,1,1.5,'box-sonda',.5,1,2,1.5,.5,0,1,3,1.5,'box-cosmic',0,1,2,1.5,1,
@@ -172,7 +177,8 @@ function startRainbowMouseTrail() {
     const now = performance.now();
     const current = { x: event.clientX, y: event.clientY };
     const unicornActive = document.documentElement.classList.contains('unicorn-cursor-active');
-    const customCursorActive = unicornActive;
+    const giantSlowActive = document.documentElement.classList.contains('giant-slow-cursor-active');
+    const customCursorActive = unicornActive || giantSlowActive;
     const trailActive = (document.body.dataset.trailStyle || 'none') !== 'none';
     const cursorEffectActive = Boolean(document.body.dataset.cursorEffect);
     if (!customCursorActive && !trailActive && !cursorEffectActive) { unicornCursor.classList.remove('is-visible'); if (points.length) clearTrail(); return; }
@@ -231,10 +237,12 @@ function startRainbowMouseTrail() {
       }
       const cursorEffect = document.body.dataset.cursorEffect || '';
       if (cursorEffect && now - lastCursorEffectAt > 120) {
-        const labels = { 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA' };
+        const labels = { 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA', 'pirokinha-cosmica': 'TOMA LEITADA' };
+        const papaSequence = ['EM NOME DO PAI', 'DO FILHO', 'E DO ESPÍRITO SANTO'];
         const particle = document.createElement('span');
         particle.className = 'cursor-linked-effect effect-' + cursorEffect;
-        particle.textContent = labels[cursorEffect] || '✦';
+        if (cursorEffect === 'papa-bento') { const step = Number(document.body.dataset.papaStep || 0); particle.textContent = papaSequence[step % papaSequence.length]; document.body.dataset.papaStep = String(step + 1); }
+        else particle.textContent = labels[cursorEffect] || '✦';
         particle.style.left = Math.max(4, current.x - 22) + 'px';
         particle.style.top = Math.max(4, current.y + 12) + 'px';
         document.body.appendChild(particle);
@@ -303,15 +311,30 @@ function initials(name) {
   return String(name || 'M').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
 
-async function api(url, options = {}) {
-  const config = { ...options, headers: { ...(options.headers || {}) } };
+function personAvatar(person, className) {
+  const photo = appState?.avatars?.[person.id];
+  return `<span class="${className}${photo ? ' has-photo' : ''}">${photo ? `<img src="${escapeHtml(photo)}" alt="Foto de ${escapeHtml(formatDisplayName(person.displayName))}">` : escapeHtml(initials(person.displayName))}</span>`;
+}
+
+async function api(url, options = {}, retry = true) {
+  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 25000);
+  const config = { ...options, signal: options.signal || controller.signal, headers: { ...(options.headers || {}) } };
   if (config.body && typeof config.body !== 'string') {
     config.headers['Content-Type'] = 'application/json';
     config.body = JSON.stringify(config.body);
   }
-  const response = await fetch(url, config);
+  let response, data;
+  try {
+    response = await fetch(url, config);
+    if (response.status !== 204) data = await response.json();
+  } catch (error) {
+    clearTimeout(timeout);
+    if (retry && (!config.method || config.method === 'GET') && !options.signal?.aborted) return api(url, options, false);
+    if (error.name === 'AbortError') throw new Error('A operação demorou demais. Tente novamente.');
+    throw new Error('Conexão temporariamente indisponível. Tente novamente em instantes.');
+  } finally { clearTimeout(timeout); }
   if (response.status === 204) return null;
-  const data = await response.json().catch(() => ({}));
+  if (retry && response.status >= 500 && (!config.method || config.method === 'GET')) return api(url, options, false);
   if (!response.ok) {
     if (response.status === 401 && !url.endsWith('/login')) showAuth();
     throw new Error(data.error || 'Não foi possível concluir a ação.');
@@ -441,7 +464,7 @@ function openFeedbackPanel() {
   $('#feedbackMessage').focus();
 }
 
-const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','perfil','loja','cassino','historico','classificacao','admin'];
+const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','perfil','loja','jogos','historico','classificacao','admin'];
 const portalSections = ['inicio', ...portalPages];
 
 function setMenuOpen(open) {
@@ -458,12 +481,14 @@ function setMenuOpen(open) {
 }
 
 function currentPortalPage() {
-  const requested = new URLSearchParams(location.search).get('pagina') || 'sorteio';
+  let requested = new URLSearchParams(location.search).get('pagina') || 'memes';
+  if (requested === 'cassino') requested = 'jogos';
   return portalPages.includes(requested) ? requested : 'sorteio';
 }
 
 function showPortalPage(page, pushState = false, resetScroll = true) {
   if (!portalPages.includes(page) || (page === 'admin' && appState?.me?.role !== 'admin')) page = 'sorteio';
+  if (page !== 'loja' && shopPreviewItemId) stopShopPreview(false);
   portalSections.forEach((id) => {
     const section = $('#' + id);
     if (section) section.classList.toggle('portal-page-hidden', page === 'sorteio' ? !['inicio','sorteio'].includes(id) : id !== page);
@@ -959,19 +984,71 @@ function renderNotifications() {
   $('#notificationList').innerHTML = visibleItems.length ? visibleItems.map((item) => `<button type="button" class="notification-item${item.unread ? ' unread' : ''}" data-notification-page="${escapeHtml(item.page || 'sorteio')}"><span>${item.icon || '👽'}</span><p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail || '')}</small><em>${escapeHtml(formatDate(item.createdAt))}</em></p></button>`).join('') : '<div class="notification-empty"><span>🛸</span><strong>Tudo tranquilo por aqui</strong><small>Seus novos avisos aparecerão neste espaço.</small></div>';
 }
 
+function renderOnlinePeople() {
+  const people = Array.isArray(appState?.onlinePeople) ? appState.onlinePeople : [];
+  $('#onlinePeopleCount').textContent = String(people.length || 1);
+  $('#onlinePeopleButton').title = people.length ? 'Online agora: ' + people.map((person) => formatDisplayName(person.displayName)).join(', ') : 'Você está online';
+  $('#menuOnlinePeople').innerHTML = `<i></i><strong>${people.length || 1} online</strong><span>${escapeHtml(people.length ? people.map((person) => formatDisplayName(person.displayName)).join(' · ') : 'Você')}</span>`;
+}
+
 function renderCasino(casino = {}) {
   if (casinoSpinInProgress) { drawCasinoWheel(); return; }
   $('#casinoWallet').textContent = Number(casino.wallet || 0).toLocaleString('pt-BR');
   $('#casinoShopWallet').textContent = Number(casino.shopWallet || 0).toLocaleString('pt-BR');
   $('#casinoClosedBoxes').textContent = Number(casino.closedBoxes || 0).toLocaleString('pt-BR');
   $('#casinoPlays').textContent = String(Number(casino.playsToday || 0));
+  $('#casinoTotalWagered').textContent = Number(casino.totalWagered || 0).toLocaleString('pt-BR');
+  $('#casinoTotalPlays').textContent = Number(casino.totalPlays || 0).toLocaleString('pt-BR');
+  const recentFlights = Array.isArray(casino.recentFlights) ? casino.recentFlights : [];
+  $('#flightPublicHistory').innerHTML = recentFlights.length ? recentFlights.map((flight) => `<span class="${Number(flight.multiplier) <= 1 ? 'crashed' : Number(flight.multiplier) >= 3 ? 'high' : ''}">x${Number(flight.multiplier || 1).toFixed(2).replace('.', ',')}</span>`).join('') : '<span>Aguardando voos</span>';
   const cashoutTarget = Number(casino.cashoutThreshold || 500); const cashoutBalance = Number(casino.wallet || 0); const cashoutButton = $('#casinoCashoutButton');
   $('#casinoCashoutText').textContent = casino.cashedOut ? 'Lucro de hoje já resgatado' : `${Math.min(cashoutBalance, cashoutTarget).toLocaleString('pt-BR')} de ${cashoutTarget.toLocaleString('pt-BR')}`;
   $('#casinoCashoutProgress').style.width = `${Math.min(100, Math.round(cashoutBalance / cashoutTarget * 100))}%`;
   cashoutButton.disabled = !casino.canCashOut; cashoutButton.textContent = casino.cashedOut ? 'Resgate realizado hoje' : casino.canCashOut ? `Resgatar ${Number(casino.cashoutAmount || cashoutBalance).toLocaleString('pt-BR')} créditos` : `Faltam ${Math.max(0, cashoutTarget - cashoutBalance).toLocaleString('pt-BR')}`;
-  const history = Array.isArray(casino.recent) ? casino.recent : [];
-  $('#casinoHistory').innerHTML = history.length ? history.map((play) => { const source = play.walletSource === 'shop' ? 'Loja 51' : 'Bônus diário'; return play.resultType === 'mysteryBox' ? `<div class="casino-history-item jackpot"><span>${play.mysteryBox?.icon || '🎁'}</span><p><strong>${escapeHtml(play.mysteryBox?.name || 'Baú misterioso')}</strong><small>${source} · aposta ${play.bet} devolvida · baú enviado ao perfil</small></p></div>` : `<div class="casino-history-item ${play.net > 0 ? 'win' : play.net < 0 ? 'loss' : 'draw'}"><span>${play.net > 0 ? '🚀' : play.net < 0 ? '🕳️' : '🛸'}</span><p><strong>x${String(play.multiplier).replace('.', ',')}</strong><small>${source} · aposta ${play.bet} · retorno ${play.payout} · saldo ${play.net > 0 ? '+' : ''}${play.net}</small></p></div>`; }).join('') : '<p class="casino-empty">Sua primeira jogada aparecerá aqui.</p>';
+  const historyMarkup = (history, emptyText, flight = false) => history.length ? history.map((play) => { const source = play.walletSource === 'shop' ? 'Loja 51' : 'Bônus diário'; return play.resultType === 'mysteryBox' ? `<div class="casino-history-item jackpot"><span>${play.mysteryBox?.icon || '🎁'}</span><p><strong>${escapeHtml(play.mysteryBox?.name || 'Baú misterioso')}</strong><small>${source} · aposta ${play.bet} devolvida · baú enviado ao perfil</small></p></div>` : `<div class="casino-history-item ${play.net > 0 ? 'win' : play.net < 0 ? 'loss' : 'draw'}"><span>${flight ? '🦄' : play.net > 0 ? '🚀' : play.net < 0 ? '🕳️' : '🛸'}</span><p><strong>x${String(play.multiplier).replace('.', ',')}</strong><small>${source} · aposta ${play.bet} · retorno ${play.payout} · saldo ${play.net > 0 ? '+' : ''}${play.net}</small></p></div>`; }).join('') : `<p class="casino-empty">${emptyText}</p>`;
+  const rouletteHistory = Array.isArray(casino.recentRoulette) ? casino.recentRoulette : [];
+  const flightHistory = Array.isArray(casino.recentFlight) ? casino.recentFlight : [];
+  $('#casinoRouletteHistory').innerHTML = historyMarkup(rouletteHistory, 'Sua primeira rodada aparecerá aqui.');
+  $('#casinoFlightHistory').innerHTML = historyMarkup(flightHistory, 'Seu primeiro voo aparecerá aqui.', true);
+  if (casino.globalFlight && !flightPollTimer) startFlightPolling();
   drawCasinoWheel();
+}
+
+function setFlightVisual(active, multiplier = 1, message = '', options = {}) {
+  const phase = options.phase || (active ? 'flying' : 'waiting'); flightInProgress = active; $('#flightSky').dataset.phase = phase; $('#flightSky').classList.toggle('flying', phase === 'flying');
+  const cashoutButton = $('#flightCashoutButton'); const cashoutReady = !cashoutButton.dataset.requesting && Boolean(options.canCashOut || flightCashoutLocallyReady); cashoutButton.disabled = !cashoutReady; cashoutButton.textContent = cashoutButton.dataset.requesting ? 'Resgatando…' : cashoutReady ? 'Resgatar agora' : 'Resgate em x1,25'; $('#flightStartButton').disabled = active && (phase !== 'countdown' || options.joined);
+  $('#flightStartButton').textContent = phase === 'flying' ? 'Voo em andamento' : phase === 'waiting' ? 'Iniciar nova contagem' : $('#flightStartButton').textContent;
+  $('#flightMultiplier').textContent = 'x' + Number(multiplier).toFixed(2).replace('.', ','); $('#flightMessage').textContent = message || (active ? 'A nave está subindo…' : 'Aguardando lançamento');
+}
+function scheduleFlightCashoutReady(delayMs, joined) {
+  clearTimeout(flightCashoutReadyTimer); flightCashoutReadyTimer = null;
+  if (!joined || delayMs < 0) return;
+  flightCashoutReadyTimer = setTimeout(() => {
+    const button = $('#flightCashoutButton');
+    if (flightInProgress && button && !button.dataset.requesting) { flightCashoutLocallyReady = true; button.disabled = false; button.textContent = 'Resgatar agora'; }
+  }, Math.max(0, delayMs));
+}
+function stopFlightPolling() { flightPollGeneration++; clearTimeout(flightPollTimer); clearTimeout(flightCashoutReadyTimer); flightPollTimer = null; flightCashoutReadyTimer = null; flightCashoutLocallyReady = false; flightInProgress = false; }
+async function flightApi(url, options = {}, attempts = 4) {
+  try { return await api(url, options); }
+  catch (error) {
+    if (attempts > 1 && /outra pessoa atualizou/i.test(error.message)) { await new Promise((resolve) => setTimeout(resolve, 120 + Math.random() * 380)); return flightApi(url, options, attempts - 1); }
+    throw error;
+  }
+}
+function startFlightPolling() {
+  if (flightPollTimer) return;
+  const generation = ++flightPollGeneration;
+  const poll = async () => {
+    try {
+      const data = await flightApi('/api/casino/flight/status');
+      if (generation !== flightPollGeneration) return;
+      if (data.cashedOut || !data.joined) flightCashoutLocallyReady = false;
+      if (data.active && data.phase === 'countdown') { const remaining = Number(data.countdownMs || 0); const seconds = Math.max(0, Math.ceil(remaining / 1000)); setFlightVisual(true, 1, `Decolagem em ${seconds}s · ${data.players} apostador${data.players === 1 ? '' : 'es'}`, { phase: 'countdown', joined: data.joined }); scheduleFlightCashoutReady(remaining + 800, data.joined); $('#flightMultiplier').textContent = String(seconds); $('#flightStartButton').textContent = data.joined ? 'Aposta confirmada' : 'Entrar neste voo'; flightPollTimer = setTimeout(poll, 250); }
+      else if (data.active) { setFlightVisual(true, data.multiplier, data.cashedOut ? `Você resgatou · voo continua para os demais (${data.players})` : `${data.players} no mesmo voo`, { phase: 'flying', joined: data.joined, canCashOut: data.canCashOut }); scheduleFlightCashoutReady(data.cashedOut ? -1 : Math.max(0, (1.25 - Number(data.multiplier || 1)) * 3200), data.joined); flightPollTimer = setTimeout(poll, 250); }
+      else { stopFlightPolling(); setFlightVisual(false, data.crashAt || 1, data.crashed ? `A nave caiu em x${Number(data.crashAt || 1).toFixed(2).replace('.', ',')}!` : 'Voo encerrado.'); if (data.state) applyState(data.state); }
+    } catch (error) { if (generation !== flightPollGeneration) return; stopFlightPolling(); setFlightVisual(false, 1, error.message); }
+  }; flightPollTimer = setTimeout(poll, 250);
 }
 
 function drawCasinoWheel() {
@@ -997,13 +1074,6 @@ function animateCasinoWheel(segmentIndex, wheelValue) {
   wheel.style.transition = 'transform 5.2s cubic-bezier(.08,.72,.04,1)';
   wheel.style.transform = `rotate(${casinoWheelRotation}deg)`;
   return new Promise((resolve) => setTimeout(resolve, 5300));
-}
-
-function beginCasinoWheelSpin() {
-  const wheel = $('#casinoWheel');
-  wheel.style.transition = 'transform 1.4s cubic-bezier(.18,.62,.42,1)';
-  casinoWheelRotation += 360 * 3;
-  requestAnimationFrame(() => { wheel.style.transform = `rotate(${casinoWheelRotation}deg)`; });
 }
 
 async function showMysteryOpening(boxName, reward) {
@@ -1095,7 +1165,7 @@ function renderRankings() {
     const gayLevel = type === 'gay' ? Math.max(0, Math.min(1, value / maxGayWins)) : 0;
     const rowStyle = '--rank-hue:' + ((index * 47 + 205) % 360) + ';--gay-level:' + gayLevel.toFixed(3) + ';--gay-alpha:' + (value ? 0.11 + gayLevel * 0.35 : 0.035).toFixed(3);
     return '<div class="ranking-row ' + type + '-ranking-row' + podiumClass + '" style="' + rowStyle + '"><span class="rank-position">' + (index + 1) + '</span>' +
-      '<span class="rank-avatar">' + escapeHtml(initials(item.displayName)) + '</span>' +
+      personAvatar(item, 'rank-avatar') +
       '<p><strong>' + escapeHtml(formatDisplayName(item.displayName)) + '</strong><span class="ranking-live-titles">' + liveTitleChips(item.liveTitles) + '</span><small>' + meta + '</small></p>' +
       '<strong class="rank-value">' + value + '</strong></div>';
   }).join('') : '<div class="ranking-empty">A classificação começa após a primeira rodada.</div>';
@@ -1181,6 +1251,7 @@ function renderDraws() {
 }
 
 function renderDailyWall(wall = {}) {
+  renderCommunityFeed(wall);
   const phrases = Array.isArray(wall.phrases) ? wall.phrases : [];
   const memes = Array.isArray(wall.memes) ? wall.memes : [];
   const reactionButtons = (item, type) => `<div class="daily-reactions">${['😂','👽','🤨','💀'].map((emoji) => `<button class="${(item.reactions?.mine || []).includes(emoji) ? 'active' : ''}" type="button" data-reaction-type="${type}" data-reaction-id="${escapeHtml(item.id)}" data-reaction-emoji="${emoji}">${emoji}<b>${Number(item.reactions?.counts?.[emoji] || 0)}</b></button>`).join('')}</div>`;
@@ -1255,7 +1326,7 @@ function renderHydration(hydration = {}) {
   const people = Array.isArray(hydration.people) ? hydration.people : [];
   $('#hydrationPeople').innerHTML = people.length ? people.map((person, index) => {
     const personPercent = goal ? Math.min(100, Math.round(person.totalMl / goal * 100)) : 0;
-    return `<article class="hydration-person${person.isMe ? ' is-me' : ''}"><span class="hydration-position">${index + 1}</span><span class="hydration-avatar">${escapeHtml(initials(person.displayName))}</span><div><strong>${escapeHtml(formatDisplayName(person.displayName))}${person.isMe ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><span><i style="width:${personPercent}%"></i></span><small>${Number(person.totalMl).toLocaleString('pt-BR')} ml · ${personPercent}% da meta</small></div></article>`;
+    return `<article class="hydration-person${person.isMe ? ' is-me' : ''}"><span class="hydration-position">${index + 1}</span>${personAvatar(person, 'hydration-avatar')}<div><strong>${escapeHtml(formatDisplayName(person.displayName))}${person.isMe ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><span><i style="width:${personPercent}%"></i></span><small>${Number(person.totalMl).toLocaleString('pt-BR')} ml · ${personPercent}% da meta</small></div></article>`;
   }).join('') : '<p class="water-empty">Nenhum participante ativo.</p>';
   const entries = Array.isArray(hydration.entries) ? hydration.entries : [];
   $('#waterEntryList').innerHTML = entries.length ? entries.map((entry) =>
@@ -1267,7 +1338,7 @@ function renderHydration(hydration = {}) {
 function renderSeason(season = {}) {
   const current = season.current || { ranking: [], monthKey: '' };
   $('#seasonMonth').textContent = current.monthKey || '';
-  $('#seasonRanking').innerHTML = current.ranking.length ? current.ranking.map((person, index) => `<article${index === 0 && person.points > 0 ? ' class="leader"' : ''}><b>${index + 1}</b><span>${escapeHtml(initials(person.displayName))}</span><p><strong>${escapeHtml(formatDisplayName(person.displayName))}</strong><small>${person.water.toLocaleString('pt-BR')} ml · ${person.memes} memes · ${person.phrases} frases</small></p><em>${person.points} pts</em></article>`).join('') : '<p class="season-empty">A temporada começa com a primeira atividade do mês.</p>';
+  $('#seasonRanking').innerHTML = current.ranking.length ? current.ranking.map((person, index) => `<article${index === 0 && person.points > 0 ? ' class="leader"' : ''}><b>${index + 1}</b>${personAvatar(person, 'season-avatar')}<p><strong>${escapeHtml(formatDisplayName(person.displayName))}</strong><small>${person.water.toLocaleString('pt-BR')} ml · ${person.memes} memes · ${person.phrases} frases</small></p><em>${person.points} pts</em></article>`).join('') : '<p class="season-empty">A temporada começa com a primeira atividade do mês.</p>';
   const previous = season.previous;
   $('#previousSeasonWinner').textContent = previous?.leader ? '🏅 Campeão de ' + previous.monthKey + ': ' + formatDisplayName(previous.leader.displayName) : 'A temporada anterior ainda não teve pontuação.';
 }
@@ -1277,8 +1348,8 @@ function renderLieMeter(lieMeter = {}) {
   const pending = Array.isArray(lieMeter.pending) ? lieMeter.pending : [];
   $('#lieRanking').innerHTML = ranking.length ? ranking.map((person, index) => {
     const reasons = Array.isArray(person.reasons) ? person.reasons : [];
-    const history = reasons.length ? `<details class="lie-history"><summary>Ver histórico dos motivos <b>${reasons.length}</b></summary><div>${reasons.map((entry, reasonIndex) => `<article${reasonIndex === 0 ? ' class="latest"' : ''}><span>🤥</span><p><strong>${escapeHtml(entry.reason)}</strong><small>${escapeHtml(formatDate(entry.createdAt))}</small></p></article>`).join('')}</div></details>` : '';
-    return `<article class="lie-person${index === 0 && person.total > 0 ? ' lie-leader' : ''}"><span class="lie-position">${index + 1}</span><span class="lie-avatar">${escapeHtml(initials(person.displayName))}</span><div class="lie-person-copy"><strong>${escapeHtml(formatDisplayName(person.displayName))}${person.id === appState.me.id ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><small>${Number(person.total)} ${Number(person.total) === 1 ? 'mentira confirmada' : 'mentiras confirmadas'}</small>${person.latestReason ? `<em class="lie-reason"><span>ÚLTIMA MENTIRA</span>“${escapeHtml(person.latestReason)}”</em>` : ''}${history}</div><b>${Number(person.total)}</b><div class="lie-actions"><button type="button" data-lie-delta="-1" data-lie-target="${escapeHtml(person.id)}" aria-label="Solicitar remoção de uma mentira de ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id || person.total <= 0 ? ' disabled' : ''}>−</button><button type="button" data-lie-delta="1" data-lie-target="${escapeHtml(person.id)}" aria-label="Marcar uma mentira para ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id ? ' disabled' : ''}>+</button></div></article>`;
+    const history = reasons.length ? `<details class="lie-history"><summary>Ver histórico dos motivos <b>${reasons.length}</b></summary><div>${reasons.map((entry, reasonIndex) => `<article${reasonIndex === 0 ? ' class="latest"' : ''}><span>🤥</span><p><strong>${escapeHtml(entry.reason)}</strong><small>${escapeHtml(formatDate(entry.createdAt))} · aprovado por ${escapeHtml(formatDisplayName(entry.validatedBy))}</small></p></article>`).join('')}</div></details>` : '';
+    return `<article class="lie-person${index === 0 && person.total > 0 ? ' lie-leader' : ''}"><span class="lie-position">${index + 1}</span>${personAvatar(person, 'lie-avatar')}<div class="lie-person-copy"><strong>${escapeHtml(formatDisplayName(person.displayName))}${person.id === appState.me.id ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><small>${Number(person.total)} ${Number(person.total) === 1 ? 'mentira confirmada' : 'mentiras confirmadas'}</small>${person.latestReason ? `<em class="lie-reason"><span>ÚLTIMA MENTIRA</span>“${escapeHtml(person.latestReason)}”</em>` : ''}${history}</div><b>${Number(person.total)}</b><div class="lie-actions"><button type="button" data-lie-delta="-1" data-lie-target="${escapeHtml(person.id)}" aria-label="Solicitar remoção de uma mentira de ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id || person.total <= 0 ? ' disabled' : ''}>−</button><button type="button" data-lie-delta="1" data-lie-target="${escapeHtml(person.id)}" aria-label="Marcar uma mentira para ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id ? ' disabled' : ''}>+</button></div></article>`;
   }).join('') : '<p class="lie-empty">Nenhuma pessoa disponível.</p>';
   $('#liePendingCount').textContent = pending.length + (pending.length === 1 ? ' pendente' : ' pendentes');
   $('#liePendingList').innerHTML = pending.length ? pending.map((item) => `<article class="lie-pending"><span>${item.delta > 0 ? '🤥' : '↩️'}</span><p><strong>${item.delta > 0 ? 'Adicionar mentira para ' : 'Remover mentira de '}${escapeHtml(formatDisplayName(item.targetName))}</strong>${item.reason ? `<em class="lie-reason">“${escapeHtml(item.reason)}”</em>` : ''}<small>Pedido por ${escapeHtml(formatDisplayName(item.creatorName))} · ${escapeHtml(formatDate(item.createdAt))}</small></p><div>${item.canValidate ? `<button class="lie-validate" type="button" data-lie-validate="${escapeHtml(item.id)}">Confirmar</button><button class="lie-deny" type="button" data-lie-deny="${escapeHtml(item.id)}">Negar</button>` : '<small>Aguardando outra pessoa</small>'}${item.canCancel ? `<button class="lie-cancel" type="button" data-lie-cancel="${escapeHtml(item.id)}">Cancelar</button>` : ''}</div></article>`).join('') : '<p class="lie-empty">Nenhuma marcação aguardando validação.</p>';
@@ -1308,12 +1379,14 @@ function shopVisualPreview(item) {
   if (item.type === 'cursorStyle') {
     if (item.value === 'unicorn') return '<div class="shop-visual-preview cursor-preview cursor-preview-unicorn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-cursor-full-v2.png" alt="Unicórnio completo"> <b>Galopa ao movimentar</b></span></div>';
     if (item.value === 'dipirona') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-dipirona.svg" alt="Seta Dipirona"><b>Seta Dipirona</b></span></div>';
+    if (item.value === 'pirokinha-cosmica') return '<div class="shop-visual-preview cursor-preview cursor-preview-pirokinha"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-pirokinha-cosmica.svg" alt="Pirokinha Cósmica"><b>Pirokinha Cósmica</b></span></div>';
     if (item.value === 'anvisa') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-anvisa.svg" alt="Seta Anvisa Intergaláctica"><b>Seta Anvisa Intergaláctica</b></span></div>';
     if (item.value === 'gay') return '<div class="shop-visual-preview cursor-preview cursor-preview-gay"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-gay-power.svg" alt="Seta Gay Arco-íris"><b>Seta Gay Arco-íris</b></span></div>';
     if (item.value === 'commander') return '<div class="shop-visual-preview cursor-preview cursor-preview-commander"><small>ITEM DE COMANDO · EXCLUSIVO ADMIN</small><span><img src="/cursor-commander.svg" alt="Cursor Comandante da Área 51"><b>Cursor Comandante da Área 51</b></span></div>';
     if (item.value === 'galinha-preta') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-galinha-preta.svg" alt="Seta Galinha Preta"><b>Seta Galinha Preta</b></span></div>';
     if (item.value === 'volei') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-volei.svg" alt="Seta Bola de Vôlei"><b>Seta Bola de Vôlei</b></span></div>';
     if (item.value === 'biblia') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-biblia.svg" alt="Seta Bíblia"><b>Seta Bíblia Sagrada</b></span></div>';
+    if (item.value === 'papa-bento') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-papa-bento.svg" alt="Cursor Papa Bento"><b>Cursor Papa Bento</b></span></div>';
     if (item.value === 'scrum-master') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-scrum-master.svg?v=2" alt="Seta Scrum Master"><b>Seta Planilha Scrum</b></span></div>';
     if (item.value === 'energetico') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-energetico.svg?v=2" alt="Seta Energético"><b>Latinha Energética</b></span></div>';
     if (item.value === 'laser') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-laser.svg" alt="Cursor Laser Alienígena"><b>Laser Alienígena</b></span></div>';
@@ -1325,19 +1398,22 @@ function shopVisualPreview(item) {
   if (item.type === 'siteTheme') return `<div class="shop-visual-preview theme-preview theme-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO TEMA</small><span>✦ <b>ÁREA 51</b> · ✧ · ✦</span></div>`;
   if (item.type === 'frame') return `<div class="shop-visual-preview frame-preview frame-${escapeHtml(item.value)}"><small>PRÉVIA EXATA · PERFIL, TOPO E MENU</small><span><b>${escapeHtml(initials(appState?.me?.displayName || 'SN'))}</b><em>${previewName}</em></span></div>`;
   if (item.type === 'nameStyle') return `<div class="shop-visual-preview name-preview"><small>PRÉVIA DO NOME</small><strong class="name-style-${escapeHtml(item.value)}">${previewName}</strong></div>`;
+  if (item.type === 'badge') return `<div class="shop-visual-preview badge-preview"><small>PRÉVIA DA INSÍGNIA</small><span><b>${escapeHtml(item.value)}</b><em>${previewName}</em></span></div>`;
   if (item.type === 'title') return `<div class="shop-visual-preview title-preview"><small>PRÉVIA DO TÍTULO</small><span><b>${escapeHtml(initials(appState?.me?.displayName || 'SN'))}</b><em>${previewName}</em><strong>${escapeHtml(item.value)}</strong></span></div>`;
   return '';
 }
 
 function setPreviewCursor(value) {
-  const classes = ['unicorn-cursor-active', 'horn-cursor-active', 'medicine-cursor-active', 'anvisa-cursor-active', 'commander-cursor-active', 'gay-power-cursor-active', 'black-hen-cursor-active', 'volleyball-cursor-active', 'bible-cursor-active', 'scrum-cursor-active', 'energy-cursor-active', 'laser-cursor-active', 'rocket-cursor-active', 'alien-cursor-active'];
+  const classes = ['unicorn-cursor-active', 'horn-cursor-active', 'medicine-cursor-active', 'pirokinha-cursor-active', 'anvisa-cursor-active', 'commander-cursor-active', 'gay-power-cursor-active', 'giant-slow-cursor-active', 'black-hen-cursor-active', 'volleyball-cursor-active', 'bible-cursor-active', 'papa-bento-cursor-active', 'scrum-cursor-active', 'energy-cursor-active', 'laser-cursor-active', 'rocket-cursor-active', 'alien-cursor-active'];
   classes.forEach((name) => document.documentElement.classList.remove(name));
-  const classByValue = { unicorn: 'unicorn-cursor-active', horn: 'horn-cursor-active', dipirona: 'medicine-cursor-active', anvisa: 'anvisa-cursor-active', gay: 'gay-power-cursor-active', commander: 'commander-cursor-active', 'galinha-preta': 'black-hen-cursor-active', volei: 'volleyball-cursor-active', biblia: 'bible-cursor-active', 'scrum-master': 'scrum-cursor-active', energetico: 'energy-cursor-active', laser: 'laser-cursor-active', rocket: 'rocket-cursor-active', alien: 'alien-cursor-active' };
+  const classByValue = { unicorn: 'unicorn-cursor-active', horn: 'horn-cursor-active', dipirona: 'medicine-cursor-active', 'pirokinha-cosmica': 'pirokinha-cursor-active', anvisa: 'anvisa-cursor-active', gay: 'gay-power-cursor-active', 'giant-slow': 'giant-slow-cursor-active', commander: 'commander-cursor-active', 'galinha-preta': 'black-hen-cursor-active', volei: 'volleyball-cursor-active', biblia: 'bible-cursor-active', 'papa-bento': 'papa-bento-cursor-active', 'scrum-master': 'scrum-cursor-active', energetico: 'energy-cursor-active', laser: 'laser-cursor-active', rocket: 'rocket-cursor-active', alien: 'alien-cursor-active' };
   if (classByValue[value]) document.documentElement.classList.add(classByValue[value]);
+  document.documentElement.dataset.activeCursor = value || 'windows';
 }
 
 function applyShopPreviewVisual(item) {
   if (!item) return;
+  if (item.type === 'cursorStyle' && appState?.profile?.forcedCursor) return;
   if (item.type === 'siteTheme') {
     document.body.classList.add('shop-theme-preview-active');
     document.body.dataset.previewTheme = item.value;
@@ -1345,9 +1421,10 @@ function applyShopPreviewVisual(item) {
   } else if (item.type === 'cursorStyle') {
     setPreviewCursor(item.value);
     document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : 'none';
-    document.body.dataset.cursorEffect = ['galinha-preta', 'volei', 'biblia', 'scrum-master', 'energetico'].includes(item.value) ? item.value : '';
+    document.body.dataset.cursorEffect = ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica'].includes(item.value) ? item.value : '';
   }
   else if (item.type === 'trailStyle') document.body.dataset.trailStyle = item.value;
+  else if (item.type === 'badge') ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = item.value; });
   else if (item.type === 'frame') {
     $('#profileIdentityCard').className = 'card profile-identity-card frame-' + item.value;
     $('#topProfileButton').className = 'top-profile-button frame-' + item.value;
@@ -1369,6 +1446,10 @@ function stopShopPreview(showMessage = false) {
   shopPreviewTimer = null;
   shopPreviewInterval = null;
   shopPreviewItemId = null;
+  setPreviewCursor(null);
+  document.body.dataset.trailStyle = 'none';
+  document.body.dataset.cursorEffect = '';
+  delete document.body.dataset.papaStep;
   document.body.classList.remove('shop-theme-preview-active');
   delete document.body.dataset.previewTheme;
   $('#shopPreviewBanner')?.remove();
@@ -1379,6 +1460,10 @@ function stopShopPreview(showMessage = false) {
 function startShopPreview(itemId) {
   const item = (appState?.profile?.shop || []).find((candidate) => candidate.id === itemId && !candidate.consumable);
   if (!item) return;
+  if (item.type === 'cursorStyle' && appState?.profile?.forcedCursor) {
+    showToast('Um cursor obrigatório está ativo. Aguarde o efeito terminar para testar outro mouse.', 'error');
+    return;
+  }
   if (item.type === 'siteTheme' && appState.visualTheme !== 'user-choice') {
     showToast('O tema de punição da rodada está ativo e não pode ser substituído durante o teste.', 'error');
     return;
@@ -1408,7 +1493,9 @@ function renderProfileEconomy(profile = {}) {
   const siteThemeItem = findEquipped('siteTheme');
   const trailItem = findEquipped('trailStyle');
   const cursorItem = findEquipped('cursorStyle');
+  const badgeItem = findEquipped('badge');
   const forcedGayCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'gay');
+  const forcedGiantCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'giant-slow');
   const liveTitles = Array.isArray(profile.liveTitles) ? profile.liveTitles : [];
   const allowPersonalTheme = appState.visualTheme === 'user-choice';
   document.body.classList.toggle('profile-theme-galaxy', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'galaxy'));
@@ -1419,32 +1506,41 @@ function renderProfileEconomy(profile = {}) {
   document.body.classList.toggle('profile-theme-eclipse', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'eclipse'));
   document.body.classList.toggle('profile-theme-aurora', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'aurora'));
   document.body.classList.toggle('profile-theme-mars', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'mars'));
-  document.body.dataset.trailStyle = trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(cursorItem?.value) ? cursorItem.value : 'none');
-  document.body.dataset.cursorEffect = !trailItem && ['galinha-preta', 'volei', 'biblia', 'scrum-master', 'energetico'].includes(cursorItem?.value) ? cursorItem.value : '';
+  document.body.classList.toggle('profile-theme-nebula', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'nebula'));
+  const personalCursor = forcedGayCursor || forcedGiantCursor ? null : cursorItem;
+  document.body.dataset.trailStyle = trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none');
+  document.body.dataset.cursorEffect = !trailItem && ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica'].includes(personalCursor?.value) ? personalCursor.value : '';
+  if (forcedGayCursor || forcedGiantCursor) $$('.cursor-linked-effect').forEach((particle) => particle.remove());
   document.documentElement.classList.toggle('unicorn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'unicorn'));
   document.documentElement.classList.toggle('horn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'horn'));
   document.documentElement.classList.toggle('medicine-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'dipirona'));
+  document.documentElement.classList.toggle('pirokinha-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'pirokinha-cosmica'));
   document.documentElement.classList.toggle('anvisa-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'anvisa'));
   document.documentElement.classList.toggle('commander-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'commander'));
   document.documentElement.classList.toggle('black-hen-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'galinha-preta'));
   document.documentElement.classList.toggle('volleyball-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'volei'));
   document.documentElement.classList.toggle('bible-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'biblia'));
+  document.documentElement.classList.toggle('papa-bento-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'papa-bento'));
   document.documentElement.classList.toggle('scrum-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'scrum-master'));
   document.documentElement.classList.toggle('energy-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'energetico'));
   document.documentElement.classList.toggle('laser-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'laser'));
   document.documentElement.classList.toggle('rocket-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'rocket'));
   document.documentElement.classList.toggle('alien-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'alien'));
   document.documentElement.classList.toggle('gay-power-cursor-active', Boolean(forcedGayCursor || (cursorItem && cursorItem.value === 'gay')));
+  document.documentElement.classList.toggle('giant-slow-cursor-active', forcedGiantCursor);
+  setPreviewCursor(forcedGayCursor ? 'gay' : forcedGiantCursor ? 'giant-slow' : (cursorItem?.value || null));
   document.body.classList.toggle('forced-gay-cursor-mode', forcedGayCursor);
   const cursorVisual = $('.unicorn-mouse-cursor>span');
-  if (cursorVisual && cursorVisual.dataset.skin !== (cursorItem?.value || 'windows')) {
-    cursorVisual.dataset.skin = cursorItem?.value || 'windows';
-    cursorVisual.innerHTML = '<img src="/unicorn-cursor-full-v2.png" alt="">';
+  const cursorSkin = forcedGiantCursor ? 'giant-slow' : (cursorItem?.value || 'windows');
+  if (cursorVisual && cursorVisual.dataset.skin !== cursorSkin) {
+    cursorVisual.dataset.skin = cursorSkin;
+    cursorVisual.innerHTML = forcedGiantCursor ? '<b class="giant-slow-pointer">☝️</b>' : '<img src="/unicorn-cursor-full-v2.png" alt="">';
   }
   $('#profileWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
   $('#shopPageWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
   renderAvatar($('#profileAvatar'), appState.me.avatarDataUrl, initials(appState.me.displayName));
   $('#profileDisplayName').textContent = formatDisplayName(appState.me.displayName);
+  ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = badgeItem?.value || ''; });
   $('#profileEquippedTitle').textContent = liveTitles.length ? liveTitles.map((item) => item.icon + ' ' + item.name).join(' · ') : titleItem ? titleItem.value : 'Tripulante da Área 51';
   $('#profileDisplayName').className = nameItem ? 'name-style-' + nameItem.value : '';
   $('#profileIdentityCard').className = 'card profile-identity-card' + (frameItem ? ' frame-' + frameItem.value : '');
@@ -1457,11 +1553,13 @@ function renderProfileEconomy(profile = {}) {
   $('#menuUserRole').textContent = publicTitle;
   const activeVisuals = [
     forcedGayCursor && ['🌈', 'Poder ativo: Seta Gay Compulsória'],
+    forcedGiantCursor && ['🐌', 'Poder ativo: Mouse Gigante e Lento'],
     siteThemeItem && ['🌌', 'Tema: ' + siteThemeItem.name],
     cursorItem && ['🖱️', 'Cursor: ' + cursorItem.name],
     trailItem && ['✨', 'Rastro: ' + trailItem.name],
     frameItem && ['🖼️', 'Moldura: ' + frameItem.name],
     nameItem && ['🎨', 'Nome: ' + nameItem.name],
+    badgeItem && [badgeItem.value, 'Insígnia: ' + badgeItem.name],
     titleItem && ['🏷️', 'Título: ' + titleItem.name],
     ...liveTitles.map((item) => [item.icon, 'Título vivo: ' + item.name]),
   ].filter(Boolean);
@@ -1529,19 +1627,24 @@ function renderProfileEconomy(profile = {}) {
   $('#freeShopPassTitle').textContent = freeShopAvailable ? 'Compra Grátis 51 disponível' : 'Compra Grátis 51 utilizada';
   $('#freeShopPassText').textContent = freeShopAvailable ? 'Escolha um visual da loja e use seu único passe sem gastar créditos.' : 'Seu passe individual já foi usado. As próximas compras utilizam Créditos 51.';
   $('#freeShopPassStatus').textContent = freeShopAvailable ? '1 USO' : 'UTILIZADO';
+  const loan = profile.loan;
+  $('#stellarLoanCard').classList.toggle('has-debt', Boolean(loan));
+  $('#stellarLoanTitle').textContent = loan ? `Dívida atual: ${Number(loan.remainingDue).toLocaleString('pt-BR')} créditos` : 'Créditos rápidos para a sua coleção';
+  $('#stellarLoanText').textContent = loan ? `Você recebeu ${Number(loan.principal).toLocaleString('pt-BR')} e deve ${Number(loan.totalDue).toLocaleString('pt-BR')} com juros. Faça pagamentos parciais ou quite agora.` : 'Escolha 100, 200 ou 300 créditos. O pagamento tem 20% de juros e só é permitido um empréstimo por vez.';
+  $('#stellarLoanActions').innerHTML = loan ? `<input id="stellarRepayAmount" type="number" min="1" max="${Number(loan.remainingDue)}" step="1" value="${Math.min(Number(profile.wallet || 0), Number(loan.remainingDue)) || 1}" aria-label="Valor do pagamento"><button type="button" data-loan-repay>Pagar</button><button type="button" data-loan-repay-all>Quitar ${Number(loan.remainingDue).toLocaleString('pt-BR')}</button>` : [100,200,300].map((amount) => `<button type="button" data-loan-borrow="${amount}">Receber ${amount}<small>Devolver ${Math.round(amount * 1.2)}</small></button>`).join('');
   const shopPriority = (item) => item.service ? -2 : item.id === 'power-force-gay-cursor' ? -1 : 0;
   const orderedShop = [...shop].sort((a, b) => shopPriority(a) - shopPriority(b));
   $('#shopCatalog').innerHTML = orderedShop.map((item) => {
     const category = item.mysteryBox ? 'box' : item.type === 'cursorStyle' ? 'cursor' : item.type === 'trailStyle' ? 'trail' : item.type === 'siteTheme' ? 'theme' : item.type === 'power' ? 'power' : 'profile';
     const isOwnedVisual = item.owned && !item.consumable && !item.mysteryBox && !item.service;
     const filteredOut = (shopFilter !== 'all' && shopFilter !== category) || (hideOwnedVisuals && isOwnedVisual);
-    const label = item.service ? 'TROCA DE CONQUISTA' : item.mysteryBox ? 'CAIXA MISTERIOSA' : item.type === 'title' ? 'TÍTULO' : item.type === 'frame' ? 'MOLDURA' : item.type === 'nameStyle' ? 'ESTILO DO NOME' : item.type === 'siteTheme' ? 'TEMA VISUAL' : item.type === 'cursorStyle' ? 'SKIN DO CURSOR' : item.type === 'trailStyle' ? 'RASTRO DO CURSOR' : 'PODER CONSUMÍVEL';
+    const label = item.service ? 'TROCA DE CONQUISTA' : item.mysteryBox ? 'CAIXA MISTERIOSA' : item.type === 'title' ? 'TÍTULO' : item.type === 'badge' ? 'INSÍGNIA DE PRESENÇA' : item.type === 'frame' ? 'MOLDURA' : item.type === 'nameStyle' ? 'ESTILO DO NOME' : item.type === 'siteTheme' ? 'TEMA VISUAL' : item.type === 'cursorStyle' ? 'SKIN DO CURSOR' : item.type === 'trailStyle' ? 'RASTRO DO CURSOR' : 'PODER CONSUMÍVEL';
     const action = item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Comprar fechada' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
     const shopAction = item.service ? 'sell-best-win' : item.mysteryBox ? 'mystery-purchase' : item.consumable ? (item.quantity > 0 ? 'use' : 'purchase') : item.owned ? 'equip' : 'purchase';
     const status = item.service ? '🏆 ' + Number(item.availablePoints || 0) + ' disponível · receba 500 créditos' : item.mysteryBox ? (Number(item.quantity || 0) ? '🎁 ' + item.quantity + ' fechado' + (Number(item.quantity) === 1 ? '' : 's') + ' no perfil · ' : '') + '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos' : item.granted ? (item.equipped ? '★ Cursor oficial em uso' : '★ Concedido ao administrador') : item.consumable && item.quantity > 0 ? '🎟️ ' + item.quantity + ' disponível' : item.equipped ? (item.type === 'siteTheme' ? '✓ Tema aplicado em todo o site' : '● Em uso') : item.owned ? '✓ Na sua coleção' : '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos';
     const themeConfirmation = item.type === 'siteTheme' && item.equipped ? '<div class="theme-applied-confirmation"><span>✓</span><strong>ESTE TEMA ESTÁ ATIVO</strong><small>Você está vendo este visual em todo o site agora.</small></div>' : '';
     const previewButton = item.service || item.consumable || item.mysteryBox ? '' : `<button class="shop-test-button" type="button" data-shop-preview="${escapeHtml(item.id)}" data-preview-type="${escapeHtml(item.type)}" data-preview-value="${escapeHtml(item.value)}">Testar 20s</button>`;
-    const freeVisualTypes = ['title', 'frame', 'nameStyle', 'siteTheme', 'cursorStyle', 'trailStyle'];
+    const freeVisualTypes = ['title', 'badge', 'frame', 'nameStyle', 'siteTheme', 'cursorStyle', 'trailStyle'];
     const canUseFree = freeShopAvailable && freeVisualTypes.includes(item.type) && !item.owned;
     const freeButton = canUseFree ? `<button class="shop-free-button" type="button" data-shop-free="${escapeHtml(item.id)}">Usar grátis</button>` : '';
     const featuredPower = item.id === 'power-force-gay-cursor';
@@ -1666,6 +1769,7 @@ function applyState(data) {
     }, 250);
   }
   appState = data;
+  renderOnlinePeople();
   document.body.classList.toggle('admin-command-mode', data.me.role === 'admin');
   applyVisualTheme(data);
   if (!spinning) setMode(suggestedMode());
@@ -1934,7 +2038,7 @@ function connectLive() {
     }).catch(() => {});
   });
   liveSource.onopen = () => { $('#liveStatus').textContent = 'AO VIVO'; };
-  liveSource.onerror = () => { if (appState) $('#liveStatus').textContent = 'RECONECTANDO'; };
+  liveSource.onerror = () => { if (appState) $('#liveStatus').textContent = 'SINCRONIZADO'; };
 }
 
 async function spin() {
@@ -1958,11 +2062,20 @@ $$('[data-mobile-dot]').forEach((button) => button.addEventListener('click', () 
   setAuthSlide(Number(button.dataset.mobileDot)); startAuthCarousel();
 }));
 
+const rememberedLoginPreference = localStorage.getItem('area51RememberAccess') === 'true';
+$('#rememberMe').checked = rememberedLoginPreference;
+if (rememberedLoginPreference) $('#loginForm [name="username"]').value = localStorage.getItem('area51RememberedUsername') || '';
+function updateRememberAccessLabel() { $('#rememberMeStatus').textContent = $('#rememberMe').checked ? 'Ativado · sua sessão continuará neste aparelho por até 30 dias.' : 'Desativado · será necessário entrar novamente depois.'; }
+$('#rememberMe').addEventListener('change', updateRememberAccessLabel); updateRememberAccessLabel();
+
 $('#loginForm').addEventListener('submit', async (event) => {
   event.preventDefault(); primeMusicFromGesture(); const form = event.currentTarget; $('#loginError').textContent = ''; setBusy(form, true);
   try {
     const values = Object.fromEntries(new FormData(form));
     showApp(await api('/api/login', { method: 'POST', body: values }));
+    showPortalPage('memes', false);
+    localStorage.setItem('area51RememberAccess', String(Boolean(values.rememberMe)));
+    if (values.rememberMe) localStorage.setItem('area51RememberedUsername', String(values.username || '')); else localStorage.removeItem('area51RememberedUsername');
     form.reset();
   } catch (error) { $('#loginError').textContent = error.message; }
   finally { setBusy(form, false); }
@@ -2223,7 +2336,7 @@ $('#memeUploadForm').addEventListener('submit', async (event) => {
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(selectedMemeFile);
     });
-    applyState(await api('/api/memes', { method: 'POST', body: { dataUrl } }));
+    applyState(await api('/api/memes', { method: 'POST', body: { dataUrl, caption: $('#memeCaption').value } }));
     form.reset(); clearMemeSelection(); showToast('Meme publicado no mural!');
   } catch (error) { $('#memeUploadError').textContent = error.message; }
   finally { setBusy(form, false); }
@@ -2347,12 +2460,12 @@ $('#waterReminderGo').addEventListener('click', () => {
 $('#waterReminderDialog').addEventListener('click', (event) => { if (event.target === $('#waterReminderDialog')) closeWaterReminder(); });
 
 $('#casinoForm').addEventListener('submit', async (event) => {
-  event.preventDefault(); const form = event.currentTarget; const bet = Number($('#casinoBet').value); const walletSource = $('#casinoWalletSource').value;
+  event.preventDefault();
+  if (casinoSpinInProgress) return;
+  const form = event.currentTarget; const bet = Number($('#casinoBet').value); const walletSource = $('#casinoWalletSource').value;
   if (!Number.isInteger(bet) || bet < 1 || bet > 100) { showToast('Aposte um valor inteiro de 1 a 100 créditos.', 'error'); return; }
   casinoSpinInProgress = true; setBusy(form, true); $('#casinoResult').textContent = 'A roleta está girando… o resultado será revelado quando ela parar.';
   try {
-    beginCasinoWheelSpin();
-    await new Promise((resolve) => setTimeout(resolve, 650));
     const data = await api('/api/casino/play', { method: 'POST', body: { bet, walletSource } });
     const result = data.casinoResult; await animateCasinoWheel(result.segmentIndex, result.wheelValue ?? result.multiplier); casinoSpinInProgress = false; applyState(data);
     if (result.resultType === 'mysteryBox') {
@@ -2364,6 +2477,39 @@ $('#casinoForm').addEventListener('submit', async (event) => {
     }
   } catch (error) { showToast(error.message, 'error'); }
   finally { casinoSpinInProgress = false; setBusy(form, false); renderCasino(appState?.casino); }
+});
+
+$('#flightForm').addEventListener('submit', async (event) => {
+  event.preventDefault(); if ($('#flightSky').dataset.phase === 'flying') return; const form = event.currentTarget; const bet = Number($('#flightBet').value); const walletSource = $('#flightWalletSource').value;
+  if (!Number.isInteger(bet) || bet < 1 || bet > 100) { showToast('Aposte um valor inteiro de 1 a 100 créditos.', 'error'); return; }
+  setBusy(form, true);
+  try { const data = await flightApi('/api/casino/flight/start', { method: 'POST', body: { bet, walletSource } }); applyState(data); startFlightPolling(); showToast('Aposta confirmada. Todos decolam juntos ao fim da contagem!'); }
+  catch (error) { showToast(error.message, 'error'); }
+  finally { setBusy(form, false); }
+});
+$('#flightCashoutButton').addEventListener('click', async () => {
+  if (!flightInProgress) return; const button = $('#flightCashoutButton'); flightCashoutLocallyReady = false; button.disabled = true; button.dataset.requesting = 'true'; button.textContent = 'Resgatando…'; $('#flightMessage').textContent = 'Pedido de resgate enviado…';
+  flightPollGeneration++; clearTimeout(flightPollTimer); clearTimeout(flightCashoutReadyTimer); flightPollTimer = null;
+  try { const data = await flightApi('/api/casino/flight/cashout', { method: 'POST' }); applyState(data); setFlightVisual(true, data.flightResult.multiplier, `Você resgatou ${data.flightResult.payout} créditos · aguardando a queda global`, { phase: 'flying', joined: true, canCashOut: false }); startFlightPolling(); showToast(`Voo resgatado em x${Number(data.flightResult.multiplier || 1).toFixed(2).replace('.', ',')}! 🚀`); }
+  catch (error) { stopFlightPolling(); setFlightVisual(false, 1, error.message); showToast(error.message, 'error'); }
+  finally { delete button.dataset.requesting; }
+});
+
+$('#stellarLoanCard').addEventListener('click', async (event) => {
+  const borrow = event.target.closest('[data-loan-borrow]'); const repay = event.target.closest('[data-loan-repay],[data-loan-repay-all]');
+  if (!borrow && !repay) return;
+  const button = borrow || repay; button.disabled = true;
+  try {
+    if (borrow) {
+      const amount = Number(borrow.dataset.loanBorrow);
+      if (!confirm(`Receber ${amount} créditos e devolver ${Math.round(amount * 1.2)}?`)) return;
+      applyState(await api('/api/loans/borrow', { method: 'POST', body: { amount } })); showToast('O Agiota Estelar depositou seus créditos. 🛸');
+    } else {
+      const loan = appState?.profile?.loan; const amount = repay.hasAttribute('data-loan-repay-all') ? Number(loan?.remainingDue || 0) : Number($('#stellarRepayAmount').value);
+      applyState(await api('/api/loans/repay', { method: 'POST', body: { amount } })); showToast(amount >= Number(loan?.remainingDue || Infinity) ? 'Empréstimo quitado! Você está livre do Agiota. ✨' : 'Pagamento registrado.');
+    }
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { button.disabled = false; }
 });
 
 $('#casinoCashoutButton').addEventListener('click', async () => {
@@ -2513,15 +2659,18 @@ $('#shopCatalog').addEventListener('click', async (event) => {
         if (!target) throw new Error('Digite exatamente um dos nomes exibidos.');
         body.targetId = target.id;
         if (!confirm('Confirmar o uso deste poder?\n\n' + target.displayName + ' ficará reservado como Gay da Rodada. O poder será consumido agora.')) return;
-      } else if (button.dataset.shopValue === 'forceGayCursor') {
-        const people = appState.participants || [];
+      } else if (button.dataset.shopValue === 'forceGayCursor' || button.dataset.shopValue === 'forceGiantCursor') {
+        const giant = button.dataset.shopValue === 'forceGiantCursor';
+        const duration = giant ? 'por 24 horas' : 'até esta rodada terminar';
+        const people = (giant ? appState.powerParticipants : appState.participants) || [];
         if (!people.length) throw new Error('Não há participantes disponíveis nesta rodada.');
-        const answer = prompt('Quem deverá usar a Seta Gay Compulsória nesta rodada?\n\n' + people.map((person) => '• ' + person.displayName).join('\n'));
+        const powerName = button.dataset.shopValue === 'forceGiantCursor' ? 'Maldição do Mouse Gigante' : 'Seta Gay Compulsória';
+        const answer = prompt('Quem deverá usar ' + powerName + ' ' + duration + '?\n\n' + people.map((person) => '• ' + person.displayName).join('\n'));
         if (!answer) return;
         const target = people.find((person) => person.displayName.toLowerCase() === answer.trim().toLowerCase());
         if (!target) throw new Error('Digite exatamente um dos nomes exibidos.');
         body.targetId = target.id;
-        if (!confirm('Confirmar o uso deste poder?\n\n' + target.displayName + ' usará a seta especial até esta rodada terminar.')) return;
+        if (!confirm('Confirmar o uso deste poder?\n\n' + target.displayName + ' usará o cursor especial ' + duration + '.')) return;
       } else if (button.dataset.shopValue === 'chooseWallpaper' || button.dataset.shopValue === 'assignWallpaper') {
         const wallpapers = appState.submissions || [];
         if (!wallpapers.length) throw new Error('Não há wallpapers disponíveis.');
@@ -2545,7 +2694,7 @@ $('#shopCatalog').addEventListener('click', async (event) => {
         if (!confirm('Usar o Raio-X Total para revelar quem enviou todos os ' + wallpapers.length + ' wallpapers secretos desta rodada? Somente você verá os nomes.')) return;
       } else if (!confirm('Ativar o Escudo da Rodada agora?')) return;
       applyState(await api('/api/powers/use', { method: 'POST', body }));
-      showToast(button.dataset.shopValue === 'chooseTheme' ? 'Tema escolhido e rodada aberta sem sorteio! 🎨' : button.dataset.shopValue === 'chooseGay' ? 'Escolha reservada para o sorteio especial. 👑' : button.dataset.shopValue === 'forceGayCursor' ? 'Seta compulsória aplicada durante esta rodada! 🌈' : button.dataset.shopValue === 'chooseWallpaper' ? 'Seu wallpaper foi reservado anonimamente! 🖼️' : button.dataset.shopValue === 'assignWallpaper' ? 'Wallpaper do participante reservado anonimamente! 🎯' : button.dataset.shopValue === 'revealAuthor' ? 'Todos os autores foram revelados somente para você. 🔎' : 'Escudo ativado nesta rodada! 🛡️');
+      showToast(button.dataset.shopValue === 'chooseTheme' ? 'Tema escolhido e rodada aberta sem sorteio! 🎨' : button.dataset.shopValue === 'chooseGay' ? 'Escolha reservada para o sorteio especial. 👑' : button.dataset.shopValue === 'forceGayCursor' ? 'Seta compulsória aplicada durante esta rodada! 🌈' : button.dataset.shopValue === 'forceGiantCursor' ? 'Mouse gigante aplicado por 24 horas! 🐌' : button.dataset.shopValue === 'chooseWallpaper' ? 'Seu wallpaper foi reservado anonimamente! 🖼️' : button.dataset.shopValue === 'assignWallpaper' ? 'Wallpaper do participante reservado anonimamente! 🎯' : button.dataset.shopValue === 'revealAuthor' ? 'Todos os autores foram revelados somente para você. 🔎' : 'Escudo ativado nesta rodada! 🛡️');
     }
   } catch (error) { showToast(error.message, 'error'); }
   finally { button.disabled = false; }
@@ -2926,11 +3075,8 @@ $('#profileAvatarInput').addEventListener('change', async (event) => {
   const input = event.currentTarget;
   const file = input.files?.[0];
   if (!file) return;
-  if (file.size > 350000) { showToast('Escolha uma foto de até 350 KB.', 'error'); input.value = ''; return; }
   try {
-    const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
-    applyState(await api('/api/profile/avatar', { method: 'POST', body: { dataUrl } }));
-    showToast('Foto de perfil atualizada! 📸');
+    await openAvatarCrop(file);
   } catch (error) { showToast(error.message, 'error'); }
   finally { input.value = ''; }
 });
@@ -2946,11 +3092,17 @@ $('#notificationButton').addEventListener('click', async () => {
     const previousLocalRead = notificationsReadAtLocal;
     notificationsReadAtLocal = new Date(Date.now() + 1000).toISOString();
     renderNotifications();
-    try { applyState(await api('/api/notifications/read', { method: 'POST' })); setNotificationPanel(true); }
+    try { applyState(await api('/api/notifications/read', { method: 'POST' })); }
     catch (error) { notificationsReadAtLocal = previousLocalRead; renderNotifications(); showToast(error.message, 'error'); }
   }
 });
 $('#closeNotificationPanel').addEventListener('click', () => setNotificationPanel(false));
+document.addEventListener('pointerdown', (event) => {
+  if (!event.target.closest('#notificationPanel, #notificationButton')) setNotificationPanel(false);
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') setNotificationPanel(false);
+});
 $('#notificationList').addEventListener('click', (event) => {
   const item = event.target.closest('[data-notification-page]');
   if (!item) return;
@@ -2973,12 +3125,16 @@ async function initialize() {
   catch { showAuth(); }
 }
 initialize();
+let portalSyncInProgress = false;
 setInterval(async () => {
-  if (!appState || spinning || casinoSpinInProgress || mysteryOpeningInProgress || document.hidden) return;
+  if (!appState || portalSyncInProgress || document.hidden) return;
+  portalSyncInProgress = true;
   try {
     const sync = await api('/api/sync');
+    if (!appState) return;
+    if (Array.isArray(sync.onlinePeople)) { appState.onlinePeople = sync.onlinePeople; renderOnlinePeople(); }
     serverClockOffset = Number(sync.serverTime || Date.now()) - Date.now();
     if (sync.liveDraw) receiveLiveDraw(sync.liveDraw);
-    if (Number(sync.revision) !== Number(appState.serverRevision)) applyState(await api('/api/state'));
-  } catch {}
+    if (!spinning && !casinoSpinInProgress && !mysteryOpeningInProgress && Number(sync.revision) !== Number(appState.serverRevision)) applyState(await api('/api/state'));
+  } catch {} finally { portalSyncInProgress = false; }
 }, 15000);

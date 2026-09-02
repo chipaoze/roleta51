@@ -8,7 +8,10 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260901-115">
+  <link rel="stylesheet" href="/styles.css?v=20260902-123">
+  <link rel="stylesheet" href="/improvements.css?v=20260902-118">
+  <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260902-133">
+  <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
   <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
@@ -77,7 +80,7 @@
           <label>Senha
             <span class="input-wrap"><span class="input-icon">●</span><input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></span>
           </label>
-          <label class="remember-me-row"><input name="rememberMe" type="checkbox"><span><strong>Lembrar de mim neste computador</strong><small>Manter meu acesso por até 30 dias.</small></span></label>
+          <label class="remember-me-row"><input id="rememberMe" name="rememberMe" type="checkbox"><span><strong>Lembrar meu acesso por 30 dias</strong><small id="rememberMeStatus">Desativado · será necessário entrar novamente depois.</small></span><b aria-hidden="true"></b></label>
           <p class="form-error" id="loginError" role="alert"></p>
           <button type="submit" class="button button-primary button-wide">Entrar <span>→</span></button>
           <p class="form-foot">Primeira vez? <button type="button" class="link-button" data-go-register>Crie seu próprio acesso</button></p>
@@ -108,9 +111,10 @@
 
   <div id="appView" class="app hidden">
     <header class="topbar">
-      <a class="brand" href="?pagina=sorteio" data-page="sorteio"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></a>
+      <a class="brand" href="?pagina=memes" data-page="memes"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></a>
       <button id="menuButton" class="menu-button" type="button" aria-label="Abrir menu principal" aria-controls="siteMenu" aria-expanded="false"><i></i><i></i><i></i><span>Menu</span></button>
       <div class="account">
+        <button id="onlinePeopleButton" class="online-people-button" type="button" title="Pessoas conectadas"><i></i><strong id="onlinePeopleCount">1</strong><span>online</span></button>
         <button id="notificationButton" class="icon-button notification-button" type="button" title="Abrir notificações" aria-label="Abrir notificações" aria-expanded="false">🔔<b id="notificationBadge" class="hidden">0</b></button>
         <button id="musicToggle" class="icon-button music-toggle" title="Ativar som da rodada" aria-label="Ativar som da rodada">♫</button>
         <button id="volumeDownButton" class="icon-button volume-down-button" title="Diminuir volume" aria-label="Diminuir volume">🔉</button>
@@ -130,16 +134,17 @@
     <aside id="siteMenu" class="site-menu" aria-hidden="true" aria-label="Menu principal">
       <header><div class="brand"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></div><button id="closeMenuButton" type="button" aria-label="Fechar menu">×</button></header>
       <div class="site-menu-user"><span id="menuUserAvatar">M</span><p><strong id="menuUserName">Participante</strong><small id="menuUserRole">Participante</small></p></div>
+      <div id="menuOnlinePeople" class="menu-online-people"><i></i><strong>1 online</strong><span>Você</span></div>
       <nav aria-label="Páginas da Área 51">
         <a href="?pagina=sorteio" data-page="sorteio" class="active"><span>🎡</span><p><strong>Sorteio</strong><small>Roleta e andamento da rodada</small></p></a>
         <a href="?pagina=inscricoes" data-page="inscricoes"><span>🖼️</span><p><strong>Inscrições</strong><small>Enviar e acompanhar wallpapers</small></p></a>
-        <a href="?pagina=memes" data-page="memes"><span>😂</span><p><strong>Memes Diários</strong><small>Mural e frases da equipe</small></p></a>
+        <a href="?pagina=memes" data-page="memes"><span>💬</span><p><strong>Feed da Tripulação</strong><small>Publicações, memes e comentários</small></p></a>
         <a href="?pagina=anonimos" data-page="anonimos"><span>🕵️</span><p><strong>Elogios / Denúncias</strong><small>Publicações anônimas</small></p></a>
         <a href="?pagina=agua" data-page="agua"><span>💧</span><p><strong>Água</strong><small>Controle diário de hidratação</small></p></a>
         <a href="?pagina=mentirometro" data-page="mentirometro"><span>🤥</span><p><strong>Mentirômetro</strong><small>Marcações e classificação</small></p></a>
         <a href="?pagina=perfil" data-page="perfil"><span>👤</span><p><strong>Meu Perfil</strong><small>Baús, coleção e conquistas</small></p></a>
         <a href="?pagina=loja" data-page="loja"><span>🛍️</span><p><strong>Loja 51</strong><small>Visuais, poderes e presentes</small></p></a>
-        <a href="?pagina=cassino" data-page="cassino"><span>🎰</span><p><strong>Cassino 51</strong><small>Apostas controladas e caixas</small></p></a>
+        <a href="?pagina=jogos" data-page="jogos"><span>🎰</span><p><strong>Jogos 51</strong><small>Roleta e Voo do Unicórnio</small></p></a>
         <a href="?pagina=historico" data-page="historico"><span>🏆</span><p><strong>Histórico</strong><small>Vencedores anteriores</small></p></a>
         <a href="?pagina=classificacao" data-page="classificacao"><span>📊</span><p><strong>Classificação</strong><small>Placares da equipe</small></p></a>
         <a href="?pagina=admin" data-page="admin" id="adminNav" class="hidden"><span>⚙️</span><p><strong>Administração</strong><small>Controle do site e usuários</small></p></a>
@@ -298,8 +303,8 @@
 
     <section id="memes" class="section memes-section">
       <div class="section-heading split-heading">
-        <div><span class="eyebrow">HUMOR DA TRIPULAÇÃO</span><h2>Memes <em>diários</em></h2></div>
-        <p>Um mural compartilhado para postar memes e deixar a frase do dia.</p>
+        <div><span class="eyebrow">ÁREA 51 · PÁGINA INICIAL</span><h2>Feed da <em>tripulação</em></h2></div>
+        <p>As novidades primeiro: publique imagens com legenda, frases, reaja e comente.</p>
       </div>
       <div class="daily-wall-layout">
         <aside class="daily-wall-controls">
@@ -313,6 +318,8 @@
             <div class="daily-wall-form-foot"><span><b id="dailyPhraseCount">0</b>/180</span><button class="button button-dark" type="submit">Publicar frase</button></div>
           </form>
           <form id="memeUploadForm" class="card daily-wall-form">
+            <label for="memeCaption">Legenda da publicação</label>
+            <textarea id="memeCaption" maxlength="500" rows="3" placeholder="Conte algo sobre a imagem (opcional)…"></textarea>
             <label class="meme-file-picker" for="memeFile"><input id="memeFile" type="file" accept="image/png,image/jpeg,image/webp" required><span aria-hidden="true">🛸</span><strong id="memeFileName">Escolher meme</strong><small>PNG, JPG ou WEBP · até 5 MB</small></label>
             <div id="memePreview" class="meme-preview hidden"><img alt="Prévia do meme"><button id="clearMemeFile" type="button">Remover</button></div>
             <p id="memeUploadError" class="form-error" role="alert"></p>
@@ -323,6 +330,7 @@
         <div class="daily-meme-wall">
           <div class="daily-newspaper-head"><div><small>EDIÇÃO DE HOJE · ÁREA 51</small><h3>Mural da tripulação</h3></div><span id="dailyMemeCount">0 memes</span></div>
           <div id="dailyMemeGallery" class="daily-meme-gallery"></div>
+          <div id="communityFeed" class="community-feed"></div>
         </div>
       </div>
     </section>
@@ -389,11 +397,12 @@
       </div>
     </section>
 
-    <section id="cassino" class="section casino-section">
-      <div class="section-heading split-heading"><div><span class="eyebrow">DIVERSÃO INTERGALÁCTICA</span><h2>Cassino <em>51</em></h2></div><p>Todos recebem 250 créditos promocionais por dia. Baús ganhos preservam a aposta e ficam fechados no perfil.</p></div>
+    <section id="jogos" class="section casino-section">
+      <div class="section-heading split-heading"><div><span class="eyebrow">JOGOS DE AZAR INTERGALÁCTICOS</span><h2>Jogos <em>51</em></h2></div><p>Roleta de créditos e Voo do Unicórnio em uma página própria. Os resultados são aleatórios.</p></div>
       <div class="casino-layout">
-        <article class="card casino-machine"><small>ROLETA DE CRÉDITOS E BAÚS</small><h3>Multiplique ou encontre um baú</h3><p>O multiplicador é o retorno total: em uma aposta de 10, x1,5 devolve os 10 e acrescenta 5. Ao ganhar um baú, a aposta volta inteira e o baú fechado vai para o perfil.</p><div class="casino-wheel-stage"><span class="casino-wheel-pointer">▼</span><canvas id="casinoWheel" width="440" height="440" aria-label="Roleta com multiplicadores e três tipos de baús misteriosos"></canvas><strong>51</strong></div><form id="casinoForm"><label>Usar saldo de<select id="casinoWalletSource"><option value="promotional">Bônus promocional diário</option><option value="shop">Minha Loja 51</option></select></label><label>Valor da aposta<input id="casinoBet" type="number" min="1" max="100" step="1" value="10" required></label><button class="button button-primary" type="submit">Girar a roleta</button></form><div id="casinoResult" class="casino-result">Escolha qualquer valor inteiro entre 1 e 100 créditos.</div></article>
-        <aside class="card casino-status"><div><small>SALDO PROMOCIONAL</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoWallet">250</b></strong></div><div><small>SALDO DA LOJA</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoShopWallet">0</b></strong></div><div class="casino-cashout"><p><small>META PARA RESGATE</small><strong id="casinoCashoutText">0 de 500</strong></p><i><b id="casinoCashoutProgress"></b></i><button id="casinoCashoutButton" class="button button-primary" type="button" disabled>Resgatar lucro na loja</button></div><div><small>BAÚS FECHADOS</small><strong>🎁 <b id="casinoClosedBoxes">0</b></strong></div><div><small>JOGADAS HOJE</small><strong id="casinoPlays">0</strong></div><h3>Últimos resultados</h3><div id="casinoHistory" class="casino-history"></div><a class="button button-dark" href="?pagina=perfil" data-page="perfil">Abrir ou vender meus baús</a></aside>
+        <article class="card casino-machine"><small>ROLETA DE CRÉDITOS E BAÚS</small><h3>Multiplique ou encontre um baú</h3><p>O multiplicador é o retorno total: em uma aposta de 10, x1,5 devolve os 10 e acrescenta 5. Ao ganhar um baú, a aposta volta inteira e o baú fechado vai para o perfil.</p><div class="casino-bet-legend"><span>📦 Caixa Sonda <b>qualquer aposta</b></span><span>🎁 Caixa Cósmica <b>a partir de 30</b></span><span>🛸 Cofre Área 51 <b>a partir de 70</b></span></div><div class="casino-wheel-stage"><span class="casino-wheel-pointer">▼</span><canvas id="casinoWheel" width="440" height="440" aria-label="Roleta com multiplicadores e três tipos de baús misteriosos"></canvas><strong>51</strong></div><form id="casinoForm"><label>Usar saldo de<select id="casinoWalletSource"><option value="promotional">Bônus promocional diário</option><option value="shop">Minha Loja 51</option></select></label><label>Valor da aposta<input id="casinoBet" type="number" min="1" max="100" step="1" value="10" required></label><button class="button button-primary" type="submit">Girar a roleta</button></form><div id="casinoResult" class="casino-result">Escolha qualquer valor inteiro entre 1 e 100 créditos.</div></article>
+        <aside class="card casino-status"><div class="casino-master-total"><small>APOSTÔMETRO DA TRIPULAÇÃO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoTotalWagered">0</b></strong><em><b id="casinoTotalPlays">0</b> apostas realizadas por todos</em></div><div><small>SALDO PROMOCIONAL</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoWallet">250</b></strong></div><div><small>SALDO DA LOJA</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoShopWallet">0</b></strong></div><div class="casino-cashout"><p><small>META PARA RESGATE</small><strong id="casinoCashoutText">0 de 500</strong></p><i><b id="casinoCashoutProgress"></b></i><button id="casinoCashoutButton" class="button button-primary" type="button" disabled>Resgatar lucro na loja</button></div><div><small>BAÚS FECHADOS</small><strong>🎁 <b id="casinoClosedBoxes">0</b></strong></div><div><small>JOGADAS HOJE</small><strong id="casinoPlays">0</strong></div><h3>Resultados da roleta</h3><div id="casinoRouletteHistory" class="casino-history"></div><h3>Resultados do voo</h3><div id="casinoFlightHistory" class="casino-history"></div><a class="button button-dark" href="?pagina=perfil" data-page="perfil">Abrir ou vender meus baús</a></aside>
+        <article class="card unicorn-flight-game"><div class="unicorn-flight-copy"><small>NOVO JOGO · VOO DO UNICÓRNIO</small><h3>Resgate antes da nave cair</h3><p>O multiplicador cresce enquanto a nave sobe — mas ela pode cair imediatamente em x1,00. O resgate abre em x1,25.</p><form id="flightForm"><label>Saldo<select id="flightWalletSource"><option value="promotional">Bônus diário</option><option value="shop">Loja 51</option></select></label><label>Aposta<input id="flightBet" type="number" min="1" max="100" step="1" value="10" required></label><button id="flightStartButton" class="button button-primary" type="submit">Iniciar voo</button></form><div><small>ÚLTIMAS QUEDAS DA EQUIPE</small><div id="flightPublicHistory" class="flight-public-history"><span>Aguardando voos</span></div></div></div><div id="flightSky" class="flight-sky"><span id="flightShip">🦄🚀</span><strong id="flightMultiplier">x1,00</strong><em id="flightMessage">Aguardando lançamento</em><button id="flightCashoutButton" class="button button-primary" type="button" disabled>Resgatar agora</button></div></article>
       </div>
     </section>
 
@@ -454,6 +463,7 @@
       <div class="shop-page-shell">
         <div class="shop-page-toolbar"><div><small>SEU SALDO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="shopPageWallet">0</b> créditos</strong></div><label class="shop-owned-toggle"><input id="hideOwnedVisuals" type="checkbox"><span>Ocultar visuais que já adquiri</span></label></div>
         <article id="freeShopPass" class="free-shop-pass"><span>🎟️</span><p><small>PRESENTE PARA CADA TRIPULANTE</small><strong id="freeShopPassTitle">Compra Grátis 51 disponível</strong><em id="freeShopPassText">Escolha um visual da loja e use seu único passe sem gastar créditos.</em></p><b id="freeShopPassStatus">1 USO</b></article>
+        <article id="stellarLoanCard" class="stellar-loan-card"><span>🛸</span><div><small>AGIOTA ESTELAR</small><strong id="stellarLoanTitle">Créditos rápidos para a sua coleção</strong><p id="stellarLoanText">Escolha 100, 200 ou 300 créditos. O pagamento tem 20% de juros e só é permitido um empréstimo por vez.</p></div><div id="stellarLoanActions" class="stellar-loan-actions"></div></article>
         <div id="shopFilters" class="shop-filters" aria-label="Filtrar itens da loja"><button class="active" type="button" data-shop-filter="all">Tudo</button><button type="button" data-shop-filter="box">🎁 Caixas</button><button type="button" data-shop-filter="cursor">Cursores</button><button type="button" data-shop-filter="trail">Rastros</button><button type="button" data-shop-filter="theme">Temas</button><button type="button" data-shop-filter="profile">Perfil</button><button class="power-filter-button" type="button" data-shop-filter="power">✨ Poderes</button></div>
         <div id="shopCatalog" class="shop-catalog"></div>
       </div>
@@ -514,8 +524,8 @@
         <div class="card admin-card admin-feedback-card">
           <div class="card-title-row"><div><h3>Melhorias e bugs</h3><p>Caixa de entrada privada da equipe.</p></div><strong id="adminFeedbackPending">0 aguardando</strong></div>
           <nav class="admin-feedback-filters" aria-label="Filtrar melhorias e bugs">
-            <button class="active" type="button" data-admin-feedback-filter="all" aria-pressed="true">Todas <span id="adminFeedbackAllCount">0</span></button>
-            <button type="button" data-admin-feedback-filter="pending" aria-pressed="false">Aguardando <span id="adminFeedbackPendingCount">0</span></button>
+            <button type="button" data-admin-feedback-filter="all" aria-pressed="false">Todas <span id="adminFeedbackAllCount">0</span></button>
+            <button class="active" type="button" data-admin-feedback-filter="pending" aria-pressed="true">Aguardando <span id="adminFeedbackPendingCount">0</span></button>
             <button type="button" data-admin-feedback-filter="approved" aria-pressed="false">Aprovadas <span id="adminFeedbackApprovedCount">0</span></button>
             <button type="button" data-admin-feedback-filter="done" aria-pressed="false">Concluídas <span id="adminFeedbackDoneCount">0</span></button>
             <button type="button" data-admin-feedback-filter="rejected" aria-pressed="false">Não aprovadas <span id="adminFeedbackRejectedCount">0</span></button>
@@ -707,6 +717,8 @@
   </aside>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="/app.js?v=20260901-115"></script>
+  <script src="/community-feed.js?v=20260902-132"></script>
+  <script src="/avatar-crop.js?v=20260902-129"></script>
+  <script src="/app.js?v=20260902-133"></script>
 </body>
 </html>

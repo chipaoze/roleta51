@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
+
+const root = new URL('../', import.meta.url);
+const server = await readFile(new URL('legacy-server.mjs', root), 'utf8');
+const app = await readFile(new URL('public/app.js', root), 'utf8');
+const feed = await readFile(new URL('public/community-feed.js', root), 'utf8');
+const eventsSource = server.slice(server.indexOf("  if (req.method === 'GET' && route === '/api/events')"), server.indexOf("  if (req.method === 'POST' && route === '/api/change-password')"));
+const visits = new Map();
+let ended = 0, ready = 0, draws = 0;
+const eventContext = { req: { method:'GET' }, route:'/api/events', requireAuth:()=>({user:{id:'test'}}), runtimeEnv:{}, onlineVisits:visits, MUSIC_EPOCH:1, MUSIC_LOOP_MS:8000, liveDraw:{endsAt:Date.now()+60000}, drawForUser:()=>({winnerId:'test'}), res:{writeHead(){},write(){},end(){ended++;}}, sendLiveEvent:(_res,type)=>{if(type==='ready')ready++;if(type==='draw')draws++;}, liveClients:new Map(), broadcastRefresh:()=>{throw new Error('Closed Worker connections must not broadcast');} };
+const eventsHandler = vm.runInNewContext('(function(){' + eventsSource + '})', eventContext);
+for(let i=0;i<100;i++)eventsHandler();
+assert.equal(ended,100); assert.equal(ready,100); assert.equal(draws,100);
+assert.equal(eventContext.liveClients.size,0); assert.equal(visits.size,1);
+console.log('PASS: 100 Worker reconnects keep no closed streams and preserve live draw snapshots.');
+const activeSource = server.slice(server.indexOf('function isForcedCursorActive('), server.indexOf('function profileFor('));
+const active = vm.runInNewContext(activeSource + '; isForcedCursorActive');
+const start = Date.parse('2026-09-02T12:00:00Z');
+const giant = { style: 'giant-slow', createdAt: new Date(start).toISOString(), expiresAt: new Date(start + 86400000).toISOString() };
+assert.equal(active(giant, null, start + 1), true);
+assert.equal(active(giant, 'another-round', start + 86399999), true);
+assert.equal(active(giant, null, start + 86400000), false);
+assert.equal(active({ style: 'giant-slow', createdAt: giant.createdAt }, null, start + 86400000), false);
+assert.equal(active({ style: 'gay', roundId: 'a' }, null, start), false);
+assert.equal(active({ style: 'gay', roundId: 'a' }, 'a', start), true);
+console.log('PASS: giant expires after 24h independently of round; old records supported.');
+
+const container = { innerHTML: '', contains: () => false, addEventListener() {} };
+const context = vm.createContext({ document: { querySelector: () => container, activeElement: null }, escapeHtml: (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'), formatDisplayName: (s) => s, formatDate: (s) => s, appState: { me: { role: 'user' } } });
+vm.runInContext(feed, context);
+context.wall = { phrases: [{ id:'old', phrase:'old post', authorName:'A', createdAt:'2026-09-01', comments:[{authorName:'B', message:'<script>bad</script>'}] }], memes: [{id:'new',caption:'new caption',authorName:'B',createdAt:'2026-09-02',imageUrl:'/memes/test.png'}] };
+vm.runInContext('renderCommunityFeed(wall)', context);
+assert.ok(container.innerHTML.indexOf('new caption') < container.innerHTML.indexOf('old post'));
+assert.ok(container.innerHTML.includes('&lt;script>'));
+assert.ok(!container.innerHTML.includes('<script>'));
+container.contains = () => true;
+context.wall.phrases[0].phrase = 'changed';
+vm.runInContext('renderCommunityFeed(wall)', context);
+assert.ok(container.innerHTML.includes('old post'));
+console.log('PASS: mixed feed newest first, text escaped, draft preserved during sync.');
+
+assert.ok(app.includes("if (generation !== flightPollGeneration) return;"));
+assert.ok(app.includes("event.target.closest('#notificationPanel, #notificationButton')"));
+assert.ok(!app.includes("method: 'POST' })); setNotificationPanel(true)"));
+assert.ok(server.includes("phase: 'crashed', crashed: true, crashAt: flight.crashAt, state: stateFor(user)"));
+console.log('PASS: notification and flight regressions guarded.');
