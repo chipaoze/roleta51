@@ -233,6 +233,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.waterEntries)) { db.waterEntries = []; changed = true; }
   if (!Array.isArray(db.rememberTokens)) { db.rememberTokens = []; changed = true; }
   if (!Array.isArray(db.lieAccusations)) { db.lieAccusations = []; changed = true; }
+  if (!Array.isArray(db.mysteries)) { db.mysteries = []; changed = true; }
   if (!Array.isArray(db.gateAuthorizations)) { db.gateAuthorizations = []; changed = true; }
   if (!db.economy || typeof db.economy !== 'object') { db.economy = {}; changed = true; }
   if (!db.economy.wallets || typeof db.economy.wallets !== 'object') { db.economy.wallets = {}; changed = true; }
@@ -654,6 +655,38 @@ function seasonSummary(monthKey = monthKeyFor()) {
     return { id: person.id, displayName: person.displayName, points, water, memes, phrases, best, gay, lies };
   }).sort((a, b) => b.points - a.points || a.displayName.localeCompare(b.displayName));
   return { monthKey, ranking: people.slice(0, 9), leader: people[0]?.points > 0 ? people[0] : null };
+}
+
+const MYSTERY_ANSWERS = new Set(['sim', 'nao', 'irrelevante']);
+const MYSTERY_ANSWER_LABELS = { sim: 'SIM', nao: 'NÃO', irrelevante: 'IRRELEVANTE' };
+
+function activeMystery() {
+  return [...db.mysteries].reverse().find((item) => item.status === 'open') || null;
+}
+
+function mysteryForClient(user) {
+  const mystery = activeMystery() || db.mysteries.at(-1) || null;
+  if (!mystery) return { active: null, canStart: user.role === 'admin' };
+  const canManage = mystery.readerId === user.id;
+  const revealed = mystery.status === 'closed';
+  return {
+    active: {
+      id: mystery.id, title: mystery.title, premise: mystery.premise, readerName: mystery.readerName,
+      readerId: mystery.readerId, status: mystery.status, createdAt: mystery.createdAt, closedAt: mystery.closedAt || null,
+      solution: revealed || canManage || user.role === 'admin' ? mystery.solution : null,
+      questionCount: (mystery.questions || []).length,
+      questions: (mystery.questions || []).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map((question) => ({
+        id: question.id, text: question.text, authorName: question.authorName, authorId: question.authorId,
+        createdAt: question.createdAt, answer: question.answer || null,
+        answerLabel: question.answer ? MYSTERY_ANSWER_LABELS[question.answer] : null,
+        answeredAt: question.answeredAt || null,
+      })),
+    },
+    canStart: !activeMystery() && user.role === 'admin',
+    canAsk: mystery.status === 'open' && mystery.readerId !== user.id,
+    canManage,
+    canClear: user.role === 'admin',
+  };
 }
 
 function seasonalChallengesFor(userId, monthKey = monthKeyFor()) {
@@ -1413,7 +1446,7 @@ function stateFor(user) {
         isNew: assignment.userId === user.id && !assignment.seenAt,
       } : null;
     }).filter(Boolean),
-    draws, voting: votingForClient(voting, user), rankings: { best: bestRanking, worst: worstRanking, gay: gayRanking },
+    draws, voting: votingForClient(voting, user), rankings: { best: bestRanking, worst: worstRanking, gay: gayRanking }, mystery: mysteryForClient(user),
     season: { current: seasonSummary(), previous: previousSeason, challenges: seasonalChallengesFor(user.id) },
     dailyWall: {
       emojis: WALL_EMOJIS,
@@ -1626,6 +1659,60 @@ async function handleApi(req, res, route) {
     const settledSeasonChallenges = settleSeasonalChallenges();
     if (settledCleanName || settledSeasonChallenges) await persist();
     json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery') {
+    const { user } = requireAdmin(req); const body = await readJson(req);
+    if (activeMystery()) throw new HttpError(409, 'Já existe um mistério em investigação. Encerre-o antes de abrir outro.');
+    const reader = db.users.find((person) => person.id === body.readerUserId && person.active && person.approved !== false);
+    const title = String(body.title || '').trim().replace(/\s+/g, ' ').slice(0, 70);
+    const premise = String(body.premise || '').trim().slice(0, 900);
+    const solution = String(body.solution || '').trim().slice(0, 1800);
+    if (!reader) throw new HttpError(400, 'Escolha um leitor ativo da tripulação.');
+    if (title.length < 3 || premise.length < 10 || solution.length < 10) throw new HttpError(400, 'Preencha título, enigma e solução com mais detalhes.');
+    db.mysteries.push({ id: randomUUID(), title, premise, solution, readerId: reader.id, readerName: reader.displayName, status: 'open', questions: [], createdAt: new Date().toISOString(), closedAt: null, createdBy: user.id });
+    if (db.mysteries.length > 30) db.mysteries = db.mysteries.slice(-30);
+    await persist(); broadcastRefresh('mystery'); json(res, 201, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery/questions') {
+    const { user } = requireAuth(req); const body = await readJson(req); const mystery = activeMystery();
+    if (!mystery) throw new HttpError(409, 'Não há um mistério aberto agora.');
+    if (mystery.readerId === user.id) throw new HttpError(403, 'O leitor responde; envie perguntas apenas como investigador.');
+    const text = String(body.text || '').trim().replace(/\s+/g, ' ').slice(0, 300);
+    if (text.length < 4) throw new HttpError(400, 'Faça uma pergunta um pouco mais completa.');
+    mystery.questions.push({ id: randomUUID(), text, authorId: user.id, authorName: user.displayName, createdAt: new Date().toISOString(), answer: null, answeredAt: null });
+    if (mystery.questions.length > 300) mystery.questions = mystery.questions.slice(-300);
+    await persist(); broadcastRefresh('mystery'); json(res, 201, stateFor(user)); return;
+  }
+
+  if (req.method === 'PATCH' && /^\/api\/mystery\/questions\/[\w-]+$/.test(route)) {
+    const { user } = requireAuth(req); const body = await readJson(req); const mystery = activeMystery();
+    const questionId = route.split('/').at(-1);
+    if (!mystery) throw new HttpError(409, 'Não há um mistério aberto agora.');
+    if (mystery.readerId !== user.id) throw new HttpError(403, 'Somente o leitor responsável pode responder perguntas.');
+    const question = mystery.questions.find((item) => item.id === questionId);
+    const answer = String(body.answer || '').toLowerCase();
+    if (!question) throw new HttpError(404, 'Pergunta não encontrada.');
+    if (question.answer) throw new HttpError(409, 'Essa pergunta já recebeu uma resposta oficial.');
+    if (!MYSTERY_ANSWERS.has(answer)) throw new HttpError(400, 'Use apenas Sim, Não ou Irrelevante.');
+    question.answer = answer; question.answeredAt = new Date().toISOString(); question.answeredBy = user.id;
+    await persist(); broadcastRefresh('mystery'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery/close') {
+    const { user } = requireAuth(req); const mystery = activeMystery();
+    if (!mystery) throw new HttpError(409, 'Não há um mistério aberto agora.');
+    if (mystery.readerId !== user.id && user.role !== 'admin') throw new HttpError(403, 'Somente o leitor ou o administrador pode encerrar este mistério.');
+    mystery.status = 'closed'; mystery.closedAt = new Date().toISOString();
+    await persist(); broadcastRefresh('mystery'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'DELETE' && route === '/api/admin/mystery/history') {
+    const { user } = requireAdmin(req); const before = db.mysteries.length;
+    db.mysteries = db.mysteries.filter((item) => item.status === 'open');
+    if (db.mysteries.length === before) throw new HttpError(409, 'Não há mistérios encerrados para limpar.');
+    await persist(); broadcastRefresh('mystery'); json(res, 200, stateFor(user)); return;
   }
 
   if (req.method === 'GET' && route === '/api/sync') {
@@ -2725,7 +2812,7 @@ async function handleApi(req, res, route) {
     const currentSecurity = db.gateAuthorizations; const currentGate = { gateSeed: db.settings.gateSeed, gateCodeHash: db.settings.gateCodeHash };
     db = restored;
     db.feedbackMessages ||= []; db.dailyMemes ||= []; db.dailyPhrases ||= []; db.dailyReactions ||= [];
-    db.anonymousPosts ||= []; db.waterEntries ||= []; db.rememberTokens ||= []; db.lieAccusations ||= [];
+    db.anonymousPosts ||= []; db.waterEntries ||= []; db.rememberTokens ||= []; db.lieAccusations ||= []; db.mysteries ||= [];
     db.notificationsReadAt ||= {}; db.economy.wallets ||= {}; db.economy.purchases ||= [];
     db.economy.equipped ||= {}; db.economy.missionProgress ||= {}; db.economy.missionRewards ||= [];
     db.economy.dailyMissionRewards ||= []; db.economy.cleanNameRewards ||= [];
