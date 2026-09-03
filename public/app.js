@@ -1429,6 +1429,18 @@ function renderSeason(season = {}) {
   $('#seasonRanking').innerHTML = current.ranking.length ? current.ranking.map((person, index) => `<article${index === 0 && person.points > 0 ? ' class="leader"' : ''}><b>${index + 1}</b>${personAvatar(person, 'season-avatar')}<p><strong>${escapeHtml(formatDisplayName(person.displayName))}</strong><small>${person.water.toLocaleString('pt-BR')} ml · ${person.memes} memes · ${person.phrases} frases</small></p><em>${person.points} pts</em></article>`).join('') : '<p class="season-empty">A temporada começa com a primeira atividade do mês.</p>';
   const previous = season.previous;
   $('#previousSeasonWinner').textContent = previous?.leader ? '🏅 Campeão de ' + previous.monthKey + ': ' + formatDisplayName(previous.leader.displayName) : 'A temporada anterior ainda não teve pontuação.';
+  const challenges = Array.isArray(season.challenges) ? season.challenges : [];
+  const box = $('#seasonChallenges');
+  if (!box) return;
+  box.innerHTML = challenges.length ? challenges.map((challenge) => {
+    const teamPercent = Math.min(100, Math.round(Number(challenge.progress || 0) / Math.max(1, Number(challenge.target || 1)) * 100));
+    const personalPercent = Math.min(100, Math.round(Number(challenge.personalProgress || 0) / Math.max(1, Number(challenge.personalTarget || 1)) * 100));
+    const number = (value) => Number(value || 0).toLocaleString('pt-BR');
+    const teamText = number(challenge.progress) + ' de ' + number(challenge.target) + ' ' + challenge.unit;
+    const personalText = number(challenge.personalProgress) + ' de ' + number(challenge.personalTarget) + ' ' + challenge.unit;
+    const status = challenge.rewarded ? '✓ Recompensa recebida' : challenge.teamCompleted && challenge.eligible ? '✓ Recompensa liberada' : !challenge.teamCompleted ? 'A equipe ainda precisa avançar' : 'Faça sua parte para liberar';
+    return `<article class="season-challenge${challenge.rewarded ? ' rewarded' : ''}${challenge.teamCompleted ? ' team-done' : ''}"><span class="season-challenge-icon">${challenge.icon}</span><div class="season-challenge-content"><header><p><strong>${escapeHtml(challenge.title)}</strong><small>${escapeHtml(challenge.description)}</small></p><b>+${Number(challenge.reward || 0)} créditos</b></header><div class="season-challenge-progress"><span>Equipe <em>${teamText}</em></span><i><b style="width:${teamPercent}%"></b></i></div><div class="season-challenge-progress personal"><span>Sua parte <em>${personalText}</em></span><i><b style="width:${personalPercent}%"></b></i></div><footer>${escapeHtml(status)}</footer></div></article>`;
+  }).join('') : '<p class="season-empty">Os desafios mensais estarão disponíveis no próximo carregamento.</p>';
 }
 
 function lieAttribution(entry) {

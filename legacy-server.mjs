@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { FLIGHT_STEP_MS, flightStepMs, flightMultiplier, settleFlight } from './lib/flight-engine.mjs';
 import { albumFor, updateAlbum, awardEngagementCard, updateCardTrade, openCardPack } from './lib/card-album.mjs';
+import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
 import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
 const SESSION_TTL = 12 * 60 * 60 * 1000;
@@ -244,6 +245,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.dailyMissionRewards)) { db.economy.dailyMissionRewards = []; changed = true; }
   if (!Array.isArray(db.economy.cleanNameRewards)) { db.economy.cleanNameRewards = []; changed = true; }
   if (!Array.isArray(db.economy.teamMissionRewards)) { db.economy.teamMissionRewards = []; changed = true; }
+  if (!Array.isArray(db.economy.seasonChallengeRewards)) { db.economy.seasonChallengeRewards = []; changed = true; }
   if (!Array.isArray(db.economy.gifts)) { db.economy.gifts = []; changed = true; }
   if (!db.economy.activityTotals || typeof db.economy.activityTotals !== 'object') { db.economy.activityTotals = {}; changed = true; }
   if (!Array.isArray(db.economy.powerUses)) { db.economy.powerUses = []; changed = true; }
@@ -652,6 +654,35 @@ function seasonSummary(monthKey = monthKeyFor()) {
     return { id: person.id, displayName: person.displayName, points, water, memes, phrases, best, gay, lies };
   }).sort((a, b) => b.points - a.points || a.displayName.localeCompare(b.displayName));
   return { monthKey, ranking: people.slice(0, 9), leader: people[0]?.points > 0 ? people[0] : null };
+}
+
+function seasonalChallengesFor(userId, monthKey = monthKeyFor()) {
+  const rewards = new Set(db.economy.seasonChallengeRewards || []);
+  return seasonalChallengeProgress(db, userId, monthKey, dayKeyForTimestamp).map((challenge) => ({
+    ...challenge,
+    key: monthKey + ':' + challenge.id + ':' + userId,
+    rewarded: rewards.has(monthKey + ':' + challenge.id + ':' + userId),
+  }));
+}
+
+function settleSeasonalChallenges(monthKey = monthKeyFor()) {
+  let changed = false;
+  db.users.filter((person) => person.active && person.approved !== false).forEach((person) => {
+    seasonalChallengesFor(person.id, monthKey).forEach((challenge) => {
+      if (!challenge.teamCompleted || !challenge.eligible || challenge.rewarded) return;
+      db.economy.seasonChallengeRewards.push(challenge.key);
+      const before = walletFor(person.id);
+      addCredits(person.id, challenge.reward);
+      db.economy.creditAdjustments.push({
+        id: randomUUID(), userId: person.id, mode: 'season-challenge', amount: challenge.reward,
+        before, after: before + challenge.reward, reason: 'Desafio mensal: ' + challenge.title,
+        createdAt: new Date().toISOString(), monthKey, challengeId: challenge.id,
+      });
+      changed = true;
+    });
+  });
+  if (db.economy.seasonChallengeRewards.length > 5000) db.economy.seasonChallengeRewards = db.economy.seasonChallengeRewards.slice(-5000);
+  return changed;
 }
 
 function reactionsFor(targetType, targetId, userId) {
@@ -1383,7 +1414,7 @@ function stateFor(user) {
       } : null;
     }).filter(Boolean),
     draws, voting: votingForClient(voting, user), rankings: { best: bestRanking, worst: worstRanking, gay: gayRanking },
-    season: { current: seasonSummary(), previous: previousSeason },
+    season: { current: seasonSummary(), previous: previousSeason, challenges: seasonalChallengesFor(user.id) },
     dailyWall: {
       emojis: WALL_EMOJIS,
       phrases: db.dailyPhrases.map((item) => ({
@@ -1591,7 +1622,9 @@ async function handleApi(req, res, route) {
   if (req.method === 'GET' && route === '/api/state') {
     const auth = requireAuth(req); const { user } = auth;
     await heartbeatPresence(auth);
-    if (settleCleanNameRewards()) await persist();
+    const settledCleanName = settleCleanNameRewards();
+    const settledSeasonChallenges = settleSeasonalChallenges();
+    if (settledCleanName || settledSeasonChallenges) await persist();
     json(res, 200, stateFor(user)); return;
   }
 
@@ -1823,6 +1856,7 @@ async function handleApi(req, res, route) {
     awardEngagementCard(db,user.id,'phrase',saoPauloDayKey());
     recordActivity(user.id, 'phrase');
     rewardDailyMissions(user.id);
+    settleSeasonalChallenges();
     if (db.dailyPhrases.length > 100) db.dailyPhrases = db.dailyPhrases.slice(-100);
     await persist(); broadcastRefresh('daily-wall'); json(res, 200, stateFor(user)); return;
   }
@@ -1941,6 +1975,7 @@ async function handleApi(req, res, route) {
     awardEngagementCard(db,user.id,'meme',saoPauloDayKey());
     recordActivity(user.id, 'meme');
     rewardDailyMissions(user.id);
+    settleSeasonalChallenges();
     memePostTimes.set(user.id, now);
     await persist(); broadcastRefresh('daily-wall'); json(res, 201, stateFor(user)); return;
   }
@@ -1958,6 +1993,7 @@ async function handleApi(req, res, route) {
     anonymousPostTimes.set(user.id, now);
     db.anonymousPosts.push({ id: randomUUID(), authorId: user.id, message, createdAt: new Date(now).toISOString() });
     rewardDailyMissions(user.id);
+    settleSeasonalChallenges();
     if (db.anonymousPosts.length > 500) db.anonymousPosts = db.anonymousPosts.slice(-500);
     await persist(); broadcastRefresh('anonymous-wall'); json(res, 201, stateFor(user)); return;
   }
@@ -2030,6 +2066,7 @@ async function handleApi(req, res, route) {
     if (beforeTotal < 2500 && beforeTotal + ml >= 2500) awardHydrationGoal(user.id, dayKey);
     rewardDailyMissions(user.id, dayKey);
     rewardTeamMissionIfComplete();
+    settleSeasonalChallenges();
     if (db.waterEntries.length > 10000) db.waterEntries = db.waterEntries.slice(-10000);
     await persist(); broadcastRefresh('hydration'); json(res, 201, stateFor(user)); return;
   }
@@ -2599,6 +2636,7 @@ async function handleApi(req, res, route) {
     }
     voting.votes.push({ userId: user.id, bestId, worstId, createdAt: new Date().toISOString() });
     awardEngagementCard(db,user.id,'vote',saoPauloDayKey());
+    settleSeasonalChallenges();
     if (voting.votes.length >= voting.requiredVoterIds.length) finishVoting(voting);
     await persist(); broadcastRefresh(voting.status === 'closed' ? 'voting-closed' : 'vote'); json(res, 200, stateFor(user)); return;
   }
@@ -2691,7 +2729,7 @@ async function handleApi(req, res, route) {
     db.notificationsReadAt ||= {}; db.economy.wallets ||= {}; db.economy.purchases ||= [];
     db.economy.equipped ||= {}; db.economy.missionProgress ||= {}; db.economy.missionRewards ||= [];
     db.economy.dailyMissionRewards ||= []; db.economy.cleanNameRewards ||= [];
-    db.economy.teamMissionRewards ||= []; db.economy.gifts ||= []; db.economy.activityTotals ||= {};
+    db.economy.teamMissionRewards ||= []; db.economy.seasonChallengeRewards ||= []; db.economy.gifts ||= []; db.economy.activityTotals ||= {};
     db.economy.powerUses ||= []; db.economy.shields ||= []; db.economy.authorReveals ||= [];
     db.economy.creditAdjustments ||= []; db.economy.forcedCursors ||= [];
     db.economy.mysteryBoxes ||= []; db.economy.casinoPlays ||= []; db.economy.casinoAccounts ||= {};
