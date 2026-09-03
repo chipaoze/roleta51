@@ -666,7 +666,7 @@ function activeMystery() {
 
 function mysteryForClient(user) {
   const mystery = activeMystery() || db.mysteries.at(-1) || null;
-  if (!mystery) return { active: null, canStart: user.role === 'admin' };
+  if (!mystery) return { active: null, canStart: user.role === 'admin', canDelete: user.role === 'admin' };
   const canManage = mystery.readerId === user.id;
   const revealed = mystery.status === 'closed';
   return {
@@ -686,6 +686,7 @@ function mysteryForClient(user) {
     canAsk: mystery.status === 'open' && mystery.readerId !== user.id,
     canManage,
     canClear: user.role === 'admin',
+    canDelete: user.role === 'admin',
   };
 }
 
@@ -1669,7 +1670,7 @@ async function handleApi(req, res, route) {
     const premise = String(body.premise || '').trim().slice(0, 900);
     const solution = String(body.solution || '').trim().slice(0, 1800);
     if (!reader) throw new HttpError(400, 'Escolha um leitor ativo da tripulação.');
-    if (title.length < 3 || premise.length < 10 || solution.length < 10) throw new HttpError(400, 'Preencha título, enigma e solução com mais detalhes.');
+    if (title.length < 2 || premise.length < 3 || solution.length < 3) throw new HttpError(400, 'Use ao menos 3 caracteres no enigma e na solução.');
     db.mysteries.push({ id: randomUUID(), title, premise, solution, readerId: reader.id, readerName: reader.displayName, status: 'open', questions: [], createdAt: new Date().toISOString(), closedAt: null, createdBy: user.id });
     if (db.mysteries.length > 30) db.mysteries = db.mysteries.slice(-30);
     await persist(); broadcastRefresh('mystery'); json(res, 201, stateFor(user)); return;
@@ -1680,7 +1681,7 @@ async function handleApi(req, res, route) {
     if (!mystery) throw new HttpError(409, 'Não há um mistério aberto agora.');
     if (mystery.readerId === user.id) throw new HttpError(403, 'O leitor responde; envie perguntas apenas como investigador.');
     const text = String(body.text || '').trim().replace(/\s+/g, ' ').slice(0, 300);
-    if (text.length < 4) throw new HttpError(400, 'Faça uma pergunta um pouco mais completa.');
+    if (text.length < 2) throw new HttpError(400, 'Digite pelo menos 2 caracteres na pergunta.');
     mystery.questions.push({ id: randomUUID(), text, authorId: user.id, authorName: user.displayName, createdAt: new Date().toISOString(), answer: null, answeredAt: null });
     if (mystery.questions.length > 300) mystery.questions = mystery.questions.slice(-300);
     await persist(); broadcastRefresh('mystery'); json(res, 201, stateFor(user)); return;
@@ -1712,6 +1713,13 @@ async function handleApi(req, res, route) {
     const { user } = requireAdmin(req); const before = db.mysteries.length;
     db.mysteries = db.mysteries.filter((item) => item.status === 'open');
     if (db.mysteries.length === before) throw new HttpError(409, 'Não há mistérios encerrados para limpar.');
+    await persist(); broadcastRefresh('mystery'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'DELETE' && route === '/api/admin/mystery/current') {
+    const { user } = requireAdmin(req); const mystery = activeMystery() || db.mysteries.at(-1);
+    if (!mystery) throw new HttpError(409, 'Não há mistério para apagar.');
+    db.mysteries = db.mysteries.filter((item) => item.id !== mystery.id);
     await persist(); broadcastRefresh('mystery'); json(res, 200, stateFor(user)); return;
   }
 

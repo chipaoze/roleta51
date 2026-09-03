@@ -60,6 +60,7 @@ let flightSnapshot=null;
 let flightAnimationFrame=null;
 let flightCurrentId=null;
 let mysteryOpeningInProgress = false;
+let mysterySyncInProgress = false;
 const casinoWheelValues = [
   0,.5,1,1.5,'box-sonda',.5,1,2,1.5,.5,0,1,3,1.5,'box-cosmic',0,1,2,1.5,1,
   0,.5,'box-sonda',1.5,0,.5,1,'box-area51',1.5,.5,0,1,3,'box-cosmic',.5,0,1,2,'box-sonda',1,
@@ -1461,7 +1462,7 @@ function renderMystery(mystery = {}) {
   const askForm = mystery.canAsk ? `<form id="mysteryQuestionForm" class="mystery-question-form"><label for="mysteryQuestionInput">Sua pergunta para ${escapeHtml(formatDisplayName(active.readerName))}</label><div><input id="mysteryQuestionInput" name="text" maxlength="300" placeholder="Faça uma pergunta que possa ser respondida com sim, não ou irrelevante." required><button class="button button-primary" type="submit">Enviar pergunta</button></div></form>` : active.status === 'open' ? '<p class="mystery-reader-note">Você é o leitor responsável. Responda as perguntas pendentes abaixo.</p>' : '';
   const questions = Array.isArray(active.questions) ? active.questions : [];
   const cards = questions.length ? questions.map((question) => `<article class="mystery-question${question.answer ? ' answered answer-' + question.answer : ' pending'}"><header><span>${question.answer ? question.answerLabel : 'AGUARDANDO'}</span><small>${escapeHtml(formatDisplayName(question.authorName))} · ${escapeHtml(formatDate(question.createdAt))}</small></header><p>${escapeHtml(question.text)}</p>${question.answer ? `<footer>Respondida ${escapeHtml(formatDate(question.answeredAt || question.createdAt))}</footer>` : mystery.canManage && active.status === 'open' ? `<footer class="mystery-answer-actions"><button type="button" data-mystery-answer="sim" data-mystery-question="${escapeHtml(question.id)}">SIM</button><button type="button" data-mystery-answer="nao" data-mystery-question="${escapeHtml(question.id)}">NÃO</button><button type="button" data-mystery-answer="irrelevante" data-mystery-question="${escapeHtml(question.id)}">IRRELEVANTE</button></footer>` : '<footer>O leitor está avaliando esta pergunta.</footer>'}</article>`).join('') : '<p class="mystery-no-questions">Ainda não há perguntas. Comecem a investigação.</p>';
-  board.innerHTML = `<article class="card mystery-case-card"><header><div><small>${status}</small><h3>${escapeHtml(active.title)}</h3><p>Leitor responsável: <strong>${escapeHtml(formatDisplayName(active.readerName))}</strong></p></div><b>${Number(active.questionCount || 0)} perguntas</b></header><blockquote>${escapeHtml(active.premise)}</blockquote>${solution}${mystery.canManage && active.status === 'open' ? '<button id="closeMysteryButton" class="button button-dark" type="button">Encerrar e revelar solução</button>' : ''}</article>${askForm}<section class="mystery-question-grid" aria-label="Perguntas e respostas do mistério">${cards}</section>${mystery.canClear ? '<button id="clearMysteryHistoryButton" class="mystery-clear-button" type="button">Limpar mistérios encerrados</button>' : ''}${mystery.canStart ? mysteryStartCard() : ''}`;
+  board.innerHTML = `<article class="card mystery-case-card"><header><div><small>${status}</small><h3>${escapeHtml(active.title)}</h3><p>Leitor responsável: <strong>${escapeHtml(formatDisplayName(active.readerName))}</strong></p></div><b>${Number(active.questionCount || 0)} perguntas</b></header><blockquote>${escapeHtml(active.premise)}</blockquote>${solution}${mystery.canManage && active.status === 'open' ? '<button id="closeMysteryButton" class="button button-dark" type="button">Encerrar e revelar solução</button>' : ''}${mystery.canDelete ? '<button id="deleteMysteryButton" class="mystery-delete-button" type="button">Apagar este mistério</button>' : ''}</article>${askForm}<section class="mystery-question-grid" aria-label="Perguntas e respostas do mistério">${cards}</section>${mystery.canClear ? '<button id="clearMysteryHistoryButton" class="mystery-clear-button" type="button">Limpar mistérios encerrados</button>' : ''}${mystery.canStart ? mysteryStartCard() : ''}`;
 }
 
 function lieAttribution(entry) {
@@ -3257,15 +3258,16 @@ $('#misterio').addEventListener('submit', async (event) => {
   finally { if (form.isConnected) setBusy(form, false); }
 });
 $('#misterio').addEventListener('click', async (event) => {
-  const answerButton = event.target.closest('[data-mystery-answer]'); const closeButton = event.target.closest('#closeMysteryButton'); const clearButton = event.target.closest('#clearMysteryHistoryButton');
-  if (!answerButton && !closeButton && !clearButton) return;
-  const button = answerButton || closeButton || clearButton;
+  const answerButton = event.target.closest('[data-mystery-answer]'); const closeButton = event.target.closest('#closeMysteryButton'); const clearButton = event.target.closest('#clearMysteryHistoryButton'); const deleteButton = event.target.closest('#deleteMysteryButton');
+  if (!answerButton && !closeButton && !clearButton && !deleteButton) return;
+  const button = answerButton || closeButton || clearButton || deleteButton;
   if (closeButton && !confirm('Encerrar este mistério e revelar a solução para toda a tripulação?')) return;
   if (clearButton && !confirm('Limpar apenas os mistérios já encerrados? Um mistério aberto será preservado.')) return;
+  if (deleteButton && !confirm('Apagar este mistério inteiro, incluindo todas as perguntas e respostas? Esta ação não pode ser desfeita.')) return;
   button.disabled = true;
   try {
-    const data = answerButton ? await api('/api/mystery/questions/' + encodeURIComponent(answerButton.dataset.mysteryQuestion), { method: 'PATCH', body: { answer: answerButton.dataset.mysteryAnswer } }) : closeButton ? await api('/api/mystery/close', { method: 'POST' }) : await api('/api/admin/mystery/history', { method: 'DELETE' });
-    applyState(data); showToast(answerButton ? 'Resposta oficial registrada.' : closeButton ? 'Mistério encerrado e solução revelada.' : 'Histórico de mistérios encerrados limpo.');
+    const data = answerButton ? await api('/api/mystery/questions/' + encodeURIComponent(answerButton.dataset.mysteryQuestion), { method: 'PATCH', body: { answer: answerButton.dataset.mysteryAnswer } }) : closeButton ? await api('/api/mystery/close', { method: 'POST' }) : deleteButton ? await api('/api/admin/mystery/current', { method: 'DELETE' }) : await api('/api/admin/mystery/history', { method: 'DELETE' });
+    applyState(data); showToast(answerButton ? 'Resposta oficial registrada.' : closeButton ? 'Mistério encerrado e solução revelada.' : deleteButton ? 'Mistério apagado por completo.' : 'Histórico de mistérios encerrados limpo.');
   } catch (error) { showToast(error.message, 'error'); }
   finally { if (button.isConnected) button.disabled = false; }
 });
@@ -3354,3 +3356,13 @@ setInterval(async () => {
     if (!spinning && !casinoSpinInProgress && !mysteryOpeningInProgress && (Number(sync.revision) !== Number(appState.serverRevision) || Boolean(sync.loanOverdue) !== Boolean(appState.profile?.loan?.overdue))) applyState(await api('/api/state'));
   } catch {} finally { portalSyncInProgress = false; }
 }, 15000);
+
+setInterval(async () => {
+  const editing = document.activeElement && $('#misterio')?.contains(document.activeElement) && document.activeElement.matches('input,textarea,select');
+  if (!appState || mysterySyncInProgress || document.hidden || editing || currentPortalPage() !== 'misterio' || appState.mystery?.active?.status !== 'open') return;
+  mysterySyncInProgress = true;
+  try {
+    const sync = await api('/api/sync');
+    if (Number(sync.revision) !== Number(appState.serverRevision)) applyState(await api('/api/state', {}, false));
+  } catch {} finally { mysterySyncInProgress = false; }
+}, 4000);
