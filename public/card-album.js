@@ -10,13 +10,18 @@ document.querySelector('#cardPackInventory').addEventListener('click',async even
   const button=event.target.closest('[data-open-card-pack]');if(!button || cardPackOpening)return;
   cardPackOpening=true;mysteryOpeningInProgress=true;button.disabled=true;
   const dialog=document.querySelector('#cardPackDialog'),result=document.querySelector('#cardPackResult'),packet=document.querySelector('#cardPackEnvelope'),close=document.querySelector('#closeCardPack');
-  result.innerHTML='Confirmando a abertura…';packet.classList.remove('torn');close.disabled=true;dialog.showModal();
+  result.innerHTML='<p class="card-pack-opening-copy">Confirmando o pacote…</p>';packet.classList.remove('opening','torn','revealed');close.disabled=true;dialog.showModal();
   try {
     // The same owned purchase ID is the idempotency key; a retry never grants twice.
     const data=await api('/api/card-packs/open',{method:'POST',body:{purchaseId:button.dataset.openCardPack}});
-    result.textContent='Rasgando o lacre…';packet.classList.add('torn');
-    await new Promise(resolve=>setTimeout(resolve,matchMedia('(prefers-reduced-motion: reduce)').matches?150:2300));
-    result.innerHTML='<div class="pack-reveal">'+data.cardPackResult.map(c=>'<article class="album-card owned '+(c.rarity==='rare'?'album-rare':'')+'"><small>'+(c.rarity==='rare'?'★ RARA':'BÁSICA')+'</small><span>'+escapeHtml(c.icon)+'</span><strong>'+escapeHtml(c.name)+'</strong></article>').join('')+'</div><p>As três cartas foram adicionadas ao Álbum.</p>';
+    const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    result.innerHTML='<p class="card-pack-opening-copy">Puxando o lacre cósmico…</p>';packet.classList.add('opening');
+    await new Promise(resolve=>setTimeout(resolve,reduced?100:650));
+    result.innerHTML='<p class="card-pack-opening-copy">Rasgando o pacote…</p>';packet.classList.add('torn');
+    await new Promise(resolve=>setTimeout(resolve,reduced?120:1000));
+    result.innerHTML='<p class="card-pack-opening-copy">Revelando as cartas…</p>';packet.classList.add('revealed');
+    await new Promise(resolve=>setTimeout(resolve,reduced?120:600));
+    result.innerHTML='<div class="pack-reveal">'+data.cardPackResult.map((c,index)=>'<article class="album-card owned pack-card-reveal '+(c.rarity==='rare'?'album-rare':'')+'" style="--reveal-delay:'+(index*150)+'ms"><small>'+(c.rarity==='rare'?'★ RARA':'NOVA CARTA')+'</small><span>'+escapeHtml(c.icon)+'</span><strong>'+escapeHtml(c.name)+'</strong><b>'+ (c.rarity==='rare'?'RARA':'BÁSICA') +'</b></article>').join('')+'</div><p class="card-pack-added">✓ As três cartas foram adicionadas ao Álbum.</p>';
     applyState(data);
   } catch(error) { result.textContent=error.message+' Se a conexão caiu, tente novamente: o mesmo pacote não será consumido duas vezes.'; }
   finally { cardPackOpening=false;mysteryOpeningInProgress=false;close.disabled=false;button.disabled=false;renderCardPacks(appState?.profile); }
@@ -29,7 +34,7 @@ function renderCardAlbum(album) {
   const signature=JSON.stringify([appState.me.id,album]);if(signature===albumSignature)return;albumSignature=signature;
   document.querySelector('#cardDropProgress').textContent='Hoje: '+Number(album.dropsToday||0)+' de 2 cartas encontradas · '+Number(album.attemptsToday||0)+' de 5 atividades verificadas';
   renderCardTrades(album.trading || {});
-  host.innerHTML=album.collections.map(c=>'<article class="album-collection album-'+escapeHtml(c.color)+'"><header><span class="album-medal" aria-hidden="true">'+escapeHtml(c.icon)+'</span><div><h4>'+escapeHtml(c.name)+'</h4><p>Insígnia: '+escapeHtml(c.badge)+'</p></div></header><div class="album-cards">'+c.cards.map((card,i)=>'<div class="album-card'+(card.count?' owned':' missing')+(card.rarity==='rare'?' album-rare':'')+'"><small>CARTA '+(i+1)+' / 5 · '+(card.rarity==='rare'?'RARA':'BÁSICA')+'</small><span aria-hidden="true">'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small>'+(card.count?card.count+' na coleção':'Ainda não obtida')+'</small></div>').join('')+'</div><footer><p>'+(c.craftedAt?'✓ Insígnia montada':c.collected+' de 5 cartas diferentes')+'</p>'+(c.craftedAt?'<button type="button" data-album-action="equip" data-album-id="'+escapeHtml(c.id)+'" data-album-remove="'+(album.equipped===c.id)+'">'+(album.equipped===c.id?'Remover insígnia':'Usar insígnia')+'</button>':'<button type="button" data-album-action="craft" data-album-id="'+escapeHtml(c.id)+'"'+(c.canCraft?'':' disabled')+'>Montar insígnia</button>')+'</footer></article>').join('');
+  host.innerHTML=album.collections.map(c=>'<article class="album-collection album-'+escapeHtml(c.color)+'"><header><span class="album-medal" aria-hidden="true">'+escapeHtml(c.icon)+'</span><div><h4>'+escapeHtml(c.name)+'</h4><p>Insígnia: '+escapeHtml(c.badge)+'</p></div><strong class="album-progress">'+c.collected+' / 5</strong></header><div class="album-cards">'+c.cards.map((card,i)=>'<div class="album-card '+(card.count?'owned':'missing')+(card.count>1?' duplicate':'')+(card.rarity==='rare'?' album-rare':'')+'">'+(card.count?'<b class="album-owned-mark">✓ NA COLEÇÃO</b>':'<b class="album-missing-mark">FALTA</b>')+'<small>CARTA '+(i+1)+' / 5 · '+(card.rarity==='rare'?'RARA':'BÁSICA')+'</small><span aria-hidden="true">'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small class="album-card-count">'+(card.count?(card.count>1?card.count+' cópias · repetida':'1 cópia sua'):'Ainda não obtida')+'</small></div>').join('')+'</div><footer><p>'+(c.craftedAt?'✓ Insígnia montada':c.collected+' de 5 cartas diferentes')+'</p>'+(c.craftedAt?'<button type="button" data-album-action="equip" data-album-id="'+escapeHtml(c.id)+'" data-album-remove="'+(album.equipped===c.id)+'">'+(album.equipped===c.id?'Remover insígnia':'Usar insígnia')+'</button>':'<button type="button" data-album-action="craft" data-album-id="'+escapeHtml(c.id)+'"'+(c.canCraft?'':' disabled')+'>Montar insígnia</button>')+'</footer></article>').join('');
 }
 document.querySelector('#cardAlbumCollections').addEventListener('click',async e=>{
   const button=e.target.closest('[data-album-action]');if(!button || button.disabled)return;
