@@ -1,4 +1,6 @@
 import path from 'node:path';
+import { FLIGHT_STEP_MS, flightStepMs, flightMultiplier, settleFlight } from './lib/flight-engine.mjs';
+import { albumFor, updateAlbum, awardEngagementCard, updateCardTrade, openCardPack } from './lib/card-album.mjs';
 import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
 const SESSION_TTL = 12 * 60 * 60 * 1000;
@@ -69,7 +71,7 @@ function passwordMatches(password, user) {
 }
 
 function persist() {
-  const snapshot = JSON.stringify(db, null, 2);
+  const snapshot = JSON.stringify(db);
   saveQueue = saveQueue.catch(() => undefined).then(async () => {
     const expectedRevision = stateRevision;
     const nextRevision = expectedRevision + 1;
@@ -86,7 +88,12 @@ function persist() {
     }
     stateRevision = nextRevision;
   });
-  return saveQueue;
+  return saveQueue.catch((error) => {
+    // The database may have committed even when its response was lost.
+    // Force a full reload before any subsequent request uses the in-memory state.
+    stateRevision = -1;
+    throw error;
+  });
 }
 
 function cacheImage(filename, image) {
@@ -336,6 +343,19 @@ function saoPauloDayKey(date = new Date()) {
 }
 
 const SHOP_CATALOG = [
+  { id: 'card-pack-cosmic', name: 'Pacotinho Cósmico', icon: '🎴', type: 'cardPack', value: 'cosmic', consumable: true, cardPack: true, price: 120, description: 'Guarde no Perfil e rasgue para revelar 3 cartas. Cada carta: 90% básica e 10% rara. Pode haver repetidas. Cada insígnia exige 4 básicas diferentes e 1 rara da coleção. Sem revenda por créditos.' },
+  { id: 'cursor-crystal', name: 'Seta Cristal Lunar', description: 'Seta facetada azul e violeta, com ponta precisa e contorno contrastante. Combine com seus rastros.', price: 360, type: 'cursorStyle', value: 'crystal', icon: '💠' },
+  { id: 'cursor-solar', name: 'Seta Lâmina Solar', description: 'Seta dourada e laranja em forma de lâmina solar. Ponta clara e tamanho próprio para clicar.', price: 390, type: 'cursorStyle', value: 'solar', icon: '☀️' },
+  { id: 'name-ice', name: 'Nome Gelo Lunar', description: 'Letras azul-gelo com brilho no perfil, topo e menu.', price: 270, type: 'nameStyle', value: 'ice', icon: '🧊' },
+  { id: 'frame-rose', name: 'Moldura Quartzo Rosa', description: 'Acabamento rosa e violeta no perfil, topo e menu.', price: 330, type: 'frame', value: 'rose', icon: '🔮' },
+  { id: 'title-master-guardian', name: 'Título Guardião Master', description: 'Exibe Guardião Master no perfil, topo e menu.', price: 300, type: 'title', value: 'Guardião Master', icon: '🏅' },
+  { id: 'box-master-aurora', name: 'Baú Master Aurora', description: 'Visual ou poder de 340 a 680 créditos, ou 100 a 240 créditos. Sorte aleatória: o prêmio pode valer menos que o baú.', price: 800, sellPrice: 200, type: 'mysteryBox', value: 'master-aurora', icon: '💠', mysteryBox: true, master: true, tier: 'master-aurora', creditChance: .2, powerChance: .3, minRewardPrice: 340, maxRewardPrice: 680, creditMin: 100, creditMax: 240 },
+  { id: 'box-master-imperial', name: 'Baú Master Imperial', description: 'Visual ou poder de 400 a 800 créditos, ou 150 a 320 créditos. Sem garantia de lucro; itens repetidos podem virar créditos.', price: 1100, sellPrice: 280, type: 'mysteryBox', value: 'master-imperial', icon: '👑', mysteryBox: true, master: true, tier: 'master-imperial', creditChance: .15, powerChance: .4, minRewardPrice: 400, maxRewardPrice: 800, creditMin: 150, creditMax: 320 },
+  { id: 'badge-comet', name: 'Emblema Cometa', description: 'Um cometa junto ao nome no perfil, topo e menu.', price: 220, type: 'badge', value: '☄️', icon: '☄️' },
+  { id: 'name-ruby', name: 'Nome Rubi Estelar', description: 'Brilho rubi no nome do perfil, topo e menu.', price: 240, type: 'nameStyle', value: 'ruby', icon: '💎' },
+  { id: 'frame-orbit', name: 'Moldura Órbita Prateada', description: 'Borda metálica prateada no perfil, topo e menu.', price: 310, type: 'frame', value: 'orbit', icon: '🪩' },
+  { id: 'power-cleanse-cursor', name: 'Antídoto de Maldição', description: 'Remove uma maldição de cursor comprada aplicada em você. Não remove sorteio nem dívida.', price: 260, type: 'power', value: 'cleanseCursor', icon: '🧪', consumable: true },
+  { id: 'power-loan-extension', name: 'Acordo Estelar', description: 'Acrescenta 24 horas ao prazo do seu empréstimo. Uma prorrogação por contrato; não reduz a dívida.', price: 120, type: 'power', value: 'loanExtension', icon: '🤝', consumable: true },
   { id: 'service-sell-best-win', name: 'Venda de Vitória', description: 'Troque 1 ponto de primeiro lugar em wallpaper por 500 Créditos 51. A vitória sai do seu ranking.', price: 0, reward: 500, type: 'service', value: 'sellBestWin', icon: '🏆', service: true },
   { id: 'title-star', name: 'Título Estrela 51', description: 'Exibe “Estrela da Área 51” no perfil, cabeçalho e menu.', price: 120, type: 'title', value: 'Estrela da Área 51', icon: '⭐' },
   { id: 'title-hydrated', name: 'Título Hidratado', description: 'Exibe “Hidratado Intergaláctico” no perfil, cabeçalho e menu.', price: 160, type: 'title', value: 'Hidratado Intergaláctico', icon: '💧' },
@@ -344,9 +364,9 @@ const SHOP_CATALOG = [
   { id: 'name-gold', name: 'Nome Ouro Solar', description: 'Aplica dourado premium com brilho quente ao seu nome em todo o site.', price: 290, type: 'nameStyle', value: 'gold', icon: '🌟' },
   { id: 'name-plasma', name: 'Nome Plasma Azul', description: 'Aplica azul elétrico e brilho de plasma ao seu nome em todo o site.', price: 260, type: 'nameStyle', value: 'plasma', icon: '⚡' },
   { id: 'name-cyan', name: 'Nome Ciano Quântico', description: 'Aplica ciano luminoso com brilho tecnológico ao nome.', price: 250, type: 'nameStyle', value: 'cyan', icon: '🩵' },
-  { id: 'badge-ufo', name: 'Insígnia Piloto UFO', description: 'Exibe uma nave ao lado do seu nome no topo, menu e perfil.', price: 190, type: 'badge', value: '🛸', icon: '🛸' },
-  { id: 'badge-crown', name: 'Insígnia Coroa Cósmica', description: 'Exibe uma coroa dourada junto ao seu nome em todo o site.', price: 260, type: 'badge', value: '👑', icon: '👑' },
-  { id: 'badge-alien', name: 'Insígnia Agente Alien', description: 'Exibe o selo extraterrestre junto ao seu nome em todo o site.', price: 220, type: 'badge', value: '👽', icon: '👽' },
+  { id: 'badge-ufo', name: 'Emblema Piloto UFO', description: 'Exibe uma nave ao lado do seu nome no topo, menu e perfil.', price: 190, type: 'badge', value: '🛸', icon: '🛸' },
+  { id: 'badge-crown', name: 'Emblema Coroa Cósmica', description: 'Exibe uma coroa dourada junto ao seu nome em todo o site.', price: 260, type: 'badge', value: '👑', icon: '👑' },
+  { id: 'badge-alien', name: 'Emblema Agente Alien', description: 'Exibe o selo extraterrestre junto ao seu nome em todo o site.', price: 220, type: 'badge', value: '👽', icon: '👽' },
   { id: 'frame-cosmic', name: 'Moldura Cósmica', description: 'Moldura espacial azul-violeta com brilho estelar no perfil, cabeçalho e menu.', price: 220, type: 'frame', value: 'cosmic', icon: '🪐' },
   { id: 'frame-gold', name: 'Moldura Dourada', description: 'Moldura dourada de campeão no perfil, cabeçalho e menu.', price: 260, type: 'frame', value: 'gold', icon: '👑' },
   { id: 'frame-neon', name: 'Moldura Neon', description: 'Moldura rosa e azul brilhante no perfil, cabeçalho e menu.', price: 300, type: 'frame', value: 'neon', icon: '💡' },
@@ -447,7 +467,14 @@ function casinoAccountFor(userId, create = false) {
   return db.economy.casinoAccounts[userId];
 }
 
+// A single durable claim, persisted atomically with consuming the box (D1 CAS).
+function physicalKitClaim() { return db.economy.physicalKitClaim || null; }
 function grantMysteryBoxReward(user, box) {
+  if (box.id === 'box-master-imperial' && !physicalKitClaim() && randomInt(10000) < 10) {
+    const claim = { id: randomUUID(), userId: user.id, boxId: box.id, name: 'Kit doado: caderno e caneta', icon: '📒', kind: 'physical', createdAt: new Date().toISOString(), status: 'awaiting-delivery' };
+    db.economy.physicalKitClaim = claim;
+    return { ...claim, name: claim.name + ' — combine a entrega com o administrador' };
+  }
   const ownedIds = new Set(db.economy.purchases.filter((purchase) => purchase.userId === user.id).map((purchase) => purchase.itemId));
   const roll = Math.random();
   const creditReward = () => {
@@ -459,14 +486,14 @@ function grantMysteryBoxReward(user, box) {
   };
   if (roll < Number(box.creditChance)) return creditReward();
   const wantsPower = roll < Number(box.creditChance) + Number(box.powerChance);
-  const eligible = SHOP_CATALOG.filter((item) => !item.adminOnly && !item.mysteryBox && !item.service && (wantsPower ? item.type === 'power' : item.type !== 'power') && Number(item.price) >= Number(box.minRewardPrice) && Number(item.price) <= Number(box.maxRewardPrice) && (item.consumable || !ownedIds.has(item.id)));
-  const fallback = SHOP_CATALOG.filter((item) => !item.adminOnly && !item.mysteryBox && !item.service && (item.consumable || !ownedIds.has(item.id)));
-  const pool = eligible.length ? eligible : fallback;
+  const eligible = SHOP_CATALOG.filter((item) => !item.adminOnly && !item.cardPack && !item.mysteryBox && !item.service && (wantsPower ? item.type === 'power' : item.type !== 'power') && Number(item.price) >= Number(box.minRewardPrice) && Number(item.price) <= Number(box.maxRewardPrice) && (item.consumable || !ownedIds.has(item.id)));
+  const fallback = SHOP_CATALOG.filter((item) => !item.adminOnly && !item.cardPack && !item.mysteryBox && !item.service && (item.consumable || !ownedIds.has(item.id)));
+  const pool = eligible.length ? eligible : box.master ? [] : fallback;
   if (!pool.length) return creditReward();
   const reward = pool[Math.floor(Math.random() * pool.length)];
   const purchaseId = randomUUID();
   db.economy.purchases.push({ id: purchaseId, userId: user.id, itemId: reward.id, price: 0, originalPrice: reward.price, sourceMysteryBoxId: box.id, mysteryDecisionPending: true, createdAt: new Date().toISOString() });
-  return { kind: reward.type === 'power' ? 'power' : 'item', icon: reward.icon, name: reward.name, itemId: reward.id, purchaseId, sellPrice: Math.max(10, Math.floor(Number(reward.price || 0) * .55 / 10) * 10) };
+  return { kind: reward.type === 'power' ? 'power' : 'item', icon: reward.icon, name: reward.name, itemId: reward.id, purchaseId, sellPrice: Math.min(Math.max(10, Math.floor(Number(reward.price || 0) * .55 / 10) * 10), Math.max(10, Math.floor(Number(box.sellPrice || 0) * .8 / 10) * 10)) };
 }
 
 function addMysteryBox(userId, boxId, source, bet = null) {
@@ -507,9 +534,17 @@ function recordActivity(userId, type) {
   return recordMissionActivity(userId, type);
 }
 
+const timestampDayCache = new Map();
 function dayKeyForTimestamp(timestamp) {
+  const key = typeof timestamp === 'string' ? timestamp : null;
+  if (key !== null && timestampDayCache.has(key)) return timestampDayCache.get(key);
   const parsed = new Date(timestamp);
-  return Number.isNaN(parsed.getTime()) ? '' : saoPauloDayKey(parsed);
+  const result = Number.isNaN(parsed.getTime()) ? '' : saoPauloDayKey(parsed);
+  if (key !== null) {
+    if (timestampDayCache.size >= 2048) timestampDayCache.delete(timestampDayCache.keys().next().value);
+    timestampDayCache.set(key, result);
+  }
+  return result;
 }
 
 function dailyMissionsFor(userId, dayKey = saoPauloDayKey()) {
@@ -807,9 +842,32 @@ function openVoting() {
   return [...db.votings].reverse().find((item) => item.status === 'open') || null;
 }
 
+function activeLoanFor(userId) {
+  return [...db.economy.loans].reverse().find((loan) => loan.userId === userId && loan.status === 'active') || null;
+}
+
+function overdueLoanFor(userId, now = Date.now()) {
+  const loan = activeLoanFor(userId);
+  return loan?.dueAt && Date.parse(loan.dueAt) <= now && Number(loan.remainingDue) > 0 ? loan : null;
+}
+
+function applyLoanPayment(userId, requested, reason) {
+  const loan = activeLoanFor(userId);
+  if (!loan) return 0;
+  const amount = Math.min(requested, Number(loan.remainingDue), walletFor(userId));
+  if (!Number.isInteger(amount) || amount <= 0) return 0;
+  const before = walletFor(userId), createdAt = new Date().toISOString();
+  addCredits(userId, -amount);
+  loan.remainingDue -= amount;
+  loan.payments.push({ amount, createdAt });
+  if (loan.remainingDue === 0) { loan.status = 'paid'; loan.paidAt = createdAt; }
+  db.economy.creditAdjustments.push({ id: randomUUID(), userId, mode: 'stellar-loan-payment', amount: -amount, before, after: before - amount, reason, createdAt });
+  return amount;
+}
+
 function eligibleUsers() {
   const snapshot = db.settings.currentRoundId ? new Set(db.settings.currentParticipantIds || []) : null;
-  return db.users.filter((item) => item.active && (snapshot ? snapshot.has(item.id) : item.eligible));
+  return db.users.filter((item) => item.active && (snapshot ? snapshot.has(item.id) : item.eligible && !overdueLoanFor(item.id)));
 }
 
 function roundAcceptsNewParticipants() {
@@ -823,7 +881,7 @@ function roundAcceptsNewParticipants() {
 }
 
 function joinOpenRound(user) {
-  if (!roundAcceptsNewParticipants()) return false;
+  if (!roundAcceptsNewParticipants() || overdueLoanFor(user.id)) return false;
   if (!db.settings.currentParticipantIds.includes(user.id)) db.settings.currentParticipantIds.push(user.id);
   return true;
 }
@@ -954,7 +1012,97 @@ function isForcedCursorActive(item, roundId, now = Date.now()) {
   return Boolean(roundId && item.roundId === roundId);
 }
 
-function profileFor(user) {
+function recordFlightPayout(flight,bet,multiplier,createdAt) {
+  if(bet.result)return bet.result;
+  const payout=Math.round(bet.bet*multiplier),account=casinoAccountFor(bet.userId,true);
+  if(bet.walletSource==='shop')addCredits(bet.userId,payout);else account.balance=Number(account.balance)+payout;
+  bet.status='cashed-out';bet.multiplier=multiplier;bet.payout=payout;bet.endedAt=createdAt;
+  const play={id:randomUUID(),flightId:flight.id,userId:bet.userId,dayKey:saoPauloDayKey(),walletSource:bet.walletSource,bet:bet.bet,resultType:'flight',multiplier,payout,net:payout-bet.bet,balanceAfter:bet.walletSource==='shop'?walletFor(bet.userId):account.balance,createdAt};
+  bet.result=play;db.economy.casinoPlays.push(play);return play;
+}
+function settleGlobalFlight(now=Date.now()) {
+  const flight=db.economy.globalFlight;
+  const wasCrashed=flight?.status==='crashed';
+  const changed=settleFlight(flight,now,(bet,multiplier,date)=>recordFlightPayout(flight,bet,multiplier,date),(bet,date)=>{
+    bet.status='crashed';
+    db.economy.casinoPlays.push({id:randomUUID(),flightId:flight.id,userId:bet.userId,dayKey:saoPauloDayKey(),walletSource:bet.walletSource,bet:bet.bet,resultType:'flight',multiplier:0,payout:0,net:-bet.bet,balanceAfter:bet.walletSource==='shop'?walletFor(bet.userId):casinoAccountFor(bet.userId).balance,createdAt:date});
+  });
+  if(changed && !wasCrashed && flight.status==='crashed'){
+    db.economy.flightHistory.push({id:flight.id,multiplier:flight.crashAt,players:flight.bets.length,createdAt:flight.endedAt});
+    db.economy.flightHistory=db.economy.flightHistory.slice(-100);
+  }
+  return changed;
+}
+function flightStatusFor(user) {
+  const f=db.economy.globalFlight,now=Date.now();
+  if(!f)return {active:false,phase:'waiting',serverTime:now};
+  const bet=f.bets.find(b=>b.userId===user.id);
+  const base={id:f.id,serverTime:now,launchAt:f.launchAt,stepMs:flightStepMs(f),players:f.bets.length,joined:Boolean(bet),cashedOut:bet?.status==='cashed-out',autoCashout:bet?.autoCashout || null,payout:bet?.payout || 0};
+  if(f.status==='crashed')return {...base,active:false,phase:'crashed',crashed:true,crashAt:f.crashAt};
+  const multiplier=flightMultiplier(f,now);
+  return {...base,active:true,phase:now<f.launchAt?'countdown':'flying',countdownMs:Math.max(0,f.launchAt-now),multiplier:Number(multiplier.toFixed(2)),canCashOut:now>=f.launchAt && bet?.status==='active' && multiplier>=1.25};
+}
+function isTradableVisual(item) {
+  return Boolean(item && !item.adminOnly && !item.consumable && !item.service && !item.mysteryBox && ['cursorStyle','trailStyle','siteTheme','frame','nameStyle','title','badge'].includes(item.type));
+}
+function tradablePurchase(id, ownerId) {
+  const purchase = db.economy.purchases.find(p => p.id === id && p.userId === ownerId && !p.mysteryDecisionPending);
+  const item = purchase && SHOP_CATALOG.find(i => i.id === purchase.itemId);
+  return isTradableVisual(item) ? {purchase,item} : null;
+}
+function tradingFor(user) {
+  const catalog=new Map(SHOP_CATALOG.map(item=>[item.id,item]));
+  const participants = db.users.filter(p => p.active).map(person => ({id:person.id,name:person.displayName,items:db.economy.purchases.filter(p=>p.userId===person.id && !p.mysteryDecisionPending && isTradableVisual(catalog.get(p.itemId))).map(p=>({id:p.id,itemId:p.itemId,name:catalog.get(p.itemId).name}))}));
+  const trades = (db.economy.trades || []).filter(t=>t.fromId===user.id || t.toId===user.id).slice(-20).reverse().map(t=>({...t,status:t.status==='pending' && Date.parse(t.expiresAt)<=Date.now()?'expired':t.status,partnerName:db.users.find(p=>p.id===(t.fromId===user.id?t.toId:t.fromId))?.displayName || 'Conta removida',incoming:t.toId===user.id}));
+  return {participants,trades};
+}
+async function handleCommunityExtras(req,res,route) {
+  if (!['/api/trades/create','/api/trades/respond','/api/lie-meter/report'].includes(route) || req.method!=='POST') return false;
+  const {user}=requireAuth(req); const body=await readJson(req); const now=new Date().toISOString();
+  if (route==='/api/lie-meter/report') {
+    const lie=db.lieAccusations.find(l=>l.id===body.lieId && l.status==='confirmed' && l.delta>0);
+    if (!lie || !activeLieReasons(lie.targetUserId).some(l=>l.id===lie.id)) throw new HttpError(404,'Mentira confirmada não encontrada.');
+    const reason=String(body.reason || '').trim();
+    if(reason.length<5 || reason.length>500) throw new HttpError(400,'Explique a denúncia em 5 a 500 caracteres.');
+    if(db.feedbackMessages.some(f=>f.lieId===lie.id && f.authorId===user.id)) throw new HttpError(409,'Você já denunciou este registro. Acompanhe em Minhas solicitações.');
+    const name=id=>db.users.find(p=>p.id===id)?.displayName || 'Não registrado';
+    db.feedbackMessages.push({id:randomUUID(),type:'bug',lieId:lie.id,message:'Denúncia de mentira de '+name(lie.targetUserId)+': “'+(lie.reason||'Sem motivo registrado')+'”. Registrada por '+name(lie.createdByUserId)+'; aprovada por '+name(lie.validatedByUserId)+'. Motivo da denúncia: '+reason,authorId:user.id,authorName:user.displayName,createdAt:now,updatedAt:now,status:'pending',adminComment:'',approvedAt:null,completedAt:null,archivedAt:null});
+  } else if(route==='/api/trades/create') {
+    const partner=db.users.find(p=>p.id===body.partnerId && p.active && p.id!==user.id);
+    const offered=tradablePurchase(body.offeredId,user.id),wanted=partner && tradablePurchase(body.wantedId,partner.id);
+    if(!partner || !offered || !wanted) throw new HttpError(400,'Escolha dois visuais disponíveis e outro participante.');
+    if(offered.item.id===wanted.item.id || db.economy.purchases.some(p=>(p.userId===partner.id && p.itemId===offered.item.id)||(p.userId===user.id && p.itemId===wanted.item.id))) throw new HttpError(409,'Uma das pessoas já possui o visual que receberia.');
+    db.economy.trades ||= [];
+    const pending=db.economy.trades.filter(t=>t.status==='pending' && Date.parse(t.expiresAt)>Date.now());
+    if(pending.filter(t=>t.fromId===user.id).length>=3) throw new HttpError(409,'Você pode ter até 3 propostas pendentes.');
+    if(pending.some(t=>t.fromId===user.id && t.offeredId===body.offeredId && t.wantedId===body.wantedId)) throw new HttpError(409,'Esta proposta já foi enviada.');
+    db.economy.trades.push({id:randomUUID(),fromId:user.id,toId:partner.id,offeredId:offered.purchase.id,wantedId:wanted.purchase.id,offeredName:offered.item.name,wantedName:wanted.item.name,status:'pending',createdAt:now,updatedAt:now,expiresAt:new Date(Date.now()+86400000).toISOString()});
+  } else {
+    const trade=(db.economy.trades || []).find(t=>t.id===body.id && (t.fromId===user.id || t.toId===user.id));
+    if(!trade) throw new HttpError(404,'Proposta não encontrada.');
+    if(!['accept','reject','cancel'].includes(body.action)) throw new HttpError(400,'Ação inválida.');
+    if((body.action==='cancel' && trade.fromId!==user.id)||(body.action!=='cancel' && trade.toId!==user.id)) throw new HttpError(403,'Você não pode realizar esta ação.');
+    if(trade.status!=='pending') {json(res,200,stateFor(user));return true;}
+    if(Date.parse(trade.expiresAt)<=Date.now()) throw new HttpError(409,'Esta proposta expirou.');
+    if(body.action==='accept') {
+      const a=tradablePurchase(trade.offeredId,trade.fromId),b=tradablePurchase(trade.wantedId,trade.toId);
+      if(!a || !b || !db.users.some(p=>p.id===trade.fromId && p.active) || db.economy.purchases.some(p=>(p.userId===trade.fromId && p.itemId===b.item.id)||(p.userId===trade.toId && p.itemId===a.item.id))) throw new HttpError(409,'Os itens mudaram ou já estão na coleção. Recuse esta proposta e crie outra.');
+      for(const [entry,owner,next] of [[a,trade.fromId,trade.toId],[b,trade.toId,trade.fromId]]) {
+        if(db.economy.equipped[owner]?.[entry.item.type]===entry.item.id) db.economy.equipped[owner][entry.item.type]=null;
+        entry.purchase.ledgerUserId ||= owner;
+        entry.purchase.userId=next;
+      }
+      trade.status='accepted';
+      for(const other of db.economy.trades) if(other.id!==trade.id && other.status==='pending' && [other.offeredId,other.wantedId].some(id=>id===trade.offeredId || id===trade.wantedId)){other.status='cancelled';other.updatedAt=now;}
+    } else trade.status=body.action==='reject'?'rejected':'cancelled';
+    trade.updatedAt=now;
+  }
+  await persist();broadcastRefresh('community');json(res,200,stateFor(user));return true;
+}
+
+
+
+function profileFor(user, computed = {}) {
   const score = scoreFor(user.id);
   const purchases = db.economy.purchases.filter((item) => item.userId === user.id);
   const ownedIds = new Set(purchases.map((item) => item.itemId));
@@ -966,7 +1114,7 @@ function profileFor(user) {
   const forcedCursor = [...db.economy.forcedCursors].reverse().find((item) => item.targetUserId === user.id && isForcedCursorActive(item, db.settings.currentRoundId));
   const latestGayWinnerDraw = [...db.draws].reverse().find((item) => item.type === 'gay');
   const gayWinnerDraw = latestGayWinnerDraw?.winnerId === user.id ? latestGayWinnerDraw : null;
-  const previousSeason = seasonSummary(previousMonthKey());
+  const previousSeason = computed.previousSeason || seasonSummary(previousMonthKey());
   const medals = [
     { id: 'first-step', icon: '🚀', name: 'Primeiro contato', description: 'Entrou para a tripulação.', unlocked: true },
     { id: 'hydrated', icon: '💧', name: 'Hidratado', description: 'Alcançou a meta diária de água.', unlocked: hydrationDays >= 1 },
@@ -979,9 +1127,12 @@ function profileFor(user) {
   ];
   return {
     wallet: walletFor(user.id), equipped,
+    cardPacks: db.economy.purchases.filter(p=>p.userId===user.id && p.itemId==='card-pack-cosmic' && !p.cardPackOpenedAt).map(p=>({id:p.id})),
+    openedCardPacks: db.economy.purchases.filter(p=>p.userId===user.id && p.cardPackOpenedAt).slice(-3).reverse().map(p=>({id:p.id,cards:p.cardPackRewards,openedAt:p.cardPackOpenedAt})),
+    physicalPrizes: physicalKitClaim() && (physicalKitClaim().userId === user.id || user.role === 'admin') ? [{ ...physicalKitClaim(), winnerName: db.users.find(entry => entry.id === physicalKitClaim().userId)?.displayName || 'Participante' }] : [],
     loan: (() => {
       const active = [...db.economy.loans].reverse().find((item) => item.userId === user.id && item.status === 'active');
-      return active ? { id: active.id, principal: active.principal, totalDue: active.totalDue, remainingDue: active.remainingDue, createdAt: active.createdAt } : null;
+      return active ? { id: active.id, principal: active.principal, totalDue: active.totalDue, remainingDue: active.remainingDue, createdAt: active.createdAt, dueAt: active.dueAt || null, overdue: Boolean(overdueLoanFor(user.id)), extended: Boolean(active.extendedAt) } : null;
     })(),
     mysteryBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).map((entry) => {
       const box = SHOP_CATALOG.find((item) => item.id === entry.boxId && item.mysteryBox);
@@ -1000,11 +1151,12 @@ function profileFor(user) {
     }).sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt)),
     freeShopPurchaseAvailable: !db.economy.freeShopUses.includes(user.id),
     forcedCursor: gayWinnerDraw ? { style: 'gay', appliedBy: 'Sorteio Gay da Rodada', createdAt: gayWinnerDraw.createdAt, automatic: true }
+      : overdueLoanFor(user.id) ? { style: 'giant-slow', appliedBy: 'Agiota Estelar — quite a dívida', createdAt: overdueLoanFor(user.id).dueAt, debt: true }
       : forcedCursor ? { style: forcedCursor.style || 'gay', appliedBy: forcedCursor.usedByName, createdAt: forcedCursor.createdAt, expiresAt: forcedCursor.expiresAt || null } : null,
-    liveTitles: liveTitleAssignments().get(user.id) || [],
+    liveTitles: (computed.liveTitleMap || liveTitleAssignments()).get(user.id) || [],
     stats: { hydrationDays, memes, phrases, purchases: purchases.length, ...score },
     medals,
-    mission: weeklyMissionFor(user.id), dailyMissions: dailyMissionsFor(user.id), cleanNameMission: cleanNameMissionFor(user.id), creditLedger: creditLedgerFor(user.id),
+    mission: weeklyMissionFor(user.id), dailyMissions: dailyMissionsFor(user.id), cleanNameMission: cleanNameMissionFor(user.id), creditLedger: computed.creditLedger || creditLedgerFor(user.id),
     activePowers: {
       shield: Boolean(db.settings.currentRoundId && db.economy.shields.some((item) => item.roundId === db.settings.currentRoundId && item.userId === user.id)),
       forcedTheme: db.economy.forcedTheme && db.economy.forcedTheme.userId === user.id ? db.economy.forcedTheme.theme : null,
@@ -1017,8 +1169,8 @@ function profileFor(user) {
     },
     shop: SHOP_CATALOG.filter((item) => !item.adminOnly || user.role === 'admin').map((item) => {
       const granted = Boolean(item.adminOnly && user.role === 'admin');
-      const quantity = item.mysteryBox ? db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id && entry.boxId === item.id).length : item.consumable ? availablePowerPurchases(user.id, item.id).length : (ownedIds.has(item.id) || granted ? 1 : 0);
-      return { ...item, quantity, availablePoints: item.service ? score.bestWins : 0, owned: item.mysteryBox ? quantity > 0 : item.service ? false : granted || quantity > 0 || ownedIds.has(item.id), granted, equipped: !item.consumable && !item.mysteryBox && !item.service && equipped[item.type] === item.id };
+      const quantity = item.cardPack ? db.economy.purchases.filter(p=>p.userId===user.id && p.itemId===item.id && !p.cardPackOpenedAt).length : item.mysteryBox ? db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id && entry.boxId === item.id).length : item.consumable ? availablePowerPurchases(user.id, item.id).length : (ownedIds.has(item.id) || granted ? 1 : 0);
+      return { ...item, ...(item.id === 'box-master-imperial' ? { description: item.description + (physicalKitClaim() ? ' Kit físico de caderno e caneta: esgotado (única unidade já sorteada).' : ' Extra raríssimo: 0,1% por abertura de ganhar o único kit físico de caderno e caneta, em vez do prêmio digital. Entrega combinada com o administrador; sem revenda por créditos.') } : {}), quantity, availablePoints: item.service ? score.bestWins : 0, owned: item.mysteryBox ? quantity > 0 : item.service ? false : granted || quantity > 0 || ownedIds.has(item.id), granted, equipped: !item.consumable && !item.mysteryBox && !item.service && equipped[item.type] === item.id };
     }),
     giftOptions: {
       people: db.users.filter((item) => item.active && item.approved !== false && item.id !== user.id).map((item) => ({ id: item.id, displayName: item.displayName })),
@@ -1029,7 +1181,7 @@ function profileFor(user) {
 }
 
 function creditLedgerFor(userId) {
-  const purchases = db.economy.purchases.filter((item) => item.userId === userId).map((item) => {
+  const purchases = db.economy.purchases.filter((item) => (item.ledgerUserId || item.userId) === userId).map((item) => {
     const catalog = SHOP_CATALOG.find((candidate) => candidate.id === item.itemId);
     const freeLabel = item.freePurchase ? 'Compra grátis: ' : item.sourceMysteryBoxId ? 'Prêmio recebido: ' : 'Compra: ';
     return { id: 'purchase:' + item.id, icon: item.freePurchase || item.sourceMysteryBoxId ? '🎁' : '🛍️', label: freeLabel + (catalog?.name || 'Item da Loja 51'), amount: -Number(item.price || 0), createdAt: item.createdAt };
@@ -1054,8 +1206,41 @@ function creditLedgerFor(userId) {
   return [...purchases, ...adjustments, ...hydration, ...missions, ...gifts].filter((item) => item.createdAt).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 40);
 }
 
-function notificationsFor(user) {
+function updateCommentMentions(comment) {
+  const people = db.users.filter((person) => person.active && person.approved !== false && person.id !== comment.userId)
+    .sort((a, b) => b.displayName.length - a.displayName.length);
+  const seen = new Set(); const mentions = [];
+  const text = comment.message.normalize('NFC').toLocaleLowerCase('pt-BR');
+  for (let index = 0; index < text.length; index++) {
+    if (text[index] !== '@' || (index > 0 && /[\p{L}\p{N}_]/u.test(text[index - 1]))) continue;
+    const person = people.find((candidate) => {
+      const name = candidate.displayName.normalize('NFC').toLocaleLowerCase('pt-BR');
+      return text.startsWith(name, index + 1) && !/[\p{L}\p{N}_]/u.test(text[index + name.length + 1] || '');
+    });
+    if (!person) continue;
+    index += person.displayName.normalize('NFC').length;
+    if (seen.has(person.id) || mentions.length >= 5) continue;
+    seen.add(person.id);
+    mentions.push({ ...((comment.mentions || []).find((item) => item.userId === person.id) || { userId: person.id, createdAt: new Date().toISOString() }), displayName: person.displayName });
+  }
+  comment.mentions = mentions;
+}
+
+function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   const roundId = db.settings.currentRoundId; const items = [];
+  for (const trade of (db.economy.trades || []).filter(t => (t.toId===user.id || t.fromId===user.id) && (t.status!=='pending' || Date.parse(t.expiresAt)>Date.now())).slice(-4)) {
+    items.push({id:'trade:'+trade.id,icon:'🔄',title:trade.status==='pending'?'Proposta de troca de visuais':'Proposta de troca atualizada',detail:trade.offeredName+' ↔ '+trade.wantedName,page:'perfil',createdAt:trade.updatedAt});
+  }
+  for(const drop of (db.economy.cardAlbums?.[user.id]?.drops || []).slice(-2))items.push({id:'card-drop:'+drop.eventId,icon:drop.icon,title:'Você encontrou uma carta!',detail:drop.name,page:'album',createdAt:drop.createdAt});
+  for(const trade of (db.economy.cardTrades || []).filter(t=>t.toId===user.id || t.fromId===user.id).slice(-2))items.push({id:'card-trade:'+trade.id,icon:'🎴',title:trade.status==='pending'?'Proposta de troca de cartas':'Troca de cartas atualizada',detail:'Confira no Álbum de cartas.',page:'album',createdAt:trade.updatedAt});
+  const masterGift = db.settings.masterGift136;
+  if (masterGift?.userIds?.includes(user.id)) items.push({id:'feature-master-136',icon:'💠',title:'Você ganhou um Baú Master Aurora!',detail:'Brinde das novidades: abra ou venda pelo perfil.',page:'perfil',createdAt:masterGift.grantedAt});
+  for (const post of [...db.dailyMemes, ...db.dailyPhrases]) {
+    for (const comment of post.comments || []) {
+      const mention = comment.mentions?.find((item) => item.userId === user.id);
+      if (mention) items.push({ id: 'mention:' + comment.id, icon: '💬', title: comment.authorName + ' marcou você', detail: comment.message, page: 'memes', createdAt: mention.createdAt });
+    }
+  }
   const forcedCursor = [...db.economy.forcedCursors].reverse().find((item) => item.targetUserId === user.id && isForcedCursorActive(item, roundId));
   if (forcedCursor) items.push({ id: 'forced-cursor:' + forcedCursor.id, icon: forcedCursor.style === 'giant-slow' ? '🐌' : '🌈', title: forcedCursor.style === 'giant-slow' ? 'Maldição do Mouse Gigante ativada' : 'Seta Gay Compulsória ativada', detail: forcedCursor.style === 'giant-slow' ? 'Duração de 24 horas a partir da ativação.' : 'Seu cursor especial ficará ativo durante esta rodada.', page: 'perfil', createdAt: forcedCursor.createdAt });
   const assignment = db.assignments.find((item) => item.roundId === roundId && item.userId === user.id && item.revealed);
@@ -1063,8 +1248,8 @@ function notificationsFor(user) {
   const voting = openVoting();
   if (voting && voting.requiredVoterIds.includes(user.id) && !voting.votes.some((vote) => vote.userId === user.id)) items.push({ id: 'vote:' + voting.id, icon: '🗳️', title: 'Sua votação está disponível', detail: 'Escolha o melhor e o pior wallpaper.', page: 'sorteio', createdAt: voting.openedAt });
   db.feedbackMessages.filter((item) => item.authorId === user.id && item.status !== 'pending').slice(-4).forEach((item) => items.push({ id: 'feedback:' + item.id + ':' + item.updatedAt, icon: '💬', title: 'Sua solicitação foi atualizada', detail: item.status === 'approved' ? 'Aprovada' : item.status === 'done' ? 'Concluída' : item.status === 'rejected' ? 'Não aprovada' : 'Arquivada', page: 'sorteio', createdAt: item.updatedAt || item.createdAt }));
-  creditLedgerFor(user.id).filter((item) => item.amount > 0 && !item.id.startsWith('gift:')).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + item.amount + ' Créditos 51', detail: item.label, page: 'perfil', createdAt: item.createdAt }));
-  db.economy.gifts.filter((item) => item.toUserId === user.id).slice(-5).forEach((item) => items.push({ id: 'gift:' + item.id, icon: '🎁', title: 'Você recebeu um presente secreto', detail: item.type === 'credits' ? item.amount + ' Créditos 51' : (SHOP_CATALOG.find((catalog) => catalog.id === item.itemId)?.name || 'Item da Loja 51'), page: 'perfil', createdAt: item.createdAt }));
+  creditLedger.filter((item) => item.amount > 0 && !item.id.startsWith('gift:')).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + item.amount + ' Créditos 51', detail: item.label, page: 'perfil', createdAt: item.createdAt }));
+  db.economy.gifts.filter((item) => item.toUserId === user.id).slice(-5).forEach((item) => items.push({ id: 'gift:' + item.id, icon: '🎁', title: 'Você recebeu um presente secreto', targetId: item.type === 'credits' ? 'creditLedger' : 'collectionCatalog', detail: item.type === 'credits' ? item.amount + ' Créditos 51' : (SHOP_CATALOG.find((catalog) => catalog.id === item.itemId)?.name || 'Item da Loja 51'), page: 'perfil', createdAt: item.createdAt }));
   const readAt = db.notificationsReadAt[user.id] || null;
   const sorted = items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 15).map((item) => ({ ...item, unread: !readAt || item.createdAt > readAt }));
   return { unreadCount: sorted.filter((item) => item.unread).length, items: sorted, readAt };
@@ -1110,6 +1295,8 @@ function stateFor(user) {
     };
   });
   const liveTitleMap = liveTitleAssignments();
+  const previousSeason = seasonSummary(previousMonthKey());
+  const creditLedger = creditLedgerFor(user.id);
   const rankingUsers = db.users.filter((item) => item.active).map((item) => ({
     id: item.id, displayName: item.displayName, liveTitles: liveTitleMap.get(item.id) || [], ...scoreFor(item.id),
   }));
@@ -1130,7 +1317,7 @@ function stateFor(user) {
     avatars: Object.fromEntries(db.users.filter((item) => item.active).map((item) => [item.id, item.avatarDataUrl || null])),
     announcement: db.settings.announcement ? { id: db.settings.announcement.id, title: db.settings.announcement.title, message: db.settings.announcement.message, createdAt: db.settings.announcement.createdAt, createdBy: db.settings.announcement.createdBy, unread: !db.settings.announcement.seenUserIds.includes(user.id), seenCount: user.role === 'admin' ? db.settings.announcement.seenUserIds.length : undefined } : null,
     liveDraw: liveDraw && liveDraw.endsAt > Date.now() ? drawForUser(liveDraw, user.id) : null,
-    profile: profileFor(user), notifications: notificationsFor(user),
+    profile: profileFor(user, { liveTitleMap, previousSeason, creditLedger }), notifications: notificationsFor(user, creditLedger),
     onlinePeople: sharedOnlinePeople.length ? sharedOnlinePeople : [{ id: user.id, displayName: user.displayName }],
     casino: (() => {
       const dayKey = saoPauloDayKey(); const plays = db.economy.casinoPlays.filter((item) => item.userId === user.id && item.dayKey === dayKey); const account = casinoAccountFor(user.id);
@@ -1189,7 +1376,7 @@ function stateFor(user) {
       } : null;
     }).filter(Boolean),
     draws, voting: votingForClient(voting, user), rankings: { best: bestRanking, worst: worstRanking, gay: gayRanking },
-    season: { current: seasonSummary(), previous: seasonSummary(previousMonthKey()) },
+    season: { current: seasonSummary(), previous: previousSeason },
     dailyWall: {
       emojis: WALL_EMOJIS,
       phrases: db.dailyPhrases.map((item) => ({
@@ -1205,6 +1392,8 @@ function stateFor(user) {
       id: item.id, message: item.message, createdAt: item.createdAt,
       canDelete: user.role === 'admin',
     })),
+    trading: tradingFor(user),
+    cardAlbum: albumFor(db, user.id, saoPauloDayKey()),
     lieMeter: {
       ranking: db.users.filter((person) => person.active).map((person) => ({
         id: person.id,
@@ -1212,7 +1401,7 @@ function stateFor(user) {
         liveTitles: liveTitleMap.get(person.id) || [],
         total: Math.max(0, db.lieAccusations.filter((item) => item.targetUserId === person.id && item.status === 'confirmed').reduce((sum, item) => sum + item.delta, 0)),
         latestReason: activeLieReasons(person.id).at(-1)?.reason || null,
-        reasons: activeLieReasons(person.id).slice(-30).reverse().map((item) => ({ id: item.id, reason: item.reason, createdAt: item.confirmedAt || item.createdAt, validatedBy: db.users.find((person) => person.id === item.validatedByUserId)?.displayName || 'Validador removido' })),
+        reasons: activeLieReasons(person.id).slice(-30).reverse().map((item) => ({ id: item.id, reason: item.reason, createdAt: item.confirmedAt || item.createdAt, createdBy: db.users.find((person) => person.id === item.createdByUserId)?.displayName || (item.createdByUserId ? 'Conta removida' : 'Não registrado'), validatedBy: db.users.find((person) => person.id === item.validatedByUserId)?.displayName || (item.validatedByUserId ? 'Conta removida' : 'Não registrado') })),
       })).sort((a, b) => b.total - a.total || a.displayName.localeCompare(b.displayName)),
       pending: db.lieAccusations.filter((item) => item.status === 'pending').slice(-100).reverse().map((item) => {
         const target = db.users.find((person) => person.id === item.targetUserId);
@@ -1405,6 +1594,7 @@ async function handleApi(req, res, route) {
     json(res, 200, {
       onlinePeople,
       revision: stateRevision,
+      loanOverdue: Boolean(overdueLoanFor(user.id)),
       serverTime: Date.now(),
       releaseVersion: Math.max(0, Number(db.settings.releaseVersion || 0)),
       liveDraw: liveDraw && liveDraw.endsAt > Date.now() ? drawForUser(liveDraw, user.id) : null,
@@ -1429,53 +1619,72 @@ async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/casino/flight/start') {
     const { user } = requireAuth(req); const body = await readJson(req); const bet = Number(body.bet); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
     if (!Number.isInteger(bet) || bet < 1 || bet > 100) throw new HttpError(400, 'A aposta deve ser um valor inteiro de 1 a 100 créditos.');
-    const now = Date.now(); let flight = db.economy.globalFlight;
+    const now = Date.now();
+    if(settleGlobalFlight(now))await persist();
+    const autoCashout=body.autoCashout ? Number(body.autoCashout) : null;
+    if(autoCashout!==null && (!Number.isFinite(autoCashout) || autoCashout<1.25 || autoCashout>12 || Math.abs(Math.round(autoCashout*100)-autoCashout*100)>0.000001))throw new HttpError(400,'Resgate automático: use de x1,25 a x12,00.');
+    const account = casinoAccountFor(user.id, true); const before = walletSource === 'shop' ? walletFor(user.id) : Number(account.balance);
+    if (before < bet) throw new HttpError(409, 'Saldo insuficiente para iniciar o voo.');
+    let flight = db.economy.globalFlight;
     if (!flight || flight.status === 'crashed') {
       const roll = Math.random(); const crashAt = roll < .15 ? 1 : roll < .65 ? 1.01 + Math.random() * .59 : roll < .9 ? 1.6 + Math.random() * 1.4 : roll < .98 ? 3 + Math.random() * 3 : 6 + Math.random() * 6;
-      flight = db.economy.globalFlight = { id: randomUUID(), status: 'betting', createdAt: new Date(now).toISOString(), launchAt: now + 10000, crashAt: Number(crashAt.toFixed(2)), bets: [] };
+      flight = db.economy.globalFlight = { id: randomUUID(), status: 'betting', createdAt: new Date(now).toISOString(), launchAt: now + 10000, stepMs: FLIGHT_STEP_MS, crashAt: Number(crashAt.toFixed(2)), bets: [] };
     }
     if (flight.status !== 'betting' || now >= flight.launchAt) throw new HttpError(409, 'A nave já decolou. Aguarde a próxima contagem.');
     if (flight.bets.some((item) => item.userId === user.id)) throw new HttpError(409, 'Sua aposta já está confirmada neste voo.');
-    const account = casinoAccountFor(user.id, true); const before = walletSource === 'shop' ? walletFor(user.id) : Number(account.balance);
-    if (before < bet) throw new HttpError(409, 'Saldo insuficiente para iniciar o voo.');
     if (walletSource === 'shop') addCredits(user.id, -bet); else account.balance = before - bet;
-    flight.bets.push({ id: randomUUID(), userId: user.id, userName: user.displayName, bet, walletSource, status: 'active', joinedAt: new Date(now).toISOString() });
+    flight.bets.push({ id: randomUUID(), userId: user.id, userName: user.displayName, bet, walletSource, status: 'active', autoCashout, joinedAt: new Date(now).toISOString() });
     await persist(); broadcastRefresh('global-flight'); json(res, 200, stateFor(user)); return;
   }
 
   if (req.method === 'GET' && route === '/api/casino/flight/status') {
-    const { user } = requireAuth(req); const flight = db.economy.globalFlight;
-    if (!flight) { json(res, 200, { active: false, phase: 'waiting' }); return; }
-    if (flight.status === 'crashed') { json(res, 200, { active: false, phase: 'crashed', crashed: true, crashAt: flight.crashAt, state: stateFor(user) }); return; }
-    const now = Date.now(); const myBet = flight.bets.find((item) => item.userId === user.id);
-    if (flight.status === 'betting' && now < flight.launchAt) { json(res, 200, { active: true, phase: 'countdown', countdownMs: flight.launchAt - now, players: flight.bets.length, joined: Boolean(myBet) }); return; }
-    flight.status = 'flying'; const multiplier = Math.max(1, 1 + (now - flight.launchAt) / 3200);
-    if (multiplier >= flight.crashAt) {
-      flight.status = 'crashed'; flight.endedAt = new Date().toISOString();
-      flight.bets.filter((item) => item.status === 'active').forEach((item) => { item.status = 'crashed'; db.economy.casinoPlays.push({ id: randomUUID(), userId: item.userId, dayKey: saoPauloDayKey(), walletSource: item.walletSource, bet: item.bet, resultType: 'flight', multiplier: 0, payout: 0, net: -item.bet, balanceAfter: item.walletSource === 'shop' ? walletFor(item.userId) : casinoAccountFor(item.userId).balance, createdAt: flight.endedAt }); });
-      db.economy.flightHistory.push({ id: flight.id, multiplier: flight.crashAt, players: flight.bets.length, createdAt: flight.endedAt }); if (db.economy.flightHistory.length > 100) db.economy.flightHistory = db.economy.flightHistory.slice(-100);
-      await persist(); broadcastRefresh('economy'); json(res, 200, { active: false, crashed: true, crashAt: flight.crashAt, state: stateFor(user) }); return;
-    }
-    json(res, 200, { active: true, phase: 'flying', multiplier: Number(multiplier.toFixed(2)), players: flight.bets.length, joined: Boolean(myBet), cashedOut: myBet?.status === 'cashed-out', canCashOut: myBet?.status === 'active' && multiplier >= 1.25 }); return;
+    const {user}=requireAuth(req);
+    if(settleGlobalFlight()){await persist();broadcastRefresh('economy');}
+    json(res,200,flightStatusFor(user));return;
+  }
+  if (req.method === 'POST' && route === '/api/casino/flight/cashout') {
+    const {user}=requireAuth(req);const body=await readJson(req);
+    const flight=db.economy.globalFlight;
+    if(!flight || (body.flightId && body.flightId!==flight.id))throw new HttpError(409,'Este voo já terminou. Atualize a rodada.');
+    if(settleGlobalFlight()){await persist();broadcastRefresh('economy');}
+    const bet=flight.bets.find(b=>b.userId===user.id);
+    if(bet?.result){json(res,200,body.compact?{flightResult:bet.result}:{...stateFor(user),flightResult:bet.result});return;}
+    if(!bet || bet.status!=='active' || flight.status==='crashed')throw new HttpError(409,'A nave já caiu. Sua tela será atualizada.');
+    if(Date.now()<flight.launchAt)throw new HttpError(409,'A nave ainda está na contagem regressiva.');
+    const multiplier=flightMultiplier(flight,Date.now());
+    if(multiplier<1.25)throw new HttpError(409,'O resgate é liberado em x1,25.');
+    if(multiplier>=flight.crashAt)throw new HttpError(409,'A nave já caiu. Sua tela será atualizada.');
+    const result=recordFlightPayout(flight,bet,Number(multiplier.toFixed(2)),new Date().toISOString());
+    await persist();broadcastRefresh('economy');
+    json(res,200,body.compact?{flightResult:result}:{...stateFor(user),flightResult:result});return;
   }
 
-  if (req.method === 'POST' && route === '/api/casino/flight/cashout') {
-    const { user } = requireAuth(req); const flight = db.economy.globalFlight; const myBet = flight?.bets?.find((item) => item.userId === user.id && item.status === 'active');
-    if (!flight || flight.status === 'crashed' || !myBet) throw new HttpError(404, 'Você não possui uma aposta ativa neste voo.');
-    if (Date.now() < flight.launchAt) throw new HttpError(409, 'A nave ainda está na contagem regressiva.');
-    const multiplier = Math.max(1, 1 + (Date.now() - flight.launchAt) / 3200);
-    if (multiplier < 1.25) throw new HttpError(409, 'O resgate é liberado quando o voo alcançar x1,25.');
-    if (multiplier >= flight.crashAt) throw new HttpError(409, `A nave caiu em x${flight.crashAt.toFixed(2).replace('.', ',')}.`);
-    const safeMultiplier = Number(multiplier.toFixed(2)); const payout = Math.round(myBet.bet * safeMultiplier); const account = casinoAccountFor(user.id, true);
-    if (myBet.walletSource === 'shop') addCredits(user.id, payout); else account.balance = Number(account.balance) + payout;
-    myBet.status = 'cashed-out'; myBet.multiplier = safeMultiplier; myBet.payout = payout; myBet.endedAt = new Date().toISOString();
-    const play = { id: randomUUID(), userId: user.id, dayKey: saoPauloDayKey(), walletSource: myBet.walletSource, bet: myBet.bet, resultType: 'flight', multiplier: safeMultiplier, payout, net: payout - myBet.bet, balanceAfter: myBet.walletSource === 'shop' ? walletFor(user.id) : account.balance, createdAt: myBet.endedAt };
-    db.economy.casinoPlays.push(play); await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), flightResult: play }); return;
+  if (req.method === 'POST' && route === '/api/card-album') {
+    const {user}=requireAuth(req);const body=await readJson(req);
+    let changed;
+    try {changed=updateAlbum(db,user.id,body.action,body.collectionId);}
+    catch(error){throw new HttpError(400,error.message);}
+    if(changed){await persist();broadcastRefresh('card-album');}
+    json(res,200,stateFor(user));return;
   }
+  if(req.method==='POST' && route==='/api/card-trades'){
+    const {user}=requireAuth(req);const body=await readJson(req);let changed;
+    try{changed=updateCardTrade(db,user.id,body,randomUUID);}catch(error){throw new HttpError(400,error.message);}
+    if(changed){await persist();broadcastRefresh('card-trades');}
+    json(res,200,stateFor(user));return;
+  }
+  if (await handleCommunityExtras(req, res, route)) return;
 
   if (req.method === 'POST' && route === '/api/casino/play') {
     const { user } = requireAuth(req);
     const body = await readJson(req); const bet = Number(body.bet); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
+    const requestId = body.requestId == null ? null : String(body.requestId);
+    if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da aposta inválida.');
+    const previous = requestId && db.economy.casinoPlays.find(play => play.userId === user.id && play.requestId === requestId && play.resultType !== 'flight');
+    if (previous) {
+      if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra aposta.');
+      json(res, 200, body.compact ? { casinoResult: previous } : { ...stateFor(user), casinoResult: previous }); return;
+    }
     if (!Number.isInteger(bet) || bet < 1 || bet > 100) throw new HttpError(400, 'A aposta deve ser um valor inteiro de 1 a 100 créditos.');
     const dayKey = saoPauloDayKey();
     const casinoAccount = casinoAccountFor(user.id, true);
@@ -1503,9 +1712,9 @@ async function handleApi(req, res, route) {
       if (net !== 0) db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before, after: before + net, reason: 'Resultado da Roleta 51 usando saldo da loja', createdAt });
     } else casinoAccount.balance = before + net;
     const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
-    const play = { id: randomUUID(), userId: user.id, dayKey, walletSource, bet, resultType, segmentIndex, wheelValue: outcome, multiplier, payout, net, mysteryBox, balanceAfter, createdAt };
+    const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType, segmentIndex, wheelValue: outcome, multiplier, payout, net, mysteryBox, balanceAfter, createdAt };
     db.economy.casinoPlays.push(play);
-    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), casinoResult: play }); return;
+    await persist(); broadcastRefresh('economy'); json(res, 200, body.compact ? { casinoResult: play } : { ...stateFor(user), casinoResult: play }); return;
   }
 
   if (req.method === 'POST' && route === '/api/casino/cashout') {
@@ -1515,7 +1724,8 @@ async function handleApi(req, res, route) {
     const amount = Number(account.balance); const before = walletFor(user.id); const createdAt = new Date().toISOString();
     addCredits(user.id, amount); account.balance = 0; account.cashedOut = true; account.cashedOutAt = createdAt; account.cashedOutAmount = amount;
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'casino-cashout', amount, before, after: before + amount, reason: 'Saldo promocional liberado pelo Cassino 51 após atingir a meta', createdAt });
-    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), casinoCashout: amount }); return;
+    const debtPayment = activeLoanFor(user.id)?.dueAt ? applyLoanPayment(user.id, amount, 'Abatimento automático do resgate promocional') : 0;
+    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), casinoCashout: amount - debtPayment, debtPayment }); return;
   }
 
   if (req.method === 'POST' && route === '/api/notifications/read') {
@@ -1603,6 +1813,7 @@ async function handleApi(req, res, route) {
       id: randomUUID(), userId: user.id, authorName: user.displayName,
       phrase, createdAt: new Date().toISOString(),
     });
+    awardEngagementCard(db,user.id,'phrase',saoPauloDayKey());
     recordActivity(user.id, 'phrase');
     rewardDailyMissions(user.id);
     if (db.dailyPhrases.length > 100) db.dailyPhrases = db.dailyPhrases.slice(-100);
@@ -1659,6 +1870,7 @@ async function handleApi(req, res, route) {
       const body = await readJson(req);
       if (typeof body.message !== 'string' || !body.message.trim() || body.message.trim().length > 300) throw new HttpError(400, 'Escreva de 1 a 300 caracteres.');
       comment.message = body.message.trim(); comment.updatedAt = new Date().toISOString();
+      updateCommentMentions(comment);
     } else post.comments = post.comments.filter((item) => item.id !== commentId);
     await persist(); broadcastRefresh('daily-wall'); json(res, 200, stateFor(user)); return;
   }
@@ -1676,7 +1888,10 @@ async function handleApi(req, res, route) {
     if (post.comments.length >= 50) throw new HttpError(409, 'Esta publicação atingiu o limite de 50 comentários.');
     const previous = post.comments.filter((comment) => comment.userId === user.id).at(-1);
     if (previous && Date.now() - Date.parse(previous.createdAt) < 3000) throw new HttpError(429, 'Aguarde alguns segundos para comentar novamente.');
-    post.comments.push({ id: randomUUID(), userId: user.id, authorName: user.displayName, message, createdAt: new Date().toISOString() });
+    const comment = { id: randomUUID(), userId: user.id, authorName: user.displayName, message, createdAt: new Date().toISOString() };
+    updateCommentMentions(comment);
+    post.comments.push(comment);
+    if(post.userId!==user.id && message.length>=10)awardEngagementCard(db,user.id,'comment',saoPauloDayKey());
     await persist(); broadcastRefresh('daily-wall'); json(res, 201, stateFor(user)); return;
   }
 
@@ -1720,6 +1935,7 @@ async function handleApi(req, res, route) {
       id: randomUUID(), userId: user.id, authorName: user.displayName, filename,
       mimeType: match[1], size: image.length, caption: caption.trim(), createdAt: new Date(now).toISOString(),
     });
+    awardEngagementCard(db,user.id,'meme',saoPauloDayKey());
     recordActivity(user.id, 'meme');
     rewardDailyMissions(user.id);
     memePostTimes.set(user.id, now);
@@ -1806,6 +2022,7 @@ async function handleApi(req, res, route) {
     const dayKey = saoPauloDayKey();
     const beforeTotal = db.waterEntries.filter((item) => item.userId === user.id && item.dayKey === dayKey).reduce((sum, item) => sum + item.ml, 0);
     db.waterEntries.push({ id: randomUUID(), userId: user.id, ml, dayKey, createdAt });
+    if(beforeTotal+ml>=500)awardEngagementCard(db,user.id,'water',dayKey);
     recordActivity(user.id, 'water_log');
     if (beforeTotal < 2500 && beforeTotal + ml >= 2500) awardHydrationGoal(user.id, dayKey);
     rewardDailyMissions(user.id, dayKey);
@@ -1820,7 +2037,7 @@ async function handleApi(req, res, route) {
     if (db.economy.loans.some((item) => item.userId === user.id && item.status === 'active')) throw new HttpError(409, 'Quite seu empréstimo atual antes de pedir outro.');
     const before = walletFor(user.id); const totalDue = Math.round(principal * 1.2); const createdAt = new Date().toISOString();
     addCredits(user.id, principal);
-    db.economy.loans.push({ id: randomUUID(), userId: user.id, principal, interestRate: .2, totalDue, remainingDue: totalDue, status: 'active', payments: [], createdAt, paidAt: null });
+    db.economy.loans.push({ id: randomUUID(), userId: user.id, principal, interestRate: .2, totalDue, remainingDue: totalDue, status: 'active', payments: [], createdAt, dueAt: new Date(Date.now() + 48 * 3600000).toISOString(), paidAt: null });
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-loan', amount: principal, before, after: before + principal, reason: 'Empréstimo do Agiota Estelar', createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, stateFor(user)); return;
   }
@@ -1853,6 +2070,13 @@ async function handleApi(req, res, route) {
     const mysteryBox = item.mysteryBox ? addMysteryBox(user.id, item.id, 'shop') : null;
     if (!item.consumable && !item.mysteryBox) db.economy.equipped[user.id] = { ...cosmeticsFor(user.id), [item.type]: item.id };
     await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), mysteryBox }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/card-packs/open') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    let result;try { result = openCardPack(db,user.id,body.purchaseId); } catch(error) { throw new HttpError(400,error.message); }
+    if(result.changed) { await persist(); broadcastRefresh('economy'); }
+    json(res,200,{...stateFor(user),cardPackResult:result.cards});return;
   }
 
   if (req.method === 'POST' && route === '/api/mystery-boxes/open') {
@@ -1985,10 +2209,23 @@ async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/powers/use') {
     const { user } = requireAuth(req);
     const body = await readJson(req);
-    const item = SHOP_CATALOG.find((candidate) => candidate.id === body.itemId && candidate.consumable);
+    const item = SHOP_CATALOG.find((candidate) => candidate.id === body.itemId && candidate.type === 'power' && candidate.consumable);
     if (!item) throw new HttpError(404, 'Poder não encontrado.');
     const roundId = db.settings.currentRoundId;
-    if (item.value === 'chooseTheme') {
+    if (item.value === 'cleanseCursor') {
+      if ([...db.draws].reverse().find((draw) => draw.type === 'gay')?.winnerId === user.id) throw new HttpError(409, 'O cursor do sorteado é obrigatório. Seu poder não foi consumido.');
+      if (overdueLoanFor(user.id)) throw new HttpError(409, 'Quite a dívida para remover a cobrança do Agiota. Seu poder não foi consumido.');
+      const curse = db.economy.forcedCursors.find((entry) => entry.targetUserId === user.id && isForcedCursorActive(entry, roundId));
+      if (!curse) throw new HttpError(409, 'Você não tem uma maldição comprada ativa. O cursor do sorteado não pode ser removido.');
+      consumePower(user.id, item.id, { roundId });
+      db.economy.forcedCursors = db.economy.forcedCursors.filter((entry) => entry !== curse);
+    } else if (item.value === 'loanExtension') {
+      const loan = activeLoanFor(user.id);
+      if (!loan?.dueAt || loan.extendedAt) throw new HttpError(409, 'É necessário um empréstimo com prazo que ainda não tenha sido prorrogado. Seu poder não foi consumido.');
+      consumePower(user.id, item.id, { loanId: loan.id });
+      loan.dueAt = new Date(Math.max(Date.now(), Date.parse(loan.dueAt)) + 24 * 3600000).toISOString();
+      loan.extendedAt = new Date().toISOString();
+    } else if (item.value === 'chooseTheme') {
       if (roundId) throw new HttpError(409, 'Aguarde a rodada atual terminar para escolher o próximo tema.');
       const theme = String(body.theme || '').trim().replace(/\s+/g, ' ').slice(0, 60);
       if (theme.length < 3) throw new HttpError(400, 'Informe um tema com pelo menos 3 caracteres.');
@@ -2358,6 +2595,7 @@ async function handleApi(req, res, route) {
       throw new HttpError(400, 'Escolha duas opções válidas desta votação.');
     }
     voting.votes.push({ userId: user.id, bestId, worstId, createdAt: new Date().toISOString() });
+    awardEngagementCard(db,user.id,'vote',saoPauloDayKey());
     if (voting.votes.length >= voting.requiredVoterIds.length) finishVoting(voting);
     await persist(); broadcastRefresh(voting.status === 'closed' ? 'voting-closed' : 'vote'); json(res, 200, stateFor(user)); return;
   }

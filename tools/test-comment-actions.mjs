@@ -7,7 +7,7 @@ class HttpError extends Error {constructor(status,message){super(message);this.s
 let user={id:'stranger',role:'member'},body={message:'changed'},saves=0;
 const comment={id:'c',userId:'author',message:'original',createdAt:'2026-09-02T10:00:00Z'};
 const db={dailyMemes:[{id:'p',comments:[comment]}],dailyPhrases:[]};
-const ctx={req:{method:'PATCH'},route:'/api/daily-wall/comments/meme/p/c',db,HttpError,requireAuth:()=>({user}),readJson:async()=>body,persist:async()=>{saves++;},broadcastRefresh(){},json(){},res:{},stateFor(){}};
+const ctx={req:{method:'PATCH'},route:'/api/daily-wall/comments/meme/p/c',db,HttpError,updateCommentMentions(){},requireAuth:()=>({user}),readJson:async()=>body,persist:async()=>{saves++;},broadcastRefresh(){},json(){},res:{},stateFor(){}};
 const handler=vm.runInNewContext('(async function(){'+code+'})',ctx);
 await assert.rejects(handler(),e=>e.status===403);assert.equal(saves,0);
 user={id:'author',role:'member'};await handler();assert.equal(comment.message,'changed');assert.equal(comment.createdAt,'2026-09-02T10:00:00Z');assert.ok(comment.updatedAt);

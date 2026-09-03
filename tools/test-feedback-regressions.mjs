@@ -41,8 +41,9 @@ vm.runInContext('renderCommunityFeed(wall)', context);
 assert.ok(container.innerHTML.includes('old post'));
 console.log('PASS: mixed feed newest first, text escaped, draft preserved during sync.');
 
-assert.ok(app.includes("if (generation !== flightPollGeneration) return;"));
+assert.match(app,/if\s*\(generation\s*!==\s*flightPollGeneration\)\s*return;/);
 assert.ok(app.includes("event.target.closest('#notificationPanel, #notificationButton')"));
 assert.ok(!app.includes("method: 'POST' })); setNotificationPanel(true)"));
-assert.ok(server.includes("phase: 'crashed', crashed: true, crashAt: flight.crashAt, state: stateFor(user)"));
+assert.ok(server.includes("phase:'crashed',crashed:true,crashAt:f.crashAt"));
+assert.ok(app.includes("api('/api/state',{},false)"));
 console.log('PASS: notification and flight regressions guarded.');

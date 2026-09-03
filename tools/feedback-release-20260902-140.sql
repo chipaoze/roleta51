@@ -1,0 +1,6 @@
+UPDATE app_state SET data=json_set(data,'$.feedbackMessages',json((
+SELECT json_group_array(json(CASE
+WHEN json_extract(value,'$.id')='0f8a2f0f-dafd-4aee-b6bd-5fd2f5d0aa78' THEN json_patch(value,json_object('status','done','adminComment','Versão 140 publicada. No Perfil, Trocar visuais permite propor um visual por outro, com aceite exclusivo do destinatário, recusa/cancelamento e prazo de 24h. Somente visuais: poderes, moedas, baús, exclusivos de administrador e prêmios ainda sem decisão ficam de fora. Transferência atômica, sem duplicação, preservando saldo e histórico financeiro.','updatedAt',strftime('%Y-%m-%dT%H:%M:%fZ','now'),'completedAt',strftime('%Y-%m-%dT%H:%M:%fZ','now')))
+WHEN json_extract(value,'$.id')='69db161d-a888-4f59-b653-adf85fbc9ace' THEN json_patch(value,json_object('status','done','adminComment','Versão 140 publicada. No histórico do Mentirômetro, Denunciar esta mentira envia o motivo e o registro original ao painel do administrador. Uma denúncia por pessoa e registro; acompanhamento em Minhas solicitações. Denunciar não remove pontos automaticamente.','updatedAt',strftime('%Y-%m-%dT%H:%M:%fZ','now'),'completedAt',strftime('%Y-%m-%dT%H:%M:%fZ','now')))
+ELSE value END)) FROM json_each(app_state.data,'$.feedbackMessages')
+))),revision=revision+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=1;

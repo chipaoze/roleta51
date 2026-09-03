@@ -18,7 +18,12 @@ async function files(directory) {
 const digest = (value) => createHash('sha256').update(value).digest('hex');
 const mismatches = [];
 
-for (const file of await files(root)) {
+// Deployment instructions/manifests are intentionally not public HTTP assets.
+const publicFiles = (await files(root)).filter((file) => {
+  const path = relative(root, file).split(sep).join('/');
+  return !['.assetsignore', '_headers'].includes(path) && !path.startsWith('.vite/');
+});
+for (const file of publicFiles) {
   const path = relative(root, file).split(sep).join('/');
   const local = await readFile(file);
   const response = await fetch(new URL(path, base));
@@ -28,4 +33,5 @@ for (const file of await files(root)) {
   }
 }
 
-console.log(JSON.stringify({ files: (await files(root)).length, mismatches }, null, 2));
+console.log(JSON.stringify({ files: publicFiles.length, mismatches }, null, 2));
+if (mismatches.length) process.exitCode = 1;

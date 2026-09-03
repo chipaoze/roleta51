@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+const app=await readFile(new URL('../public/app.js',import.meta.url),'utf8');
+let shown=0;
+const saved=new Map();
+const ctx=vm.createContext({appState:{me:{id:'one'},profile:{}},sessionStorage:{getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v)},document:{body:{append(){}},createElement:()=>({querySelector:()=>({}),addEventListener(){},showModal(){shown++;}})}});
+vm.runInContext(app.slice(app.indexOf('let lenderLossStreak'),app.indexOf("$('#casinoForm').addEventListener")),ctx);
+vm.runInContext('offerStellarLoan({net:-10})',ctx);assert.equal(shown,0);
+vm.runInContext('offerStellarLoan({net:10});offerStellarLoan({net:-10})',ctx);assert.equal(shown,0);
+vm.runInContext('offerStellarLoan({net:-10});offerStellarLoan({net:-10})',ctx);assert.equal(shown,1);
+ctx.appState.me.id='two';ctx.appState.profile.loan={remainingDue:120};vm.runInContext('offerStellarLoan({net:-10})',ctx);assert.equal(shown,1);
+assert.ok(app.indexOf('await animateCasinoWheel(result.segmentIndex')<app.indexOf('offerStellarLoan(result);'));
+console.log('PASS: only two consecutive losses, once per session/user, no active debt, after spin, no automatic loan.');

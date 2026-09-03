@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFile} from 'node:fs/promises';
+const server=await readFile(new URL('../legacy-server.mjs',import.meta.url),'utf8');
+const app=await readFile(new URL('../public/app.js',import.meta.url),'utf8');
+const db={users:[{id:'a',displayName:'Ana'},{id:'b',displayName:'Beto'}]};
+const records=[{id:'old',reason:'Antiga'},{id:'new',reason:'Nova',createdByUserId:'a',validatedByUserId:'b'},{id:'removed',createdByUserId:'gone',validatedByUserId:'gone'}];
+const before=JSON.stringify(records);
+const expression=server.split('\n').find(line=>line.trim().startsWith('reasons: activeLieReasons')).trim().slice('reasons: '.length).replace(/,$/,'');
+const results=vm.runInNewContext(expression,{db,person:{id:'target'},activeLieReasons:()=>records});
+assert.equal(results[1].createdBy,'Ana');assert.equal(results[1].validatedBy,'Beto');
+assert.equal(results[2].createdBy,'Não registrado');assert.equal(results[2].validatedBy,'Não registrado');
+assert.equal(results[0].createdBy,'Conta removida');assert.equal(JSON.stringify(records),before);
+const escapeHtml=s=>String(s).replaceAll('<','&lt;').replaceAll('>','&gt;');
+const render=vm.runInNewContext(app.slice(app.indexOf('function lieAttribution'),app.indexOf('function renderLieMeter'))+';lieAttribution',{escapeHtml});
+assert.match(render(results[1]),/Registrada por <b>Ana/);assert.match(render(results[1]),/Aprovada por <b>Beto/);
+assert.ok(!render({createdBy:'<img>',validatedBy:'<script>'}).includes('<script>'));
+console.log('PASS: reporter/approver, legacy/removed account fallbacks, escaping, records unchanged.');

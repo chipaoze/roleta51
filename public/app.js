@@ -56,6 +56,9 @@ let flightInProgress = false;
 let flightCashoutReadyTimer = null;
 let flightCashoutLocallyReady = false;
 let flightPollGeneration = 0;
+let flightSnapshot=null;
+let flightAnimationFrame=null;
+let flightCurrentId=null;
 let mysteryOpeningInProgress = false;
 const casinoWheelValues = [
   0,.5,1,1.5,'box-sonda',.5,1,2,1.5,.5,0,1,3,1.5,'box-cosmic',0,1,2,1.5,1,
@@ -337,7 +340,7 @@ async function api(url, options = {}, retry = true) {
   if (retry && response.status >= 500 && (!config.method || config.method === 'GET')) return api(url, options, false);
   if (!response.ok) {
     if (response.status === 401 && !url.endsWith('/login')) showAuth();
-    throw new Error(data.error || 'Não foi possível concluir a ação.');
+    const error = new Error(data.error || 'Não foi possível concluir a ação.'); error.status = response.status; throw error;
   }
   return data;
 }
@@ -391,7 +394,7 @@ function renderAdminFeedback(messages) {
       else if (status === 'done') statusActions = '<button type="button" data-admin-feedback-status="approved">Reabrir</button>';
       else if (status === 'rejected') statusActions = '<button type="button" data-admin-feedback-status="pending">Reavaliar</button>';
       else statusActions = '<button type="button" data-admin-feedback-status="pending">Restaurar</button>';
-      return `<article class="admin-feedback-item ${kindClass} status-${status}" data-feedback-id="${escapeHtml(item.id)}">
+      return `<article id="admin-feedback-${escapeHtml(item.id)}" class="admin-feedback-item ${kindClass} status-${status}" data-feedback-id="${escapeHtml(item.id)}">
         <span class="admin-feedback-avatar" aria-hidden="true">${escapeHtml(initials(item.authorName))}</span>
         <div class="admin-feedback-content">
           <div class="admin-feedback-meta"><span class="feedback-kind">${kindLabel}</span><span class="admin-feedback-status ${status}">${statusLabel}</span><time datetime="${escapeHtml(item.createdAt)}">${escapeHtml(formatDate(item.createdAt))}</time></div>
@@ -423,7 +426,7 @@ function renderMyFeedback(messages) {
     const kindLabel = bug ? 'BUG' : praise ? 'ELOGIO / DENÚNCIA' : 'MELHORIA';
     const status = ['approved', 'done', 'rejected'].includes(item.status) ? item.status : 'pending';
     const statusLabel = status === 'done' ? 'CONCLUÍDA' : status === 'approved' ? 'APROVADA' : status === 'rejected' ? 'NÃO APROVADA' : 'EM ANÁLISE';
-    return `<article class="my-feedback-item status-${status}">
+    return `<article id="my-feedback-${escapeHtml(item.id)}" class="my-feedback-item status-${status}">
       <div class="my-feedback-meta"><span class="feedback-kind">${kindLabel}</span><span class="my-feedback-status ${status}">${statusLabel}</span><time datetime="${escapeHtml(item.createdAt)}">${escapeHtml(formatDate(item.createdAt))}</time></div>
       <p>${escapeHtml(item.message)}</p>
       ${item.adminComment ? `<div class="my-feedback-comment"><strong>Retorno do administrador</strong><span>${escapeHtml(item.adminComment)}</span></div>` : ''}
@@ -464,7 +467,7 @@ function openFeedbackPanel() {
   $('#feedbackMessage').focus();
 }
 
-const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','perfil','loja','jogos','historico','classificacao','admin'];
+const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','perfil','album','loja','jogos','historico','classificacao','admin'];
 const portalSections = ['inicio', ...portalPages];
 
 function setMenuOpen(open) {
@@ -488,7 +491,6 @@ function currentPortalPage() {
 
 function showPortalPage(page, pushState = false, resetScroll = true) {
   if (!portalPages.includes(page) || (page === 'admin' && appState?.me?.role !== 'admin')) page = 'sorteio';
-  if (page !== 'loja' && shopPreviewItemId) stopShopPreview(false);
   portalSections.forEach((id) => {
     const section = $('#' + id);
     if (section) section.classList.toggle('portal-page-hidden', page === 'sorteio' ? !['inicio','sorteio'].includes(id) : id !== page);
@@ -693,6 +695,7 @@ function primeMusicFromGesture() {
 }
 
 function showAuth() {
+  $('#sessionBoot')?.classList.add('hidden');
   setMenuOpen(false);
   if (liveSource) liveSource.close();
   liveSource = null;
@@ -710,6 +713,7 @@ function showAuth() {
 }
 
 function showApp(data) {
+  $('#sessionBoot')?.classList.add('hidden');
   stopAuthCarousel();
   authView.classList.add('hidden');
   appView.classList.remove('hidden');
@@ -727,19 +731,21 @@ function applyVisualTheme(data) {
   rainbowThemeForced = data.visualTheme === 'rainbow';
   const punishmentThemeForced = data.visualTheme === 'punishment';
   const specialThemeForced = rainbowThemeForced || punishmentThemeForced;
+  const debtTheme = !specialThemeForced && Boolean(data.profile?.loan?.overdue);
+  document.body.classList.toggle('theme-debt', debtTheme);
   const darkPreference = localStorage.getItem('area51DarkMode:' + data.me.id) === 'on';
-  const dark = !specialThemeForced && darkPreference;
+  const dark = !specialThemeForced && (darkPreference || debtTheme);
 
   document.body.classList.toggle('theme-rainbow', rainbowThemeForced);
   document.body.classList.toggle('theme-punishment', punishmentThemeForced);
   document.body.classList.toggle('theme-dark', dark);
   if (!button) return;
 
-  button.disabled = specialThemeForced;
+  button.disabled = specialThemeForced || debtTheme;
   button.classList.toggle('on', dark);
   button.classList.toggle('forced', specialThemeForced);
   button.textContent = rainbowThemeForced ? '★' : punishmentThemeForced ? '▼' : dark ? '☀' : '☾';
-  button.title = rainbowThemeForced
+  button.title = debtTheme ? 'Tema Bandido Estelar: quite a dívida para restaurar seus visuais' : rainbowThemeForced
     ? 'Tema colorido obrigatório: você é o Gay da Rodada'
     : punishmentThemeForced ? 'Tema Castigo obrigatório: seu wallpaper foi o pior da rodada'
     : dark ? 'Desativar modo escuro' : 'Ativar modo escuro';
@@ -981,7 +987,45 @@ function renderNotifications() {
   const badge = $('#notificationBadge');
   badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
   badge.classList.toggle('hidden', !unreadCount);
-  $('#notificationList').innerHTML = visibleItems.length ? visibleItems.map((item) => `<button type="button" class="notification-item${item.unread ? ' unread' : ''}" data-notification-page="${escapeHtml(item.page || 'sorteio')}"><span>${item.icon || '👽'}</span><p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail || '')}</small><em>${escapeHtml(formatDate(item.createdAt))}</em></p></button>`).join('') : '<div class="notification-empty"><span>🛸</span><strong>Tudo tranquilo por aqui</strong><small>Seus novos avisos aparecerão neste espaço.</small></div>';
+  $('#notificationList').innerHTML = visibleItems.length ? visibleItems.map((item) => `<button type="button" class="notification-item${item.unread ? ' unread' : ''}" data-notification-page="${escapeHtml(item.page || 'sorteio')}" data-notification-id="${escapeHtml(item.id)}"><span>${item.icon || '👽'}</span><p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail || '')}</small><em>${escapeHtml(formatDate(item.createdAt))}</em></p></button>`).join('') : '<div class="notification-empty"><span>🛸</span><strong>Tudo tranquilo por aqui</strong><small>Seus novos avisos aparecerão neste espaço.</small></div>';
+}
+
+async function openNotificationTarget(id, page) {
+  showPortalPage(portalPages.includes(page) ? page : 'sorteio', true);
+  let targetId = 'profileIdentityCard';
+  if (id.startsWith('mention:')) targetId = 'feed-comment-' + id.slice(8);
+  else if (id.startsWith('feedback:')) {
+    if (appState.me.role === 'admin') {
+      showPortalPage('admin', true);
+      adminFeedbackFilter = 'all';
+      await refreshFeedback(true);
+      targetId = 'admin-feedback-' + id.split(':')[1];
+    } else {
+      openFeedbackPanel();
+      await refreshFeedback(true);
+      targetId = 'my-feedback-' + id.split(':')[1];
+    }
+  } else if (id.startsWith('assignment:')) targetId = 'receivedWallpaperCard';
+  else if (id.startsWith('vote:')) targetId = 'votingPanel';
+  else if (id.startsWith('credit:')) targetId = 'creditLedger';
+  else if (id.startsWith('gift:')) targetId = appState.notifications?.items?.find(item => item.id === id)?.targetId || 'profileIdentityCard';
+  else if (id.startsWith('card-drop:')) targetId = 'cardAlbumCollections';
+  else if (id.startsWith('card-trade:')) targetId = 'cardTradingCard';
+  else if (id.startsWith('trade:')) targetId = 'visualTradingCard';
+  else if (id.startsWith('feature-master')) targetId = 'mysteryInventoryCard';
+  const target = document.getElementById(targetId);
+  if (!target || target.closest('.hidden')) {
+    showToast('Este conteúdo não está mais disponível. A seção correspondente foi aberta.');
+    return;
+  }
+  for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS') parent.open = true;
+  }
+  target.setAttribute('tabindex', '-1');
+  target.focus({preventScroll:true});
+  target.scrollIntoView({block:'center', behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+  target.classList.add('notification-target');
+  setTimeout(() => target.classList.remove('notification-target'), 3500);
 }
 
 function renderOnlinePeople() {
@@ -1008,8 +1052,13 @@ function renderCasino(casino = {}) {
   const historyMarkup = (history, emptyText, flight = false) => history.length ? history.map((play) => { const source = play.walletSource === 'shop' ? 'Loja 51' : 'Bônus diário'; return play.resultType === 'mysteryBox' ? `<div class="casino-history-item jackpot"><span>${play.mysteryBox?.icon || '🎁'}</span><p><strong>${escapeHtml(play.mysteryBox?.name || 'Baú misterioso')}</strong><small>${source} · aposta ${play.bet} devolvida · baú enviado ao perfil</small></p></div>` : `<div class="casino-history-item ${play.net > 0 ? 'win' : play.net < 0 ? 'loss' : 'draw'}"><span>${flight ? '🦄' : play.net > 0 ? '🚀' : play.net < 0 ? '🕳️' : '🛸'}</span><p><strong>x${String(play.multiplier).replace('.', ',')}</strong><small>${source} · aposta ${play.bet} · retorno ${play.payout} · saldo ${play.net > 0 ? '+' : ''}${play.net}</small></p></div>`; }).join('') : `<p class="casino-empty">${emptyText}</p>`;
   const rouletteHistory = Array.isArray(casino.recentRoulette) ? casino.recentRoulette : [];
   const flightHistory = Array.isArray(casino.recentFlight) ? casino.recentFlight : [];
-  $('#casinoRouletteHistory').innerHTML = historyMarkup(rouletteHistory, 'Sua primeira rodada aparecerá aqui.');
-  $('#casinoFlightHistory').innerHTML = historyMarkup(flightHistory, 'Seu primeiro voo aparecerá aqui.', true);
+  const compactHistory = (selector, history, emptyText, flight = false) => {
+    const container = $(selector);
+    const opened = Boolean(container.querySelector('details[open]'));
+    container.innerHTML = historyMarkup(history.slice(0, 1), emptyText, flight) + (history.length > 1 ? `<details class="casino-history-more"${opened ? ' open' : ''}><summary>Ver mais ${history.length - 1} resultados recentes</summary><div>${historyMarkup(history.slice(1), '', flight)}</div></details>` : '');
+  };
+  compactHistory('#casinoRouletteHistory', rouletteHistory, 'Sua primeira rodada aparecerá aqui.');
+  compactHistory('#casinoFlightHistory', flightHistory, 'Seu primeiro voo aparecerá aqui.', true);
   if (casino.globalFlight && !flightPollTimer) startFlightPolling();
   drawCasinoWheel();
 }
@@ -1028,7 +1077,7 @@ function scheduleFlightCashoutReady(delayMs, joined) {
     if (flightInProgress && button && !button.dataset.requesting) { flightCashoutLocallyReady = true; button.disabled = false; button.textContent = 'Resgatar agora'; }
   }, Math.max(0, delayMs));
 }
-function stopFlightPolling() { flightPollGeneration++; clearTimeout(flightPollTimer); clearTimeout(flightCashoutReadyTimer); flightPollTimer = null; flightCashoutReadyTimer = null; flightCashoutLocallyReady = false; flightInProgress = false; }
+function stopFlightPolling() { cancelAnimationFrame(flightAnimationFrame); flightAnimationFrame=null; flightSnapshot=null; flightPollGeneration++; clearTimeout(flightPollTimer); clearTimeout(flightCashoutReadyTimer); flightPollTimer = null; flightCashoutReadyTimer = null; flightCashoutLocallyReady = false; flightInProgress = false; }
 async function flightApi(url, options = {}, attempts = 4) {
   try { return await api(url, options); }
   catch (error) {
@@ -1036,19 +1085,58 @@ async function flightApi(url, options = {}, attempts = 4) {
     throw error;
   }
 }
+function animateFlightClock() {
+  cancelAnimationFrame(flightAnimationFrame);
+  const tick=()=>{
+    if(!flightSnapshot)return;
+    const {data,received}=flightSnapshot,elapsed=performance.now()-received;
+    if(elapsed>2500){
+      $('#flightCashoutButton').disabled=true;
+      $('#flightMessage').textContent='Atualização atrasada — aguardando o servidor. O resgate automático continua protegido.';
+    } else {
+      const remaining=Number(data.countdownMs||0)-elapsed;
+      if(data.phase==='countdown' && remaining>0)$('#flightMultiplier').textContent=String(Math.ceil(remaining/1000));
+      else {
+        const step=Number(data.stepMs)||3200;
+        const value=data.phase==='countdown'?1+Math.max(0,-remaining)/step:Number(data.multiplier||1)+elapsed/step;
+        $('#flightMultiplier').textContent='x'+value.toFixed(2).replace('.',',');
+        $('#flightSky').dataset.phase='flying';$('#flightSky').classList.add('flying');
+      }
+    }
+    flightAnimationFrame=requestAnimationFrame(tick);
+  };
+  tick();
+}
 function startFlightPolling() {
-  if (flightPollTimer) return;
-  const generation = ++flightPollGeneration;
-  const poll = async () => {
-    try {
-      const data = await flightApi('/api/casino/flight/status');
-      if (generation !== flightPollGeneration) return;
-      if (data.cashedOut || !data.joined) flightCashoutLocallyReady = false;
-      if (data.active && data.phase === 'countdown') { const remaining = Number(data.countdownMs || 0); const seconds = Math.max(0, Math.ceil(remaining / 1000)); setFlightVisual(true, 1, `Decolagem em ${seconds}s · ${data.players} apostador${data.players === 1 ? '' : 'es'}`, { phase: 'countdown', joined: data.joined }); scheduleFlightCashoutReady(remaining + 800, data.joined); $('#flightMultiplier').textContent = String(seconds); $('#flightStartButton').textContent = data.joined ? 'Aposta confirmada' : 'Entrar neste voo'; flightPollTimer = setTimeout(poll, 250); }
-      else if (data.active) { setFlightVisual(true, data.multiplier, data.cashedOut ? `Você resgatou · voo continua para os demais (${data.players})` : `${data.players} no mesmo voo`, { phase: 'flying', joined: data.joined, canCashOut: data.canCashOut }); scheduleFlightCashoutReady(data.cashedOut ? -1 : Math.max(0, (1.25 - Number(data.multiplier || 1)) * 3200), data.joined); flightPollTimer = setTimeout(poll, 250); }
-      else { stopFlightPolling(); setFlightVisual(false, data.crashAt || 1, data.crashed ? `A nave caiu em x${Number(data.crashAt || 1).toFixed(2).replace('.', ',')}!` : 'Voo encerrado.'); if (data.state) applyState(data.state); }
-    } catch (error) { if (generation !== flightPollGeneration) return; stopFlightPolling(); setFlightVisual(false, 1, error.message); }
-  }; flightPollTimer = setTimeout(poll, 250);
+  if(flightPollTimer)return;
+  const generation=++flightPollGeneration;
+  const poll=async()=>{
+    try{
+      const data=await api('/api/casino/flight/status',{},false);
+      if(generation!==flightPollGeneration)return;
+      flightCurrentId=data.id || null;
+      flightCashoutLocallyReady=false;
+      if(data.active){
+        const countdown=data.phase==='countdown',step=Number(data.stepMs)||3200;
+        const automatic=data.autoCashout?' · Automático em x'+Number(data.autoCashout).toFixed(2).replace('.',','):' · Resgate manual depende da conexão';
+        setFlightVisual(true,data.multiplier||1,data.cashedOut?'Resgatado: '+data.payout+' créditos · aguardando queda':countdown?'Preparando decolagem'+automatic:data.players+' no mesmo voo'+automatic,{phase:data.phase,joined:data.joined,canCashOut:data.canCashOut});
+        scheduleFlightCashoutReady(data.cashedOut?-1:countdown?data.countdownMs+.25*step:Math.max(0,(1.25-Number(data.multiplier||1))*step),data.joined);
+        flightSnapshot={data,received:performance.now()};animateFlightClock();
+        $('#flightStartButton').textContent=countdown?(data.joined?'Aposta confirmada':'Entrar neste voo'):'Voo em andamento';
+        flightPollTimer=setTimeout(poll,750);
+      }else{
+        stopFlightPolling();
+        setFlightVisual(false,data.crashAt||1,data.crashed?'A nave caiu em x'+Number(data.crashAt||1).toFixed(2).replace('.',',')+(data.cashedOut?' · Você resgatou '+data.payout+' créditos':''):'Aguardando lançamento',{phase:data.crashed?'crashed':'waiting'});
+        try{applyState(await api('/api/state',{},false));}catch{showToast('Voo encerrado. Reconectando para atualizar o saldo.');}
+      }
+    }catch(error){
+      if(generation!==flightPollGeneration)return;
+      clearTimeout(flightCashoutReadyTimer);flightCashoutLocallyReady=false;$('#flightCashoutButton').disabled=true;
+      $('#flightMessage').textContent='Conexão instável. Reconectando sem repetir sua aposta…';
+      flightPollTimer=setTimeout(poll,2500);
+    }
+  };
+  flightPollTimer=setTimeout(poll,0);
 }
 
 function drawCasinoWheel() {
@@ -1078,7 +1166,7 @@ function animateCasinoWheel(segmentIndex, wheelValue) {
 
 async function showMysteryOpening(boxName, reward) {
   const dialog = $('#mysteryOpeningDialog'); const track = $('#mysteryCarouselTrack'); const result = $('#mysteryOpeningResult'); const decision = $('#mysteryOpeningDecision');
-  const prizes = (appState?.profile?.shop || []).filter((item) => !item.mysteryBox && !item.service && !item.adminOnly);
+  const prizes = (appState?.profile?.shop || []).filter((item) => !item.mysteryBox && !item.cardPack && !item.service && !item.adminOnly);
   if (!dialog?.showModal || !prizes.length) return;
   mysteryOpeningInProgress = true; $('#mysteryOpeningTitle').textContent = boxName; result.classList.remove('revealed'); result.innerHTML = '<span>🛸</span><strong>Aguarde o carrossel parar</strong>'; setBusy(decision, false); decision.classList.add('hidden');
   const winningIndex = 31; const entries = Array.from({ length: 36 }, (_, index) => index === winningIndex ? reward : prizes[Math.floor(Math.random() * prizes.length)]);
@@ -1343,13 +1431,17 @@ function renderSeason(season = {}) {
   $('#previousSeasonWinner').textContent = previous?.leader ? '🏅 Campeão de ' + previous.monthKey + ': ' + formatDisplayName(previous.leader.displayName) : 'A temporada anterior ainda não teve pontuação.';
 }
 
+function lieAttribution(entry) {
+  return '<span class="lie-attribution"><span>Registrada por <b>' + escapeHtml(entry.createdBy || 'Não registrado') + '</b></span><span>Aprovada por <b>' + escapeHtml(entry.validatedBy || 'Não registrado') + '</b></span></span>';
+}
+
 function renderLieMeter(lieMeter = {}) {
   const ranking = Array.isArray(lieMeter.ranking) ? lieMeter.ranking : [];
   const pending = Array.isArray(lieMeter.pending) ? lieMeter.pending : [];
   $('#lieRanking').innerHTML = ranking.length ? ranking.map((person, index) => {
     const reasons = Array.isArray(person.reasons) ? person.reasons : [];
-    const history = reasons.length ? `<details class="lie-history"><summary>Ver histórico dos motivos <b>${reasons.length}</b></summary><div>${reasons.map((entry, reasonIndex) => `<article${reasonIndex === 0 ? ' class="latest"' : ''}><span>🤥</span><p><strong>${escapeHtml(entry.reason)}</strong><small>${escapeHtml(formatDate(entry.createdAt))} · aprovado por ${escapeHtml(formatDisplayName(entry.validatedBy))}</small></p></article>`).join('')}</div></details>` : '';
-    return `<article class="lie-person${index === 0 && person.total > 0 ? ' lie-leader' : ''}"><span class="lie-position">${index + 1}</span>${personAvatar(person, 'lie-avatar')}<div class="lie-person-copy"><strong>${escapeHtml(formatDisplayName(person.displayName))}${person.id === appState.me.id ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><small>${Number(person.total)} ${Number(person.total) === 1 ? 'mentira confirmada' : 'mentiras confirmadas'}</small>${person.latestReason ? `<em class="lie-reason"><span>ÚLTIMA MENTIRA</span>“${escapeHtml(person.latestReason)}”</em>` : ''}${history}</div><b>${Number(person.total)}</b><div class="lie-actions"><button type="button" data-lie-delta="-1" data-lie-target="${escapeHtml(person.id)}" aria-label="Solicitar remoção de uma mentira de ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id || person.total <= 0 ? ' disabled' : ''}>−</button><button type="button" data-lie-delta="1" data-lie-target="${escapeHtml(person.id)}" aria-label="Marcar uma mentira para ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id ? ' disabled' : ''}>+</button></div></article>`;
+    const history = reasons.length ? `<details class="lie-history"><summary>Ver histórico dos motivos <b>${reasons.length}</b></summary><div>${reasons.map((entry, reasonIndex) => `<article${reasonIndex === 0 ? ' class="latest"' : ''}><span>🤥</span><p><strong>${escapeHtml(entry.reason)}</strong><small>${escapeHtml(formatDate(entry.createdAt))}</small>${lieAttribution(entry)}<button type="button" class="lie-report-button" data-report-lie="${escapeHtml(entry.id)}">Denunciar esta mentira</button></p></article>`).join('')}</div></details>` : '';
+    return `<article class="lie-person${index === 0 && person.total > 0 ? ' lie-leader' : ''}"><span class="lie-position">${index + 1}</span>${personAvatar(person, 'lie-avatar')}<div class="lie-person-copy"><strong>${escapeHtml(formatDisplayName(person.displayName))}${person.id === appState.me.id ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><small>${Number(person.total)} ${Number(person.total) === 1 ? 'mentira confirmada' : 'mentiras confirmadas'}</small>${person.latestReason ? `<em class="lie-reason"><span>ÚLTIMA MENTIRA</span>“${escapeHtml(person.latestReason)}”</em>${reasons[0] ? lieAttribution(reasons[0]) : ''}` : ''}${history}</div><b>${Number(person.total)}</b><div class="lie-actions"><button type="button" data-lie-delta="-1" data-lie-target="${escapeHtml(person.id)}" aria-label="Solicitar remoção de uma mentira de ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id || person.total <= 0 ? ' disabled' : ''}>−</button><button type="button" data-lie-delta="1" data-lie-target="${escapeHtml(person.id)}" aria-label="Marcar uma mentira para ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id ? ' disabled' : ''}>+</button></div></article>`;
   }).join('') : '<p class="lie-empty">Nenhuma pessoa disponível.</p>';
   $('#liePendingCount').textContent = pending.length + (pending.length === 1 ? ' pendente' : ' pendentes');
   $('#liePendingList').innerHTML = pending.length ? pending.map((item) => `<article class="lie-pending"><span>${item.delta > 0 ? '🤥' : '↩️'}</span><p><strong>${item.delta > 0 ? 'Adicionar mentira para ' : 'Remover mentira de '}${escapeHtml(formatDisplayName(item.targetName))}</strong>${item.reason ? `<em class="lie-reason">“${escapeHtml(item.reason)}”</em>` : ''}<small>Pedido por ${escapeHtml(formatDisplayName(item.creatorName))} · ${escapeHtml(formatDate(item.createdAt))}</small></p><div>${item.canValidate ? `<button class="lie-validate" type="button" data-lie-validate="${escapeHtml(item.id)}">Confirmar</button><button class="lie-deny" type="button" data-lie-deny="${escapeHtml(item.id)}">Negar</button>` : '<small>Aguardando outra pessoa</small>'}${item.canCancel ? `<button class="lie-cancel" type="button" data-lie-cancel="${escapeHtml(item.id)}">Cancelar</button>` : ''}</div></article>`).join('') : '<p class="lie-empty">Nenhuma marcação aguardando validação.</p>';
@@ -1377,6 +1469,7 @@ function shopVisualPreview(item) {
   if (item.consumable) return '';
   const previewName = escapeHtml(formatDisplayName(appState?.me?.displayName || 'Seu nome'));
   if (item.type === 'cursorStyle') {
+    if (['crystal','solar'].includes(item.value)) return `<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-${item.value}.svg" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b></span></div>`;
     if (item.value === 'unicorn') return '<div class="shop-visual-preview cursor-preview cursor-preview-unicorn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-cursor-full-v2.png" alt="Unicórnio completo"> <b>Galopa ao movimentar</b></span></div>';
     if (item.value === 'dipirona') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-dipirona.svg" alt="Seta Dipirona"><b>Seta Dipirona</b></span></div>';
     if (item.value === 'pirokinha-cosmica') return '<div class="shop-visual-preview cursor-preview cursor-preview-pirokinha"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-pirokinha-cosmica.svg" alt="Pirokinha Cósmica"><b>Pirokinha Cósmica</b></span></div>';
@@ -1411,13 +1504,25 @@ function setPreviewCursor(value) {
   document.documentElement.dataset.activeCursor = value || 'windows';
 }
 
+function applyPersonalTheme(value) {
+  applyVisualTheme(appState);
+  ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars', 'nebula'].forEach((theme) => document.body.classList.toggle('profile-theme-' + theme, theme === value));
+  if (value) {
+    // These shop palettes are dark. Do not mix them with light-only overrides,
+    // and do not overwrite the user's stored light/dark preference.
+    document.body.classList.add('theme-dark');
+    const button = $('#themeToggle');
+    if (button) { button.disabled = true; button.title = 'Remova ou encerre o tema da loja para alternar o modo claro/escuro'; button.setAttribute('aria-label', button.title); button.setAttribute('aria-pressed', 'true'); button.textContent = '☀'; }
+  }
+}
+
 function applyShopPreviewVisual(item) {
   if (!item) return;
   if (item.type === 'cursorStyle' && appState?.profile?.forcedCursor) return;
   if (item.type === 'siteTheme') {
     document.body.classList.add('shop-theme-preview-active');
     document.body.dataset.previewTheme = item.value;
-    ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars'].forEach((value) => document.body.classList.toggle('profile-theme-' + value, value === item.value));
+    applyPersonalTheme(item.value);
   } else if (item.type === 'cursorStyle') {
     setPreviewCursor(item.value);
     document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : 'none';
@@ -1464,7 +1569,7 @@ function startShopPreview(itemId) {
     showToast('Um cursor obrigatório está ativo. Aguarde o efeito terminar para testar outro mouse.', 'error');
     return;
   }
-  if (item.type === 'siteTheme' && appState.visualTheme !== 'user-choice') {
+  if (item.type === 'siteTheme' && (appState.visualTheme !== 'user-choice' || appState.profile?.loan?.overdue)) {
     showToast('O tema de punição da rodada está ativo e não pode ser substituído durante o teste.', 'error');
     return;
   }
@@ -1484,6 +1589,9 @@ function startShopPreview(itemId) {
 }
 
 function renderProfileEconomy(profile = {}) {
+  renderVisualTrading(appState.trading || {});
+  renderCardAlbum(appState.cardAlbum);
+  const albumBadge=appState.cardAlbum?.collections?.find(c=>c.id===appState.cardAlbum.equipped && c.craftedAt);
   const shop = Array.isArray(profile.shop) ? profile.shop : [];
   const equipped = profile.equipped || {};
   const findEquipped = (type) => shop.find((item) => item.id === equipped[type]);
@@ -1497,16 +1605,9 @@ function renderProfileEconomy(profile = {}) {
   const forcedGayCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'gay');
   const forcedGiantCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'giant-slow');
   const liveTitles = Array.isArray(profile.liveTitles) ? profile.liveTitles : [];
-  const allowPersonalTheme = appState.visualTheme === 'user-choice';
-  document.body.classList.toggle('profile-theme-galaxy', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'galaxy'));
-  document.body.classList.toggle('profile-theme-sunset', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'sunset'));
-  document.body.classList.toggle('profile-theme-ocean', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'ocean'));
-  document.body.classList.toggle('profile-theme-retro', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'retro'));
-  document.body.classList.toggle('profile-theme-matrix', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'matrix'));
-  document.body.classList.toggle('profile-theme-eclipse', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'eclipse'));
-  document.body.classList.toggle('profile-theme-aurora', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'aurora'));
-  document.body.classList.toggle('profile-theme-mars', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'mars'));
-  document.body.classList.toggle('profile-theme-nebula', Boolean(allowPersonalTheme && siteThemeItem && siteThemeItem.value === 'nebula'));
+  const allowPersonalTheme = appState.visualTheme === 'user-choice' && !profile.loan?.overdue;
+  document.documentElement.classList.toggle('debt-cursor', Boolean(profile.forcedCursor?.debt));
+  applyPersonalTheme(allowPersonalTheme ? siteThemeItem?.value : null);
   const personalCursor = forcedGayCursor || forcedGiantCursor ? null : cursorItem;
   document.body.dataset.trailStyle = trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none');
   document.body.dataset.cursorEffect = !trailItem && ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica'].includes(personalCursor?.value) ? personalCursor.value : '';
@@ -1540,7 +1641,7 @@ function renderProfileEconomy(profile = {}) {
   $('#shopPageWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
   renderAvatar($('#profileAvatar'), appState.me.avatarDataUrl, initials(appState.me.displayName));
   $('#profileDisplayName').textContent = formatDisplayName(appState.me.displayName);
-  ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = badgeItem?.value || ''; });
+  ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = albumBadge?.icon || badgeItem?.value || ''; });
   $('#profileEquippedTitle').textContent = liveTitles.length ? liveTitles.map((item) => item.icon + ' ' + item.name).join(' · ') : titleItem ? titleItem.value : 'Tripulante da Área 51';
   $('#profileDisplayName').className = nameItem ? 'name-style-' + nameItem.value : '';
   $('#profileIdentityCard').className = 'card profile-identity-card' + (frameItem ? ' frame-' + frameItem.value : '');
@@ -1559,7 +1660,7 @@ function renderProfileEconomy(profile = {}) {
     trailItem && ['✨', 'Rastro: ' + trailItem.name],
     frameItem && ['🖼️', 'Moldura: ' + frameItem.name],
     nameItem && ['🎨', 'Nome: ' + nameItem.name],
-    badgeItem && [badgeItem.value, 'Insígnia: ' + badgeItem.name],
+    albumBadge ? [albumBadge.icon, 'Insígnia: ' + albumBadge.badge] : badgeItem && [badgeItem.value, 'Emblema: ' + badgeItem.name],
     titleItem && ['🏷️', 'Título: ' + titleItem.name],
     ...liveTitles.map((item) => [item.icon, 'Título vivo: ' + item.name]),
   ].filter(Boolean);
@@ -1576,9 +1677,12 @@ function renderProfileEconomy(profile = {}) {
   $('#activePowersList').innerHTML = powerRows.map(([icon, title, detail, active, cancelId]) => `<div class="active-power-row${active ? ' is-active' : ''}"><span>${icon}</span><p><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></p>${cancelId ? `<button type="button" data-cancel-power="${cancelId}">Cancelar</button>` : active ? '<b>ATIVO</b>' : '<b>USADO</b>'}</div>`).join('');
   const mysteryBoxes = Array.isArray(profile.mysteryBoxes) ? profile.mysteryBoxes : [];
   const mysteryRewards = Array.isArray(profile.mysteryRewards) ? profile.mysteryRewards : [];
-  $('#mysteryInventoryCard').classList.toggle('hidden', mysteryBoxes.length + mysteryRewards.length === 0);
-  $('#mysteryInventoryCount').textContent = (mysteryBoxes.length + mysteryRewards.length) + ((mysteryBoxes.length + mysteryRewards.length) === 1 ? ' item' : ' itens');
-  $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel = box.source === 'casino' ? 'Ganho na Roleta 51' : box.source === 'feature-gift-v108' ? 'Brinde das novas funcionalidades' : 'Comprado na Loja 51'; return `<article class="mystery-inventory-item mystery-${escapeHtml(box.tier)}"><span>${box.icon || '🎁'}</span><p><strong>${escapeHtml(box.name)}</strong><small>${sourceLabel} · ${escapeHtml(formatDate(box.acquiredAt))}</small></p><div><button type="button" data-box-open="${escapeHtml(box.id)}" data-box-name="${escapeHtml(box.name)}">Abrir</button><button type="button" data-box-sell="${escapeHtml(box.id)}" data-box-name="${escapeHtml(box.name)}" data-box-price="${Number(box.sellPrice || 0)}">Vender por ${Number(box.sellPrice || 0).toLocaleString('pt-BR')}</button></div></article>`; }).join('');
+  const physicalPrizes = profile.physicalPrizes || [];
+  renderCardPacks(profile);
+  $('#physicalPrizeInventory').innerHTML = physicalPrizes.map(prize => `<article class="mystery-reward-item"><span>📒</span><p><strong>${escapeHtml(prize.name)}</strong><small>Ganhador: ${escapeHtml(prize.winnerName)}. Prêmio físico único — combine a entrega com o administrador. Não pode ser vendido por créditos.</small></p></article>`).join('');
+  $('#mysteryInventoryCard').classList.toggle('hidden', mysteryBoxes.length + mysteryRewards.length + physicalPrizes.length === 0);
+  $('#mysteryInventoryCount').textContent = (mysteryBoxes.length + mysteryRewards.length + physicalPrizes.length) + ((mysteryBoxes.length + mysteryRewards.length + physicalPrizes.length) === 1 ? ' item' : ' itens');
+$('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel = box.source === 'casino' ? 'Ganho na Roleta 51' : String(box.source || '').startsWith('feature-gift-') ? 'Brinde das novas funcionalidades' : 'Comprado na Loja 51'; return `<article class="mystery-inventory-item mystery-${escapeHtml(box.tier)}"><span>${box.icon || '🎁'}</span><p><strong>${escapeHtml(box.name)}</strong><small>${sourceLabel} · ${escapeHtml(formatDate(box.acquiredAt))}</small></p><div><button type="button" data-box-open="${escapeHtml(box.id)}" data-box-name="${escapeHtml(box.name)}">Abrir</button><button type="button" data-box-sell="${escapeHtml(box.id)}" data-box-name="${escapeHtml(box.name)}" data-box-price="${Number(box.sellPrice || 0)}">Vender por ${Number(box.sellPrice || 0).toLocaleString('pt-BR')}</button></div></article>`; }).join('');
   $('#mysteryRewardInventory').innerHTML = mysteryRewards.length ? '<h4>Decisão pendente</h4>' + mysteryRewards.map((reward) => `<article class="mystery-reward-item"><span>${reward.icon || '🎁'}</span><p><strong>${escapeHtml(reward.name)}</strong><small>Você ainda não usou este prêmio.</small></p><div><button type="button" data-reward-keep="${escapeHtml(reward.purchaseId)}">Ficar</button><button type="button" data-reward-sell="${escapeHtml(reward.purchaseId)}" data-reward-name="${escapeHtml(reward.name)}" data-reward-price="${Number(reward.sellPrice || 0)}">Vender por ${Number(reward.sellPrice || 0).toLocaleString('pt-BR')}</button></div></article>`).join('') : '';
   const mission = profile.mission || { progress: 0, target: 1, reward: 0 };
   const missionPercent = Math.min(100, Math.round(Number(mission.progress || 0) / Math.max(1, Number(mission.target || 1)) * 100));
@@ -1628,20 +1732,26 @@ function renderProfileEconomy(profile = {}) {
   $('#freeShopPassText').textContent = freeShopAvailable ? 'Escolha um visual da loja e use seu único passe sem gastar créditos.' : 'Seu passe individual já foi usado. As próximas compras utilizam Créditos 51.';
   $('#freeShopPassStatus').textContent = freeShopAvailable ? '1 USO' : 'UTILIZADO';
   const loan = profile.loan;
+  let debtNotice = $('#loanOverdueNotice');
+  if (loan?.overdue && !debtNotice) {
+    debtNotice = document.createElement('aside'); debtNotice.id = 'loanOverdueNotice'; debtNotice.className = 'loan-overdue-notice'; debtNotice.setAttribute('role','status');
+    debtNotice.innerHTML = '<strong>🕶️ Agiota Estelar: dívida vencida</strong><span>Quite ou prorrogue para restaurar os visuais e entrar em novas rodadas.</span><a href="?pagina=perfil">Ver dívida e pagar</a>';
+    $('.topbar').insertAdjacentElement('afterend', debtNotice);
+  } else if (!loan?.overdue) debtNotice?.remove();
   $('#stellarLoanCard').classList.toggle('has-debt', Boolean(loan));
   $('#stellarLoanTitle').textContent = loan ? `Dívida atual: ${Number(loan.remainingDue).toLocaleString('pt-BR')} créditos` : 'Créditos rápidos para a sua coleção';
-  $('#stellarLoanText').textContent = loan ? `Você recebeu ${Number(loan.principal).toLocaleString('pt-BR')} e deve ${Number(loan.totalDue).toLocaleString('pt-BR')} com juros. Faça pagamentos parciais ou quite agora.` : 'Escolha 100, 200 ou 300 créditos. O pagamento tem 20% de juros e só é permitido um empréstimo por vez.';
+  $('#stellarLoanText').textContent = loan ? `Você recebeu ${loan.principal} e deve ${loan.totalDue} com juros. ${loan.dueAt ? `Vencimento: ${formatDate(loan.dueAt)}. ${loan.overdue ? 'ATRASADO: tema de cobrança e cursor lento ativos; quite para entrar na próxima rodada.' : 'Resgates promocionais abatem primeiro a dívida.'}` : 'Contrato anterior: sem prazo ou novas penalidades.'}` : 'Receba 100, 200 ou 300 créditos. Juros fixos de 20%; prazo de 48 horas. Atrasos ativam cobrança visual e impedem entrada em novas rodadas. Resgates promocionais abatem a dívida. Apenas um empréstimo por vez.';
   $('#stellarLoanActions').innerHTML = loan ? `<input id="stellarRepayAmount" type="number" min="1" max="${Number(loan.remainingDue)}" step="1" value="${Math.min(Number(profile.wallet || 0), Number(loan.remainingDue)) || 1}" aria-label="Valor do pagamento"><button type="button" data-loan-repay>Pagar</button><button type="button" data-loan-repay-all>Quitar ${Number(loan.remainingDue).toLocaleString('pt-BR')}</button>` : [100,200,300].map((amount) => `<button type="button" data-loan-borrow="${amount}">Receber ${amount}<small>Devolver ${Math.round(amount * 1.2)}</small></button>`).join('');
   const shopPriority = (item) => item.service ? -2 : item.id === 'power-force-gay-cursor' ? -1 : 0;
   const orderedShop = [...shop].sort((a, b) => shopPriority(a) - shopPriority(b));
   $('#shopCatalog').innerHTML = orderedShop.map((item) => {
-    const category = item.mysteryBox ? 'box' : item.type === 'cursorStyle' ? 'cursor' : item.type === 'trailStyle' ? 'trail' : item.type === 'siteTheme' ? 'theme' : item.type === 'power' ? 'power' : 'profile';
+    const category = (item.mysteryBox || item.cardPack) ? 'box' : item.type === 'cursorStyle' ? 'cursor' : item.type === 'trailStyle' ? 'trail' : item.type === 'siteTheme' ? 'theme' : item.type === 'power' ? 'power' : 'profile';
     const isOwnedVisual = item.owned && !item.consumable && !item.mysteryBox && !item.service;
     const filteredOut = (shopFilter !== 'all' && shopFilter !== category) || (hideOwnedVisuals && isOwnedVisual);
-    const label = item.service ? 'TROCA DE CONQUISTA' : item.mysteryBox ? 'CAIXA MISTERIOSA' : item.type === 'title' ? 'TÍTULO' : item.type === 'badge' ? 'INSÍGNIA DE PRESENÇA' : item.type === 'frame' ? 'MOLDURA' : item.type === 'nameStyle' ? 'ESTILO DO NOME' : item.type === 'siteTheme' ? 'TEMA VISUAL' : item.type === 'cursorStyle' ? 'SKIN DO CURSOR' : item.type === 'trailStyle' ? 'RASTRO DO CURSOR' : 'PODER CONSUMÍVEL';
-    const action = item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Comprar fechada' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
-    const shopAction = item.service ? 'sell-best-win' : item.mysteryBox ? 'mystery-purchase' : item.consumable ? (item.quantity > 0 ? 'use' : 'purchase') : item.owned ? 'equip' : 'purchase';
-    const status = item.service ? '🏆 ' + Number(item.availablePoints || 0) + ' disponível · receba 500 créditos' : item.mysteryBox ? (Number(item.quantity || 0) ? '🎁 ' + item.quantity + ' fechado' + (Number(item.quantity) === 1 ? '' : 's') + ' no perfil · ' : '') + '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos' : item.granted ? (item.equipped ? '★ Cursor oficial em uso' : '★ Concedido ao administrador') : item.consumable && item.quantity > 0 ? '🎟️ ' + item.quantity + ' disponível' : item.equipped ? (item.type === 'siteTheme' ? '✓ Tema aplicado em todo o site' : '● Em uso') : item.owned ? '✓ Na sua coleção' : '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos';
+    const label = item.cardPack ? 'PACOTE DE CARTAS' : item.service ? 'TROCA DE CONQUISTA' : item.mysteryBox ? 'CAIXA MISTERIOSA' : item.type === 'title' ? 'TÍTULO' : item.type === 'badge' ? 'EMBLEMA DO PERFIL' : item.type === 'frame' ? 'MOLDURA' : item.type === 'nameStyle' ? 'ESTILO DO NOME' : item.type === 'siteTheme' ? 'TEMA VISUAL' : item.type === 'cursorStyle' ? 'SKIN DO CURSOR' : item.type === 'trailStyle' ? 'RASTRO DO CURSOR' : 'PODER CONSUMÍVEL';
+    const action = item.cardPack ? 'Comprar pacote' : item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Comprar fechada' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
+    const shopAction = item.cardPack ? 'purchase' : item.service ? 'sell-best-win' : item.mysteryBox ? 'mystery-purchase' : item.consumable ? (item.quantity > 0 ? 'use' : 'purchase') : item.owned ? 'equip' : 'purchase';
+    const status = item.cardPack ? item.price + ' créditos · ' + item.quantity + ' fechado(s)' : item.service ? '🏆 ' + Number(item.availablePoints || 0) + ' disponível · receba 500 créditos' : item.mysteryBox ? (Number(item.quantity || 0) ? '🎁 ' + item.quantity + ' fechado' + (Number(item.quantity) === 1 ? '' : 's') + ' no perfil · ' : '') + '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos' : item.granted ? (item.equipped ? '★ Cursor oficial em uso' : '★ Concedido ao administrador') : item.consumable && item.quantity > 0 ? '🎟️ ' + item.quantity + ' disponível' : item.equipped ? (item.type === 'siteTheme' ? '✓ Tema aplicado em todo o site' : '● Em uso') : item.owned ? '✓ Na sua coleção' : '<span class="coin-51" aria-hidden="true">51</span> ' + item.price + ' créditos';
     const themeConfirmation = item.type === 'siteTheme' && item.equipped ? '<div class="theme-applied-confirmation"><span>✓</span><strong>ESTE TEMA ESTÁ ATIVO</strong><small>Você está vendo este visual em todo o site agora.</small></div>' : '';
     const previewButton = item.service || item.consumable || item.mysteryBox ? '' : `<button class="shop-test-button" type="button" data-shop-preview="${escapeHtml(item.id)}" data-preview-type="${escapeHtml(item.type)}" data-preview-value="${escapeHtml(item.value)}">Testar 20s</button>`;
     const freeVisualTypes = ['title', 'badge', 'frame', 'nameStyle', 'siteTheme', 'cursorStyle', 'trailStyle'];
@@ -2459,15 +2569,57 @@ $('#waterReminderGo').addEventListener('click', () => {
 });
 $('#waterReminderDialog').addEventListener('click', (event) => { if (event.target === $('#waterReminderDialog')) closeWaterReminder(); });
 
+let lenderLossStreak = 0;
+function offerStellarLoan(result) {
+  lenderLossStreak = result.net < 0 ? lenderLossStreak + 1 : 0;
+  if (lenderLossStreak < 2 || appState?.profile?.loan) return;
+  const key = 'area51LoanOffer:' + appState.me.id;
+  try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch { return; }
+  const dialog = document.createElement('dialog');
+  dialog.className = 'stellar-offer';
+  dialog.innerHTML = '<img class="stellar-lender-character" src="/stellar-lender.svg" alt="ET agiota de corpo inteiro, de terno, óculos escuros e maleta de créditos"><h2>Agiota Estelar</h2><p>Quer conhecer os empréstimos de créditos fictícios?</p><p>Juros fixos de 20%, prazo de 48 horas. O empréstimo não melhora suas chances de ganhar. Atrasos têm penalidades.</p><button type="button" data-loan-details>Ver condições no perfil</button><button type="button" data-loan-dismiss>Agora não</button>';
+  document.body.append(dialog);
+  dialog.querySelector('[data-loan-dismiss]').onclick = () => dialog.close();
+  dialog.querySelector('[data-loan-details]').onclick = () => { dialog.close(); showPortalPage('perfil', true); $('#stellarLoanCard').scrollIntoView({block:'center'}); };
+  dialog.addEventListener('close', () => dialog.remove(), {once:true});
+  dialog.showModal();
+}
+
+async function submitRouletteBet(bet, walletSource) {
+  const key = 'area51PendingRoulette:' + appState.me.id;
+  let pending;
+  try {
+    pending = JSON.parse(localStorage.getItem(key) || 'null');
+    if (!pending) {
+      pending = { requestId: crypto.randomUUID(), bet, walletSource, compact:true };
+      localStorage.setItem(key, JSON.stringify(pending));
+    }
+  } catch { throw new Error('Não foi possível proteger a aposta neste navegador. Nenhum pedido foi enviado.'); }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const data = await api('/api/casino/play', { method:'POST', body:pending });
+      try { localStorage.removeItem(key); } catch { /* Same ID remains safe on the next attempt. */ }
+      return data;
+    } catch (error) {
+      const rejected = [400,401,403].includes(error.status) || (error.status === 409 && /insuficiente/i.test(error.message));
+      if (rejected) { try { localStorage.removeItem(key); } catch {} throw error; }
+      if (attempt === 1) throw new Error('Ainda não foi possível confirmar a aposta. Clique novamente para recuperar esta mesma jogada, sem criar outra.');
+      $('#casinoResult').textContent = 'Conferindo a mesma aposta… não feche esta tela.';
+    }
+  }
+}
+
 $('#casinoForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (casinoSpinInProgress) return;
   const form = event.currentTarget; const bet = Number($('#casinoBet').value); const walletSource = $('#casinoWalletSource').value;
   if (!Number.isInteger(bet) || bet < 1 || bet > 100) { showToast('Aposte um valor inteiro de 1 a 100 créditos.', 'error'); return; }
-  casinoSpinInProgress = true; setBusy(form, true); $('#casinoResult').textContent = 'A roleta está girando… o resultado será revelado quando ela parar.';
+  casinoSpinInProgress = true; setBusy(form, true); $('#casinoResult').textContent = 'Confirmando sua aposta…';
   try {
-    const data = await api('/api/casino/play', { method: 'POST', body: { bet, walletSource } });
-    const result = data.casinoResult; await animateCasinoWheel(result.segmentIndex, result.wheelValue ?? result.multiplier); casinoSpinInProgress = false; applyState(data);
+    const data = await submitRouletteBet(bet, walletSource);
+    const result = data.casinoResult;
+    $('#casinoResult').textContent = 'A roleta está girando… o resultado será revelado quando ela parar.';
+    await animateCasinoWheel(result.segmentIndex, result.wheelValue ?? result.multiplier);
     if (result.resultType === 'mysteryBox') {
       const message = `${result.mysteryBox?.icon || '🎁'} ${result.mysteryBox?.name || 'Baú misterioso'} ganho! Sua aposta voltou e o baú está fechado no perfil.`;
       $('#casinoResult').textContent = message; showToast(message);
@@ -2475,7 +2627,10 @@ $('#casinoForm').addEventListener('submit', async (event) => {
       const message = result.net > 0 ? `Você ganhou ${result.net} créditos de lucro! 🚀` : result.net < 0 ? `Você perdeu ${Math.abs(result.net)} créditos. 👽` : 'Empate: seus créditos voltaram. 🛸';
       $('#casinoResult').textContent = `x${String(result.multiplier).replace('.', ',')} · retorno total ${result.payout} · ${message}`; showToast(message);
     }
-  } catch (error) { showToast(error.message, 'error'); }
+    offerStellarLoan(result);
+    try { const fresh = await api('/api/state', {}, false); casinoSpinInProgress = false; applyState(fresh); }
+    catch { showToast('Resultado confirmado. O saldo será atualizado quando a conexão voltar.'); }
+  } catch (error) { $('#casinoResult').textContent = error.message; showToast(error.message, 'error'); }
   finally { casinoSpinInProgress = false; setBusy(form, false); renderCasino(appState?.casino); }
 });
 
@@ -2483,15 +2638,15 @@ $('#flightForm').addEventListener('submit', async (event) => {
   event.preventDefault(); if ($('#flightSky').dataset.phase === 'flying') return; const form = event.currentTarget; const bet = Number($('#flightBet').value); const walletSource = $('#flightWalletSource').value;
   if (!Number.isInteger(bet) || bet < 1 || bet > 100) { showToast('Aposte um valor inteiro de 1 a 100 créditos.', 'error'); return; }
   setBusy(form, true);
-  try { const data = await flightApi('/api/casino/flight/start', { method: 'POST', body: { bet, walletSource } }); applyState(data); startFlightPolling(); showToast('Aposta confirmada. Todos decolam juntos ao fim da contagem!'); }
+  try { const data = await flightApi('/api/casino/flight/start', { method: 'POST', body: { bet, walletSource, autoCashout:Number($('#flightAutoCashout').value)||null } }); applyState(data); startFlightPolling(); showToast('Aposta confirmada. Todos decolam juntos ao fim da contagem!'); }
   catch (error) { showToast(error.message, 'error'); }
   finally { setBusy(form, false); }
 });
 $('#flightCashoutButton').addEventListener('click', async () => {
   if (!flightInProgress) return; const button = $('#flightCashoutButton'); flightCashoutLocallyReady = false; button.disabled = true; button.dataset.requesting = 'true'; button.textContent = 'Resgatando…'; $('#flightMessage').textContent = 'Pedido de resgate enviado…';
   flightPollGeneration++; clearTimeout(flightPollTimer); clearTimeout(flightCashoutReadyTimer); flightPollTimer = null;
-  try { const data = await flightApi('/api/casino/flight/cashout', { method: 'POST' }); applyState(data); setFlightVisual(true, data.flightResult.multiplier, `Você resgatou ${data.flightResult.payout} créditos · aguardando a queda global`, { phase: 'flying', joined: true, canCashOut: false }); startFlightPolling(); showToast(`Voo resgatado em x${Number(data.flightResult.multiplier || 1).toFixed(2).replace('.', ',')}! 🚀`); }
-  catch (error) { stopFlightPolling(); setFlightVisual(false, 1, error.message); showToast(error.message, 'error'); }
+  try { const data = await flightApi('/api/casino/flight/cashout', { method: 'POST', body:{flightId:flightCurrentId,compact:true} }); setFlightVisual(true, data.flightResult.multiplier, `Você resgatou ${data.flightResult.payout} créditos · aguardando a queda global`, { phase: 'flying', joined: true, canCashOut: false }); startFlightPolling(); showToast(`Voo resgatado em x${Number(data.flightResult.multiplier || 1).toFixed(2).replace('.', ',')}! 🚀`); }
+  catch (error) { stopFlightPolling(); $('#flightMessage').textContent=error.message; showToast(error.message, 'error'); startFlightPolling(); }
   finally { delete button.dataset.requesting; }
 });
 
@@ -2502,7 +2657,7 @@ $('#stellarLoanCard').addEventListener('click', async (event) => {
   try {
     if (borrow) {
       const amount = Number(borrow.dataset.loanBorrow);
-      if (!confirm(`Receber ${amount} créditos e devolver ${Math.round(amount * 1.2)}?`)) return;
+      if (!confirm(`Receber ${amount} créditos e devolver ${Math.round(amount * 1.2)} em 48 horas?\n\nAtraso ativa tema de cobrança e cursor com acompanhamento lento, e impede entrar na próxima rodada. Resgates promocionais pagam a dívida primeiro. Nenhum dinheiro real.`)) return;
       applyState(await api('/api/loans/borrow', { method: 'POST', body: { amount } })); showToast('O Agiota Estelar depositou seus créditos. 🛸');
     } else {
       const loan = appState?.profile?.loan; const amount = repay.hasAttribute('data-loan-repay-all') ? Number(loan?.remainingDue || 0) : Number($('#stellarRepayAmount').value);
@@ -2514,7 +2669,7 @@ $('#stellarLoanCard').addEventListener('click', async (event) => {
 
 $('#casinoCashoutButton').addEventListener('click', async () => {
   const button = $('#casinoCashoutButton'); button.disabled = true;
-  try { const data = await api('/api/casino/cashout', { method: 'POST' }); applyState(data); showToast(`${Number(data.casinoCashout || 0).toLocaleString('pt-BR')} créditos liberados para a Loja 51! 🪙`); }
+  try { const data = await api('/api/casino/cashout', { method: 'POST' }); applyState(data); showToast(`${Number(data.casinoCashout || 0).toLocaleString('pt-BR')} créditos liberados para a Loja 51!${data.debtPayment ? ` ${data.debtPayment} usados para pagar sua dívida.` : ''} 🪙`); }
   catch (error) { showToast(error.message, 'error'); }
   finally { renderCasino(appState?.casino); }
 });
@@ -2645,7 +2800,9 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       showToast(itemId ? (isTheme ? 'Tema aplicado em todo o site. ✓' : 'Personalização equipada. ✓') : (isTheme ? 'Tema desativado. Visual padrão restaurado.' : 'Personalização removida.'));
     } else {
       const body = { itemId: button.dataset.shopItem };
-      if (button.dataset.shopValue === 'chooseTheme') {
+      if (['cleanseCursor','loanExtension'].includes(button.dataset.shopValue)) {
+        if (!confirm(button.dataset.shopValue === 'cleanseCursor' ? 'Usar Antídoto para remover uma maldição comprada? Sorteio e dívida não são removidos.' : 'Usar Acordo Estelar? O prazo recebe 24 horas adicionais, uma única vez por contrato. A dívida não diminui.')) return;
+      } else if (button.dataset.shopValue === 'chooseTheme') {
         const theme = prompt('Qual será o tema da próxima rodada?');
         if (!theme) return;
         body.theme = theme;
@@ -2694,6 +2851,7 @@ $('#shopCatalog').addEventListener('click', async (event) => {
         if (!confirm('Usar o Raio-X Total para revelar quem enviou todos os ' + wallpapers.length + ' wallpapers secretos desta rodada? Somente você verá os nomes.')) return;
       } else if (!confirm('Ativar o Escudo da Rodada agora?')) return;
       applyState(await api('/api/powers/use', { method: 'POST', body }));
+      if (['cleanseCursor','loanExtension'].includes(button.dataset.shopValue)) { showToast('Poder aplicado com sucesso!'); return; }
       showToast(button.dataset.shopValue === 'chooseTheme' ? 'Tema escolhido e rodada aberta sem sorteio! 🎨' : button.dataset.shopValue === 'chooseGay' ? 'Escolha reservada para o sorteio especial. 👑' : button.dataset.shopValue === 'forceGayCursor' ? 'Seta compulsória aplicada durante esta rodada! 🌈' : button.dataset.shopValue === 'forceGiantCursor' ? 'Mouse gigante aplicado por 24 horas! 🐌' : button.dataset.shopValue === 'chooseWallpaper' ? 'Seu wallpaper foi reservado anonimamente! 🖼️' : button.dataset.shopValue === 'assignWallpaper' ? 'Wallpaper do participante reservado anonimamente! 🎯' : button.dataset.shopValue === 'revealAuthor' ? 'Todos os autores foram revelados somente para você. 🔎' : 'Escudo ativado nesta rodada! 🛡️');
     }
   } catch (error) { showToast(error.message, 'error'); }
@@ -3106,7 +3264,7 @@ document.addEventListener('keydown', (event) => {
 $('#notificationList').addEventListener('click', (event) => {
   const item = event.target.closest('[data-notification-page]');
   if (!item) return;
-  setNotificationPanel(false); showPortalPage(item.dataset.notificationPage, true);
+  setNotificationPanel(false); openNotificationTarget(item.dataset.notificationId, item.dataset.notificationPage);
 });
 window.addEventListener('popstate', () => { if (appState) showPortalPage(currentPortalPage()); });
 
@@ -3122,8 +3280,9 @@ document.addEventListener('visibilitychange', () => {
 async function initialize() {
   drawWheel();
   try { showApp(await api('/api/state')); }
-  catch { showAuth(); }
+  catch(error) { if(error.status===401)showAuth();else { $('#sessionBootText').textContent='Não foi possível verificar sua sessão. Tente novamente sem sair da conta.';$('#sessionBootRetry').classList.remove('hidden'); } }
 }
+$('#sessionBootRetry').addEventListener('click',initialize);
 initialize();
 let portalSyncInProgress = false;
 setInterval(async () => {
@@ -3135,6 +3294,6 @@ setInterval(async () => {
     if (Array.isArray(sync.onlinePeople)) { appState.onlinePeople = sync.onlinePeople; renderOnlinePeople(); }
     serverClockOffset = Number(sync.serverTime || Date.now()) - Date.now();
     if (sync.liveDraw) receiveLiveDraw(sync.liveDraw);
-    if (!spinning && !casinoSpinInProgress && !mysteryOpeningInProgress && Number(sync.revision) !== Number(appState.serverRevision)) applyState(await api('/api/state'));
+    if (!spinning && !casinoSpinInProgress && !mysteryOpeningInProgress && (Number(sync.revision) !== Number(appState.serverRevision) || Boolean(sync.loanOverdue) !== Boolean(appState.profile?.loan?.overdue))) applyState(await api('/api/state'));
   } catch {} finally { portalSyncInProgress = false; }
 }, 15000);

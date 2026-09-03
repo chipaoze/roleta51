@@ -1,0 +1,10 @@
+import {readFileSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import {execFileSync} from 'node:child_process';
+const local=new DatabaseSync(':memory:');
+local.exec(readFileSync('.wrangler/backup-before-release142.sql','utf8'));
+const before=JSON.parse(local.prepare('SELECT data FROM app_state WHERE id=1').get().data);
+const output=execFileSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','d1','execute','roleta51-db','--remote','--config','wrangler.cloudflare.jsonc','--json','--command','SELECT data FROM app_state WHERE id=1'],{encoding:'utf8',maxBuffer:10*1024*1024,env:{...process.env,XDG_CONFIG_HOME:process.cwd()+'/.wrangler/session-config',WRANGLER_LOG_PATH:process.cwd()+'/.wrangler/deploy.log'}});
+const after=JSON.parse(JSON.parse(output)[0].results[0].data);
+const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+console.log(JSON.stringify({accounts:after.users.length,accountRecordsUnchanged:same(before.users,after.users),purchases:after.economy.purchases.length,purchasesUnchanged:same(before.economy.purchases,after.economy.purchases),walletsUnchanged:same(before.economy.wallets,after.economy.wallets),feedbackDone:after.feedbackMessages.filter(f=>f.status==='done').length,pending:after.feedbackMessages.filter(f=>['approved','pending'].includes(f.status)).length},null,2));

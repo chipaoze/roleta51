@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFile} from 'node:fs/promises';
+import {settleFlight,flightMultiplier,flightStepMs,FLIGHT_STEP_MS} from '../lib/flight-engine.mjs';
+let clock=10000;class FakeDate extends Date{static now(){return clock;}}
+const db={economy:{globalFlight:null,casinoPlays:[],flightHistory:[]}},wallets={},accounts={};
+const src=await readFile(new URL('../legacy-server.mjs',import.meta.url),'utf8');
+const ctx=vm.createContext({db,Date:FakeDate,settleFlight,flightMultiplier,flightStepMs,FLIGHT_STEP_MS,randomUUID:()=>crypto.randomUUID(),saoPauloDayKey:()=> '2026-09-03',walletFor:id=>wallets[id]||0,addCredits:(id,n)=>wallets[id]=(wallets[id]||0)+n,casinoAccountFor:id=>accounts[id] ||= {balance:0}});
+vm.runInContext(src.slice(src.indexOf('function recordFlightPayout'),src.indexOf('function isTradableVisual')),ctx);
+const flight={id:'f',status:'betting',launchAt:10000,stepMs:8000,crashAt:2,bets:Array.from({length:10},(_,i)=>({id:'b'+i,userId:'u'+i,bet:10,status:'active',walletSource:'shop',autoCashout:i<5?1.5:2}))};
+db.economy.globalFlight=flight;clock=30000;assert.ok(ctx.settleGlobalFlight(clock));
+assert.equal(db.economy.casinoPlays.length,10);assert.equal(db.economy.flightHistory.length,1);
+for(let i=0;i<10;i++)assert.equal(wallets['u'+i]||0,i<5?15:0);
+assert.equal(ctx.settleGlobalFlight(clock),false);assert.equal(db.economy.casinoPlays.length,10);
+const status=ctx.flightStatusFor({id:'u0'});assert.equal(status.cashedOut,true);assert.equal(status.payout,15);assert.equal(status.crashAt,2);
+db.economy.globalFlight={id:'instant',status:'betting',launchAt:clock,stepMs:8000,crashAt:1,bets:[{userId:'instant',bet:1,status:'active',walletSource:'shop',autoCashout:1.25}]};
+ctx.settleGlobalFlight(clock);assert.equal(wallets.instant,undefined);assert.equal(db.economy.globalFlight.status,'crashed');
+db.economy.globalFlight={id:'ongoing',status:'betting',launchAt:clock,stepMs:8000,crashAt:7,bets:[]};
+assert.ok(!('crashAt' in ctx.flightStatusFor({id:'a'})));
+assert.equal(flightStepMs({}),3200);assert.equal(flightMultiplier({launchAt:0,stepMs:8000},2000),1.25);
+console.log('PASS: ten simultaneous players, automatic payout despite delayed polling, equal-to-crash loses, immediate crash, once-only settlement, secret future outcome, legacy speed retained.');

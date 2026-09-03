@@ -8,9 +8,9 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260902-123">
+  <link rel="stylesheet" href="/styles.css?v=20260902-134">
   <link rel="stylesheet" href="/improvements.css?v=20260902-118">
-  <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260902-133">
+  <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260903-142">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
   <link rel="manifest" href="/manifest.webmanifest">
 </head>
@@ -18,7 +18,8 @@
   <div class="ambient ambient-a"></div>
   <div class="ambient ambient-b"></div>
 
-  <main id="authView" class="auth-shell">
+  <div id="sessionBoot" class="session-boot" role="status"><span aria-hidden="true">👽</span><p id="sessionBootText">Verificando sua sessão…</p><button id="sessionBootRetry" class="button button-primary hidden" type="button">Tentar novamente</button></div>
+  <main id="authView" class="auth-shell hidden">
     <section class="auth-art">
       <div class="brand brand-light"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></div>
       <img src="/area51-aliens-v2.png" alt="" class="auth-aliens" aria-hidden="true">
@@ -143,6 +144,7 @@
         <a href="?pagina=agua" data-page="agua"><span>💧</span><p><strong>Água</strong><small>Controle diário de hidratação</small></p></a>
         <a href="?pagina=mentirometro" data-page="mentirometro"><span>🤥</span><p><strong>Mentirômetro</strong><small>Marcações e classificação</small></p></a>
         <a href="?pagina=perfil" data-page="perfil"><span>👤</span><p><strong>Meu Perfil</strong><small>Baús, coleção e conquistas</small></p></a>
+        <a href="?pagina=album" data-page="album"><span>🎴</span><p><strong>Álbum de cartas</strong><small>Coleções e insígnias</small></p></a>
         <a href="?pagina=loja" data-page="loja"><span>🛍️</span><p><strong>Loja 51</strong><small>Visuais, poderes e presentes</small></p></a>
         <a href="?pagina=jogos" data-page="jogos"><span>🎰</span><p><strong>Jogos 51</strong><small>Roleta e Voo do Unicórnio</small></p></a>
         <a href="?pagina=historico" data-page="historico"><span>🏆</span><p><strong>Histórico</strong><small>Vencedores anteriores</small></p></a>
@@ -152,6 +154,11 @@
       </nav>
     </aside>
 
+    <section id="album" class="section portal-page-hidden">
+      <div class="album-intro"><span class="eyebrow">ARQUIVO COLECIONÁVEL · ÁREA 51</span><h2>Seu álbum <em>cósmico</em></h2><p>Cinco coleções. Vinte e cinco cartas. Cinco insígnias para conquistar.</p></div>
+      <aside class="album-info"><strong id="cardDropProgress">Carregando seu progresso…</strong><details><summary>Como encontrar cartas e montar insígnias</summary><p>40% de chance na primeira atividade válida de cada tipo por dia: registrar 500 ml acumulados de água, publicar frase, publicar meme, comentar pelo menos 10 caracteres na publicação de outra pessoa e votar no wallpaper. No máximo 2 cartas por dia, pelo horário de Brasília. Repetir, editar ou apagar não renova a chance. Jogos de azar não dão cartas.</p><p>Reúna as 5 cartas diferentes de uma coleção. A montagem consome uma de cada e preserva repetidas. Cada insígnia pode ser montada uma vez, sem moedas. A distribuição começou com esta atualização; atividades anteriores não são retroativas.</p></details></aside>
+      <div id="cardAlbumCollections" aria-live="polite"></div><article id="cardTradingCard" class="album-info"><h3>Trocar cartas repetidas</h3><p>Uma carta por outra, preservando ao menos uma unidade de cada carta oferecida. O destinatário precisa aceitar em até 24 horas.</p><form id="cardTradeForm"><label>Participante<select name="partnerId" required></select></label><label>Ofereço<select name="offeredId" required></select></label><label>Quero receber<select name="wantedId" required></select></label><button class="button button-primary" type="submit">Propor troca de cartas</button></form><div id="cardTradeList"></div></article>
+    </section>
     <section id="inicio" class="hero">
       <div class="hero-copy">
         <span class="round-pill"><i></i><span id="roundName">RODADA SEMANAL</span></span>
@@ -402,7 +409,7 @@
       <div class="casino-layout">
         <article class="card casino-machine"><small>ROLETA DE CRÉDITOS E BAÚS</small><h3>Multiplique ou encontre um baú</h3><p>O multiplicador é o retorno total: em uma aposta de 10, x1,5 devolve os 10 e acrescenta 5. Ao ganhar um baú, a aposta volta inteira e o baú fechado vai para o perfil.</p><div class="casino-bet-legend"><span>📦 Caixa Sonda <b>qualquer aposta</b></span><span>🎁 Caixa Cósmica <b>a partir de 30</b></span><span>🛸 Cofre Área 51 <b>a partir de 70</b></span></div><div class="casino-wheel-stage"><span class="casino-wheel-pointer">▼</span><canvas id="casinoWheel" width="440" height="440" aria-label="Roleta com multiplicadores e três tipos de baús misteriosos"></canvas><strong>51</strong></div><form id="casinoForm"><label>Usar saldo de<select id="casinoWalletSource"><option value="promotional">Bônus promocional diário</option><option value="shop">Minha Loja 51</option></select></label><label>Valor da aposta<input id="casinoBet" type="number" min="1" max="100" step="1" value="10" required></label><button class="button button-primary" type="submit">Girar a roleta</button></form><div id="casinoResult" class="casino-result">Escolha qualquer valor inteiro entre 1 e 100 créditos.</div></article>
         <aside class="card casino-status"><div class="casino-master-total"><small>APOSTÔMETRO DA TRIPULAÇÃO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoTotalWagered">0</b></strong><em><b id="casinoTotalPlays">0</b> apostas realizadas por todos</em></div><div><small>SALDO PROMOCIONAL</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoWallet">250</b></strong></div><div><small>SALDO DA LOJA</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoShopWallet">0</b></strong></div><div class="casino-cashout"><p><small>META PARA RESGATE</small><strong id="casinoCashoutText">0 de 500</strong></p><i><b id="casinoCashoutProgress"></b></i><button id="casinoCashoutButton" class="button button-primary" type="button" disabled>Resgatar lucro na loja</button></div><div><small>BAÚS FECHADOS</small><strong>🎁 <b id="casinoClosedBoxes">0</b></strong></div><div><small>JOGADAS HOJE</small><strong id="casinoPlays">0</strong></div><h3>Resultados da roleta</h3><div id="casinoRouletteHistory" class="casino-history"></div><h3>Resultados do voo</h3><div id="casinoFlightHistory" class="casino-history"></div><a class="button button-dark" href="?pagina=perfil" data-page="perfil">Abrir ou vender meus baús</a></aside>
-        <article class="card unicorn-flight-game"><div class="unicorn-flight-copy"><small>NOVO JOGO · VOO DO UNICÓRNIO</small><h3>Resgate antes da nave cair</h3><p>O multiplicador cresce enquanto a nave sobe — mas ela pode cair imediatamente em x1,00. O resgate abre em x1,25.</p><form id="flightForm"><label>Saldo<select id="flightWalletSource"><option value="promotional">Bônus diário</option><option value="shop">Loja 51</option></select></label><label>Aposta<input id="flightBet" type="number" min="1" max="100" step="1" value="10" required></label><button id="flightStartButton" class="button button-primary" type="submit">Iniciar voo</button></form><div><small>ÚLTIMAS QUEDAS DA EQUIPE</small><div id="flightPublicHistory" class="flight-public-history"><span>Aguardando voos</span></div></div></div><div id="flightSky" class="flight-sky"><span id="flightShip">🦄🚀</span><strong id="flightMultiplier">x1,00</strong><em id="flightMessage">Aguardando lançamento</em><button id="flightCashoutButton" class="button button-primary" type="button" disabled>Resgatar agora</button></div></article>
+        <article class="card unicorn-flight-game"><div class="unicorn-flight-copy"><small>NOVO JOGO · VOO DO UNICÓRNIO</small><h3>Resgate antes da nave cair</h3><p>Todos acompanham o mesmo voo. Ele pode cair imediatamente em x1,00; o resgate abre em x1,25. Escolha o automático antes de apostar: se o alvo for atingido antes da queda, o servidor resgata mesmo com atraso na conexão. O número animado é uma estimativa entre atualizações.</p><form id="flightForm"><label>Saldo<select id="flightWalletSource"><option value="promotional">Bônus diário</option><option value="shop">Loja 51</option></select></label><label>Aposta<input id="flightBet" type="number" min="1" max="100" step="1" value="10" required></label><label>Resgate automático<select id="flightAutoCashout"><option value="1.5">Em x1,50</option><option value="1.25">Em x1,25</option><option value="2">Em x2,00</option><option value="3">Em x3,00</option><option value="0">Somente manual</option></select></label><button id="flightStartButton" class="button button-primary" type="submit">Iniciar voo</button></form><div><small>ÚLTIMAS QUEDAS DA EQUIPE</small><div id="flightPublicHistory" class="flight-public-history"><span>Aguardando voos</span></div></div></div><div id="flightSky" class="flight-sky"><span id="flightShip">🦄🚀</span><strong id="flightMultiplier">x1,00</strong><em id="flightMessage">Aguardando lançamento</em><button id="flightCashoutButton" class="button button-primary" type="button" disabled>Resgatar agora</button></div></article>
       </div>
     </section>
 
@@ -432,7 +439,7 @@
         </aside>
         <div class="profile-content-column">
           <article id="activePowersCard" class="card active-powers-card hidden"><div class="profile-block-head"><div><small>USO PRIVADO</small><h3>Meus poderes</h3></div><span>Somente você vê</span></div><div id="activePowersList" class="active-powers-list"></div></article>
-          <article id="mysteryInventoryCard" class="card mystery-inventory-card hidden"><div class="profile-block-head"><div><small>COFRE DA TRIPULAÇÃO</small><h3>Baús e prêmios</h3></div><span id="mysteryInventoryCount">0 itens</span></div><p>Abra ou venda seus baús. Ao ganhar um item, decida na hora se deseja ficar com ele ou vender por um valor menor.</p><div id="mysteryInventory" class="mystery-inventory"></div><div id="mysteryRewardInventory" class="mystery-reward-inventory"></div></article>
+          <article id="cardPackInventoryCard" class="card"><h3>Meus pacotinhos de cartas</h3><p>3 cartas por pacote: 90% básica e 10% rara por carta. Repetidas podem sair. Compre na Loja e abra aqui; as cartas vão para o Álbum.</p><div id="cardPackInventory"></div><div id="cardPackHistory"></div></article><article id="mysteryInventoryCard" class="card mystery-inventory-card hidden"><div class="profile-block-head"><div><small>COFRE DA TRIPULAÇÃO</small><h3>Baús e prêmios</h3></div><span id="mysteryInventoryCount">0 itens</span></div><p>Abra ou venda seus baús. Ao ganhar um item, decida na hora se deseja ficar com ele ou vender por um valor menor.</p><div id="mysteryInventory" class="mystery-inventory"></div><div id="mysteryRewardInventory" class="mystery-reward-inventory"></div><div id="physicalPrizeInventory" class="mystery-reward-inventory"></div></article>
           <div class="profile-block-head"><div><small>CONQUISTAS</small><h3>Minhas medalhas</h3></div><span id="medalCount">0 desbloqueadas</span></div>
           <div id="profileMedals" class="profile-medals"></div>
           <article class="card gift-center-card">
@@ -453,6 +460,7 @@
           </article>
           <div class="profile-block-head shop-heading"><div><small>MINHA COLEÇÃO</small><h3>Visuais adquiridos</h3></div><a class="button button-dark" href="?pagina=loja" data-page="loja">Ir para a Loja 51</a></div>
           <p id="collectionEmpty" class="collection-empty hidden">Você ainda não possui visuais. Visite a Loja 51 para começar sua coleção.</p>
+          <article id="visualTradingCard" class="card"><h3>Trocar visuais</h3><p>Troca de um visual por outro, sem moedas. Os dois precisam concordar. Propostas valem por 24 horas.</p><form id="visualTradeForm"><label>Participante<select name="partnerId" required></select></label><label>Meu visual<select name="offeredId" required></select></label><label>Visual que quero receber<select name="wantedId" required></select></label><button class="button button-primary" type="submit">Propor troca</button></form><div id="visualTradeList"></div></article>
           <div id="collectionCatalog" class="shop-catalog collection-catalog"></div>
         </div>
       </div>
@@ -464,7 +472,7 @@
         <div class="shop-page-toolbar"><div><small>SEU SALDO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="shopPageWallet">0</b> créditos</strong></div><label class="shop-owned-toggle"><input id="hideOwnedVisuals" type="checkbox"><span>Ocultar visuais que já adquiri</span></label></div>
         <article id="freeShopPass" class="free-shop-pass"><span>🎟️</span><p><small>PRESENTE PARA CADA TRIPULANTE</small><strong id="freeShopPassTitle">Compra Grátis 51 disponível</strong><em id="freeShopPassText">Escolha um visual da loja e use seu único passe sem gastar créditos.</em></p><b id="freeShopPassStatus">1 USO</b></article>
         <article id="stellarLoanCard" class="stellar-loan-card"><span>🛸</span><div><small>AGIOTA ESTELAR</small><strong id="stellarLoanTitle">Créditos rápidos para a sua coleção</strong><p id="stellarLoanText">Escolha 100, 200 ou 300 créditos. O pagamento tem 20% de juros e só é permitido um empréstimo por vez.</p></div><div id="stellarLoanActions" class="stellar-loan-actions"></div></article>
-        <div id="shopFilters" class="shop-filters" aria-label="Filtrar itens da loja"><button class="active" type="button" data-shop-filter="all">Tudo</button><button type="button" data-shop-filter="box">🎁 Caixas</button><button type="button" data-shop-filter="cursor">Cursores</button><button type="button" data-shop-filter="trail">Rastros</button><button type="button" data-shop-filter="theme">Temas</button><button type="button" data-shop-filter="profile">Perfil</button><button class="power-filter-button" type="button" data-shop-filter="power">✨ Poderes</button></div>
+        <div id="shopFilters" class="shop-filters" aria-label="Filtrar itens da loja"><button class="active" type="button" data-shop-filter="all">Tudo</button><button type="button" data-shop-filter="box">🎁 Baús e pacotes</button><button type="button" data-shop-filter="cursor">Cursores</button><button type="button" data-shop-filter="trail">Rastros</button><button type="button" data-shop-filter="theme">Temas</button><button type="button" data-shop-filter="profile">Perfil</button><button class="power-filter-button" type="button" data-shop-filter="power">✨ Poderes</button></div>
         <div id="shopCatalog" class="shop-catalog"></div>
       </div>
     </section>
@@ -665,6 +673,7 @@
     </div>
   </dialog>
 
+  <dialog id="cardPackDialog" class="card-pack-dialog" aria-labelledby="cardPackTitle"><h3 id="cardPackTitle">Pacotinho Cósmico</h3><div id="cardPackEnvelope" class="card-pack-envelope" aria-hidden="true"><div class="pack-seal">ÁREA 51 · CARTAS</div><span>🎴</span><strong>3 CARTAS SURPRESA</strong></div><div id="cardPackResult" role="status" aria-live="polite"></div><button id="closeCardPack" type="button">Fechar</button></dialog>
   <dialog id="mysteryOpeningDialog" class="mystery-opening-dialog">
     <div class="mystery-opening-head"><span id="mysteryOpeningIcon">🎁</span><p><small>ABRINDO CAIXA MISTERIOSA</small><strong id="mysteryOpeningTitle">Preparando o prêmio…</strong></p></div>
     <div id="mysteryCarouselViewport" class="mystery-carousel-viewport"><div id="mysteryCarouselTrack" class="mystery-carousel-track"></div><i aria-hidden="true"></i></div>
@@ -717,8 +726,10 @@
   </aside>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="/community-feed.js?v=20260902-132"></script>
+  <script src="/community-feed.js?v=20260902-137"></script>
   <script src="/avatar-crop.js?v=20260902-129"></script>
-  <script src="/app.js?v=20260902-133"></script>
+  <script src="/visual-trading.js?v=20260902-140"></script>
+  <script src="/card-album.js?v=20260903-142"></script>
+  <script src="/app.js?v=20260903-142"></script>
 </body>
 </html>
