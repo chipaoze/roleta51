@@ -122,16 +122,23 @@ async function deleteStoredImages(items) {
   await Promise.all(items.map((item) => deleteStoredImage(typeof item === 'string' ? item : item.filename)));
 }
 
+function hasBytes(image, bytes, offset = 0) {
+  return image.length >= offset + bytes.length && bytes.every((byte, index) => image[offset + index] === byte);
+}
+
+function hasValidImageSignature(image, mimeType) {
+  if (mimeType === 'image/png') return hasBytes(image, [137,80,78,71,13,10,26,10]);
+  if (mimeType === 'image/jpeg') return hasBytes(image, [255,216,255]);
+  if (mimeType === 'image/webp') return hasBytes(image, [82,73,70,70]) && hasBytes(image, [87,69,66,80], 8);
+  return false;
+}
+
 function decodeWallpaperDataUrl(dataUrl) {
   const match = String(dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
   if (!match) throw new HttpError(400, 'Envie uma imagem PNG, JPG ou WEBP.');
   const image = Buffer.from(match[2], 'base64');
   if (!image.length || image.length > 8 * 1024 * 1024) throw new HttpError(413, 'A imagem deve ter no máximo 8 MB.');
-  const validSignature =
-    (match[1] === 'image/png' && image.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) ||
-    (match[1] === 'image/jpeg' && image[0] === 255 && image[1] === 216 && image[2] === 255) ||
-    (match[1] === 'image/webp' && image.subarray(0, 4).toString() === 'RIFF' && image.subarray(8, 12).toString() === 'WEBP');
-  if (!validSignature) throw new HttpError(400, 'O conteúdo do arquivo não corresponde a uma imagem válida.');
+  if (!hasValidImageSignature(image, match[1])) throw new HttpError(400, 'O conteúdo do arquivo não corresponde a uma imagem válida.');
   return { image, mimeType: match[1], extension: { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[match[1]] };
 }
 
@@ -1920,11 +1927,7 @@ async function handleApi(req, res, route) {
     if (!match) throw new HttpError(400, 'Envie uma imagem PNG, JPG ou WEBP.');
     const image = Buffer.from(match[2], 'base64');
     if (!image.length || image.length > 5 * 1024 * 1024) throw new HttpError(413, 'O meme deve ter no máximo 5 MB.');
-    const validSignature =
-      (match[1] === 'image/png' && image.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) ||
-      (match[1] === 'image/jpeg' && image[0] === 255 && image[1] === 216 && image[2] === 255) ||
-      (match[1] === 'image/webp' && image.subarray(0, 4).toString() === 'RIFF' && image.subarray(8, 12).toString() === 'WEBP');
-    if (!validSignature) throw new HttpError(400, 'O conteúdo do arquivo não corresponde a uma imagem válida.');
+    if (!hasValidImageSignature(image, match[1])) throw new HttpError(400, 'O conteúdo do arquivo não corresponde a uma imagem válida.');
     const usedMemory = [...imageStore.values()].reduce((total, entry) => total + entry.buffer.length, 0);
     if (usedMemory + image.length > MAX_IMAGE_MEMORY) throw new HttpError(507, 'O limite de imagens foi atingido. Peça ao administrador para limpar o mural.');
     if (db.dailyMemes.length >= 60) throw new HttpError(409, 'O mural atingiu 60 memes. Peça ao administrador para limpar o dia.');
