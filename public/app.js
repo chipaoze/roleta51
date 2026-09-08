@@ -3319,14 +3319,14 @@ $('#clearAnnouncementButton').addEventListener('click', async () => {
 });
 
 $('#settingsForm').addEventListener('submit', async (event) => {
-  event.preventDefault(); setBusy(event.currentTarget, true);
+  event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
   try {
     const themes = $('#themesInput').value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
     if (!themes.length) throw new Error('Cadastre ao menos um tema para a roleta.');
     const data = await api('/api/admin/settings', { method: 'PATCH', body: { roundName: $('#roundInput').value, themes, excludeLastGayWinner: $('#excludeLast').checked } });
     applyState(data); showToast('Configurações salvas.');
   } catch (error) { showToast(error.message, 'error'); }
-  finally { setBusy(event.currentTarget, false); }
+  finally { setBusy(form, false); }
 });
 $('#clearVisualThemesButton')?.addEventListener('click', async () => {
   if (!confirm('Encerrar agora os temas especiais de quem perdeu ou foi sorteado? O histórico continua salvo.')) return;
@@ -3334,9 +3334,9 @@ $('#clearVisualThemesButton')?.addEventListener('click', async () => {
   catch (error) { showToast(error.message, 'error'); }
 });
 $('#scheduleForm').addEventListener('submit', async (event) => {
-  event.preventDefault(); setBusy(event.currentTarget, true);
+  event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
   try { applyState(await api('/api/admin/settings', { method: 'PATCH', body: { roundSchedule: { submissionsAt: $('#scheduleSubmissions').value, drawAt: $('#scheduleDraw').value, voteAt: $('#scheduleVote').value } } })); showToast('Calendário atualizado para toda a equipe.'); }
-  catch (error) { showToast(error.message, 'error'); } finally { setBusy(event.currentTarget, false); }
+  catch (error) { showToast(error.message, 'error'); } finally { setBusy(form, false); }
 });
 $('#gateCodeForm').addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
