@@ -9,18 +9,23 @@ sql.exec('CREATE TABLE online_presence(session_key TEXT PRIMARY KEY,user_id TEXT
 const DB={prepare(query){return {bind(...args){return {query,args};}};},async batch(statements){return statements.map(({query,args})=>({results:query.startsWith('SELECT')?sql.prepare(query).all(...args):(sql.prepare(query).run(...args),[])}));}};
 const helpers=source.slice(source.indexOf('function presencePeople('),source.indexOf('let liveDraw ='));
 const users=[{id:'a',active:true,displayName:'Ana'},{id:'b',active:true,displayName:'Bia'},{id:'c',active:false,displayName:'Disabled'}];
-function instance(){return vm.runInNewContext(helpers+';({heartbeatPresence,presencePeople})',{createHash,Date,Set,PRESENCE_TTL:60000,runtimeEnv:{DB},db:{users},sharedOnlinePeople:[]});}
+let now=Date.now();
+class TestDate extends Date { static now(){return now;} }
+function instance(){return vm.runInNewContext(helpers+';({heartbeatPresence,presencePeople})',{createHash,Date:TestDate,Set,Map,PRESENCE_TTL:60000,runtimeEnv:{DB},db:{users},sharedOnlinePeople:[]});}
 const one=instance(),two=instance();
 const a={user:users[0],token:'session-a'},b={user:users[1],token:'session-b'};
 assert.equal((await one.heartbeatPresence(a)).length,1);
 assert.equal((await two.heartbeatPresence(b)).length,2);
+now+=5001;
 assert.equal((await one.heartbeatPresence(a)).length,2);
-await two.heartbeatPresence({...a,token:'second-device'});assert.equal((await one.heartbeatPresence(a)).length,2);
+await two.heartbeatPresence({...a,token:'second-device'});now+=5001;assert.equal((await one.heartbeatPresence(a)).length,2);
 sql.prepare('DELETE FROM online_presence WHERE session_key=?').run(createHash('sha256').update(a.token).digest('hex'));
-assert.equal((await two.heartbeatPresence(b)).length,2);
-sql.prepare('UPDATE online_presence SET last_seen=? WHERE user_id=?').run(Date.now()-60001,'a');
+now+=5001;assert.equal((await two.heartbeatPresence(b)).length,2);
+sql.prepare('UPDATE online_presence SET last_seen=? WHERE user_id=?').run(now-60001,'a');
+now+=5001;
 assert.equal((await two.heartbeatPresence(b)).length,1);
-sql.prepare('UPDATE online_presence SET last_seen=?').run(Date.now()-86400001);
+sql.prepare('UPDATE online_presence SET last_seen=?').run(now-3600001);
+now+=600001;
 await one.heartbeatPresence(a);assert.equal(sql.prepare('SELECT count(*) AS n FROM online_presence').get().n,1);
-assert.equal(one.presencePeople([{user_id:'c',last_seen:Date.now()}],users).length,0);
+assert.equal(one.presencePeople([{user_id:'c',last_seen:now}],users).length,0);
 console.log('PASS: shared SQL presence across two instances, two devices deduplicated, session logout, expiry and cleanup.');

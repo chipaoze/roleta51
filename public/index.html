@@ -8,10 +8,11 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260903-143">
+  <link rel="stylesheet" href="/styles.css?v=20260905-171">
   <link rel="stylesheet" href="/improvements.css?v=20260902-118">
-  <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260903-144">
+  <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260904-152">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
+  <link rel="stylesheet" href="/platform-upgrades.css?v=20260904-4">
   <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
@@ -22,7 +23,7 @@
   <main id="authView" class="auth-shell hidden">
     <section class="auth-art">
       <div class="brand brand-light"><span class="brand-mark" aria-hidden="true">👽</span><span class="brand-word"><strong>ÁREA</strong><small>51</small></span></div>
-      <img src="/area51-aliens-v2.png" alt="" class="auth-aliens" aria-hidden="true">
+      <img src="/area51-aliens-cutout.png" alt="" class="auth-aliens" aria-hidden="true">
       <div class="auth-carousel" aria-live="polite">
         <article class="auth-copy auth-slide active" data-auth-slide="0">
           <span class="eyebrow eyebrow-light">SORTEIOS INTERNOS</span>
@@ -81,7 +82,7 @@
           <label>Senha
             <span class="input-wrap"><span class="input-icon">●</span><input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></span>
           </label>
-          <label class="remember-me-row"><input id="rememberMe" name="rememberMe" type="checkbox"><span><strong>Lembrar meu acesso por 30 dias</strong><small id="rememberMeStatus">Desativado · será necessário entrar novamente depois.</small></span><b aria-hidden="true"></b></label>
+          <label class="remember-me-row"><input id="rememberMe" name="rememberMe" type="checkbox"><span><strong>Manter acesso por 30 dias</strong><small id="rememberMeStatus">Desativado · será necessário entrar novamente depois.</small></span><b aria-hidden="true"></b></label>
           <p class="form-error" id="loginError" role="alert"></p>
           <button type="submit" class="button button-primary button-wide">Entrar <span>→</span></button>
           <p class="form-foot">Primeira vez? <button type="button" class="link-button" data-go-register>Crie seu próprio acesso</button></p>
@@ -117,9 +118,10 @@
       <div class="account">
         <button id="onlinePeopleButton" class="online-people-button" type="button" title="Pessoas conectadas"><i></i><strong id="onlinePeopleCount">1</strong><span>online</span></button>
         <button id="notificationButton" class="icon-button notification-button" type="button" title="Abrir notificações" aria-label="Abrir notificações" aria-expanded="false">🔔<b id="notificationBadge" class="hidden">0</b></button>
+        <button id="feedbackTopButton" class="feedback-top-button hidden" type="button" aria-controls="feedbackPanel" aria-expanded="false" title="Enviar melhoria ou bug">💬 <span>Feedback</span><b id="feedbackUnreadTop" class="feedback-unread hidden">0</b></button>
         <button id="musicToggle" class="icon-button music-toggle" title="Ativar som da rodada" aria-label="Ativar som da rodada">♫</button>
         <button id="volumeDownButton" class="icon-button volume-down-button" title="Diminuir volume" aria-label="Diminuir volume">🔉</button>
-        <button id="themeToggle" class="icon-button theme-toggle" title="Ativar modo escuro" aria-label="Ativar modo escuro" aria-pressed="false">☾</button>
+        <span id="themePenaltyTimer" class="theme-penalty-timer hidden" aria-live="polite"></span><button id="themeToggle" class="icon-button theme-toggle" title="Ativar modo escuro" aria-label="Ativar modo escuro" aria-pressed="false">☾</button>
         <button id="topProfileButton" class="top-profile-button" type="button" title="Abrir meu Perfil & Loja" aria-label="Abrir meu Perfil & Loja"><span class="avatar" id="userAvatar">M</span><span class="account-copy"><strong id="userName">Participante</strong><span id="userRole">Participante</span></span></button>
         <button id="passwordButton" class="password-button" title="Alterar minha senha" aria-label="Alterar minha senha"><span aria-hidden="true">🔑</span><span class="password-button-label"><span class="password-button-long">Alterar </span>Senha</span></button>
         <button id="logoutButton" class="logout-button" title="Sair da minha conta" aria-label="Sair da minha conta"><span aria-hidden="true">🚪</span><span class="logout-button-label">Sair</span></button>
@@ -137,18 +139,17 @@
       <div class="site-menu-user"><span id="menuUserAvatar">M</span><p><strong id="menuUserName">Participante</strong><small id="menuUserRole">Participante</small></p></div>
       <div id="menuOnlinePeople" class="menu-online-people"><i></i><strong>1 online</strong><span>Você</span></div>
       <nav aria-label="Páginas da Área 51">
+        <a href="?pagina=memes" data-page="memes"><span>💬</span><p><strong>Feed da Tripulação</strong><small>Publicações, memes e comentários</small></p></a>
         <a href="?pagina=sorteio" data-page="sorteio" class="active"><span>🎡</span><p><strong>Sorteio</strong><small>Roleta e andamento da rodada</small></p></a>
         <a href="?pagina=inscricoes" data-page="inscricoes"><span>🖼️</span><p><strong>Inscrições</strong><small>Enviar e acompanhar wallpapers</small></p></a>
-        <a href="?pagina=memes" data-page="memes"><span>💬</span><p><strong>Feed da Tripulação</strong><small>Publicações, memes e comentários</small></p></a>
-        <a href="?pagina=anonimos" data-page="anonimos"><span>🕵️</span><p><strong>Elogios / Denúncias</strong><small>Publicações anônimas</small></p></a>
         <a href="?pagina=agua" data-page="agua"><span>💧</span><p><strong>Água</strong><small>Controle diário de hidratação</small></p></a>
         <a href="?pagina=mentirometro" data-page="mentirometro"><span>🤥</span><p><strong>Mentirômetro</strong><small>Marcações e classificação</small></p></a>
         <a href="?pagina=misterio" data-page="misterio"><span>🕯️</span><p><strong>Mistério 51</strong><small>Perguntas, pistas e dedução</small></p></a>
+        <a href="?pagina=impostor" data-page="impostor"><span>🕵️</span><p><strong>Impostor 51</strong><small>Dicas, blefe e votação</small></p></a>
         <a href="?pagina=perfil" data-page="perfil"><span>👤</span><p><strong>Meu Perfil</strong><small>Baús, coleção e conquistas</small></p></a>
         <a href="?pagina=album" data-page="album"><span>🎴</span><p><strong>Álbum de cartas</strong><small>Coleções e insígnias</small></p></a>
         <a href="?pagina=loja" data-page="loja"><span>🛍️</span><p><strong>Loja 51</strong><small>Visuais, poderes e presentes</small></p></a>
         <a href="?pagina=jogos" data-page="jogos"><span>🎰</span><p><strong>Jogos 51</strong><small>Roleta e Voo do Unicórnio</small></p></a>
-        <a href="?pagina=historico" data-page="historico"><span>🏆</span><p><strong>Histórico</strong><small>Vencedores anteriores</small></p></a>
         <a href="?pagina=classificacao" data-page="classificacao"><span>📊</span><p><strong>Classificação</strong><small>Placares da equipe</small></p></a>
         <a href="?pagina=admin" data-page="admin" id="adminNav" class="hidden"><span>⚙️</span><p><strong>Administração</strong><small>Controle do site e usuários</small></p></a>
         <button id="installAppButton" class="menu-install-button hidden" type="button"><span>📲</span><p><strong>Instalar aplicativo</strong><small>Adicionar à tela inicial</small></p></button>
@@ -156,9 +157,9 @@
     </aside>
 
     <section id="album" class="section portal-page-hidden">
-      <div class="album-intro"><span class="eyebrow">ARQUIVO COLECIONÁVEL · ÁREA 51</span><h2>Seu álbum <em>cósmico</em></h2><p>Cinco coleções. Vinte e cinco cartas. Cinco insígnias para conquistar.</p></div>
+      <div class="album-intro"><span class="eyebrow">ARQUIVO COLECIONÁVEL · ÁREA 51</span><h2>Seu álbum <em>cósmico</em></h2><p>Oito coleções. Quarenta cartas. Oito insígnias para conquistar.</p></div>
       <aside class="album-info"><strong id="cardDropProgress">Carregando seu progresso…</strong><details><summary>Como encontrar cartas e montar insígnias</summary><p>40% de chance na primeira atividade válida de cada tipo por dia: registrar 500 ml acumulados de água, publicar frase, publicar meme, comentar pelo menos 10 caracteres na publicação de outra pessoa e votar no wallpaper. No máximo 2 cartas por dia, pelo horário de Brasília. Repetir, editar ou apagar não renova a chance. Jogos de azar não dão cartas.</p><p>Reúna as 5 cartas diferentes de uma coleção. A montagem consome uma de cada e preserva repetidas. Cada insígnia pode ser montada uma vez, sem moedas. A distribuição começou com esta atualização; atividades anteriores não são retroativas.</p></details></aside>
-      <div id="cardAlbumCollections" aria-live="polite"></div><article id="cardTradingCard" class="album-info"><h3>Trocar cartas repetidas</h3><p>Uma carta por outra, preservando ao menos uma unidade de cada carta oferecida. O destinatário precisa aceitar em até 24 horas.</p><form id="cardTradeForm"><label>Participante<select name="partnerId" required></select></label><label>Ofereço<select name="offeredId" required></select></label><label>Quero receber<select name="wantedId" required></select></label><button class="button button-primary" type="submit">Propor troca de cartas</button></form><div id="cardTradeList"></div></article>
+      <div id="cardAlbumCollections" aria-live="polite"></div><article id="cardTradingCard" class="album-info"><h3>Trocar cartas repetidas</h3><p>Publique uma repetida no mural de trocas, receba ofertas e escolha a carta que mais te interessa. A troca só ocorre quando você aceitar.</p><form id="cardMarketForm"><label>Minha carta repetida<select name="offeredId" required></select></label><button class="button button-primary" type="submit">Publicar no mural de trocas</button></form><div id="cardTradeMarket"></div><details><summary>Troca direta entre participantes</summary><form id="cardTradeForm"><label>Participante<select name="partnerId" required></select></label><label>Ofereço<select name="offeredId" required></select></label><label>Quero receber<select name="wantedId" required></select></label><button class="button button-primary" type="submit">Propor troca direta</button></form><div id="cardTradeList"></div></details></article>
     </section>
     <section id="inicio" class="hero">
       <div class="hero-copy">
@@ -176,7 +177,7 @@
       <div class="hero-visual">
         <div class="rainbow-ring"></div>
         <img src="/gay-da-rodada.png" alt="Gay da Rodada" class="hero-mascot">
-        <img src="/area51-aliens-v2.png" alt="ETs coloridos da Área 51" class="hero-aliens">
+        <img src="/area51-aliens-cutout.png" alt="ETs coloridos da Área 51" class="hero-aliens">
         <span class="sparkle sparkle-one">✦</span><span class="sparkle sparkle-two">✦</span>
         <span class="unicorn-float unicorn-float-one" aria-hidden="true">🦄</span>
         <span class="unicorn-float unicorn-float-two" aria-hidden="true">🦄</span>
@@ -244,7 +245,7 @@
             </div>
           </div>
           <div class="card latest-card">
-            <div class="card-title-row"><h3>Últimos sorteados</h3><a href="?pagina=historico" data-page="historico">Ver todos</a></div>
+            <div class="card-title-row"><h3>Últimos sorteados</h3><a href="?pagina=classificacao" data-page="classificacao">Ver classificação</a></div>
             <div id="latestDraws" class="latest-list empty-state">Ainda não houve sorteio.</div>
           </div>
           <div class="card latest-card assignment-card">
@@ -314,24 +315,32 @@
         <div><span class="eyebrow">ÁREA 51 · PÁGINA INICIAL</span><h2>Feed da <em>tripulação</em></h2></div>
         <p>As novidades primeiro: publique imagens com legenda, frases, reaja e comente.</p>
       </div>
+      <section id="todayHub" class="today-hub" aria-labelledby="todayHubTitle">
+        <header><div><small>SEU PAINEL DE HOJE</small><h3 id="todayHubTitle">Central da tripulação</h3></div><span id="todayHubStatus">Tudo em ordem</span></header>
+        <div id="todayHubCards" class="today-hub-cards"></div>
+        <nav id="todayQuickActions" class="today-quick-actions" aria-label="Atalhos de hoje"></nav>
+        <article id="roundRecapCard" class="round-recap-card hidden"><div><small>RESUMO PRONTO PARA O GRUPO</small><h4 id="roundRecapTitle">Última rodada</h4><p id="roundRecapPreview"></p></div><button id="copyRoundRecapButton" class="button button-dark" type="button">Copiar resumo</button></article>
+      </section>
       <div class="daily-wall-layout">
         <aside class="daily-wall-controls">
-          <div class="card daily-phrase-card">
+          <div class="card daily-phrase-card hidden">
             <header><span class="daily-wall-icon" aria-hidden="true">💬</span><div><small>MURAL DA TRIPULAÇÃO</small><strong>Frases do dia</strong></div></header>
             <div id="dailyPhraseList" class="daily-phrase-list"><p>A tripulação ainda não publicou frases hoje.</p></div>
           </div>
-          <form id="dailyPhraseForm" class="card daily-wall-form">
+          <form id="dailyPhraseForm" class="card daily-wall-form hidden">
             <label for="dailyPhraseInput">Escrever a frase do dia</label>
             <textarea id="dailyPhraseInput" maxlength="180" rows="3" required placeholder="Digite algo memorável para hoje…"></textarea>
-            <div class="daily-wall-form-foot"><span><b id="dailyPhraseCount">0</b>/180</span><button class="button button-dark" type="submit">Publicar frase</button></div>
+            <label class="feed-anonymous-flag"><input id="dailyPhraseAnonymous" type="checkbox"> <span>🕵️ Publicar anonimamente</span></label>
+            <div class="daily-wall-form-foot"><span><b id="dailyPhraseCount">0</b>/180</span><button class="button button-dark" type="submit">Publicar no feed</button></div>
           </form>
           <form id="memeUploadForm" class="card daily-wall-form">
-            <label for="memeCaption">Legenda da publicação</label>
-            <textarea id="memeCaption" maxlength="500" rows="3" placeholder="Conte algo sobre a imagem (opcional)…"></textarea>
-            <label class="meme-file-picker" for="memeFile"><input id="memeFile" type="file" accept="image/png,image/jpeg,image/webp" required><span aria-hidden="true">🛸</span><strong id="memeFileName">Escolher meme</strong><small>PNG, JPG ou WEBP · até 5 MB</small></label>
+            <label for="memeCaption">Publicar no feed</label>
+            <textarea id="memeCaption" maxlength="500" rows="3" placeholder="Escreva uma frase, adicione uma imagem ou use os dois…"></textarea>
+            <label class="meme-file-picker" for="memeFile"><input id="memeFile" type="file" accept="image/png,image/jpeg,image/webp"><span aria-hidden="true">🛸</span><strong id="memeFileName">Adicionar imagem (opcional)</strong><small>PNG, JPG ou WEBP · até 5 MB</small></label>
             <div id="memePreview" class="meme-preview hidden"><img alt="Prévia do meme"><button id="clearMemeFile" type="button">Remover</button></div>
+            <label class="feed-anonymous-flag"><input id="feedPostAnonymous" type="checkbox"> <span>🕵️ Publicar anonimamente</span></label>
             <p id="memeUploadError" class="form-error" role="alert"></p>
-            <button class="button button-primary button-wide" type="submit">Publicar no mural <span>↥</span></button>
+            <button class="button button-primary button-wide" type="submit">Publicar no feed <span>↥</span></button>
           </form>
           <button id="clearDailyMemesButton" class="button button-danger button-wide hidden" type="button">🧹 Limpar mural e frase do dia</button>
         </aside>
@@ -343,7 +352,7 @@
       </div>
     </section>
 
-    <section id="anonimos" class="section anonymous-section">
+    <section id="anonimos" class="section anonymous-section hidden" aria-hidden="true">
       <div class="section-heading split-heading">
         <div><span class="eyebrow">VOZ DA TRIPULAÇÃO</span><h2>Elogios &amp; <em>denúncias</em></h2></div>
         <p>Um espaço anônimo, somente em texto. O nome de quem publicou não é exibido nem salvo.</p>
@@ -401,8 +410,10 @@
         <article class="card lie-pending-card">
           <div class="card-title-row"><div><h3>Aguardando validação</h3><p>Uma terceira pessoa precisa confirmar</p></div><strong id="liePendingCount">0 pendentes</strong></div>
           <div id="liePendingList" class="lie-pending-list"></div>
+          <div id="lieVoteHistory" class="lie-vote-history"></div>
         </article>
       </div>
+      <article id="lieDisputes" class="card lie-disputes-card hidden" aria-live="polite"></article>
     </section>
 
     <section id="misterio" class="section mystery-section">
@@ -410,12 +421,17 @@
       <div id="mysteryBoard" class="mystery-board" aria-live="polite"></div>
     </section>
 
+    <section id="impostor" class="section impostor-section portal-page-hidden">
+      <div class="section-heading split-heading"><div><span class="eyebrow">JOGO MULTIPLAYER · ÁREA 51</span><h2>Impostor <em>51</em></h2></div><p>Descubra quem recebeu uma palavra diferente sem revelar a sua.</p></div>
+      <div id="impostorBoard" class="impostor-board" aria-live="polite"></div>
+    </section>
+
     <section id="jogos" class="section casino-section">
       <div class="section-heading split-heading"><div><span class="eyebrow">JOGOS DE AZAR INTERGALÁCTICOS</span><h2>Jogos <em>51</em></h2></div><p>Roleta de créditos e Voo do Unicórnio em uma página própria. Os resultados são aleatórios.</p></div>
       <div class="casino-layout">
-        <article class="card casino-machine"><small>ROLETA DE CRÉDITOS E BAÚS</small><h3>Multiplique ou encontre um baú</h3><p>O multiplicador é o retorno total: em uma aposta de 10, x1,5 devolve os 10 e acrescenta 5. Ao ganhar um baú, a aposta volta inteira e o baú fechado vai para o perfil.</p><div class="casino-bet-legend"><span>📦 Caixa Sonda <b>qualquer aposta</b></span><span>🎁 Caixa Cósmica <b>a partir de 30</b></span><span>🛸 Cofre Área 51 <b>a partir de 70</b></span></div><div class="casino-wheel-stage"><span class="casino-wheel-pointer">▼</span><canvas id="casinoWheel" width="440" height="440" aria-label="Roleta com multiplicadores e três tipos de baús misteriosos"></canvas><strong>51</strong></div><form id="casinoForm"><label>Usar saldo de<select id="casinoWalletSource"><option value="promotional">Bônus promocional diário</option><option value="shop">Minha Loja 51</option></select></label><label>Valor da aposta<input id="casinoBet" type="number" min="1" max="100" step="1" value="10" required></label><button class="button button-primary" type="submit">Girar a roleta</button></form><div id="casinoResult" class="casino-result">Escolha qualquer valor inteiro entre 1 e 100 créditos.</div></article>
+        <article class="card casino-machine"><small>ROLETA DE CRÉDITOS E BAÚS</small><h3>Multiplique ou encontre um baú</h3><p>O multiplicador é o retorno total: em uma aposta de 10, x1,5 devolve os 10 e acrescenta 5. Ao ganhar um baú, a aposta volta inteira e o baú fechado vai para o perfil.</p><div class="casino-bet-legend"><span>📦 Caixa Sonda <b>qualquer aposta</b></span><span>🎁 Caixa Cósmica <b>a partir de 30</b></span><span>🛸 Cofre Área 51 <b>a partir de 70</b></span></div><div class="casino-wheel-stage"><span class="casino-wheel-pointer">▼</span><canvas id="casinoWheel" width="440" height="440" aria-label="Roleta com multiplicadores e três tipos de baús misteriosos"></canvas><strong>51</strong></div><form id="casinoForm"><label>Usar saldo de<select id="casinoWalletSource"><option value="promotional">Bônus promocional diário</option><option value="shop">Minha Loja 51</option></select></label><label>Valor da aposta<input id="casinoBet" type="number" min="1" step="1" value="10" required></label><button class="button button-primary" type="submit">Girar a roleta</button></form><div id="casinoResult" class="casino-result">Escolha qualquer valor inteiro disponível no seu saldo.</div></article>
         <aside class="card casino-status"><div class="casino-master-total"><small>APOSTÔMETRO DA TRIPULAÇÃO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoTotalWagered">0</b></strong><em><b id="casinoTotalPlays">0</b> apostas realizadas por todos</em></div><div><small>SALDO PROMOCIONAL</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoWallet">250</b></strong></div><div><small>SALDO DA LOJA</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoShopWallet">0</b></strong></div><div class="casino-cashout"><p><small>META PARA RESGATE</small><strong id="casinoCashoutText">0 de 500</strong></p><i><b id="casinoCashoutProgress"></b></i><button id="casinoCashoutButton" class="button button-primary" type="button" disabled>Resgatar lucro na loja</button></div><div><small>BAÚS FECHADOS</small><strong>🎁 <b id="casinoClosedBoxes">0</b></strong></div><div><small>JOGADAS HOJE</small><strong id="casinoPlays">0</strong></div><h3>Resultados da roleta</h3><div id="casinoRouletteHistory" class="casino-history"></div><h3>Resultados do voo</h3><div id="casinoFlightHistory" class="casino-history"></div><a class="button button-dark" href="?pagina=perfil" data-page="perfil">Abrir ou vender meus baús</a></aside>
-        <article class="card unicorn-flight-game"><div class="unicorn-flight-copy"><small>NOVO JOGO · VOO DO UNICÓRNIO</small><h3>Resgate antes da nave cair</h3><p>Todos acompanham o mesmo voo. Ele pode cair imediatamente em x1,00; o resgate abre em x1,25. Escolha o automático antes de apostar: se o alvo for atingido antes da queda, o servidor resgata mesmo com atraso na conexão. O número animado é uma estimativa entre atualizações.</p><form id="flightForm"><label>Saldo<select id="flightWalletSource"><option value="promotional">Bônus diário</option><option value="shop">Loja 51</option></select></label><label>Aposta<input id="flightBet" type="number" min="1" max="100" step="1" value="10" required></label><label>Resgate automático<select id="flightAutoCashout"><option value="1.5">Em x1,50</option><option value="1.25">Em x1,25</option><option value="2">Em x2,00</option><option value="3">Em x3,00</option><option value="0">Somente manual</option></select></label><button id="flightStartButton" class="button button-primary" type="submit">Iniciar voo</button></form><div><small>ÚLTIMAS QUEDAS DA EQUIPE</small><div id="flightPublicHistory" class="flight-public-history"><span>Aguardando voos</span></div></div></div><div id="flightSky" class="flight-sky"><span id="flightShip">🦄🚀</span><strong id="flightMultiplier">x1,00</strong><em id="flightMessage">Aguardando lançamento</em><button id="flightCashoutButton" class="button button-primary" type="button" disabled>Resgatar agora</button></div></article>
+        <article class="card unicorn-flight-game"><div class="unicorn-flight-copy"><small>NOVO JOGO · VOO DO UNICÓRNIO</small><h3>Resgate antes da nave cair</h3><p>Todos acompanham o mesmo voo. Ele pode cair imediatamente em x1,00; o resgate abre em x1,25. Escolha o automático antes de apostar: se o alvo for atingido antes da queda, o servidor resgata mesmo com atraso na conexão. O número animado é uma estimativa entre atualizações.</p><form id="flightForm"><label>Saldo<select id="flightWalletSource"><option value="promotional">Bônus diário</option><option value="shop">Loja 51</option></select></label><label>Aposta<input id="flightBet" type="number" min="1" step="1" value="10" required></label><label>Resgate automático<select id="flightAutoCashout"><option value="1.5">Em x1,50</option><option value="1.25">Em x1,25</option><option value="2">Em x2,00</option><option value="3">Em x3,00</option><option value="0">Somente manual</option></select></label><button id="flightStartButton" class="button button-primary" type="submit">Iniciar voo</button></form><div><small>ÚLTIMAS QUEDAS DA EQUIPE</small><div id="flightPublicHistory" class="flight-public-history"><span>Aguardando voos</span></div></div></div><div id="flightSky" class="flight-sky"><span id="flightShip">🦄🚀</span><strong id="flightMultiplier">x1,00</strong><em id="flightMessage">Aguardando lançamento</em><button id="flightCashoutButton" class="button button-primary" type="button" disabled>Resgatar agora</button></div></article>
       </div>
     </section>
 
@@ -432,6 +448,7 @@
             <div class="profile-wallet"><span class="coin-51 coin-51-large" aria-hidden="true">51</span><p><small>SALDO</small><strong><b id="profileWallet">0</b> Créditos 51</strong></p></div>
             <div class="active-visuals"><small>VISUAIS ATIVOS</small><div id="activeVisualsList"></div></div>
           </article>
+          <article class="card season-pass-card"><div><small>PASSE DA TEMPORADA</small><h3 id="seasonPassTitle">Temporada atual</h3><p id="seasonPassUntil">Carregando prazo…</p></div><a class="button button-dark" href="?pagina=classificacao" data-page="classificacao">Ver passe e ranking</a></article>
           <article class="card weekly-mission-card mission-center-card">
             <div class="weekly-mission-head"><span id="missionIcon">🛸</span><div><small>MISSÃO SEMANAL</small><h3 id="missionTitle">Carregando missão…</h3></div></div>
             <p id="missionDescription"></p><div class="mission-progress"><i id="missionProgressBar"></i></div>
@@ -448,6 +465,7 @@
           <article id="cardPackInventoryCard" class="card"><h3>Meus pacotinhos de cartas</h3><p>3 cartas por pacote: 90% básica e 10% rara por carta. Repetidas podem sair. Compre na Loja e abra aqui; as cartas vão para o Álbum.</p><div id="cardPackInventory"></div><div id="cardPackHistory"></div></article><article id="mysteryInventoryCard" class="card mystery-inventory-card hidden"><div class="profile-block-head"><div><small>COFRE DA TRIPULAÇÃO</small><h3>Baús e prêmios</h3></div><span id="mysteryInventoryCount">0 itens</span></div><p>Abra ou venda seus baús. Ao ganhar um item, decida na hora se deseja ficar com ele ou vender por um valor menor.</p><div id="mysteryInventory" class="mystery-inventory"></div><div id="mysteryRewardInventory" class="mystery-reward-inventory"></div><div id="physicalPrizeInventory" class="mystery-reward-inventory"></div></article>
           <div class="profile-block-head"><div><small>CONQUISTAS</small><h3>Minhas medalhas</h3></div><span id="medalCount">0 desbloqueadas</span></div>
           <div id="profileMedals" class="profile-medals"></div>
+          <article class="card trophy-room-card"><div class="profile-block-head"><div><small>SALA DE TROFÉUS</small><h3>Minha vitrine pública</h3></div><span>Até 4 destaques</span></div><p>Escolha as medalhas e insígnias que aparecerão quando alguém abrir seu perfil.</p><div id="trophyRoomDisplay" class="trophy-room-display"></div><details><summary>Editar minha vitrine</summary><div id="trophyRoomOptions" class="trophy-room-options"></div><button id="saveTrophyRoomButton" class="button button-primary" type="button">Salvar vitrine</button></details></article>
           <article class="card gift-center-card">
             <div class="profile-block-head gift-center-head"><div><small>PRESENTE SECRETO</small><h3>Presentear alguém</h3></div><span class="gift-privacy-badge">🔒 O remetente não aparece</span></div>
             <p class="gift-center-intro">Escolha uma pessoa e envie créditos ou um item da Loja 51 sem revelar sua identidade.</p>
@@ -483,7 +501,7 @@
       </div>
     </section>
 
-    <section id="historico" class="section history-section">
+    <section id="historico" class="section history-section hidden" aria-hidden="true">
       <div class="section-heading split-heading">
         <div><span class="eyebrow">MEMÓRIA DA EQUIPE</span><h2>Histórico de <em>vencedores</em></h2></div>
         <p>Os últimos resultados ficam guardados no servidor para a equipe consultar.</p>
@@ -510,7 +528,7 @@
           <div id="gayRanking" class="ranking-list"></div>
         </div>
       </div>
-      <article class="card season-card"><div class="card-title-row"><div><small>TEMPORADA MENSAL</small><h3>Tripulação em destaque</h3></div><strong id="seasonMonth"></strong></div><div id="seasonRanking" class="season-ranking"></div><p id="previousSeasonWinner" class="previous-season-winner"></p></article>
+      <article class="card season-card"><div class="card-title-row"><div><small>TEMPORADA ATUAL</small><h3 id="seasonTitle">Tripulação em destaque</h3></div><strong id="seasonMonth"></strong></div><div class="season-clock"><p><span>Encerra em</span><strong id="seasonCountdown">Calculando…</strong></p><p><span>Próxima temporada</span><strong id="nextSeasonDate">—</strong></p></div><div id="seasonRanking" class="season-ranking"></div><p id="previousSeasonWinner" class="previous-season-winner"></p></article>
       <article class="card season-challenges-card"><div class="card-title-row"><div><small>DESAFIOS DA TEMPORADA</small><h3>Missão da tripulação</h3></div><strong>Recompensas mensais</strong></div><p class="season-challenges-intro">A equipe libera o objetivo; cada pessoa precisa participar para receber.</p><div id="seasonChallenges" class="season-challenges"></div></article>
     </section>
 
@@ -520,14 +538,17 @@
         <p>Use apenas para organizar a rodada. Os participantes criam as próprias contas.</p>
       </div>
       <div class="admin-grid">
+        <article class="card admin-card admin-event-card admin-wide"><header><div><small>CONTROLE RÁPIDO</small><h3>Modo Evento</h3><p>Acompanhe a etapa e use os mesmos controles seguros da rodada, em uma visão simplificada.</p></div><label class="event-mode-switch"><input id="eventModeToggle" type="checkbox"><span>Ativar foco</span></label></header><div id="eventModeStage" class="event-mode-stage"></div><div id="eventModeActions" class="event-mode-actions"></div></article>
+        <form id="featureFlagsForm" class="card admin-card feature-flags-card"><div class="card-title-row"><div><h3>Recursos do site</h3><p>Pause áreas sem apagar dados. A mudança só acontece ao salvar.</p></div><span>🎛️</span></div><div id="featureFlagControls" class="feature-flag-controls"><label><input type="checkbox" name="casino"><span><strong>Jogos 51</strong><small>Roleta e Voo do Unicórnio</small></span></label><label><input type="checkbox" name="impostor"><span><strong>Impostor 51</strong><small>Salas e partidas</small></span></label><label><input type="checkbox" name="mystery"><span><strong>Mistério 51</strong><small>Perguntas e respostas</small></span></label><label><input type="checkbox" name="shop"><span><strong>Loja 51</strong><small>Novas compras</small></span></label><label><input type="checkbox" name="uploads"><span><strong>Envio de wallpapers</strong><small>Participantes e envio assistido</small></span></label></div><button class="button button-dark" type="submit">Salvar recursos</button></form>
+        <article class="card admin-card health-panel-card"><div class="card-title-row"><div><h3>Saúde da plataforma</h3><p>Indicadores calculados junto com o estado normal da página.</p></div><span id="healthOverallStatus">● Saudável</span></div><div id="healthMetrics" class="health-metrics"></div><p id="healthActivity" class="health-activity"></p></article>
         <form id="settingsForm" class="card admin-card">
           <h3>Rodada</h3>
           <label>Nome da rodada<input id="roundInput" maxlength="60"></label>
           <label>Temas para sortear<textarea id="themesInput" rows="7" maxlength="1800" placeholder="Um tema por linha"></textarea><small>Coloque um tema por linha. O sorteado libera os envios.</small></label>
           <label class="check-row"><input id="excludeLast" type="checkbox"><span><strong>Não repetir o último Gay da Rodada</strong><small>Quando houver mais de uma pessoa elegível.</small></span></label>
-          <button class="button button-dark" type="submit">Salvar configurações</button>
+          <button class="button button-dark" type="submit">Salvar configurações</button><button id="clearVisualThemesButton" class="button button-danger" type="button">Limpar temas de punição agora</button>
         </form>
-        <form id="scheduleForm" class="card admin-card"><h3>Calendário da rodada</h3><p>As datas aparecem para toda a equipe.</p><label>Prazo dos envios<input id="scheduleSubmissions" type="datetime-local"></label><label>Dia do sorteio<input id="scheduleDraw" type="datetime-local"></label><label>Prazo da votação<input id="scheduleVote" type="datetime-local"></label><button class="button button-dark" type="submit">Salvar calendário</button></form>
+        <form id="scheduleForm" class="card admin-card"><h3>Calendário da rodada</h3><p>Informe somente as datas. Elas aparecem para toda a equipe.</p><label>Prazo dos envios<input id="scheduleSubmissions" type="date"></label><label>Dia do sorteio<input id="scheduleDraw" type="date"></label><label>Prazo da votação<input id="scheduleVote" type="date"></label><button class="button button-dark" type="submit">Salvar calendário</button></form>
         <div class="card admin-card security-center-card"><div class="card-title-row"><h3>Central de segurança</h3><strong id="securityDeviceCount">0 dispositivos</strong></div><form id="gateCodeForm"><label>Novo código secreto<input id="newGateCode" minlength="2" maxlength="32" required></label><label>Sua senha administrativa<input id="gateAdminPassword" type="password" required></label><button class="button button-dark" type="submit">Alterar código</button></form><div id="authorizedDevices" class="authorized-devices"></div><button id="revokeAllDevices" class="button button-danger button-wide" type="button">Revogar todos os dispositivos</button></div>
         <div class="card admin-card"><div class="card-title-row"><div><h3>Atualização do site</h3><p>Use depois que uma nova versão for publicada. A equipe receberá o aviso para atualizar sem perder a sessão.</p></div><strong id="releaseVersionLabel">Versão 0</strong></div><button id="releaseUpdateButton" class="button button-primary button-wide" type="button">🚀 Liberar atualização para todos</button></div>
         <div class="card admin-card announcement-admin-card"><div class="card-title-row"><div><h3>Aviso para toda a equipe</h3><p>Cada usuário verá o aviso uma vez. Um novo aviso será exibido novamente para todos.</p></div><span>📢</span></div><form id="announcementForm"><label>Título<input id="announcementTitle" maxlength="70" placeholder="Ex.: Novidades da rodada" required></label><label>Mensagem<textarea id="announcementMessage" maxlength="700" rows="5" placeholder="Escreva o aviso para a equipe…" required></textarea></label><button class="button button-primary button-wide" type="submit">Publicar novo aviso</button><button id="clearAnnouncementButton" class="button button-dark button-wide" type="button">Remover aviso atual</button></form><small id="announcementStatus">Nenhum aviso publicado.</small></div>
@@ -624,7 +645,7 @@
 
   <dialog id="area51ProDialog" class="area51-pro-dialog">
     <button id="closeArea51Pro" class="area51-pro-close" type="button" aria-label="Fechar">×</button>
-    <div class="area51-pro-visual" aria-hidden="true"><img src="/area51-aliens-v2.png" alt=""></div>
+    <div class="area51-pro-visual" aria-hidden="true"><img src="/area51-aliens-cutout.png" alt=""></div>
     <span class="area51-pro-badge">ÁREA 51 PRO INTERGALÁCTICO</span>
     <h2>Quer abaixar<br>o volume?</h2>
     <p class="area51-pro-price"><strong>R$ 999,99</strong><span>Por clique silencioso</span></p>
@@ -680,13 +701,23 @@
     </div>
   </dialog>
 
-  <dialog id="cardPackDialog" class="card-pack-dialog" aria-labelledby="cardPackTitle"><h3 id="cardPackTitle">Pacotinho Cósmico</h3><div id="cardPackEnvelope" class="card-pack-envelope" aria-hidden="true"><div class="pack-seal">ÁREA 51 · CARTAS</div><span>🎴</span><strong>3 CARTAS SURPRESA</strong></div><div id="cardPackResult" role="status" aria-live="polite"></div><button id="closeCardPack" type="button">Fechar</button></dialog>
+  <dialog id="cardPackDialog" class="card-pack-dialog" aria-labelledby="cardPackTitle"><h3 id="cardPackTitle">Pacotinho Cósmico</h3><button id="cardPackEnvelope" class="card-pack-envelope" type="button" aria-describedby="cardPackResult"><div class="pack-seal"><span>✂</span> RASGUE AQUI</div><span class="pack-alien">👽</span><b>ÁREA 51</b><strong>3 CARTAS</strong><small>COLEÇÃO CÓSMICA</small></button><div id="cardPackResult" role="status" aria-live="polite"></div><button id="closeCardPack" type="button">Fechar</button></dialog>
   <dialog id="mysteryOpeningDialog" class="mystery-opening-dialog">
     <div class="mystery-opening-head"><span id="mysteryOpeningIcon">🎁</span><p><small>ABRINDO CAIXA MISTERIOSA</small><strong id="mysteryOpeningTitle">Preparando o prêmio…</strong></p></div>
     <div id="mysteryCarouselViewport" class="mystery-carousel-viewport"><div id="mysteryCarouselTrack" class="mystery-carousel-track"></div><i aria-hidden="true"></i></div>
     <div id="mysteryOpeningResult" class="mystery-opening-result"><span>🛸</span><strong>Aguarde o carrossel parar</strong></div>
     <div id="mysteryOpeningDecision" class="mystery-opening-decision hidden"><p>Decida agora: depois de ficar com o item, ele não poderá mais ser vendido.</p><button id="keepMysteryReward" type="button">Ficar com o prêmio</button><button id="sellMysteryReward" type="button">Vender agora</button></div>
   </dialog>
+  <dialog id="feedbackImageDialog" class="feedback-image-dialog">
+    <button id="closeFeedbackImageDialog" class="dialog-close" type="button" aria-label="Fechar print">×</button>
+    <img id="feedbackImageDialogContent" alt="Print anexado ao feedback">
+  </dialog>
+  <dialog id="mysteryBoxOddsDialog" class="mystery-box-odds-dialog">
+    <button id="closeMysteryBoxOddsDialog" class="dialog-close" type="button" aria-label="Fechar chances da caixa">×</button>
+    <div id="mysteryBoxOddsContent"></div>
+  </dialog>
+  <dialog id="onlinePeopleDialog" class="mystery-box-odds-dialog"><button id="closeOnlinePeopleDialog" class="dialog-close" type="button" aria-label="Fechar">×</button><h3>Tripulação online</h3><p id="onlinePeopleDialogList">Carregando…</p></dialog>
+  <dialog id="publicProfileDialog" class="mystery-box-odds-dialog public-profile-dialog"><button id="closePublicProfileDialog" class="dialog-close" type="button" aria-label="Fechar">×</button><div id="publicProfileContent"></div><form id="publicProfileCommentForm"><label>Deixar comentário registrado<textarea name="message" maxlength="300" required placeholder="Escreva algo legal…"></textarea></label><button class="button button-primary" type="submit">Publicar comentário</button></form></dialog>
 
   <aside id="nextStepGuide" class="next-step-guide hidden" aria-live="polite">
     <span class="next-step-alien" aria-hidden="true">👽</span>
@@ -696,14 +727,14 @@
 
   <button id="feedbackLauncher" class="feedback-launcher hidden" type="button" aria-controls="feedbackPanel" aria-expanded="false" aria-label="Abrir formulário de melhorias e bugs">
     <span class="feedback-launcher-halo" aria-hidden="true"></span>
-    <span class="feedback-alien-crop" aria-hidden="true"><img src="/area51-aliens-v2.png" alt=""></span>
+    <span class="feedback-alien-crop" aria-hidden="true"><img src="/area51-aliens-cutout.png" alt=""></span>
     <span class="feedback-launcher-copy"><strong>Enviar feedback</strong><small>Melhoria ou bug</small></span>
     <span id="feedbackUnread" class="feedback-unread hidden" aria-label="Solicitações aguardando aprovação">0</span>
   </button>
 
   <aside id="feedbackPanel" class="feedback-panel hidden" role="dialog" aria-modal="false" aria-labelledby="feedbackTitle">
     <header class="feedback-header">
-      <span class="feedback-header-alien" aria-hidden="true"><img src="/area51-aliens-v2.png" alt=""></span>
+      <span class="feedback-header-alien" aria-hidden="true"><img src="/area51-aliens-cutout.png" alt=""></span>
       <div><small>CANAL DA TRIPULAÇÃO</small><h2 id="feedbackTitle">Enviar feedback</h2><p id="feedbackPrivacyText">Seu relato será enviado somente ao administrador.</p></div>
       <button id="feedbackClose" class="feedback-close" type="button" aria-label="Fechar formulário">×</button>
     </header>
@@ -716,6 +747,7 @@
       </div>
       <label class="feedback-message-label" for="feedbackMessage">Sua mensagem</label>
       <textarea id="feedbackMessage" name="message" maxlength="800" rows="3" required placeholder="O que podemos melhorar? Explique a ideia ou o problema…"></textarea>
+      <label class="feedback-image-picker" for="feedbackImage"><span>🖼️ Anexar print (opcional)</span><input id="feedbackImage" type="file" accept="image/png,image/jpeg,image/webp"><small id="feedbackImageName">PNG, JPG ou WEBP · até 900 KB</small></label>
       <div class="feedback-form-foot">
         <span>🔒 Privado · <b id="feedbackCount">0</b>/800</span>
         <button class="feedback-send" type="submit">Enviar <b>↗</b></button>
@@ -733,10 +765,10 @@
   </aside>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="/community-feed.js?v=20260902-137"></script>
-  <script src="/avatar-crop.js?v=20260902-129"></script>
+  <script src="/community-feed.js?v=20260904-168"></script>
+  <script src="/avatar-crop.js?v=20260903-161"></script>
   <script src="/visual-trading.js?v=20260902-140"></script>
-  <script src="/card-album.js?v=20260903-144"></script>
-  <script src="/app.js?v=20260903-142"></script>
+  <script src="/card-album.js?v=20260904-170"></script>
+  <script src="/app.js?v=20260905-171"></script>
 </body>
 </html>

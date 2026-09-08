@@ -3,8 +3,8 @@ import {CARD_COLLECTIONS,albumFor,updateAlbum} from '../lib/card-album.mjs';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 const db={economy:{wallets:{u:123},purchases:[{id:'original'}]}},before=JSON.stringify(db);
-assert.equal(CARD_COLLECTIONS.length,5);assert.equal(new Set(CARD_COLLECTIONS.flatMap(c=>c.cards.map(([id])=>c.id+':'+id))).size,25);
-const empty=albumFor(db,'u');assert.equal(empty.collections.length,5);assert.ok(empty.collections.every(c=>c.cards.length===5&&!c.canCraft));assert.equal(JSON.stringify(db),before);
+assert.equal(CARD_COLLECTIONS.length,8);assert.equal(new Set(CARD_COLLECTIONS.flatMap(c=>c.cards.map(([id])=>c.id+':'+id))).size,40);
+const empty=albumFor(db,'u');assert.equal(empty.collections.length,8);assert.ok(empty.collections.every(c=>c.cards.length===5&&!c.canCraft));assert.equal(JSON.stringify(db),before);
 assert.throws(()=>updateAlbum(db,'u','craft','aurora'));assert.throws(()=>updateAlbum(db,'u','equip','aurora'));assert.equal(JSON.stringify(db),before);
 db.economy.cardAlbums={u:{cards:{},crafted:{}}};
 for(const collection of CARD_COLLECTIONS){

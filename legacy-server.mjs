@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { FLIGHT_STEP_MS, flightStepMs, flightMultiplier, settleFlight } from './lib/flight-engine.mjs';
-import { albumFor, updateAlbum, awardEngagementCard, updateCardTrade, openCardPack } from './lib/card-album.mjs';
+import { CARD_COLLECTIONS, CARD_PACK_RULES, albumFor, updateAlbum, awardEngagementCard, updateCardTrade, openCardPack } from './lib/card-album.mjs';
 import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
 import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
@@ -23,7 +23,6 @@ const LIVE_DRAW_DURATION = Math.max(80, Number(process.env.LIVE_DRAW_DURATION ||
 const MUSIC_EPOCH = Date.now();
 const MUSIC_LOOP_MS = 8000;
 const liveClients = new Map();
-const onlineVisits = new Map();
 let sharedOnlinePeople = [];
 const PRESENCE_TTL = 60000;
 
@@ -32,15 +31,45 @@ function presencePeople(rows, users, now = Date.now()) {
   return users.filter((user) => user.active && ids.has(user.id)).map((user) => ({ id: user.id, displayName: user.displayName }));
 }
 
+const PRESENCE_WRITE_INTERVAL = 20000;
+const PRESENCE_REFRESH_INTERVAL = 5000;
+const PRESENCE_CLEANUP_INTERVAL = 10 * 60 * 1000;
+const presenceHeartbeatAt = new Map();
+let presenceSnapshotAt = 0;
+let presenceCleanupAt = 0;
+
 async function heartbeatPresence(auth) {
   const now = Date.now();
   const sessionKey = createHash('sha256').update(auth.token).digest('hex');
-  const results = await runtimeEnv.DB.batch([
-    runtimeEnv.DB.prepare('DELETE FROM online_presence WHERE last_seen <= ?').bind(now - 86400000),
-    runtimeEnv.DB.prepare('INSERT INTO online_presence(session_key,user_id,last_seen) VALUES(?,?,?) ON CONFLICT(session_key) DO UPDATE SET last_seen=excluded.last_seen WHERE online_presence.last_seen < ?').bind(sessionKey, auth.user.id, now, now - 12000),
-    runtimeEnv.DB.prepare('SELECT user_id,last_seen FROM online_presence WHERE last_seen > ?').bind(now - PRESENCE_TTL),
-  ]);
-  sharedOnlinePeople = presencePeople(results[2].results || [], db.users, now);
+  const shouldWrite = now - Number(presenceHeartbeatAt.get(sessionKey) || 0) >= PRESENCE_WRITE_INTERVAL;
+  const shouldRefresh = !sharedOnlinePeople.length || now - presenceSnapshotAt >= PRESENCE_REFRESH_INTERVAL;
+  const shouldCleanup = now - presenceCleanupAt >= PRESENCE_CLEANUP_INTERVAL;
+  const statements = [];
+  let presenceResultIndex = -1;
+  if (shouldCleanup) {
+    statements.push(runtimeEnv.DB.prepare('DELETE FROM online_presence WHERE last_seen <= ?').bind(now - 60 * 60 * 1000));
+  }
+  if (shouldWrite) {
+    statements.push(runtimeEnv.DB.prepare('INSERT INTO online_presence(session_key,user_id,last_seen) VALUES(?,?,?) ON CONFLICT(session_key) DO UPDATE SET last_seen=excluded.last_seen').bind(sessionKey, auth.user.id, now));
+  }
+  if (shouldRefresh) {
+    presenceResultIndex = statements.length;
+    statements.push(runtimeEnv.DB.prepare('SELECT user_id,last_seen FROM online_presence WHERE last_seen > ?').bind(now - PRESENCE_TTL));
+  }
+  if (statements.length) {
+    const results = await runtimeEnv.DB.batch(statements);
+    if (shouldCleanup) presenceCleanupAt = now;
+    if (shouldWrite) presenceHeartbeatAt.set(sessionKey, now);
+    if (presenceResultIndex >= 0) {
+      sharedOnlinePeople = presencePeople(results[presenceResultIndex].results || [], db.users, now);
+      presenceSnapshotAt = now;
+    }
+  }
+  if (presenceHeartbeatAt.size > 256) {
+    for (const [key, lastSeen] of presenceHeartbeatAt) {
+      if (now - lastSeen > 2 * PRESENCE_TTL) presenceHeartbeatAt.delete(key);
+    }
+  }
   return sharedOnlinePeople;
 }
 let liveDraw = null;
@@ -50,6 +79,16 @@ let saveQueue = Promise.resolve();
 let runtimeEnv = null;
 let stateRevision = 0;
 let databaseReady = false;
+let databaseBytes = 0;
+const DEFAULT_FEATURE_FLAGS = Object.freeze({ casino: true, impostor: true, mystery: true, shop: true, uploads: true });
+
+function featureFlags() {
+  return { ...DEFAULT_FEATURE_FLAGS, ...db?.settings?.featureFlags };
+}
+
+function requireFeature(feature) {
+  if (featureFlags()[feature] === false) throw new HttpError(423, 'Este recurso está temporariamente pausado pelo administrador.');
+}
 
 class HttpError extends Error {
   constructor(status, message, options = {}) {
@@ -73,6 +112,7 @@ function passwordMatches(password, user) {
 
 function persist() {
   const snapshot = JSON.stringify(db);
+  databaseBytes = Buffer.byteLength(snapshot);
   saveQueue = saveQueue.catch(() => undefined).then(async () => {
     const expectedRevision = stateRevision;
     const nextRevision = expectedRevision + 1;
@@ -157,6 +197,7 @@ async function ensureDatabase(seedDatabase) {
   const stored = await runtimeEnv.DB.prepare('SELECT data, revision FROM app_state WHERE id = 1').first();
   if (!stored?.data) throw new Error('O banco online não pôde ser inicializado.');
   db = JSON.parse(String(stored.data));
+  databaseBytes = Buffer.byteLength(String(stored.data));
   stateRevision = Number(stored.revision || 1);
   liveDraw = db.settings?.liveDraw?.endsAt > Date.now() ? db.settings.liveDraw : null;
   databaseReady = true;
@@ -217,11 +258,21 @@ async function ensureDatabase(seedDatabase) {
   });
   if (!db.scores || typeof db.scores !== 'object') { db.scores = {}; changed = true; }
   if (!Array.isArray(db.feedbackMessages)) { db.feedbackMessages = []; changed = true; }
+  if (!Array.isArray(db.profileComments)) { db.profileComments = []; changed = true; }
+  if (!Array.isArray(db.impostorGames)) { db.impostorGames = []; changed = true; }
   const completedFeedback = {
     '7efd7717-d8b0-41a6-92f9-b54d339860a2': 'Concluído: a última mentira ganhou destaque visual no ranking.',
     'c3cd017c-0471-490e-9438-e6c7fffcfd85': 'Concluído: cada participante agora possui histórico expansível com os motivos confirmados.',
     'cbdaa18d-a42a-407a-ada2-b79e24b87290': 'Concluído: as caixas misteriosas agora abrem com carrossel animado de prêmios.',
     '9d39125f-270c-49fb-ac44-7072d9f0888d': 'Concluído: o cassino ganhou 250 créditos promocionais diários; ao alcançar 500, todo o saldo promocional pode ser transferido para a loja.',
+    'c6efcd23-6257-41ae-bc7d-420b35126dc5': 'Concluído: o Álbum agora tem mural público de trocas; publique uma repetida, receba ofertas e escolha qual aceitar.',
+    '3f758671-7bb6-401c-9fe6-f44f3db70c8c': 'Concluído: três coleções novas entraram nos pacotes e a montagem exibe o tier Bronze, Prata, Ouro ou Diamante.',
+    '5c7e94b3-a9d2-4ec9-b9b4-3918bd2c2265': 'Concluído: a insígnia do Álbum não substitui o emblema comprado; os dois ficam ativos juntos.',
+    'bd7f3f79-3328-4a92-b1da-50a03f9ff8d0': 'Concluído: os votos do Mentirômetro agora usam os rótulos Mentiu e Não mentiu em toda a votação e no histórico.',
+    '1b9549d0-27db-4243-8035-3f8356628e23': 'Concluído: a temporada atual recebeu nome, período e contagem regressiva; a troca para a próxima temporada ficou automática.',
+    '73beebc7-87dc-4fb8-89ba-2131f1c6998b': 'Concluído: o mural de cartas agora aceita ofertas em créditos, com reserva de saldo e transferência segura ao aceitar.',
+    '0ee51576-6d43-45d5-a861-b18fd80feb59': 'Concluído: a foto do próprio usuário agora aparece corretamente em suas publicações do mural.',
+    '2d20ed5b-9e09-4402-8100-a502acd04eaa': 'Concluído: o calendário da rodada agora trabalha apenas com datas, sem exigir ou exibir horário.',
   };
   db.feedbackMessages.forEach((item) => {
     if (completedFeedback[item.id] && (item.status !== 'done' || item.adminComment !== completedFeedback[item.id])) { item.status = 'done'; item.adminComment = completedFeedback[item.id]; item.updatedAt = new Date().toISOString(); changed = true; }
@@ -233,6 +284,12 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.waterEntries)) { db.waterEntries = []; changed = true; }
   if (!Array.isArray(db.rememberTokens)) { db.rememberTokens = []; changed = true; }
   if (!Array.isArray(db.lieAccusations)) { db.lieAccusations = []; changed = true; }
+  db.lieAccusations.filter((item) => item.status === 'pending').forEach((item) => {
+    if (!Array.isArray(item.requiredVoterIds) || !item.requiredVoterIds.length) { item.requiredVoterIds = db.users.filter((user) => user.active && user.approved !== false).map((user) => user.id); changed = true; }
+    if (!item.votes || typeof item.votes !== 'object') { item.votes = {}; changed = true; }
+    if (resolveLieVoteIfDecided(item)) changed = true;
+  });
+  if (!Array.isArray(db.lieDisputes)) { db.lieDisputes = []; changed = true; }
   if (!Array.isArray(db.mysteries)) { db.mysteries = []; changed = true; }
   if (!Array.isArray(db.gateAuthorizations)) { db.gateAuthorizations = []; changed = true; }
   if (!db.economy || typeof db.economy !== 'object') { db.economy = {}; changed = true; }
@@ -293,6 +350,8 @@ async function ensureDatabase(seedDatabase) {
   const validRememberTokens = db.rememberTokens.filter((item) => item.expiresAt > Date.now());
   if (validRememberTokens.length !== db.rememberTokens.length) { db.rememberTokens = validRememberTokens; changed = true; }
   if (!Array.isArray(db.settings.themes)) { db.settings.themes = []; changed = true; }
+  if (!Array.isArray(db.settings.themeFinalists)) { db.settings.themeFinalists = []; changed = true; }
+  if (!Object.hasOwn(db.settings, 'visualThemeClearedAt')) { db.settings.visualThemeClearedAt = null; changed = true; }
   if (!Array.isArray(db.settings.currentParticipantIds)) { db.settings.currentParticipantIds = []; changed = true; }
   if (typeof db.settings.currentParticipantsLocked !== 'boolean') { db.settings.currentParticipantsLocked = false; changed = true; }
   if (!Object.hasOwn(db.settings, 'currentRoundRecoveredAt')) { db.settings.currentRoundRecoveredAt = null; changed = true; }
@@ -302,7 +361,24 @@ async function ensureDatabase(seedDatabase) {
   if (!db.settings.gateSeed) { db.settings.gateSeed = randomBytes(24).toString('hex'); changed = true; }
   if (!db.settings.gateCodeHash) { db.settings.gateCodeHash = createHash('sha256').update(db.settings.gateSeed + ':' + GATE_CODE).digest('hex'); changed = true; }
   if (!db.settings.roundSchedule || typeof db.settings.roundSchedule !== 'object') { db.settings.roundSchedule = { submissionsAt: '', drawAt: '', voteAt: '' }; changed = true; }
+  for (const key of ['submissionsAt','drawAt','voteAt']) {
+    const current = String(db.settings.roundSchedule[key] || '');
+    const normalized = /^\d{4}-\d{2}-\d{2}/.test(current) ? current.slice(0,10) : '';
+    if (db.settings.roundSchedule[key] !== normalized) { db.settings.roundSchedule[key] = normalized; changed = true; }
+  }
+  if (!db.settings.seasons || typeof db.settings.seasons !== 'object') { db.settings.seasons = {}; changed = true; }
+  const activeSeasonKey = monthKeyFor();
+  if (!db.settings.seasons[activeSeasonKey]) {
+    db.settings.seasons[activeSeasonKey] = { name: activeSeasonKey === '2026-09' ? 'Expedição Estelar' : 'Temporada da Tripulação' };
+    changed = true;
+  }
   if (!Object.hasOwn(db.settings, 'announcement')) { db.settings.announcement = null; changed = true; }
+  if (!db.settings.featureFlags || typeof db.settings.featureFlags !== 'object') { db.settings.featureFlags = { ...DEFAULT_FEATURE_FLAGS }; changed = true; }
+  for (const [key, enabled] of Object.entries(DEFAULT_FEATURE_FLAGS)) {
+    if (typeof db.settings.featureFlags[key] !== 'boolean') { db.settings.featureFlags[key] = enabled; changed = true; }
+  }
+  if (!Object.hasOwn(db.settings, 'lastBackupAt')) { db.settings.lastBackupAt = null; changed = true; }
+  if (!Object.hasOwn(db.settings, 'lastCleanupAt')) { db.settings.lastCleanupAt = null; changed = true; }
   if (!db.settings.missionEconomyStartWeek) {
     const start = new Date(saoPauloWeekKey() + 'T12:00:00Z'); start.setUTCDate(start.getUTCDate() + 7);
     db.settings.missionEconomyStartWeek = start.toISOString().slice(0, 10); changed = true;
@@ -331,6 +407,7 @@ export async function refreshOnlineState() {
   const remoteRevision = Number(stored?.revision || 0);
   if (stored?.data && remoteRevision > stateRevision) {
     db = JSON.parse(String(stored.data));
+    databaseBytes = Buffer.byteLength(String(stored.data));
     stateRevision = remoteRevision;
     liveDraw = db.settings?.liveDraw?.endsAt > Date.now() ? db.settings.liveDraw : null;
   }
@@ -354,6 +431,8 @@ function saoPauloDayKey(date = new Date()) {
 
 const SHOP_CATALOG = [
   { id: 'card-pack-cosmic', name: 'Pacotinho Cósmico', icon: '🎴', type: 'cardPack', value: 'cosmic', consumable: true, cardPack: true, price: 120, description: 'Guarde no Perfil e rasgue para revelar 3 cartas. Cada carta: 90% básica e 10% rara. Pode haver repetidas. Cada insígnia exige 4 básicas diferentes e 1 rara da coleção. Sem revenda por créditos.' },
+  { id: 'card-pack-stellar', name: 'Pacotinho Estelar', icon: '🌠', type: 'cardPack', value: 'stellar', consumable: true, cardPack: true, price: 260, cardPackDailyLimit: 3, description: '3 cartas: 82% básica e 18% rara por carta. Chance de ao menos uma rara: cerca de 45%. Limite de 3 por dia; sem garantia de rara e sem revenda.' },
+  { id: 'card-pack-legendary', name: 'Pacotinho Lendário', icon: '💎', type: 'cardPack', value: 'legendary', consumable: true, cardPack: true, price: 520, cardPackDailyLimit: 1, description: '3 cartas: 72% básica e 28% rara por carta. Chance de ao menos uma rara: cerca de 63%. Limite de 1 por dia; sem garantia de rara e sem revenda.' },
   { id: 'cursor-crystal', name: 'Seta Cristal Lunar', description: 'Seta facetada azul e violeta, com ponta precisa e contorno contrastante. Combine com seus rastros.', price: 360, type: 'cursorStyle', value: 'crystal', icon: '💠' },
   { id: 'cursor-solar', name: 'Seta Lâmina Solar', description: 'Seta dourada e laranja em forma de lâmina solar. Ponta clara e tamanho próprio para clicar.', price: 390, type: 'cursorStyle', value: 'solar', icon: '☀️' },
   { id: 'name-ice', name: 'Nome Gelo Lunar', description: 'Letras azul-gelo com brilho no perfil, topo e menu.', price: 270, type: 'nameStyle', value: 'ice', icon: '🧊' },
@@ -410,6 +489,9 @@ const SHOP_CATALOG = [
   { id: 'cursor-laser', name: 'Cursor Laser Alienígena', description: 'Seta clássica verde e ciano com mira luminosa e ponto de clique preciso.', price: 300, type: 'cursorStyle', value: 'laser', icon: '🔫' },
   { id: 'cursor-rocket', name: 'Cursor Foguete 51', description: 'Seta de mouse em formato de foguete, com ponta clara e propulsão colorida.', price: 340, type: 'cursorStyle', value: 'rocket', icon: '🚀' },
   { id: 'cursor-alien', name: 'Cursor Agente ET', description: 'Seta clássica verde com visor alienígena, fácil de enxergar e clicar.', price: 280, type: 'cursorStyle', value: 'alien', icon: '👽' },
+  { id: 'cursor-petista', name: 'Seta Lula', description: 'Seta vermelha com estrela amarela, bem visível e precisa para navegar.', price: 360, type: 'cursorStyle', value: 'petista', icon: '⭐' },
+  { id: 'cursor-bolsonaro', name: 'Seta Bolsonaro', description: 'Seta em formato de arminha estilizada. Ao mover, solta um rastro de ação visual.', price: 360, type: 'cursorStyle', value: 'bolsonaro', icon: '👉' },
+  { id: 'cursor-umbanda', name: 'Seta Muito Axé', description: 'Seta em tons dourados e violeta. Ao mover, deixa mensagens de muito axé.', price: 370, type: 'cursorStyle', value: 'umbanda', icon: '✨' },
   { id: 'cursor-unicorn', name: 'Unicórnio Galopante Premium', description: 'Libera o unicórnio completo que galopa, vira e reage ao clique.', price: 590, type: 'cursorStyle', value: 'unicorn', icon: '🏇' },
   { id: 'trail-rainbow', name: 'Rastro Arco-íris Original', description: 'Libera a cauda colorida clássica atrás do cursor.', price: 160, type: 'trailStyle', value: 'rainbow', icon: '🌈' },
   { id: 'trail-gold', name: 'Rastro Estelar Dourado', description: 'Troca seu arco-íris por uma cauda de estrelas douradas.', price: 270, type: 'trailStyle', value: 'gold', icon: '✨' },
@@ -642,6 +724,13 @@ function rewardTeamMissionIfComplete() {
 
 function monthKeyFor(date = new Date()) { return saoPauloDayKey(date).slice(0, 7); }
 function previousMonthKey() { const now = new Date(); return monthKeyFor(new Date(now.getFullYear(), now.getMonth() - 1, 15)); }
+function seasonMeta(monthKey) {
+  const [year,month]=monthKey.split('-').map(Number),nextMonth=month===12?1:month+1,nextYear=month===12?year+1:year;
+  const nextKey=String(nextYear).padStart(4,'0')+'-'+String(nextMonth).padStart(2,'0');
+  const configured=db.settings.seasons?.[monthKey] || {};
+  const label=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'America/Sao_Paulo'}).format(new Date(monthKey+'-15T12:00:00-03:00'));
+  return {name:configured.name || 'Temporada '+label,startsAt:monthKey+'-01T00:00:00-03:00',endsAt:nextKey+'-01T00:00:00-03:00',nextSeasonKey:nextKey};
+}
 function seasonSummary(monthKey = monthKeyFor()) {
   const people = db.users.filter((item) => item.approved !== false).map((person) => {
     const prefix = monthKey + '-';
@@ -654,37 +743,48 @@ function seasonSummary(monthKey = monthKeyFor()) {
     const points = best * 25 + memes * 3 + phrases * 2 + Math.floor(water / 2500) * 4 + gay * 2 + lies;
     return { id: person.id, displayName: person.displayName, points, water, memes, phrases, best, gay, lies };
   }).sort((a, b) => b.points - a.points || a.displayName.localeCompare(b.displayName));
-  return { monthKey, ranking: people.slice(0, 9), leader: people[0]?.points > 0 ? people[0] : null };
+  return { monthKey, ...seasonMeta(monthKey), ranking: people.slice(0, 9), leader: people[0]?.points > 0 ? people[0] : null };
 }
 
 const MYSTERY_ANSWERS = new Set(['sim', 'nao', 'irrelevante']);
 const MYSTERY_ANSWER_LABELS = { sim: 'SIM', nao: 'NÃO', irrelevante: 'IRRELEVANTE' };
 
 function activeMystery() {
-  return [...db.mysteries].reverse().find((item) => item.status === 'open') || null;
+  return [...db.mysteries].reverse().find((item) => item.status === 'open' || item.status === 'draft') || null;
 }
+
+const IMPOSTOR_PAIRS=[['Praia','Piscina'],['Pizza','Hambúrguer'],['Café','Chá'],['Cinema','Teatro'],['Avião','Navio'],['Gato','Cachorro'],['Brasil','Argentina'],['Chuva','Neve'],['Hospital','Escola'],['Futebol','Vôlei'],['Livro','Filme'],['Lua','Sol'],['Sorvete','Bolo'],['Praça','Parque'],['Ônibus','Metrô']];
+function activeImpostorGame(){return [...(db.impostorGames||[])].reverse().find(game=>['lobby','tips','voting'].includes(game.status))||null;}
+function impostorForClient(user){const latest=db.impostorGames?.at(-1);const game=activeImpostorGame()||(latest?.status==='result'?latest:null);if(!game)return {active:null};const isPlayer=game.players.some(person=>person.id===user.id),showResult=game.status==='result';return {active:{id:game.id,code:game.code,hostId:game.hostId,hostName:game.hostName,status:game.status,players:game.players.map(person=>({id:person.id,name:person.name,isMe:person.id===user.id})),tips:game.tips||[],currentTurn:game.status==='tips'?game.players[game.turnIndex]:null,ownWord:isPlayer?game.words?.[user.id]||null:null,canStart:game.status==='lobby'&&game.hostId===user.id,canLeave:game.status==='lobby'&&isPlayer&&game.hostId!==user.id,canCancel:game.status==='lobby'&&game.hostId===user.id,canJoin:game.status==='lobby'&&!isPlayer,canTip:game.status==='tips'&&game.players[game.turnIndex]?.id===user.id,canVote:game.status==='voting'&&isPlayer&&!game.votes?.[user.id],hasVoted:Boolean(game.votes?.[user.id]),canEnd:user.role==='admin'&&['lobby','tips','voting','result'].includes(game.status),result:showResult?{impostorId:game.impostorId,impostorName:game.players.find(person=>person.id===game.impostorId)?.name||'Impostor',normalWord:game.normalWord,impostorWord:game.impostorWord,winner:game.winner,votes:Object.entries(game.votes||{}).map(([voterId,targetId])=>({voterName:game.players.find(person=>person.id===voterId)?.name||'Jogador',targetName:game.players.find(person=>person.id===targetId)?.name||'Jogador'}))}:null}};}
 
 function mysteryForClient(user) {
   const mystery = activeMystery() || db.mysteries.at(-1) || null;
   if (!mystery) return { active: null, canStart: user.role === 'admin', canDelete: user.role === 'admin' };
   const canManage = mystery.readerId === user.id;
+  const isDraft = mystery.status === 'draft';
   const revealed = mystery.status === 'closed';
   return {
     active: {
       id: mystery.id, title: mystery.title, premise: mystery.premise, readerName: mystery.readerName,
       readerId: mystery.readerId, status: mystery.status, createdAt: mystery.createdAt, closedAt: mystery.closedAt || null,
-      solution: revealed || canManage || user.role === 'admin' ? mystery.solution : null,
+      solution: revealed || canManage ? mystery.solution : null,
+      isDraft,
       questionCount: (mystery.questions || []).length,
       questions: (mystery.questions || []).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map((question) => ({
         id: question.id, text: question.text, authorName: question.authorName, authorId: question.authorId,
-        createdAt: question.createdAt, answer: question.answer || null,
+        createdAt: question.createdAt, answer: question.answer || null, cancelledAt: question.cancelledAt || null,
         answerLabel: question.answer ? MYSTERY_ANSWER_LABELS[question.answer] : null,
         answeredAt: question.answeredAt || null,
+      })).filter((question) => !question.cancelledAt || question.authorId === user.id || canManage || user.role === 'admin'),
+      guesses: (mystery.guesses || []).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map((guess) => ({
+        id: guess.id, text: guess.text, authorId: guess.authorId, authorName: guess.authorName, createdAt: guess.createdAt,
+        similarity: Number.isInteger(guess.similarity) ? guess.similarity : null, reveal: guess.reveal || null, reviewedAt: guess.reviewedAt || null,
       })),
     },
     canStart: !activeMystery() && user.role === 'admin',
     canAsk: mystery.status === 'open' && mystery.readerId !== user.id,
     canManage,
+    canSetup: isDraft && canManage,
     canClear: user.role === 'admin',
     canDelete: user.role === 'admin',
   };
@@ -735,6 +835,42 @@ function activeLieReasons(targetUserId) {
       else if (item.delta < 0 && stack.length) stack.pop();
     });
   return stack;
+}
+
+export function lieVoteDecision(requiredVoterIds = [], votes = {}) {
+  const voterIds = [...new Set(requiredVoterIds)];
+  const lieVotes = voterIds.filter((id) => votes[id] === 'lie').length;
+  const truthVotes = voterIds.filter((id) => votes[id] === 'truth').length;
+  const remaining = Math.max(0, voterIds.length - lieVotes - truthVotes);
+  const lieCannotBeCaught = lieVotes > truthVotes + remaining;
+  const truthCannotBeCaught = truthVotes > lieVotes + remaining;
+  const everyoneVoted = remaining === 0;
+  const outcome = lieCannotBeCaught || (everyoneVoted && lieVotes > truthVotes) ? 'lie' : truthCannotBeCaught || everyoneVoted ? 'truth' : null;
+  return { outcome, lieVotes, truthVotes, remaining };
+}
+
+function resolveLieVoteIfDecided(item, now = new Date().toISOString()) {
+  if (!item || item.status !== 'pending' || !Array.isArray(item.requiredVoterIds)) return false;
+  item.votes ||= {};
+  const { outcome, lieVotes, truthVotes, remaining } = lieVoteDecision(item.requiredVoterIds, item.votes);
+  if (!outcome) return false;
+
+  if (outcome === 'lie') {
+    item.status = 'confirmed';
+    item.confirmedAt = now;
+    item.validatedByUserId = null;
+    item.voteOutcome = 'lie';
+    const target = db.users.find((person) => person.id === item.targetUserId);
+    const resultText = remaining > 0 ? `maioria definida em ${lieVotes} a ${truthVotes}` : `votação ${lieVotes} a ${truthVotes}`;
+    db.anonymousPosts.push({ id: randomUUID(), authorId: null, system: true, authorName: 'Mentirômetro', message: '🤥 Mentira confirmada para ' + (target?.displayName || 'participante') + ': “' + (item.reason || 'Sem motivo registrado') + '” · ' + resultText + '.', createdAt: now });
+    if (db.anonymousPosts.length > 500) db.anonymousPosts = db.anonymousPosts.slice(-500);
+  } else {
+    item.status = 'rejected';
+    item.rejectedAt = now;
+    item.voteOutcome = 'truth';
+  }
+  item.decisionVotes = { lie: lieVotes, truth: truthVotes, remaining };
+  return true;
 }
 
 function cosmeticsFor(userId) {
@@ -907,6 +1043,7 @@ function feedbackForClient(user) {
     approvedAt: item.approvedAt || null,
     completedAt: item.completedAt || null,
     archivedAt: item.archivedAt || null,
+    imageUrl: item.imageFilename ? '/feedback-images/' + encodeURIComponent(item.imageFilename) : null,
   }));
 }
 
@@ -1129,16 +1266,18 @@ function tradingFor(user) {
   return {participants,trades};
 }
 async function handleCommunityExtras(req,res,route) {
-  if (!['/api/trades/create','/api/trades/respond','/api/lie-meter/report'].includes(route) || req.method!=='POST') return false;
+  if (!['/api/trades/create','/api/trades/respond'].includes(route) || req.method!=='POST') return false;
   const {user}=requireAuth(req); const body=await readJson(req); const now=new Date().toISOString();
   if (route==='/api/lie-meter/report') {
     const lie=db.lieAccusations.find(l=>l.id===body.lieId && l.status==='confirmed' && l.delta>0);
     if (!lie || !activeLieReasons(lie.targetUserId).some(l=>l.id===lie.id)) throw new HttpError(404,'Mentira confirmada não encontrada.');
     const reason=String(body.reason || '').trim();
     if(reason.length<5 || reason.length>500) throw new HttpError(400,'Explique a denúncia em 5 a 500 caracteres.');
-    if(db.feedbackMessages.some(f=>f.lieId===lie.id && f.authorId===user.id)) throw new HttpError(409,'Você já denunciou este registro. Acompanhe em Minhas solicitações.');
-    const name=id=>db.users.find(p=>p.id===id)?.displayName || 'Não registrado';
-    db.feedbackMessages.push({id:randomUUID(),type:'bug',lieId:lie.id,message:'Denúncia de mentira de '+name(lie.targetUserId)+': “'+(lie.reason||'Sem motivo registrado')+'”. Registrada por '+name(lie.createdByUserId)+'; aprovada por '+name(lie.validatedByUserId)+'. Motivo da denúncia: '+reason,authorId:user.id,authorName:user.displayName,createdAt:now,updatedAt:now,status:'pending',adminComment:'',approvedAt:null,completedAt:null,archivedAt:null});
+    if((db.lieDisputes || []).some((item) => item.lieId === lie.id && item.status === 'open')) throw new HttpError(409,'Essa mentira já está em discussão. As pessoas responsáveis receberam uma notificação.');
+    const participantIds=[...new Set([lie.targetUserId,lie.createdByUserId,lie.validatedByUserId].filter(Boolean))];
+    if(participantIds.length!==3) throw new HttpError(409,'Esta mentira não possui as três pessoas necessárias para uma revisão em consenso.');
+    db.lieDisputes ||= [];
+    db.lieDisputes.push({id:randomUUID(),lieId:lie.id,reporterId:user.id,reason,participantIds,decisions:{},messages:[{id:randomUUID(),authorId:user.id,authorName:user.displayName,text:'Denúncia aberta: '+reason,system:true,createdAt:now}],status:'open',outcome:null,createdAt:now,updatedAt:now});
   } else if(route==='/api/trades/create') {
     const partner=db.users.find(p=>p.id===body.partnerId && p.active && p.id!==user.id);
     const offered=tradablePurchase(body.offeredId,user.id),wanted=partner && tradablePurchase(body.wantedId,partner.id);
@@ -1174,6 +1313,11 @@ async function handleCommunityExtras(req,res,route) {
 
 
 
+function publicProfileFor(target) {
+  const score=scoreFor(target.id),titles=liveTitleAssignments().get(target.id)||[];
+  return {id:target.id,displayName:target.displayName,avatarDataUrl:target.avatarDataUrl||null,liveTitles:titles,showcase:profileFor(target).showcase.selected,stats:{bestWins:score.bestWins||0,worstWins:score.worstWins||0,gayWins:score.gayWins||0},comments:(db.profileComments||[]).filter(item=>item.targetUserId===target.id).slice(-30).reverse().map(item=>({id:item.id,authorName:item.authorName,message:item.message,createdAt:item.createdAt}))};
+}
+
 function profileFor(user, computed = {}) {
   const score = scoreFor(user.id);
   const purchases = db.economy.purchases.filter((item) => item.userId === user.id);
@@ -1197,9 +1341,16 @@ function profileFor(user, computed = {}) {
     { id: 'collector', icon: '🛍️', name: 'Colecionador cósmico', description: 'Comprou pelo menos 3 itens.', unlocked: purchases.length >= 3 },
     { id: 'season-champion', icon: '🌟', name: 'Campeão da temporada', description: 'Terminou um mês na liderança geral.', unlocked: previousSeason.leader?.id === user.id },
   ];
+  const album = computed.cardAlbum || albumFor(db, user.id, saoPauloDayKey());
+  const showcaseOptions = [
+    ...medals.filter((item) => item.unlocked).map((item) => ({ id: 'medal:' + item.id, icon: item.icon, name: item.name, description: item.description, kind: 'Medalha' })),
+    ...album.collections.filter((item) => item.craftedAt).map((item) => ({ id: 'album:' + item.id, icon: item.medal?.icon || item.icon, name: item.badge, description: item.name + ' · ' + (item.medal?.label || 'Insígnia'), kind: 'Insígnia' })),
+  ];
+  const savedShowcase = Array.isArray(user.profileShowcase) ? user.profileShowcase.slice(0, 4) : [];
+  const showcaseSelected = savedShowcase.map((id) => showcaseOptions.find((item) => item.id === id)).filter(Boolean);
   return {
     wallet: walletFor(user.id), equipped,
-    cardPacks: db.economy.purchases.filter(p=>p.userId===user.id && p.itemId==='card-pack-cosmic' && !p.cardPackOpenedAt).map(p=>({id:p.id})),
+    cardPacks: db.economy.purchases.filter(p=>p.userId===user.id && CARD_PACK_RULES[p.itemId] && !p.cardPackOpenedAt).map(p=>{const item=SHOP_CATALOG.find(entry=>entry.id===p.itemId);return {id:p.id,itemId:p.itemId,name:item?.name || 'Pacotinho',icon:item?.icon || '🎴',rareChance:Math.round(CARD_PACK_RULES[p.itemId].rareChance*100),value:item?.value || 'cosmic'};}),
     openedCardPacks: db.economy.purchases.filter(p=>p.userId===user.id && p.cardPackOpenedAt).slice(-3).reverse().map(p=>({id:p.id,cards:p.cardPackRewards,openedAt:p.cardPackOpenedAt})),
     physicalPrizes: physicalKitClaim() && (physicalKitClaim().userId === user.id || user.role === 'admin') ? [{ ...physicalKitClaim(), winnerName: db.users.find(entry => entry.id === physicalKitClaim().userId)?.displayName || 'Participante' }] : [],
     loan: (() => {
@@ -1227,7 +1378,7 @@ function profileFor(user, computed = {}) {
       : forcedCursor ? { style: forcedCursor.style || 'gay', appliedBy: forcedCursor.usedByName, createdAt: forcedCursor.createdAt, expiresAt: forcedCursor.expiresAt || null } : null,
     liveTitles: (computed.liveTitleMap || liveTitleAssignments()).get(user.id) || [],
     stats: { hydrationDays, memes, phrases, purchases: purchases.length, ...score },
-    medals,
+    medals, showcase: { selected: showcaseSelected, selectedIds: showcaseSelected.map((item) => item.id), options: showcaseOptions, max: 4 },
     mission: weeklyMissionFor(user.id), dailyMissions: dailyMissionsFor(user.id), cleanNameMission: cleanNameMissionFor(user.id), creditLedger: computed.creditLedger || creditLedgerFor(user.id),
     activePowers: {
       shield: Boolean(db.settings.currentRoundId && db.economy.shields.some((item) => item.roundId === db.settings.currentRoundId && item.userId === user.id)),
@@ -1242,7 +1393,7 @@ function profileFor(user, computed = {}) {
     shop: SHOP_CATALOG.filter((item) => !item.adminOnly || user.role === 'admin').map((item) => {
       const granted = Boolean(item.adminOnly && user.role === 'admin');
       const quantity = item.cardPack ? db.economy.purchases.filter(p=>p.userId===user.id && p.itemId===item.id && !p.cardPackOpenedAt).length : item.mysteryBox ? db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id && entry.boxId === item.id).length : item.consumable ? availablePowerPurchases(user.id, item.id).length : (ownedIds.has(item.id) || granted ? 1 : 0);
-      return { ...item, ...(item.id === 'box-master-imperial' ? { description: item.description + (physicalKitClaim() ? ' Kit físico de caderno e caneta: esgotado (única unidade já sorteada).' : ' Extra raríssimo: 0,1% por abertura de ganhar o único kit físico de caderno e caneta, em vez do prêmio digital. Entrega combinada com o administrador; sem revenda por créditos.') } : {}), quantity, availablePoints: item.service ? score.bestWins : 0, owned: item.mysteryBox ? quantity > 0 : item.service ? false : granted || quantity > 0 || ownedIds.has(item.id), granted, equipped: !item.consumable && !item.mysteryBox && !item.service && equipped[item.type] === item.id };
+      return { ...item, ...(item.id === 'box-master-imperial' ? { description: item.description + (physicalKitClaim() ? ' Kit físico de caderno e caneta: esgotado (única unidade já sorteada).' : ' Extra raríssimo: 0,1% por abertura de ganhar o único kit físico de caderno e caneta, em vez do prêmio digital. Entrega combinada com o administrador; sem revenda por créditos.'), physicalKitChance: physicalKitClaim() ? 0 : .1 } : {}), quantity, availablePoints: item.service ? score.bestWins : 0, owned: item.mysteryBox ? quantity > 0 : item.service ? false : granted || quantity > 0 || ownedIds.has(item.id), granted, equipped: !item.consumable && !item.mysteryBox && !item.service && equipped[item.type] === item.id };
     }),
     giftOptions: {
       people: db.users.filter((item) => item.active && item.approved !== false && item.id !== user.id).map((item) => ({ id: item.id, displayName: item.displayName })),
@@ -1300,11 +1451,20 @@ function updateCommentMentions(comment) {
 
 function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   const roundId = db.settings.currentRoundId; const items = [];
+  for (const dispute of (db.lieDisputes || []).filter((item) => item.status === 'open' && item.participantIds.includes(user.id)).slice(-4)) {
+    const lie = db.lieAccusations.find((item) => item.id === dispute.lieId);
+    const pending = dispute.participantIds.filter((id) => !dispute.decisions?.[id]).length;
+    items.push({ id: 'lie-dispute:' + dispute.id, icon: '⚖️', title: 'Discussão sobre uma mentira', detail: lie?.reason || (pending + ' decisão(ões) aguardando'), page: 'mentirometro', createdAt: dispute.updatedAt || dispute.createdAt });
+  }
   for (const trade of (db.economy.trades || []).filter(t => (t.toId===user.id || t.fromId===user.id) && (t.status!=='pending' || Date.parse(t.expiresAt)>Date.now())).slice(-4)) {
     items.push({id:'trade:'+trade.id,icon:'🔄',title:trade.status==='pending'?'Proposta de troca de visuais':'Proposta de troca atualizada',detail:trade.offeredName+' ↔ '+trade.wantedName,page:'perfil',createdAt:trade.updatedAt});
   }
   for(const drop of (db.economy.cardAlbums?.[user.id]?.drops || []).slice(-2))items.push({id:'card-drop:'+drop.eventId,icon:drop.icon,title:'Você encontrou uma carta!',detail:drop.name,page:'album',createdAt:drop.createdAt});
   for(const trade of (db.economy.cardTrades || []).filter(t=>t.toId===user.id || t.fromId===user.id).slice(-2))items.push({id:'card-trade:'+trade.id,icon:'🎴',title:trade.status==='pending'?'Proposta de troca de cartas':'Troca de cartas atualizada',detail:'Confira no Álbum de cartas.',page:'album',createdAt:trade.updatedAt});
+  const rejectedCardOffers=(db.economy.cardTradePosts || []).flatMap(post=>(post.offers || []).filter(offer=>offer.fromId===user.id&&offer.status==='rejected').map(offer=>({post,offer}))).sort((a,b)=>(b.offer.updatedAt || '').localeCompare(a.offer.updatedAt || '')).slice(0,4);
+  for(const {post,offer} of rejectedCardOffers){const card=CARD_COLLECTIONS.flatMap(collection=>collection.cards.map(([id,name])=>[collection.id+':'+id,name])).find(([id])=>id===offer.cardId);items.push({id:'card-market-rejected:'+offer.id,icon:'↩️',title:'Sua oferta foi recusada',detail:offer.creditAmount?offer.creditAmount+' créditos foram liberados para novas ofertas.':(card?.[1] || 'Sua carta')+' foi liberada para outra troca.',page:'album',createdAt:offer.updatedAt});}
+  const incomingCardMarketOffers=(db.economy.cardTradePosts || []).filter(post=>post.fromId===user.id&&post.status==='open').flatMap(post=>(post.offers || []).filter(offer=>offer.status!=='rejected').map(offer=>({post,offer}))).sort((a,b)=>String(b.offer.createdAt || '').localeCompare(String(a.offer.createdAt || ''))).slice(0,4);
+  for(const {post,offer} of incomingCardMarketOffers)items.push({id:'card-market-offer:'+offer.id,icon:offer.creditAmount?'🪙':'🃏',title:'Nova oferta pela sua carta',detail:offer.creditAmount?offer.creditAmount+' créditos oferecidos.':'Uma carta foi oferecida para troca.',page:'album',createdAt:offer.createdAt});
   const masterGift = db.settings.masterGift136;
   if (masterGift?.userIds?.includes(user.id)) items.push({id:'feature-master-136',icon:'💠',title:'Você ganhou um Baú Master Aurora!',detail:'Brinde das novidades: abra ou venda pelo perfil.',page:'perfil',createdAt:masterGift.grantedAt});
   for (const post of [...db.dailyMemes, ...db.dailyPhrases]) {
@@ -1327,6 +1487,31 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   return { unreadCount: sorted.filter((item) => item.unread).length, items: sorted, readAt };
 }
 
+function roundRecapFor(voting) {
+  if (!voting || voting.status !== 'closed') return null;
+  const best = db.submissions.find((item) => item.id === voting.bestWinnerId);
+  const worst = db.submissions.find((item) => item.id === voting.worstWinnerId);
+  const gay = [...db.draws].reverse().find((item) => item.type === 'gay' && item.roundId === voting.roundId);
+  const themeDraw = db.draws.find((item) => item.type === 'theme' && item.roundId === voting.roundId);
+  const theme = themeDraw?.winner || themeDraw?.detail || null;
+  const participantCount = Number(voting.requiredVoterIds?.length || 0);
+  const voteCount = Number(voting.votes?.length || 0);
+  const lines = [
+    '🛸 RESUMO DA ' + String(voting.roundName || 'RODADA 51').toUpperCase(),
+    theme ? '🎨 Tema: ' + theme : null,
+    best ? '🏆 Melhor wallpaper: ' + best.uploader + ' — ' + best.title : null,
+    worst ? '😂 Wallpaper mais caótico: ' + worst.uploader + ' — ' + worst.title : null,
+    gay?.winner ? '🌈 Gay da Rodada: ' + gay.winner : null,
+    '🗳️ ' + voteCount + ' de ' + participantCount + ' votos registrados.',
+  ].filter(Boolean);
+  return {
+    roundId: voting.roundId, roundName: voting.roundName || 'Rodada 51', theme,
+    best: best ? { name: best.uploader, title: best.title } : null,
+    worst: worst ? { name: worst.uploader, title: worst.title } : null,
+    gayWinner: gay?.winner || null, participantCount, voteCount, text: lines.join('\n'),
+  };
+}
+
 function stateFor(user) {
   const roundId = db.settings.currentRoundId;
   const activeItems = db.submissions.filter((item) => item.active && item.roundId === roundId)
@@ -1334,6 +1519,7 @@ function stateFor(user) {
   const roundUsers = eligibleUsers();
   const activeSubmitterIds = new Set(activeItems.map((item) => item.userId));
   const voting = currentVoting();
+  const recapVoting = voting?.status === 'closed' ? voting : [...db.votings].reverse().find((item) => item.status === 'closed') || null;
   const revealedIds = new Set(voting && voting.status === 'closed' ? voting.submissionIds : []);
   const roundAssignments = db.assignments.filter((item) => item.roundId === roundId);
   const revealedAssignments = roundAssignments.filter((item) => item.revealed);
@@ -1345,6 +1531,15 @@ function stateFor(user) {
   const latestGayDraw = [...db.draws].reverse().find((item) => item.type === 'gay') || null;
   const latestClosedVoting = [...db.votings].reverse().find((item) => item.status === 'closed' && item.worstWinnerId) || null;
   const latestWorstSubmission = latestClosedVoting ? db.submissions.find((item) => item.id === latestClosedVoting.worstWinnerId) : null;
+  const penaltyClearedAt = Number(new Date(db.settings.visualThemeClearedAt || 0));
+  const visualPenalty = (sourceAt, kind) => {
+    const startedAt = Number(new Date(sourceAt || 0));
+    const endsAt = startedAt + 7 * 24 * 60 * 60 * 1000;
+    return startedAt > penaltyClearedAt && endsAt > Date.now() ? { kind, endsAt: new Date(endsAt).toISOString() } : null;
+  };
+  const gayPenalty = latestGayDraw?.winnerId === user.id ? visualPenalty(latestGayDraw.createdAt, 'rainbow') : null;
+  const punishmentPenalty = latestWorstSubmission?.userId === user.id ? visualPenalty(latestClosedVoting?.closedAt || latestClosedVoting?.openedAt, 'punishment') : null;
+  const activeVisualPenalty = gayPenalty || punishmentPenalty;
   const votedIds = new Set(voting ? (voting.votes || []).map((item) => item.userId) : []);
   let phase = 'theme';
   if (roundId) {
@@ -1362,13 +1557,17 @@ function stateFor(user) {
     const revealed = relatedVoting && relatedVoting.status === 'closed';
     return {
       ...safeDraw,
-      imageUrl: draw.winnerUserId === user.id ? safeDraw.imageUrl : null,
+      // Antes do encerramento, a imagem só é visível para quem a recebeu.
+      // Depois da votação, o histórico público deve mostrar o wallpaper
+      // correspondente a cada distribuição.
+      imageUrl: (draw.winnerUserId === user.id || revealed) ? safeDraw.imageUrl : null,
       detail: item ? draw.wallpaperTitle + (revealed ? ' · por ' + item.uploader : ' · autoria secreta') : safeDraw.detail,
     };
   });
   const liveTitleMap = liveTitleAssignments();
   const previousSeason = seasonSummary(previousMonthKey());
   const creditLedger = creditLedgerFor(user.id);
+  const cardAlbum = albumFor(db, user.id, saoPauloDayKey());
   const rankingUsers = db.users.filter((item) => item.active).map((item) => ({
     id: item.id, displayName: item.displayName, liveTitles: liveTitleMap.get(item.id) || [], ...scoreFor(item.id),
   }));
@@ -1385,11 +1584,13 @@ function stateFor(user) {
   })).sort((a, b) => b.totalMl - a.totalMl || a.displayName.localeCompare(b.displayName));
   return {
     serverRevision: stateRevision,
-    me: { ...safeUser(user), cosmetics: cosmeticsFor(user.id) }, settings: { ...db.settings, announcement: undefined },
-    avatars: Object.fromEntries(db.users.filter((item) => item.active).map((item) => [item.id, item.avatarDataUrl || null])),
+    realtimeTransport: runtimeEnv ? 'adaptive-poll' : 'sse',
+    me: { ...safeUser(user), cosmetics: cosmeticsFor(user.id) }, settings: { ...db.settings, featureFlags: featureFlags(), announcement: undefined },
+    // A foto do próprio usuário já está em `me`; não a duplique no payload.
+    avatars: Object.fromEntries(db.users.filter((item) => item.active && item.id !== user.id).map((item) => [item.id, item.avatarDataUrl || null])),
     announcement: db.settings.announcement ? { id: db.settings.announcement.id, title: db.settings.announcement.title, message: db.settings.announcement.message, createdAt: db.settings.announcement.createdAt, createdBy: db.settings.announcement.createdBy, unread: !db.settings.announcement.seenUserIds.includes(user.id), seenCount: user.role === 'admin' ? db.settings.announcement.seenUserIds.length : undefined } : null,
     liveDraw: liveDraw && liveDraw.endsAt > Date.now() ? drawForUser(liveDraw, user.id) : null,
-    profile: profileFor(user, { liveTitleMap, previousSeason, creditLedger }), notifications: notificationsFor(user, creditLedger),
+    profile: profileFor(user, { liveTitleMap, previousSeason, creditLedger, cardAlbum }), notifications: notificationsFor(user, creditLedger), roundRecap: roundRecapFor(recapVoting),
     onlinePeople: sharedOnlinePeople.length ? sharedOnlinePeople : [{ id: user.id, displayName: user.displayName }],
     casino: (() => {
       const dayKey = saoPauloDayKey(); const plays = db.economy.casinoPlays.filter((item) => item.userId === user.id && item.dayKey === dayKey); const account = casinoAccountFor(user.id);
@@ -1400,8 +1601,10 @@ function stateFor(user) {
       const myPlays = db.economy.casinoPlays.filter((item) => item.userId === user.id);
       return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday: plays.length, totalWagered, totalPlays, recentFlights, globalFlight: round && round.status !== 'crashed' ? { id: round.id, status: round.status, launchAt: round.launchAt, joined: Boolean(myFlightBet), betStatus: myFlightBet?.status || null, players: round.bets.length } : null, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette: myPlays.filter((item) => item.resultType !== 'flight').slice(-6).reverse(), recentFlight: myPlays.filter((item) => item.resultType === 'flight').slice(-6).reverse() };
     })(),
-    visualTheme: latestGayDraw && latestGayDraw.winnerId === user.id ? 'rainbow' : latestWorstSubmission && latestWorstSubmission.userId === user.id ? 'punishment' : 'user-choice',
+    visualTheme: activeVisualPenalty?.kind || 'user-choice', visualThemeEndsAt: activeVisualPenalty?.endsAt || null,
     themes: db.settings.themes.map((name) => ({ id: name, name })),
+    themeWheel: (() => { const finalists = db.settings.themeFinalists || []; return (finalists.length >= 3 ? finalists : db.settings.themes.filter((name) => !finalists.includes(name))).map((name) => ({ id: name, name })); })(),
+    themeDraw: { finalists: [...(db.settings.themeFinalists || [])], remaining: Math.max(0, 3 - (db.settings.themeFinalists || []).length) },
     workflow: {
       phase, roundId, currentTheme: db.settings.currentTheme,
       submitted: readyCount, totalParticipants: roundUsers.length,
@@ -1447,16 +1650,16 @@ function stateFor(user) {
         isNew: assignment.userId === user.id && !assignment.seenAt,
       } : null;
     }).filter(Boolean),
-    draws, voting: votingForClient(voting, user), rankings: { best: bestRanking, worst: worstRanking, gay: gayRanking }, mystery: mysteryForClient(user),
+    draws, voting: votingForClient(voting, user), rankings: { best: bestRanking, worst: worstRanking, gay: gayRanking }, mystery: mysteryForClient(user), impostor: impostorForClient(user),
     season: { current: seasonSummary(), previous: previousSeason, challenges: seasonalChallengesFor(user.id) },
     dailyWall: {
       emojis: WALL_EMOJIS,
       phrases: db.dailyPhrases.map((item) => ({
-        id: item.id, userId: item.userId, canEdit: item.userId === user.id, phrase: item.phrase, authorName: item.authorName, createdAt: item.createdAt, comments: item.comments || [],
+        id: item.id, userId: item.userId, canEdit: item.userId === user.id, phrase: item.phrase, authorName: item.authorName, anonymous: Boolean(item.anonymous), createdAt: item.createdAt, comments: item.comments || [],
         canDelete: item.userId === user.id || user.role === 'admin', reactions: reactionsFor('phrase', item.id, user.id),
       })),
       memes: db.dailyMemes.map((item) => ({
-        id: item.id, userId: item.userId, canEdit: item.userId === user.id, canDelete: item.userId === user.id || user.role === 'admin', imageUrl: '/memes/' + item.filename, authorName: item.authorName, caption: item.caption || '', comments: item.comments || [],
+        id: item.id, userId: item.userId, canEdit: item.userId === user.id, canDelete: item.userId === user.id || user.role === 'admin', imageUrl: '/memes/' + item.filename, authorName: item.authorName, anonymous: Boolean(item.anonymous), caption: item.caption || '', comments: item.comments || [],
         createdAt: item.createdAt, isMine: item.userId === user.id, reactions: reactionsFor('meme', item.id, user.id),
       })),
     },
@@ -1465,7 +1668,7 @@ function stateFor(user) {
       canDelete: user.role === 'admin',
     })),
     trading: tradingFor(user),
-    cardAlbum: albumFor(db, user.id, saoPauloDayKey()),
+    cardAlbum,
     lieMeter: {
       ranking: db.users.filter((person) => person.active).map((person) => ({
         id: person.id,
@@ -1481,8 +1684,50 @@ function stateFor(user) {
         return {
           id: item.id, delta: item.delta, reason: item.reason || null, createdAt: item.createdAt,
           targetName: target?.displayName || 'Usuário removido', creatorName: creator?.displayName || 'Usuário removido',
-          canValidate: user.id !== item.createdByUserId && user.id !== item.targetUserId,
+          totalVoters: (item.requiredVoterIds || []).length,
+          receivedVotes: Object.keys(item.votes || {}).length,
+          myVote: item.votes?.[user.id] || null,
+          voters: (item.requiredVoterIds || []).map((voterId) => ({
+            id: voterId,
+            name: db.users.find((person) => person.id === voterId)?.displayName || 'Conta removida',
+            vote: item.votes?.[voterId] || null,
+          })),
+          lieVotes: (item.requiredVoterIds || []).filter((voterId) => item.votes?.[voterId] === 'lie').length,
+          truthVotes: (item.requiredVoterIds || []).filter((voterId) => item.votes?.[voterId] === 'truth').length,
+          canVote: (item.requiredVoterIds || []).includes(user.id),
           canCancel: user.id === item.createdByUserId || user.role === 'admin',
+        };
+      }),
+      history: db.lieAccusations.filter((item) => ['confirmed', 'rejected'].includes(item.status) && Object.values(item.votes || {}).some((vote) => vote === 'lie' || vote === 'truth')).slice(-12).reverse().map((item) => {
+        const voterIds = [...new Set(item.requiredVoterIds || Object.keys(item.votes || {}))];
+        const votes = voterIds.filter((voterId) => ['lie', 'truth'].includes(item.votes?.[voterId])).map((voterId) => ({
+          id: voterId,
+          name: db.users.find((person) => person.id === voterId)?.displayName || 'Conta removida',
+          vote: item.votes[voterId],
+        }));
+        return {
+          id: item.id,
+          reason: item.reason || null,
+          outcome: item.status === 'confirmed' ? 'lie' : 'truth',
+          resolvedAt: item.confirmedAt || item.rejectedAt || item.createdAt,
+          targetName: db.users.find((person) => person.id === item.targetUserId)?.displayName || 'Usuário removido',
+          creatorName: db.users.find((person) => person.id === item.createdByUserId)?.displayName || 'Usuário removido',
+          lieVotes: votes.filter((entry) => entry.vote === 'lie').length,
+          truthVotes: votes.filter((entry) => entry.vote === 'truth').length,
+          voters: votes,
+        };
+      }),
+      disputes: (db.lieDisputes || []).filter((item) => item.participantIds.includes(user.id)).slice(-20).reverse().map((item) => {
+        const lie = db.lieAccusations.find((entry) => entry.id === item.lieId);
+        const person = (id) => db.users.find((entry) => entry.id === id)?.displayName || 'Conta removida';
+        const choices = { truth: 'Verdade', lie: 'Mentira', withdraw: 'Desistir' };
+        return {
+          id: item.id, status: item.status, outcome: item.outcome || null, lieReason: lie?.reason || 'Registro de mentira',
+          targetName: person(lie?.targetUserId), reporterName: person(item.reporterId), reportReason: item.reason,
+          participants: item.participantIds.map((id) => ({ id, name: person(id), decision: item.decisions?.[id] || null, decisionLabel: choices[item.decisions?.[id]] || null })),
+          myDecision: item.decisions?.[user.id] || null,
+          messages: (item.messages || []).slice(-80).map((message) => ({ id: message.id, authorId: message.authorId, authorName: message.authorName || person(message.authorId), text: message.text, system: Boolean(message.system), createdAt: message.createdAt })),
+          canParticipate: item.status === 'open' && item.participantIds.includes(user.id), createdAt: item.createdAt, updatedAt: item.updatedAt || item.createdAt,
         };
       }),
     },
@@ -1497,7 +1742,7 @@ function stateFor(user) {
           id: entry.id, ml: entry.ml, createdAt: entry.createdAt,
           displayName: person ? person.displayName : 'Participante',
           isMine: entry.userId === user.id,
-          canDelete: entry.userId === user.id || user.role === 'admin',
+          canDelete: entry.userId === user.id,
         };
       }),
       teamMission: teamMissionFor(),
@@ -1508,7 +1753,10 @@ function stateFor(user) {
       const submission = activeItems.find((item) => item.userId === person.id);
       return { id: person.id, displayName: person.displayName, hasSubmission: Boolean(submission), assisted: Boolean(submission?.uploadedByAdminId), submittedAt: submission?.createdAt || null };
     }) : undefined,
-    adminUsers: user.role === 'admin' ? db.users.map((person) => ({ ...safeUser(person), wallet: walletFor(person.id) })) : undefined,
+    adminUsers: user.role === 'admin' ? db.users.map((person) => {
+      const { avatarDataUrl, ...summary } = safeUser(person);
+      return { ...summary, wallet: walletFor(person.id) };
+    }) : undefined,
     security: user.role === 'admin' ? {
       devices: db.gateAuthorizations.filter((item) => item.expiresAt > Date.now()).map((item) => ({ id: item.id, createdAt: item.createdAt, expiresAt: item.expiresAt, ip: item.ip, device: /Mobile|Android|iPhone/i.test(item.userAgent) ? 'Celular ou tablet' : 'Computador', browser: item.userAgent.includes('Edg/') ? 'Edge' : item.userAgent.includes('Chrome/') ? 'Chrome' : item.userAgent.includes('Firefox/') ? 'Firefox' : 'Navegador' })),
       pendingUsers: db.users.filter((item) => item.approved === false).length,
@@ -1525,6 +1773,23 @@ function stateFor(user) {
         const participant = db.users.find((item) => item.id === id);
         return participant ? { id: participant.id, displayName: participant.displayName } : null;
       }).filter(Boolean) : [],
+    } : undefined,
+    adminHealth: user.role === 'admin' ? {
+      databaseBytes,
+      totalUsers: db.users.length,
+      activeUsers: db.users.filter((item) => item.active && item.approved !== false).length,
+      onlineUsers: sharedOnlinePeople.length || 1,
+      media: {
+        wallpapers: db.submissions.filter((item) => item.active).length,
+        feedImages: db.dailyMemes.length,
+        feedbackImages: db.feedbackMessages.filter((item) => item.imageFilename).length,
+        referencedTotal: db.submissions.filter((item) => item.active).length + db.dailyMemes.length + db.feedbackMessages.filter((item) => item.imageFilename).length,
+      },
+      releaseVersion: Math.max(0, Number(db.settings.releaseVersion || 0)),
+      revision: stateRevision,
+      lastBackupAt: db.settings.lastBackupAt || null,
+      lastCleanupAt: db.settings.lastCleanupAt || null,
+      checkedAt: new Date().toISOString(),
     } : undefined,
   };
 }
@@ -1621,7 +1886,7 @@ function rateLimit(req) {
 
 async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/register') {
-    const body = await readJson(req);
+    const body = await readJson(req, 1600000);
     const { username, displayName, password } = validateNewUser(body);
     const user = { id: randomUUID(), username, displayName, role: 'member', active: false, approved: false,
       eligible: true, mustChangePassword: false, createdAt: new Date().toISOString(), ...makePassword(password) };
@@ -1662,18 +1927,78 @@ async function handleApi(req, res, route) {
     json(res, 200, stateFor(user)); return;
   }
 
+  if (req.method !== 'GET') {
+    if (route.startsWith('/api/impostor/')) { requireAuth(req); requireFeature('impostor'); }
+    if (route === '/api/mystery' || route.startsWith('/api/mystery/')) { requireAuth(req); requireFeature('mystery'); }
+    if (route === '/api/casino/play' || route === '/api/casino/flight/start') { requireAuth(req); requireFeature('casino'); }
+    if (route === '/api/shop/purchase' || route === '/api/shop/free-purchase' || route === '/api/gifts/item' || route === '/api/loans/borrow') { requireAuth(req); requireFeature('shop'); }
+    if (route === '/api/uploads' || route === '/api/admin/uploads') { requireAuth(req); requireFeature('uploads'); }
+  }
+
+  // Duas voltas de dicas: a segunda começa somente depois de todos concluírem a primeira.
+  if(req.method==='POST'&&route==='/api/impostor/tip'){
+    const {user}=requireAuth(req);const body=await readJson(req),game=activeImpostorGame(),text=String(body.text||'').trim();
+    if(!game||game.status!=='tips'||game.players[game.turnIndex]?.id!==user.id)throw new HttpError(409,'Ainda não é sua vez de dar a dica.');
+    if(text.length<2||text.length>80)throw new HttpError(400,'A dica precisa ter entre 2 e 80 caracteres.');
+    game.tipRound=Number(game.tipRound||1);game.tips.push({id:randomUUID(),userId:user.id,authorName:user.displayName,text,round:game.tipRound,createdAt:new Date().toISOString()});game.turnIndex++;
+    if(game.turnIndex>=game.players.length){if(game.tipRound<2){game.tipRound++;game.turnIndex=0;}else game.status='voting';}
+    await persist();broadcastRefresh('impostor');json(res,201,stateFor(user));return;
+  }
+
+  if(req.method==='POST'&&route==='/api/impostor/create'){
+    const {user}=requireAuth(req);if(activeImpostorGame())throw new HttpError(409,'Já existe uma sala Impostor em andamento.');
+    const code=Math.random().toString(36).slice(2,7).toUpperCase();db.impostorGames.push({id:randomUUID(),code,hostId:user.id,hostName:user.displayName,status:'lobby',players:[{id:user.id,name:user.displayName,joinedAt:new Date().toISOString()}],tips:[],votes:{},createdAt:new Date().toISOString()});
+    db.impostorGames=db.impostorGames.slice(-30);await persist();broadcastRefresh('impostor');json(res,201,stateFor(user));return;
+  }
+  if(req.method==='POST'&&route==='/api/impostor/join'){
+    const {user}=requireAuth(req);const body=await readJson(req);const game=activeImpostorGame();if(!game||game.status!=='lobby'||String(body.code||'').trim().toUpperCase()!==game.code)throw new HttpError(404,'Sala não encontrada ou já iniciada.');
+    if(!game.players.some(person=>person.id===user.id))game.players.push({id:user.id,name:user.displayName,joinedAt:new Date().toISOString()});await persist();broadcastRefresh('impostor');json(res,200,stateFor(user));return;
+  }
+  if(req.method==='POST'&&route==='/api/impostor/leave'){
+    const {user}=requireAuth(req);const game=activeImpostorGame();if(!game||game.status!=='lobby'||game.hostId===user.id)throw new HttpError(409,'Você só pode sair de uma sala antes do início.');
+    game.players=game.players.filter(person=>person.id!==user.id);await persist();broadcastRefresh('impostor');json(res,200,stateFor(user));return;
+  }
+  if(req.method==='POST'&&route==='/api/impostor/cancel'){
+    const {user}=requireAuth(req);const game=activeImpostorGame();if(!game||game.status!=='lobby'||game.hostId!==user.id)throw new HttpError(403,'Somente o criador pode cancelar esta sala.');
+    game.status='cancelled';game.cancelledAt=new Date().toISOString();await persist();broadcastRefresh('impostor');json(res,200,stateFor(user));return;
+  }
+  if(req.method==='POST'&&route==='/api/impostor/start'){
+    const {user}=requireAuth(req);const game=activeImpostorGame();if(!game||game.status!=='lobby'||game.hostId!==user.id)throw new HttpError(403,'Somente o criador pode iniciar a sala.');if(game.players.length<3)throw new HttpError(400,'São necessários pelo menos 3 jogadores.');
+    const previousNormalWord=game.normalWord,previousImpostorWord=game.impostorWord,availablePairs=IMPOSTOR_PAIRS.filter(([normal])=>normal!==previousNormalWord),pair=(availablePairs.length?availablePairs:IMPOSTOR_PAIRS)[Math.floor(Math.random()*(availablePairs.length||IMPOSTOR_PAIRS.length))],normalWord=pair[0],unrelatedWords=IMPOSTOR_PAIRS.filter(([normal,related])=>normal!==normalWord&&related!==normalWord).flat().filter(word=>word!==previousImpostorWord),impostorWord=(unrelatedWords.length?unrelatedWords:IMPOSTOR_PAIRS.flat().filter(word=>word!==normalWord))[Math.floor(Math.random()*(unrelatedWords.length||IMPOSTOR_PAIRS.flat().filter(word=>word!==normalWord).length))],impostor=game.players[Math.floor(Math.random()*game.players.length)];game.normalWord=normalWord;game.impostorWord=impostorWord;game.impostorId=impostor.id;game.words=Object.fromEntries(game.players.map(person=>[person.id,person.id===impostor.id?impostorWord:normalWord]));game.status='tips';game.turnIndex=0;game.tips=[];game.votes={};game.startedAt=new Date().toISOString();await persist();broadcastRefresh('impostor');json(res,200,stateFor(user));return;
+  }
+  if(req.method==='POST'&&route==='/api/impostor/tip'){
+    const {user}=requireAuth(req);const body=await readJson(req),game=activeImpostorGame(),text=String(body.text||'').trim();if(!game||game.status!=='tips'||game.players[game.turnIndex]?.id!==user.id)throw new HttpError(409,'Ainda não é sua vez de dar a dica.');if(text.length<2||text.length>80)throw new HttpError(400,'A dica precisa ter entre 2 e 80 caracteres.');game.tips.push({id:randomUUID(),userId:user.id,authorName:user.displayName,text,createdAt:new Date().toISOString()});game.turnIndex++;if(game.turnIndex>=game.players.length)game.status='voting';await persist();broadcastRefresh('impostor');json(res,201,stateFor(user));return;
+  }
+  if(req.method==='POST'&&route==='/api/impostor/vote'){
+    const {user}=requireAuth(req);const body=await readJson(req),game=activeImpostorGame();if(!game||game.status!=='voting'||!game.players.some(person=>person.id===user.id))throw new HttpError(409,'A votação não está aberta para você.');if(game.votes[user.id])throw new HttpError(409,'Você já votou nesta rodada.');if(!game.players.some(person=>person.id===body.targetId)||body.targetId===user.id)throw new HttpError(400,'Escolha outro participante.');game.votes[user.id]=body.targetId;if(Object.keys(game.votes).length===game.players.length){const totals={};Object.values(game.votes).forEach(id=>totals[id]=(totals[id]||0)+1);const max=Math.max(...Object.values(totals));const winners=Object.keys(totals).filter(id=>totals[id]===max);game.status='result';game.winner=winners.length===1&&winners[0]===game.impostorId?'tripulação':'impostor';game.finishedAt=new Date().toISOString();}await persist();broadcastRefresh('impostor');json(res,200,stateFor(user));return;
+  }
+  if(req.method==='POST'&&route==='/api/impostor/replay'){
+    const {user}=requireAuth(req);const game=(db.impostorGames||[]).at(-1);if(!game||game.status!=='result'||game.hostId!==user.id)throw new HttpError(403,'Somente o criador pode abrir uma nova rodada.');game.status='lobby';game.tips=[];game.votes={};game.turnIndex=0;game.words={};game.replayAt=new Date().toISOString();await persist();broadcastRefresh('impostor');json(res,200,stateFor(user));return;
+  }
+  if(req.method==='POST'&&route==='/api/impostor/end'){
+    const {user}=requireAuth(req);const game=(db.impostorGames||[]).at(-1);if(!game||!['lobby','tips','voting','result'].includes(game.status)||user.role!=='admin')throw new HttpError(403,'Ação exclusiva do administrador.');game.status='closed';game.closedAt=new Date().toISOString();await persist();broadcastRefresh('impostor');json(res,200,stateFor(user));return;
+  }
+
   if (req.method === 'POST' && route === '/api/mystery') {
     const { user } = requireAdmin(req); const body = await readJson(req);
     if (activeMystery()) throw new HttpError(409, 'Já existe um mistério em investigação. Encerre-o antes de abrir outro.');
     const reader = db.users.find((person) => person.id === body.readerUserId && person.active && person.approved !== false);
+    if (!reader) throw new HttpError(400, 'Escolha um leitor ativo da tripulação.');
+    db.mysteries.push({ id: randomUUID(), title: '', premise: '', solution: '', readerId: reader.id, readerName: reader.displayName, status: 'draft', questions: [], createdAt: new Date().toISOString(), closedAt: null, createdBy: user.id });
+    if (db.mysteries.length > 30) db.mysteries = db.mysteries.slice(-30);
+    await persist(); broadcastRefresh('mystery'); json(res, 201, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery/setup') {
+    const { user } = requireAuth(req); const body = await readJson(req); const mystery = activeMystery();
+    if (!mystery || mystery.status !== 'draft') throw new HttpError(409, 'Não há um mistério aguardando preparação.');
+    if (mystery.readerId !== user.id) throw new HttpError(403, 'Somente o leitor escolhido pode preparar este mistério.');
     const title = String(body.title || '').trim().replace(/\s+/g, ' ').slice(0, 70);
     const premise = String(body.premise || '').trim().slice(0, 900);
     const solution = String(body.solution || '').trim().slice(0, 1800);
-    if (!reader) throw new HttpError(400, 'Escolha um leitor ativo da tripulação.');
     if (title.length < 2 || premise.length < 3 || solution.length < 3) throw new HttpError(400, 'Use ao menos 3 caracteres no enigma e na solução.');
-    db.mysteries.push({ id: randomUUID(), title, premise, solution, readerId: reader.id, readerName: reader.displayName, status: 'open', questions: [], createdAt: new Date().toISOString(), closedAt: null, createdBy: user.id });
-    if (db.mysteries.length > 30) db.mysteries = db.mysteries.slice(-30);
-    await persist(); broadcastRefresh('mystery'); json(res, 201, stateFor(user)); return;
+    mystery.title = title; mystery.premise = premise; mystery.solution = solution; mystery.status = 'open'; mystery.preparedAt = new Date().toISOString();
+    await persist(); broadcastRefresh('mystery'); json(res, 200, stateFor(user)); return;
   }
 
   if (req.method === 'POST' && route === '/api/mystery/questions') {
@@ -1685,6 +2010,49 @@ async function handleApi(req, res, route) {
     mystery.questions.push({ id: randomUUID(), text, authorId: user.id, authorName: user.displayName, createdAt: new Date().toISOString(), answer: null, answeredAt: null });
     if (mystery.questions.length > 300) mystery.questions = mystery.questions.slice(-300);
     await persist(); broadcastRefresh('mystery'); json(res, 201, stateFor(user)); return;
+  }
+
+  if (req.method === 'DELETE' && /^\/api\/mystery\/questions\/[\w-]+$/.test(route)) {
+    const { user } = requireAuth(req); const mystery = activeMystery(); const questionId = route.split('/').at(-1);
+    const question = mystery?.questions?.find((item) => item.id === questionId);
+    if (!mystery || !question) throw new HttpError(404, 'Pergunta não encontrada.');
+    if (question.authorId !== user.id && user.role !== 'admin') throw new HttpError(403, 'Você só pode cancelar sua própria pergunta.');
+    if (question.answer) throw new HttpError(409, 'Uma pergunta já respondida não pode ser cancelada.');
+    question.cancelledAt = new Date().toISOString();
+    await persist(); broadcastRefresh('mystery'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery/questions/answered') {
+    const { user } = requireAuth(req); const body = await readJson(req); const mystery = activeMystery();
+    if (!mystery) throw new HttpError(409, 'Não há um mistério aberto agora.');
+    if (mystery.readerId !== user.id) throw new HttpError(403, 'Somente o leitor responsável pode registrar uma pergunta respondida.');
+    const text = String(body.text || '').trim().replace(/\s+/g, ' ').slice(0, 300);
+    const answer = String(body.answer || '').toLowerCase();
+    if (text.length < 2 || !MYSTERY_ANSWERS.has(answer)) throw new HttpError(400, 'Informe uma pergunta e uma resposta válida.');
+    mystery.questions.push({ id: randomUUID(), text, authorId: user.id, authorName: user.displayName, createdAt: new Date().toISOString(), answer, answeredAt: new Date().toISOString(), answeredBy: user.id, manual: true });
+    await persist(); broadcastRefresh('mystery'); json(res, 201, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery/guesses') {
+    const { user } = requireAuth(req); const body = await readJson(req); const mystery = activeMystery();
+    if (!mystery) throw new HttpError(409, 'Não há um mistério aberto agora.');
+    if (mystery.readerId === user.id) throw new HttpError(403, 'O leitor avalia os palpites; envie perguntas apenas como investigador.');
+    const text = String(body.text || '').trim().replace(/\s+/g, ' ').slice(0, 900);
+    if (text.length < 8) throw new HttpError(400, 'Conte um pouco mais do seu palpite.');
+    mystery.guesses ||= []; mystery.guesses.push({ id: randomUUID(), text, authorId: user.id, authorName: user.displayName, createdAt: new Date().toISOString(), similarity: null, reveal: null, reviewedAt: null });
+    await persist(); broadcastRefresh('mystery'); json(res, 201, stateFor(user)); return;
+  }
+
+  if (req.method === 'PATCH' && /^\/api\/mystery\/guesses\/[\w-]+$/.test(route)) {
+    const { user } = requireAuth(req); const body = await readJson(req); const mystery = activeMystery(); const guessId = route.split('/').at(-1);
+    if (!mystery) throw new HttpError(409, 'Não há um mistério aberto agora.');
+    if (mystery.readerId !== user.id) throw new HttpError(403, 'Somente o leitor responsável pode avaliar palpites.');
+    const guess = (mystery.guesses || []).find((item) => item.id === guessId);
+    const similarity = Number(body.similarity); const reveal = String(body.reveal || '').trim().slice(0, 500);
+    if (!guess) throw new HttpError(404, 'Palpite não encontrado.');
+    if (!Number.isInteger(similarity) || similarity < 0 || similarity > 100) throw new HttpError(400, 'Use uma proximidade entre 0 e 100%.');
+    guess.similarity = similarity; guess.reveal = reveal || null; guess.reviewedAt = new Date().toISOString(); guess.reviewedBy = user.id;
+    await persist(); broadcastRefresh('mystery'); json(res, 200, stateFor(user)); return;
   }
 
   if (req.method === 'PATCH' && /^\/api\/mystery\/questions\/[\w-]+$/.test(route)) {
@@ -1751,9 +2119,19 @@ async function handleApi(req, res, route) {
     await persist(); broadcastRefresh('profile'); json(res, 200, stateFor(user)); return;
   }
 
+  if (req.method === 'POST' && route === '/api/profile/showcase') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const requested = Array.isArray(body.ids) ? [...new Set(body.ids.map((item) => String(item)))] : [];
+    if (requested.length > 4) throw new HttpError(400, 'Escolha no máximo quatro conquistas para sua Sala de Troféus.');
+    const available = new Set(profileFor(user).showcase.options.map((item) => item.id));
+    if (requested.some((id) => !available.has(id))) throw new HttpError(400, 'Uma das conquistas escolhidas ainda não foi desbloqueada.');
+    user.profileShowcase = requested;
+    await persist(); broadcastRefresh('profile'); json(res, 200, stateFor(user)); return;
+  }
+
   if (req.method === 'POST' && route === '/api/casino/flight/start') {
     const { user } = requireAuth(req); const body = await readJson(req); const bet = Number(body.bet); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
-    if (!Number.isInteger(bet) || bet < 1 || bet > 100) throw new HttpError(400, 'A aposta deve ser um valor inteiro de 1 a 100 créditos.');
+    if (!Number.isInteger(bet) || bet < 1) throw new HttpError(400, 'A aposta deve ser um valor inteiro de pelo menos 1 crédito.');
     const now = Date.now();
     if(settleGlobalFlight(now))await persist();
     const autoCashout=body.autoCashout ? Number(body.autoCashout) : null;
@@ -1808,6 +2186,20 @@ async function handleApi(req, res, route) {
     if(changed){await persist();broadcastRefresh('card-trades');}
     json(res,200,stateFor(user));return;
   }
+  const publicProfileMatch=route.match(/^\/api\/profiles\/([0-9a-f-]{20,})$/i);
+  if(publicProfileMatch){
+    const {user}=requireAuth(req);const target=db.users.find(person=>person.id===publicProfileMatch[1]&&person.active&&person.approved!==false);
+    if(!target)throw new HttpError(404,'Perfil não encontrado.');
+    if(req.method==='GET'){json(res,200,{profile:publicProfileFor(target)});return;}
+    if(req.method==='POST'){
+      const body=await readJson(req);const message=String(body.message||'').trim().replace(/\s+/g,' ');
+      if(target.id===user.id)throw new HttpError(400,'Use o mural para conversar consigo mesmo.');
+      if(message.length<2||message.length>300)throw new HttpError(400,'O comentário precisa ter entre 2 e 300 caracteres.');
+      db.profileComments ||= [];db.profileComments.push({id:randomUUID(),targetUserId:target.id,authorId:user.id,authorName:user.displayName,message,createdAt:new Date().toISOString()});
+      if(db.profileComments.length>1000)db.profileComments=db.profileComments.slice(-1000);
+      await persist();broadcastRefresh('profile-comment');json(res,201,{profile:publicProfileFor(target)});return;
+    }
+  }
   if (await handleCommunityExtras(req, res, route)) return;
 
   if (req.method === 'POST' && route === '/api/casino/play') {
@@ -1820,14 +2212,16 @@ async function handleApi(req, res, route) {
       if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra aposta.');
       json(res, 200, body.compact ? { casinoResult: previous } : { ...stateFor(user), casinoResult: previous }); return;
     }
-    if (!Number.isInteger(bet) || bet < 1 || bet > 100) throw new HttpError(400, 'A aposta deve ser um valor inteiro de 1 a 100 créditos.');
+    if (!Number.isInteger(bet) || bet < 1) throw new HttpError(400, 'A aposta deve ser um valor inteiro de pelo menos 1 crédito.');
     const dayKey = saoPauloDayKey();
     const casinoAccount = casinoAccountFor(user.id, true);
     const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
     if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta aposta.' : 'Saldo promocional do cassino insuficiente para esta aposta.');
     const segments = CASINO_WHEEL_OUTCOMES.map((value, index) => ({ value, index }));
     const numericSegments = segments.filter(({ value }) => typeof value === 'number');
-    const boxChance = .01 + bet / 2500;
+    // Apostas maiores melhoram a chance do baú, mas o teto evita que um saldo alto
+    // transforme a roleta em fonte garantida de itens.
+    const boxChance = Math.min(.12, .01 + Math.log10(Math.max(1, bet)) / 50);
     let eligibleSegments = numericSegments;
     if (Math.random() < boxChance) {
       const desiredBox = bet >= 70 ? (Math.random() < .38 ? 'box-area51' : Math.random() < .62 ? 'box-cosmic' : 'box-sonda') : bet >= 30 ? (Math.random() < .48 ? 'box-cosmic' : 'box-sonda') : 'box-sonda';
@@ -1865,7 +2259,14 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'POST' && route === '/api/notifications/read') {
     const { user } = requireAuth(req);
-    db.notificationsReadAt[user.id] = new Date().toISOString();
+    // Marca tudo o que está visível como lido. Usar também a data do aviso mais
+    // recente evita que uma diferença de relógio entre celular e servidor deixe
+    // o sino preso com avisos "não lidos".
+    const latestNotification = notificationsFor(user).items.reduce((latest, item) => {
+      const timestamp = Date.parse(item.createdAt || '') || 0;
+      return Math.max(latest, timestamp);
+    }, 0);
+    db.notificationsReadAt[user.id] = new Date(Math.max(Date.now(), latestNotification + 1)).toISOString();
     await persist(); json(res, 200, stateFor(user)); return;
   }
 
@@ -1883,6 +2284,16 @@ async function handleApi(req, res, route) {
     if (!type) throw new HttpError(400, 'Escolha entre bug, melhoria ou elogio/denúncia.');
     if (message.length < 3) throw new HttpError(400, 'Conte um pouco mais sobre a ideia ou o problema.');
     if (message.length > 800) throw new HttpError(400, 'A mensagem deve ter no máximo 800 caracteres.');
+    let imageFilename = null;
+    if (body.imageDataUrl) {
+      const imageData = String(body.imageDataUrl);
+      const match = imageData.match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
+      if (!match) throw new HttpError(400, 'Anexe uma imagem PNG, JPG ou WEBP válida.');
+      const image = Buffer.from(match[2], 'base64');
+      if (!image.length || image.length > 900000 || !hasValidImageSignature(image, match[1])) throw new HttpError(400, 'A imagem do feedback deve ser válida e ter no máximo 900 KB.');
+      imageFilename = 'feedback-' + randomUUID() + '.' + ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[match[1]]);
+      await storeImage(imageFilename, image, match[1]);
+    }
     const now = Date.now();
     const lastPost = feedbackPostTimes.get(user.id) || 0;
     if (now - lastPost < 2500) throw new HttpError(429, 'Aguarde alguns segundos antes de enviar outra mensagem.');
@@ -1892,7 +2303,7 @@ async function handleApi(req, res, route) {
       id: randomUUID(), type, message,
       authorId: user.id, authorName: user.displayName,
       createdAt, updatedAt: createdAt, status: 'pending', adminComment: '',
-      approvedAt: null, completedAt: null, archivedAt: null,
+      approvedAt: null, completedAt: null, archivedAt: null, imageFilename,
     };
     db.feedbackMessages.push(feedback);
     if (db.feedbackMessages.length > 500) db.feedbackMessages = db.feedbackMessages.slice(-500);
@@ -1931,7 +2342,8 @@ async function handleApi(req, res, route) {
     const { user } = requireAdmin(req);
     const feedbackIndex = db.feedbackMessages.findIndex((item) => item.id === feedbackAdminMatch[1]);
     if (feedbackIndex < 0) throw new HttpError(404, 'Solicitação não encontrada.');
-    db.feedbackMessages.splice(feedbackIndex, 1);
+    const [deletedFeedback] = db.feedbackMessages.splice(feedbackIndex, 1);
+    if (deletedFeedback.imageFilename) await deleteStoredImage(deletedFeedback.imageFilename);
     await persist();
     broadcastRefresh('feedback');
     json(res, 200, { messages: feedbackForClient(user) }); return;
@@ -1945,7 +2357,7 @@ async function handleApi(req, res, route) {
     if (!phrase) throw new HttpError(400, 'Digite a frase do dia.');
     if (phrase.length > 180) throw new HttpError(400, 'A frase deve ter no máximo 180 caracteres.');
     db.dailyPhrases.push({
-      id: randomUUID(), userId: user.id, authorName: user.displayName,
+      id: randomUUID(), userId: user.id, authorName: user.displayName, anonymous: Boolean(body.anonymous),
       phrase, createdAt: new Date().toISOString(),
     });
     awardEngagementCard(db,user.id,'phrase',saoPauloDayKey());
@@ -2050,7 +2462,7 @@ async function handleApi(req, res, route) {
     const now = Date.now();
     const lastPost = memePostTimes.get(user.id) || 0;
     if (now - lastPost < 2500) throw new HttpError(429, 'Aguarde alguns segundos antes de enviar outro meme.');
-    const { dataUrl = '', caption = '' } = await readJson(req);
+    const { dataUrl = '', caption = '', anonymous = false } = await readJson(req);
     if (typeof caption !== 'string' || caption.length > 500) throw new HttpError(400, 'A legenda deve ter até 500 caracteres.');
     const match = String(dataUrl).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
     if (!match) throw new HttpError(400, 'Envie uma imagem PNG, JPG ou WEBP.');
@@ -2064,7 +2476,7 @@ async function handleApi(req, res, route) {
     const filename = randomUUID() + '.' + extension;
     await storeImage(filename, image, match[1]);
     db.dailyMemes.push({
-      id: randomUUID(), userId: user.id, authorName: user.displayName, filename,
+      id: randomUUID(), userId: user.id, authorName: user.displayName, anonymous: Boolean(anonymous), filename,
       mimeType: match[1], size: image.length, caption: caption.trim(), createdAt: new Date(now).toISOString(),
     });
     awardEngagementCard(db,user.id,'meme',saoPauloDayKey());
@@ -2093,6 +2505,43 @@ async function handleApi(req, res, route) {
     await persist(); broadcastRefresh('anonymous-wall'); json(res, 201, stateFor(user)); return;
   }
 
+  const lieDisputeMessageMatch = route.match(/^\/api\/lie-disputes\/([^/]+)\/messages$/);
+  if (req.method === 'POST' && lieDisputeMessageMatch) {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const dispute = (db.lieDisputes || []).find((item) => item.id === lieDisputeMessageMatch[1] && item.status === 'open');
+    if (!dispute) throw new HttpError(404, 'Discussão não encontrada ou já encerrada.');
+    if (!dispute.participantIds.includes(user.id)) throw new HttpError(403, 'Somente as três pessoas envolvidas participam desta conversa.');
+    const text = String(body.text || '').trim().replace(/\s+/g, ' ');
+    if (text.length < 1 || text.length > 400) throw new HttpError(400, 'Escreva uma mensagem de 1 a 400 caracteres.');
+    const now = new Date().toISOString(); dispute.messages ||= [];
+    dispute.messages.push({ id: randomUUID(), authorId: user.id, authorName: user.displayName, text, system: false, createdAt: now });
+    dispute.messages = dispute.messages.slice(-100); dispute.updatedAt = now;
+    await persist(); broadcastRefresh('lie-dispute'); json(res, 200, stateFor(user)); return;
+  }
+
+  const lieDisputeDecisionMatch = route.match(/^\/api\/lie-disputes\/([^/]+)\/decision$/);
+  if (req.method === 'POST' && lieDisputeDecisionMatch) {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const dispute = (db.lieDisputes || []).find((item) => item.id === lieDisputeDecisionMatch[1] && item.status === 'open');
+    if (!dispute) throw new HttpError(404, 'Discussão não encontrada ou já encerrada.');
+    if (!dispute.participantIds.includes(user.id)) throw new HttpError(403, 'Somente as três pessoas envolvidas podem decidir.');
+    const decision = String(body.decision || '');
+    if (!['truth', 'lie', 'withdraw'].includes(decision)) throw new HttpError(400, 'Escolha Verdade, Mentira ou Desistir.');
+    const labels = { truth: 'Verdade', lie: 'Mentira', withdraw: 'Desistir' };
+    const now = new Date().toISOString(); dispute.decisions ||= {}; dispute.messages ||= [];
+    dispute.decisions[user.id] = decision;
+    dispute.messages.push({ id: randomUUID(), authorId: user.id, authorName: user.displayName, text: 'Escolheu: ' + labels[decision] + '.', system: true, createdAt: now });
+    const decisions = dispute.participantIds.map((id) => dispute.decisions[id]).filter(Boolean);
+    if (decisions.length === dispute.participantIds.length && new Set(decisions).size === 1) {
+      const lie = db.lieAccusations.find((item) => item.id === dispute.lieId);
+      dispute.status = 'resolved'; dispute.outcome = decisions[0]; dispute.resolvedAt = now;
+      if (lie && decisions[0] === 'truth') { lie.status = 'overturned'; lie.overturnedAt = now; lie.disputeId = dispute.id; }
+      dispute.messages.push({ id: randomUUID(), authorId: null, authorName: 'Sistema', text: decisions[0] === 'truth' ? 'Consenso: Verdade. A mentira foi removida do placar.' : decisions[0] === 'lie' ? 'Consenso: Mentira. O registro permanece no placar.' : 'Consenso: Desistir. Nenhuma alteração foi feita no placar.', system: true, createdAt: now });
+    }
+    dispute.messages = dispute.messages.slice(-100); dispute.updatedAt = now;
+    await persist(); broadcastRefresh('lie-dispute'); json(res, 200, stateFor(user)); return;
+  }
+
   if (req.method === 'POST' && route === '/api/lie-meter') {
     const { user } = requireAuth(req);
     const body = await readJson(req);
@@ -2108,9 +2557,24 @@ async function handleApi(req, res, route) {
     }
     const duplicate = db.lieAccusations.some((item) => item.status === 'pending' && item.targetUserId === target.id && item.createdByUserId === user.id && item.delta === delta);
     if (duplicate) throw new HttpError(409, 'Você já possui uma marcação igual aguardando validação.');
-    db.lieAccusations.push({ id: randomUUID(), targetUserId: target.id, createdByUserId: user.id, delta, reason: delta > 0 ? reason : '', status: 'pending', createdAt: new Date().toISOString(), validatedByUserId: null, confirmedAt: null });
+    const requiredVoterIds = db.users.filter((person) => person.active && person.approved !== false).map((person) => person.id);
+    const votes = delta > 0 ? { [user.id]: 'lie' } : { [user.id]: 'truth' };
+    db.lieAccusations.push({ id: randomUUID(), targetUserId: target.id, createdByUserId: user.id, delta, reason: delta > 0 ? reason : '', status: 'pending', createdAt: new Date().toISOString(), validatedByUserId: null, confirmedAt: null, requiredVoterIds, votes });
     if (db.lieAccusations.length > 3000) db.lieAccusations = db.lieAccusations.slice(-3000);
     await persist(); broadcastRefresh('lie-meter'); json(res, 201, stateFor(user)); return;
+  }
+
+  const lieVoteMatch = route.match(/^\/api\/lie-meter\/([^/]+)\/vote$/);
+  if (req.method === 'POST' && lieVoteMatch) {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const item = db.lieAccusations.find((entry) => entry.id === lieVoteMatch[1] && entry.status === 'pending');
+    if (!item) throw new HttpError(404, 'Votação de mentira não encontrada.');
+    if (!item.requiredVoterIds?.includes(user.id)) throw new HttpError(403, 'Você não participa desta votação.');
+    const vote = String(body.vote || '');
+    if (!['truth', 'lie'].includes(vote)) throw new HttpError(400, 'Escolha Verdade ou Mentira.');
+    item.votes ||= {}; item.votes[user.id] = vote;
+    resolveLieVoteIfDecided(item);
+    await persist(); broadcastRefresh('lie-meter'); json(res, 200, stateFor(user)); return;
   }
 
   const lieRejectMatch = route.match(/^\/api\/lie-meter\/([^/]+)\/reject$/);
@@ -2198,13 +2662,28 @@ async function handleApi(req, res, route) {
     if (!item) throw new HttpError(404, 'Item da loja não encontrado.');
     if (item.service) throw new HttpError(400, 'Use a ação específica deste serviço.');
     if (item.adminOnly) throw new HttpError(403, 'Este item é concedido exclusivamente a administradores.');
+    const quantity = body.quantity === undefined ? 1 : Number(body.quantity);
+    const acceptsQuantity = Boolean(item.mysteryBox || item.cardPack || (item.type === 'power' && item.consumable));
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) throw new HttpError(400, 'Escolha uma quantidade inteira entre 1 e 20.');
+    if (!acceptsQuantity && quantity !== 1) throw new HttpError(400, 'Este item só pode ser comprado uma vez por pedido.');
+    if (item.cardPackDailyLimit) {
+      const today=saoPauloDayKey();
+      const boughtToday=db.economy.purchases.filter(p=>p.userId===user.id&&p.itemId===item.id&&p.createdAt&&saoPauloDayKey(new Date(p.createdAt))===today).length;
+      const remaining=Math.max(0,item.cardPackDailyLimit-boughtToday);
+      if(quantity>remaining)throw new HttpError(409,remaining?'Você pode comprar mais '+remaining+' deste pacote hoje.':'Limite diário deste pacote atingido.');
+    }
     if (!item.consumable && !item.mysteryBox && db.economy.purchases.some((purchase) => purchase.userId === user.id && purchase.itemId === item.id)) throw new HttpError(409, 'Você já possui este item.');
-    if (walletFor(user.id) < item.price) throw new HttpError(409, 'Créditos 51 insuficientes para esta compra.');
-    addCredits(user.id, -item.price);
-    db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: item.id, price: item.price, closedBox: Boolean(item.mysteryBox), createdAt: new Date().toISOString() });
-    const mysteryBox = item.mysteryBox ? addMysteryBox(user.id, item.id, 'shop') : null;
+    const totalPrice = Number(item.price) * quantity;
+    if (walletFor(user.id) < totalPrice) throw new HttpError(409, 'Créditos 51 insuficientes para comprar esta quantidade.');
+    addCredits(user.id, -totalPrice);
+    const createdAt = new Date().toISOString();
+    const mysteryBoxes = [];
+    for (let index = 0; index < quantity; index += 1) {
+      db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: item.id, price: item.price, closedBox: Boolean(item.mysteryBox), createdAt });
+      if (item.mysteryBox) mysteryBoxes.push(addMysteryBox(user.id, item.id, 'shop'));
+    }
     if (!item.consumable && !item.mysteryBox) db.economy.equipped[user.id] = { ...cosmeticsFor(user.id), [item.type]: item.id };
-    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), mysteryBox }); return;
+    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), mysteryBox: mysteryBoxes[0] || null, mysteryBoxes, purchasedQuantity: quantity, totalPrice }); return;
   }
 
   if (req.method === 'POST' && route === '/api/card-packs/open') {
@@ -2458,7 +2937,7 @@ async function handleApi(req, res, route) {
     const entryIndex = db.waterEntries.findIndex((item) => item.id === deleteWaterMatch[1]);
     if (entryIndex < 0) throw new HttpError(404, 'Registro de água não encontrado.');
     const entry = db.waterEntries[entryIndex];
-    if (entry.userId !== user.id && user.role !== 'admin') throw new HttpError(403, 'Você só pode excluir os seus próprios registros.');
+    if (entry.userId !== user.id) throw new HttpError(403, 'Você só pode desfazer o seu próprio registro de água.');
     db.waterEntries.splice(entryIndex, 1);
     await persist(); broadcastRefresh('hydration'); json(res, 200, stateFor(user)); return;
   }
@@ -2492,6 +2971,7 @@ async function handleApi(req, res, route) {
     db.settings.dailyPhrase = '';
     db.settings.dailyPhraseUpdatedAt = null;
     db.settings.dailyPhraseUpdatedBy = null;
+    db.settings.lastCleanupAt = new Date().toISOString();
     await persist(); broadcastRefresh('daily-wall'); json(res, 200, stateFor(user)); return;
   }
 
@@ -2521,6 +3001,11 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'GET' && route === '/api/events') {
     const { user } = requireAuth(req);
+    // O adaptador do Cloudflare não mantém este stream Node aberto. Responder
+    // 204 faz clientes antigos interromperem a reconexão automática a cada 2s.
+    if (runtimeEnv) {
+      res.writeHead(204, { 'Cache-Control': 'no-store' }); res.end(); return;
+    }
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
@@ -2528,19 +3013,6 @@ async function handleApi(req, res, route) {
       'X-Accel-Buffering': 'no',
     });
     res.write('retry: 2000\n\n');
-    // The Worker adapter returns a finite response, not an open Node stream.
-    // Retaining it would leak closed clients and broadcast into old buffers on
-    // every reconnect, generating redundant state refreshes for everyone.
-    if (runtimeEnv) {
-      onlineVisits.set(user.id, Date.now());
-      for (const [id, seen] of onlineVisits) if (Date.now() - seen >= 45000) onlineVisits.delete(id);
-      sendLiveEvent(res, 'ready', {
-        connected: true, serverTime: Date.now(), musicEpoch: MUSIC_EPOCH, musicLoopMs: MUSIC_LOOP_MS,
-      });
-      if (liveDraw && liveDraw.endsAt > Date.now()) sendLiveEvent(res, 'draw', drawForUser(liveDraw, user.id));
-      res.end();
-      return;
-    }
     liveClients.set(res, user.id);
     broadcastRefresh('presence');
     sendLiveEvent(res, 'ready', {
@@ -2630,22 +3102,31 @@ async function handleApi(req, res, route) {
     let result;
     if (type === 'theme') {
       if (db.settings.currentRoundId) throw new HttpError(409, 'Encerre a rodada atual antes de sortear outro tema.');
-      candidates = db.settings.themes.map((item) => String(item).trim()).filter(Boolean);
-      if (!candidates.length) throw new HttpError(400, 'Cadastre ao menos um tema no painel administrativo.');
-      const roundParticipants = eligibleUsers();
-      if (!roundParticipants.length) throw new HttpError(400, 'Não há participantes ativos para iniciar a rodada.');
+      const allThemes = db.settings.themes.map((item) => String(item).trim()).filter(Boolean);
+      const finalists = db.settings.themeFinalists || [];
+      if (allThemes.length < 3) throw new HttpError(400, 'Cadastre ao menos 3 temas para formar os finalistas.');
+      candidates = finalists.length >= 3 ? finalists : allThemes.filter((item) => !finalists.includes(item));
+      if (!candidates.length) throw new HttpError(400, 'Não há mais temas disponíveis para este sorteio.');
       const winner = candidates[randomInt(candidates.length)];
-      const roundId = randomUUID();
-      db.settings.currentRoundId = roundId;
-      db.settings.currentTheme = winner;
-      db.settings.currentParticipantIds = roundParticipants.map((item) => item.id);
-      db.settings.currentParticipantsLocked = false;
-      db.settings.currentRoundRecoveredAt = null;
-      result = {
-        id: randomUUID(), type: 'theme', winnerId: winner, winner,
-        detail: 'Tema da rodada', imageUrl: '/gay-da-rodada.png', roundId,
-        roundName: db.settings.roundName, drawnBy: user.displayName, createdAt: new Date().toISOString(),
-      };
+      if (finalists.length < 3) {
+        db.settings.themeFinalists = [...finalists, winner];
+        result = { id: randomUUID(), type: 'theme', winnerId: winner, winner,
+          detail: 'Finalista ' + (finalists.length + 1) + ' de 3', imageUrl: '/gay-da-rodada.png', roundId: null,
+          roundName: db.settings.roundName, drawnBy: user.displayName, createdAt: new Date().toISOString(), themeStage: 'finalist' };
+      } else {
+        const roundParticipants = eligibleUsers();
+        if (!roundParticipants.length) throw new HttpError(400, 'Não há participantes ativos para iniciar a rodada.');
+        const roundId = randomUUID();
+        db.settings.currentRoundId = roundId;
+        db.settings.currentTheme = winner;
+        db.settings.currentParticipantIds = roundParticipants.map((item) => item.id);
+        db.settings.currentParticipantsLocked = false;
+        db.settings.currentRoundRecoveredAt = null;
+        db.settings.themeFinalists = [];
+        result = { id: randomUUID(), type: 'theme', winnerId: winner, winner,
+          detail: 'Tema vencedor da rodada', imageUrl: '/gay-da-rodada.png', roundId,
+          roundName: db.settings.roundName, drawnBy: user.displayName, createdAt: new Date().toISOString(), themeStage: 'winner' };
+      }
     } else if (type === 'wallpaper') {
       const roundId = db.settings.currentRoundId;
       if (!roundId || !db.settings.currentTheme) throw new HttpError(409, 'Sorteie o tema antes de distribuir os wallpapers.');
@@ -2772,12 +3253,27 @@ async function handleApi(req, res, route) {
         if (!item || seen.has(key)) return false;
         seen.add(key); return true;
       }).slice(0, 30);
+      db.settings.themeFinalists = [];
     }
     if (body.roundSchedule && typeof body.roundSchedule === 'object') {
-      const cleanDate = (value) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(value || '')) ? String(value) : '';
+      const cleanDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : '';
       db.settings.roundSchedule = { submissionsAt: cleanDate(body.roundSchedule.submissionsAt), drawAt: cleanDate(body.roundSchedule.drawAt), voteAt: cleanDate(body.roundSchedule.voteAt) };
     }
-    await persist(); json(res, 200, stateFor(user)); return;
+    await persist(); broadcastRefresh('settings'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/admin/visual-theme/clear') {
+    const { user } = requireAdmin(req);
+    db.settings.visualThemeClearedAt = new Date().toISOString();
+    await persist(); broadcastRefresh('visual-theme-cleared'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'PATCH' && route === '/api/admin/features') {
+    const { user } = requireAdmin(req); const body = await readJson(req); const incoming = body.flags || {};
+    const next = featureFlags();
+    for (const key of Object.keys(DEFAULT_FEATURE_FLAGS)) if (typeof incoming[key] === 'boolean') next[key] = incoming[key];
+    db.settings.featureFlags = next;
+    await persist(); broadcastRefresh('features'); json(res, 200, stateFor(user)); return;
   }
 
   if (req.method === 'POST' && route === '/api/admin/security/code') {
@@ -2803,6 +3299,8 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'GET' && route === '/api/admin/backup') {
     requireAdmin(req);
+    db.settings.lastBackupAt = new Date().toISOString();
+    await persist();
     const payload = { version: 1, createdAt: new Date().toISOString(), database: db, images: [...imageStore.entries()].map(([filename, image]) => ({ filename, mimeType: image.mimeType, data: image.buffer.toString('base64') })) };
     const body = JSON.stringify(payload);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(body), 'Content-Disposition': 'attachment; filename="area51-backup-' + saoPauloDayKey() + '.json"', 'Cache-Control': 'no-store' }); res.end(body); return;
@@ -2829,6 +3327,8 @@ async function handleApi(req, res, route) {
     db.economy.creditAdjustments ||= []; db.economy.forcedCursors ||= [];
     db.economy.mysteryBoxes ||= []; db.economy.casinoPlays ||= []; db.economy.casinoAccounts ||= {};
     db.settings.roundSchedule ||= { submissionsAt: '', drawAt: '', voteAt: '' };
+    db.settings.featureFlags = { ...DEFAULT_FEATURE_FLAGS, ...db.settings.featureFlags };
+    db.settings.lastBackupAt ||= null; db.settings.lastCleanupAt ||= null;
     db.settings.missionEconomyStartWeek ||= saoPauloWeekKey();
     db.users.forEach((item) => { if (typeof item.approved !== 'boolean') item.approved = true; });
     db.gateAuthorizations = currentSecurity; Object.assign(db.settings, currentGate);
@@ -3017,6 +3517,9 @@ async function handleApi(req, res, route) {
     db.settings.currentParticipantIds = [];
     db.settings.currentParticipantsLocked = false;
     db.settings.currentRoundRecoveredAt = null;
+    db.settings.themeFinalists = [];
+    db.settings.visualThemeClearedAt = new Date().toISOString();
+    db.settings.lastCleanupAt = new Date().toISOString();
     await deleteStoredImages(historyImages);
     await persist();
     broadcastLive('reset', { serverTime: Date.now() });
@@ -3119,6 +3622,7 @@ async function handleApi(req, res, route) {
     db.settings.currentParticipantIds = [];
     db.settings.currentParticipantsLocked = false;
     db.settings.currentRoundRecoveredAt = null;
+    db.settings.lastCleanupAt = new Date().toISOString();
     db.economy.forcedCursors = db.economy.forcedCursors.filter((item) => item.roundId !== roundId);
     await persist(); broadcastRefresh('round-cleared');
     json(res, 200, { ...stateFor(user), storageCleanup: { deletedWallpapers: roundImages.length } }); return;
@@ -3224,6 +3728,13 @@ export async function requestHandler(req, res) {
       const filename = path.basename(decodeURIComponent(url.pathname.slice(7)));
       const meme = db.dailyMemes.find((item) => item.filename === filename);
       if (!meme) throw new HttpError(404, 'Este meme não está mais no mural.');
+      await serveMemoryImage(res, filename); return;
+    }
+    if (url.pathname.startsWith('/feedback-images/')) {
+      const { user } = requireAuth(req);
+      const filename = path.basename(decodeURIComponent(url.pathname.slice('/feedback-images/'.length)));
+      const feedback = db.feedbackMessages.find((item) => item.imageFilename === filename);
+      if (!feedback || (user.role !== 'admin' && feedback.authorId !== user.id)) throw new HttpError(403, 'Este anexo é privado.');
       await serveMemoryImage(res, filename); return;
     }
     const destination = '/index.html' + (url.search || '');

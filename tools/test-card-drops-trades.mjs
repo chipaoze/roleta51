@@ -23,5 +23,5 @@ db.economy.cardAlbums.a.cards[x]=2;db.economy.cardAlbums.b.cards[y]=2;
 updateCardTrade(db,'a',request,()=> 't2');db.economy.cardAlbums.b.cards[y]=1;
 const snapshot=JSON.stringify(db);assert.throws(()=>updateCardTrade(db,'b',{action:'accept',id:'t2'}));assert.equal(JSON.stringify(db),snapshot);
 assert.deepEqual(db.economy.wallets,{a:100,b:200});assert.deepEqual(db.economy.purchases,[]);
-assert.equal(CARD_COLLECTIONS.length,5);
+assert.equal(CARD_COLLECTIONS.length,8);
 console.log('PASS: five activity types only, 40% threshold, daily cap 2, no reroll, midnight reset, consent, duplicate protection, retained singles, atomic recheck, balances preserved.');

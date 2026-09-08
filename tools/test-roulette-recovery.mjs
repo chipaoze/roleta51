@@ -26,7 +26,7 @@ const pending=JSON.parse([...storage.values()][0]);
 front.api=async(url,options)=>{assert.equal(options.body.requestId,pending.requestId);assert.equal(options.body.bet,20);return{casinoResult:original};};
 await front.submitRouletteBet(90,'shop');assert.equal(storage.size,0);
 assert.ok(app.includes("$('#casinoResult').textContent = error.message"));
-const failedWrite=vm.createContext({db:{},JSON,Date,Promise,stateRevision:5,saveQueue:Promise.resolve(),runtimeEnv:{DB:{prepare:()=>({bind:()=>({run:async()=>{throw Error('lost database response');}})})}}});
+const failedWrite=vm.createContext({db:{},JSON,Date,Promise,Buffer,stateRevision:5,saveQueue:Promise.resolve(),runtimeEnv:{DB:{prepare:()=>({bind:()=>({run:async()=>{throw Error('lost database response');}})})}}});
 vm.runInContext(src.slice(src.indexOf('function persist()'),src.indexOf('function cacheImage')),failedWrite);
 await assert.rejects(failedWrite.persist());assert.equal(failedWrite.stateRevision,-1);
 console.log('PASS: committed response recovery, same ID on retry/reload, one debit/box, unchanged odds, compact/legacy responses, error clears spinning text, failed persistence forces fresh database read.');

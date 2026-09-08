@@ -1,0 +1,41 @@
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/app.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/styles.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/card-album.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/community-feed.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/avatar-crop.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/visual-trading.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/improvements.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/cursor-and-boxes.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/avatar-crop.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/platform-upgrades.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/favicon.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=86400
+
+/service-worker.js
+  Cache-Control: no-cache, no-store, must-revalidate

@@ -5,6 +5,31 @@ function avatarCropBounds(width, height, zoom, x, y) {
   const limitY = Math.max(0, (height * scale - 320) / 2);
   return { scale, x: Math.max(-limitX, Math.min(limitX, x)), y: Math.max(-limitY, Math.min(limitY, y)) };
 }
+
+function compactAvatar(source) {
+  const output = document.createElement('canvas');
+  output.width = 192; output.height = 192;
+  const context = output.getContext('2d');
+  context.fillStyle = '#ffffff'; context.fillRect(0, 0, 192, 192);
+  context.drawImage(source, 0, 0, 192, 192);
+  return output.toDataURL('image/jpeg', 0.82);
+}
+
+let legacyAvatarOptimizationRunning = false;
+async function optimizeLegacyAvatar(data) {
+  const original = String(data?.me?.avatarDataUrl || '');
+  if (legacyAvatarOptimizationRunning || original.length < 50000 || !original.startsWith('data:image/')) return;
+  legacyAvatarOptimizationRunning = true;
+  try {
+    const photo = new Image(); photo.src = original; await photo.decode();
+    const compact = compactAvatar(photo);
+    if (compact.length + 2048 >= original.length) return;
+    const fresh = await api('/api/profile/avatar', { method: 'POST', body: { dataUrl: compact } }, false);
+    if (fresh?.me?.id === data.me.id) applyState(fresh);
+  } catch {}
+  finally { legacyAvatarOptimizationRunning = false; }
+}
+
 async function openAvatarCrop(file) {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw new Error('Escolha uma foto PNG, JPG ou WebP.');
   if (file.size > 20 * 1024 * 1024) throw new Error('Escolha uma foto de até 20 MB.');
@@ -64,7 +89,7 @@ async function openAvatarCrop(file) {
     const controls = [...dialog.querySelectorAll('button,input')]; controls.forEach((el) => { el.disabled = true; });
     save.textContent = 'Salvando…'; dialog.querySelector('[data-error]').textContent = '';
     try {
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      const dataUrl = compactAvatar(canvas);
       applyState(await api('/api/profile/avatar', { method: 'POST', body: { dataUrl } }));
       dialog.close(); showToast('Foto enquadrada e salva! 📸');
     } catch (error) { dialog.querySelector('[data-error]').textContent = error.message; }

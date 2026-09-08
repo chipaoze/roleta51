@@ -14,6 +14,9 @@ for(const time of ['2026-09-02T02:59:59Z','2026-09-02T03:00:00Z','bad']) {
 assert.equal(formats,2);
 for(let i=0;i<2200;i++){ctx.time=new Date(i*86400000).toISOString();vm.runInContext('dayKeyForTimestamp(time)',ctx);}
 assert.equal(vm.runInContext('timestampDayCache.size',ctx),2048);
-assert.ok(source.includes('profileFor(user, { liveTitleMap, previousSeason, creditLedger })'));
+assert.ok(source.includes('profileFor(user, { liveTitleMap, previousSeason, creditLedger, cardAlbum })'));
+assert.ok(source.includes('const cardAlbum = albumFor(db, user.id, saoPauloDayKey())'));
 assert.ok(source.includes('notificationsFor(user, creditLedger)'));
+assert.ok(source.includes('item.active && item.id !== user.id'));
+assert.match(source, /const \{ avatarDataUrl, \.\.\.summary \} = safeUser\(person\)/);
 console.log('PASS: immutable date cache, midnight boundaries, invalid dates, 2048-entry limit and shared response computations.');

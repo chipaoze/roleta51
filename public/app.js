@@ -35,6 +35,7 @@ let watermarkObjectUrl = null;
 let lastGuidedPhase = null;
 let pendingGuidedNavigation = false;
 let rainbowThemeForced = false;
+let themePenaltyTimerInterval = null;
 let feedbackMessages = [];
 let feedbackPanelOpen = false;
 let adminFeedbackFilter = 'pending';
@@ -60,7 +61,8 @@ let flightSnapshot=null;
 let flightAnimationFrame=null;
 let flightCurrentId=null;
 let mysteryOpeningInProgress = false;
-let mysterySyncInProgress = false;
+let forcedCursorExpiryTimer = null;
+let seasonCountdownTimer = null;
 const casinoWheelValues = [
   0,.5,1,1.5,'box-sonda',.5,1,2,1.5,.5,0,1,3,1.5,'box-cosmic',0,1,2,1.5,1,
   0,.5,'box-sonda',1.5,0,.5,1,'box-area51',1.5,.5,0,1,3,'box-cosmic',.5,0,1,2,'box-sonda',1,
@@ -240,17 +242,17 @@ function startRainbowMouseTrail() {
         });
       }
       const cursorEffect = document.body.dataset.cursorEffect || '';
-      if (cursorEffect && now - lastCursorEffectAt > 120) {
-        const labels = { 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA', 'pirokinha-cosmica': 'TOMA LEITADA' };
+      if (cursorEffect && !['petista', 'bolsonaro', 'umbanda'].includes(cursorEffect) && now - lastCursorEffectAt > 120) {
+        const labels = { 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA', 'pirokinha-cosmica': 'TOMA LEITADA', petista: '🥩 TOMA PICANHA!', bolsonaro: '💥 TEY TEY TEY!', umbanda: '🕊️ A POMBA GIRA, A POMBA GIRA!' };
         const papaSequence = ['EM NOME DO PAI', 'DO FILHO', 'E DO ESPÍRITO SANTO'];
         const particle = document.createElement('span');
-        particle.className = 'cursor-linked-effect effect-' + cursorEffect;
+        particle.className = 'cursor-linked-effect effect-' + cursorEffect + (['petista', 'bolsonaro', 'umbanda'].includes(cursorEffect) ? ' effect-phrase-trail' : '');
         if (cursorEffect === 'papa-bento') { const step = Number(document.body.dataset.papaStep || 0); particle.textContent = papaSequence[step % papaSequence.length]; document.body.dataset.papaStep = String(step + 1); }
         else particle.textContent = labels[cursorEffect] || '✦';
         particle.style.left = Math.max(4, current.x - 22) + 'px';
         particle.style.top = Math.max(4, current.y + 12) + 'px';
         document.body.appendChild(particle);
-        setTimeout(() => particle.remove(), 850);
+        setTimeout(() => particle.remove(), 1450);
         lastCursorEffectAt = now;
       }
       lastTrailPoint = tail;
@@ -276,6 +278,27 @@ function startRainbowMouseTrail() {
 }
 
 startRainbowMouseTrail();
+
+// Os três cursores de frase possuem um emissor próprio: não dependem de
+// rastro, canvas ou distância mínima de movimento para o texto aparecer.
+function startPoliticalAndAxeCursorPhrases() {
+  let lastAt = 0;
+  const phrases = { petista: '🥩 TOMA PICANHA!', bolsonaro: '💥 TEY TEY TEY!', umbanda: '🕊️ A POMBA GIRA, A POMBA GIRA!' };
+  document.addEventListener('pointermove', (event) => {
+    if (document.hidden || (event.pointerType && event.pointerType !== 'mouse')) return;
+    const effect = document.body.dataset.cursorEffect || '';
+    if (!phrases[effect] || performance.now() - lastAt < 145) return;
+    lastAt = performance.now();
+    const particle = document.createElement('span');
+    particle.className = 'cursor-linked-effect effect-' + effect + ' effect-phrase-trail';
+    particle.textContent = phrases[effect];
+    particle.style.left = Math.max(4, event.clientX - 18) + 'px';
+    particle.style.top = Math.max(4, event.clientY + 14) + 'px';
+    document.body.appendChild(particle);
+    setTimeout(() => particle.remove(), 1450);
+  }, { passive: true });
+}
+startPoliticalAndAxeCursorPhrases();
 
 function startCommanderCursorEffects() {
   let lastParticleAt = 0;
@@ -316,7 +339,7 @@ function initials(name) {
 }
 
 function personAvatar(person, className) {
-  const photo = appState?.avatars?.[person.id];
+  const photo = appState?.avatars?.[person.id] || (person.id === appState?.me?.id ? appState.me.avatarDataUrl : null);
   return `<span class="${className}${photo ? ' has-photo' : ''}">${photo ? `<img src="${escapeHtml(photo)}" alt="Foto de ${escapeHtml(formatDisplayName(person.displayName))}">` : escapeHtml(initials(person.displayName))}</span>`;
 }
 
@@ -350,6 +373,7 @@ function renderAdminFeedback(messages) {
   feedbackMessages = Array.isArray(messages) ? messages : [];
   const isAdmin = Boolean(appState && appState.me.role === 'admin');
   const badge = $('#feedbackUnread');
+  const topBadge = $('#feedbackUnreadTop');
   if (!isAdmin) {
     badge.classList.add('hidden');
     return;
@@ -369,6 +393,8 @@ function renderAdminFeedback(messages) {
   $('#adminFeedbackPending').textContent = pendingCount + (pendingCount === 1 ? ' aguardando' : ' aguardando');
   badge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
   badge.classList.toggle('hidden', pendingCount === 0);
+  topBadge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
+  topBadge.classList.toggle('hidden', pendingCount === 0);
   $$('[data-admin-feedback-filter]').forEach((button) => {
     const active = button.dataset.adminFeedbackFilter === adminFeedbackFilter;
     button.classList.toggle('active', active);
@@ -400,7 +426,7 @@ function renderAdminFeedback(messages) {
         <div class="admin-feedback-content">
           <div class="admin-feedback-meta"><span class="feedback-kind">${kindLabel}</span><span class="admin-feedback-status ${status}">${statusLabel}</span><time datetime="${escapeHtml(item.createdAt)}">${escapeHtml(formatDate(item.createdAt))}</time></div>
           <h4>${escapeHtml(formatDisplayName(item.authorName))}</h4>
-          <p>${escapeHtml(item.message)}</p>
+          <p>${escapeHtml(item.message)}</p>${item.imageUrl ? `<button class="feedback-image-link" type="button" data-feedback-image-url="${escapeHtml(item.imageUrl)}">🖼️ Abrir print anexado</button>` : ''}
           <label class="admin-feedback-comment">Comentário para o solicitante<textarea maxlength="600" rows="2" placeholder="Opcional: explique a decisão ou deixe uma orientação…">${escapeHtml(item.adminComment || '')}</textarea></label>
           <div class="admin-feedback-actions"><button type="button" data-admin-feedback-save-comment>Salvar comentário</button>${statusActions}${status !== 'archived' ? '<button class="delete" type="button" data-admin-feedback-status="archived">Arquivar</button>' : ''}<button class="delete permanent" type="button" data-admin-feedback-delete>Excluir</button></div>
         </div>
@@ -429,7 +455,7 @@ function renderMyFeedback(messages) {
     const statusLabel = status === 'done' ? 'CONCLUÍDA' : status === 'approved' ? 'APROVADA' : status === 'rejected' ? 'NÃO APROVADA' : 'EM ANÁLISE';
     return `<article id="my-feedback-${escapeHtml(item.id)}" class="my-feedback-item status-${status}">
       <div class="my-feedback-meta"><span class="feedback-kind">${kindLabel}</span><span class="my-feedback-status ${status}">${statusLabel}</span><time datetime="${escapeHtml(item.createdAt)}">${escapeHtml(formatDate(item.createdAt))}</time></div>
-      <p>${escapeHtml(item.message)}</p>
+      <p>${escapeHtml(item.message)}</p>${item.imageUrl ? `<button class="feedback-image-link" type="button" data-feedback-image-url="${escapeHtml(item.imageUrl)}">🖼️ Abrir meu print anexado</button>` : ''}
       ${item.adminComment ? `<div class="my-feedback-comment"><strong>Retorno do administrador</strong><span>${escapeHtml(item.adminComment)}</span></div>` : ''}
     </article>`;
   }).join('');
@@ -449,11 +475,34 @@ async function refreshFeedback(quiet = false) {
   }
 }
 
+// Imagens de feedback são privadas. Em vez de usar <img src> (que podia falhar
+// quando a sessão ainda não estava disponível), carregamos o arquivo autenticado
+// e só então o exibimos no modal.
+document.addEventListener('click', async (event) => {
+  const trigger = event.target.closest('[data-feedback-image-url]');
+  if (!trigger) return;
+  const dialog = $('#feedbackImageDialog'); const image = $('#feedbackImageDialogContent');
+  trigger.disabled = true;
+  try {
+    const response = await fetch(trigger.dataset.feedbackImageUrl, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Não foi possível abrir este print agora.');
+    const blob = await response.blob();
+    if (!blob.type.startsWith('image/')) throw new Error('O anexo não é uma imagem válida.');
+    const previous = image.dataset.objectUrl;
+    if (previous) URL.revokeObjectURL(previous);
+    image.dataset.objectUrl = URL.createObjectURL(blob); image.src = image.dataset.objectUrl;
+    dialog.showModal();
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { trigger.disabled = false; }
+});
+$('#closeFeedbackImageDialog').addEventListener('click', () => $('#feedbackImageDialog').close());
+
 function closeFeedbackPanel(restoreFocus = true) {
   feedbackPanelOpen = false;
   $('#feedbackPanel').classList.add('hidden');
   $('#feedbackLauncher').setAttribute('aria-expanded', 'false');
-  if (restoreFocus) $('#feedbackLauncher').focus();
+  $('#feedbackTopButton').setAttribute('aria-expanded', 'false');
+  if (restoreFocus) $('#feedbackTopButton').focus();
 }
 
 function openFeedbackPanel() {
@@ -461,6 +510,7 @@ function openFeedbackPanel() {
   feedbackPanelOpen = true;
   $('#feedbackPanel').classList.remove('hidden');
   $('#feedbackLauncher').setAttribute('aria-expanded', 'true');
+  $('#feedbackTopButton').setAttribute('aria-expanded', 'true');
   $('#feedbackSuccess').classList.add('hidden');
   $('#feedbackForm').classList.remove('hidden');
   $('#feedbackError').textContent = '';
@@ -468,8 +518,9 @@ function openFeedbackPanel() {
   $('#feedbackMessage').focus();
 }
 
-const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','perfil','album','loja','jogos','historico','classificacao','admin'];
+const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','album','loja','jogos','classificacao','admin'];
 const portalSections = ['inicio', ...portalPages];
+const featurePageMap = { jogos: 'casino', impostor: 'impostor', misterio: 'mystery', loja: 'shop', inscricoes: 'uploads' };
 
 function setMenuOpen(open) {
   const menu = $('#siteMenu');
@@ -492,6 +543,11 @@ function currentPortalPage() {
 
 function showPortalPage(page, pushState = false, resetScroll = true) {
   if (!portalPages.includes(page) || (page === 'admin' && appState?.me?.role !== 'admin')) page = 'sorteio';
+  const requiredFeature = featurePageMap[page];
+  if (requiredFeature && appState?.settings?.featureFlags?.[requiredFeature] === false) {
+    if (pushState) showToast('Esta área foi pausada temporariamente pelo administrador.', 'error');
+    page = 'memes';
+  }
   portalSections.forEach((id) => {
     const section = $('#' + id);
     if (section) section.classList.toggle('portal-page-hidden', page === 'sorteio' ? !['inicio','sorteio'].includes(id) : id !== page);
@@ -707,9 +763,12 @@ function showAuth() {
   feedbackPanelOpen = false;
   $('#feedbackPanel').classList.add('hidden');
   $('#feedbackLauncher').classList.add('hidden');
+  $('#feedbackTopButton').classList.add('hidden');
   $('#feedbackLauncher').setAttribute('aria-expanded', 'false');
+  $('#feedbackTopButton').setAttribute('aria-expanded', 'false');
   appView.classList.add('hidden');
   authView.classList.remove('hidden');
+  restoreRememberedLogin();
   window.scrollTo(0, 0);
 }
 
@@ -719,12 +778,27 @@ function showApp(data) {
   authView.classList.add('hidden');
   appView.classList.remove('hidden');
   applyState(data);
+  if (typeof optimizeLegacyAvatar === 'function') optimizeLegacyAvatar(data);
   showPortalPage(currentPortalPage());
-  $('#feedbackLauncher').classList.remove('hidden');
+  $('#feedbackLauncher').classList.add('hidden');
+  $('#feedbackTopButton').classList.remove('hidden');
   refreshFeedback(true);
   connectLive();
   scheduleActiveNavigation();
   if (data.me.mustChangePassword && !$('#passwordDialog').open) openPasswordDialog(true);
+}
+
+function updateThemePenaltyTimer(endsAt) {
+  const timer = $('#themePenaltyTimer');
+  if (!timer) return;
+  const render = () => {
+    const remaining = Number(new Date(endsAt || 0)) - Date.now();
+    if (!endsAt || remaining <= 0) { timer.classList.add('hidden'); timer.textContent = ''; clearInterval(themePenaltyTimerInterval); themePenaltyTimerInterval = null; return; }
+    const days = Math.floor(remaining / 86400000); const hours = Math.floor((remaining % 86400000) / 3600000); const minutes = Math.max(0, Math.floor((remaining % 3600000) / 60000));
+    timer.textContent = `Tema especial: ${days ? days + 'd ' : ''}${hours}h ${minutes}min`;
+    timer.classList.remove('hidden');
+  };
+  render(); if (!themePenaltyTimerInterval && endsAt) themePenaltyTimerInterval = setInterval(render, 30000);
 }
 
 function applyVisualTheme(data) {
@@ -740,6 +814,7 @@ function applyVisualTheme(data) {
   document.body.classList.toggle('theme-rainbow', rainbowThemeForced);
   document.body.classList.toggle('theme-punishment', punishmentThemeForced);
   document.body.classList.toggle('theme-dark', dark);
+  updateThemePenaltyTimer(specialThemeForced ? data.visualThemeEndsAt : null);
   if (!button) return;
 
   button.disabled = specialThemeForced || debtTheme;
@@ -775,7 +850,7 @@ function wheelItems() {
   if (spinning && liveWheelItems) return liveWheelItems;
   if (!appState) return [];
   if (activeMode === 'theme') {
-    return (appState.themes || []).map((item) => ({ id: item.id, label: item.name, detail: 'Tema' }));
+    return (appState.themeWheel || appState.themes || []).map((item) => ({ id: item.id, label: item.name, detail: 'Tema' }));
   }
   if (activeMode === 'gay') return gayCandidates();
   const assignedIds = new Set((appState.assignments || []).map((item) => item.submissionId));
@@ -825,8 +900,10 @@ function captionForMode() {
   const count = wheelItems().length;
   let caption = '';
   if (activeMode === 'theme') {
+    const themeDraw = appState.themeDraw || { finalists: [] };
+    const finalists = themeDraw.finalists || [];
     caption = workflow.phase === 'theme'
-      ? count + (count === 1 ? ' tema pronto para o sorteio.' : ' temas prontos para o sorteio.')
+      ? finalists.length < 3 ? `${count} temas na roleta · faltam ${3 - finalists.length} finalista${3 - finalists.length === 1 ? '' : 's'}.` : `Os 3 finalistas foram definidos. Gire entre eles para escolher o tema da rodada.`
       : 'O tema desta rodada é “' + workflow.currentTheme + '”.';
   } else if (activeMode === 'wallpaper') {
     if (workflow.phase === 'theme') caption = 'Sorteie o tema antes de abrir os envios.';
@@ -954,7 +1031,7 @@ function renderGallery() {
   gallery.innerHTML = items.map((item) => {
     const author = item.revealed && item.uploader ? 'Por ' + escapeHtml(formatDisplayName(item.uploader)) : 'Autoria secreta';
     const visual = item.imageUrl
-      ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="' + escapeHtml(item.title) + '">'
+      ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" decoding="async">'
       : '<div class="secret-wallpaper"><span>✦</span><strong>ENVIO RECEBIDO</strong><small>A imagem aparece quando todos enviarem</small></div>';
     return '<article class="gallery-card">' +
       visual +
@@ -982,9 +1059,10 @@ function renderWorkflow() {
 
 function renderNotifications() {
   const data = appState.notifications || { unreadCount: 0, items: [] };
-  if (data.readAt && (!notificationsReadAtLocal || data.readAt > notificationsReadAtLocal)) notificationsReadAtLocal = data.readAt;
-  const visibleItems = data.items.map((item) => ({ ...item, unread: Boolean(item.unread && (!notificationsReadAtLocal || item.createdAt > notificationsReadAtLocal)) }));
-  const unreadCount = visibleItems.filter((item) => item.unread).length;
+  // O servidor é a fonte da verdade: comparar datas no navegador fazia avisos
+  // continuarem não lidos quando havia diferença de relógio entre dispositivos.
+  const visibleItems = data.items.map((item) => ({ ...item, unread: Boolean(item.unread) }));
+  const unreadCount = Number(data.unreadCount || 0);
   const badge = $('#notificationBadge');
   badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
   badge.classList.toggle('hidden', !unreadCount);
@@ -995,6 +1073,7 @@ async function openNotificationTarget(id, page) {
   showPortalPage(portalPages.includes(page) ? page : 'sorteio', true);
   let targetId = 'profileIdentityCard';
   if (id.startsWith('mention:')) targetId = 'feed-comment-' + id.slice(8);
+  else if (id.startsWith('lie-dispute:')) targetId = 'lie-dispute-' + id.slice(12);
   else if (id.startsWith('feedback:')) {
     if (appState.me.role === 'admin') {
       showPortalPage('admin', true);
@@ -1006,6 +1085,7 @@ async function openNotificationTarget(id, page) {
       await refreshFeedback(true);
       targetId = 'my-feedback-' + id.split(':')[1];
     }
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   } else if (id.startsWith('assignment:')) targetId = 'receivedWallpaperCard';
   else if (id.startsWith('vote:')) targetId = 'votingPanel';
   else if (id.startsWith('credit:')) targetId = 'creditLedger';
@@ -1035,6 +1115,9 @@ function renderOnlinePeople() {
   $('#onlinePeopleButton').title = people.length ? 'Online agora: ' + people.map((person) => formatDisplayName(person.displayName)).join(', ') : 'Você está online';
   $('#menuOnlinePeople').innerHTML = `<i></i><strong>${people.length || 1} online</strong><span>${escapeHtml(people.length ? people.map((person) => formatDisplayName(person.displayName)).join(' · ') : 'Você')}</span>`;
 }
+
+$('#onlinePeopleButton')?.addEventListener('click',()=>{const people=Array.isArray(appState?.onlinePeople)?appState.onlinePeople:[];const host=$('#onlinePeopleDialogList');host.innerHTML=people.length?people.map(person=>'<span class="online-person-line">🟢 '+escapeHtml(formatDisplayName(person.displayName))+(person.id===appState.me.id?' · você':'')+'</span>').join(''):'<span class="online-person-line">🟢 Você</span>';$('#onlinePeopleDialog').showModal();});
+$('#closeOnlinePeopleDialog')?.addEventListener('click',()=>$('#onlinePeopleDialog').close());
 
 function renderCasino(casino = {}) {
   if (casinoSpinInProgress) { drawCasinoWheel(); return; }
@@ -1091,9 +1174,12 @@ function animateFlightClock() {
   const tick=()=>{
     if(!flightSnapshot)return;
     const {data,received}=flightSnapshot,elapsed=performance.now()-received;
-    if(elapsed>2500){
-      $('#flightCashoutButton').disabled=true;
-      $('#flightMessage').textContent='Atualização atrasada — aguardando o servidor. O resgate automático continua protegido.';
+    if(elapsed>600){
+      // Entre respostas, não inventamos novo multiplicador. O resgate manual,
+      // porém, continua habilitado quando já foi liberado pela última leitura.
+      const button=$('#flightCashoutButton');
+      const manualReady=Boolean(data.canCashOut || flightCashoutLocallyReady);
+      if(!button.dataset.requesting){button.disabled=!manualReady;button.textContent=manualReady?'Resgatar agora':'Resgate em x1,25';}
     } else {
       const remaining=Number(data.countdownMs||0)-elapsed;
       if(data.phase==='countdown' && remaining>0)$('#flightMultiplier').textContent=String(Math.ceil(remaining/1000));
@@ -1116,10 +1202,13 @@ function startFlightPolling() {
       const data=await api('/api/casino/flight/status',{},false);
       if(generation!==flightPollGeneration)return;
       flightCurrentId=data.id || null;
-      flightCashoutLocallyReady=false;
+      // Depois que o saque é liberado, mantenha o botão disponível entre duas
+      // leituras do servidor. Isso evita um pisca/trava visual sem estimar
+      // nenhum resultado novo localmente.
+      flightCashoutLocallyReady = data.phase === 'countdown' ? false : Boolean(data.canCashOut || flightCashoutLocallyReady);
       if(data.active){
         const countdown=data.phase==='countdown',step=Number(data.stepMs)||3200;
-        const automatic=data.autoCashout?' · Automático em x'+Number(data.autoCashout).toFixed(2).replace('.',','):' · Resgate manual depende da conexão';
+        const automatic=data.autoCashout?' · Automático em x'+Number(data.autoCashout).toFixed(2).replace('.',','):' · Saque manual em x1,25';
         setFlightVisual(true,data.multiplier||1,data.cashedOut?'Resgatado: '+data.payout+' créditos · aguardando queda':countdown?'Preparando decolagem'+automatic:data.players+' no mesmo voo'+automatic,{phase:data.phase,joined:data.joined,canCashOut:data.canCashOut});
         scheduleFlightCashoutReady(data.cashedOut?-1:countdown?data.countdownMs+.25*step:Math.max(0,(1.25-Number(data.multiplier||1))*step),data.joined);
         flightSnapshot={data,received:performance.now()};animateFlightClock();
@@ -1205,7 +1294,7 @@ function renderAssignments() {
   board.classList.toggle('empty-state', !items.length);
   board.innerHTML = items.length ? items.map((item) =>
     '<div class="latest-item assignment-item' + (item.isMine ? ' is-mine' : '') + '">' +
-    (item.imageUrl ? '<img class="latest-thumb" src="' + escapeHtml(item.imageUrl) + '" alt="">' : '<span class="latest-thumb secret-thumb" aria-hidden="true">👽</span>') +
+    (item.imageUrl ? '<img class="latest-thumb" src="' + escapeHtml(item.imageUrl) + '" alt="" loading="lazy" decoding="async">' : '<span class="latest-thumb secret-thumb" aria-hidden="true">👽</span>') +
     '<p><strong>' + escapeHtml(formatDisplayName(item.assignedTo)) + ' recebeu</strong><small>' + escapeHtml(item.title) + ' · ' +
     (item.revealed ? 'Por ' + escapeHtml(formatDisplayName(item.uploader)) : 'Autoria secreta') + '</small></p></div>'
   ).join('') : 'A distribuição ainda não começou.';
@@ -1253,15 +1342,21 @@ function renderRankings() {
     const podiumClass = index < 3 ? ' rank-' + (index + 1) : '';
     const gayLevel = type === 'gay' ? Math.max(0, Math.min(1, value / maxGayWins)) : 0;
     const rowStyle = '--rank-hue:' + ((index * 47 + 205) % 360) + ';--gay-level:' + gayLevel.toFixed(3) + ';--gay-alpha:' + (value ? 0.11 + gayLevel * 0.35 : 0.035).toFixed(3);
-    return '<div class="ranking-row ' + type + '-ranking-row' + podiumClass + '" style="' + rowStyle + '"><span class="rank-position">' + (index + 1) + '</span>' +
+    return '<button type="button" data-public-profile="' + escapeHtml(item.id) + '" class="ranking-row ' + type + '-ranking-row' + podiumClass + '" style="' + rowStyle + '"><span class="rank-position">' + (index + 1) + '</span>' +
       personAvatar(item, 'rank-avatar') +
       '<p><strong>' + escapeHtml(formatDisplayName(item.displayName)) + '</strong><span class="ranking-live-titles">' + liveTitleChips(item.liveTitles) + '</span><small>' + meta + '</small></p>' +
-      '<strong class="rank-value">' + value + '</strong></div>';
+      '<strong class="rank-value">' + value + '</strong></button>';
   }).join('') : '<div class="ranking-empty">A classificação começa após a primeira rodada.</div>';
   $('#bestRanking').innerHTML = rankingRows(best, 'best');
   $('#worstRanking').innerHTML = rankingRows(worst, 'worst');
   $('#gayRanking').innerHTML = rankingRows(gay, 'gay');
 }
+
+let openedPublicProfileId='';
+function renderPublicProfile(profile){openedPublicProfileId=profile.id;const avatar=profile.avatarDataUrl?'<img src="'+escapeHtml(profile.avatarDataUrl)+'" alt="">':'<span class="public-profile-avatar">'+escapeHtml((profile.displayName||'?').slice(0,1).toUpperCase())+'</span>';const titles=(profile.liveTitles||[]).map(t=>'<span class="live-title-chip">'+escapeHtml(t.icon+' '+t.name)+'</span>').join('');const trophies=(profile.showcase||[]).map(item=>'<span title="'+escapeHtml(item.description||'')+'">'+escapeHtml(item.icon+' '+item.name)+'</span>').join('');const trophyRoom=trophies?'<section class="public-trophy-room"><h4>🏛️ Sala de Troféus</h4><div class="public-trophy-list">'+trophies+'</div></section>':'';const comments=(profile.comments||[]).map(c=>'<article><strong>'+escapeHtml(formatDisplayName(c.authorName))+'</strong><p>'+escapeHtml(c.message)+'</p><small>'+new Date(c.createdAt).toLocaleString('pt-BR')+'</small></article>').join('')||'<p class="public-profile-empty">Ainda não há comentários. Seja o primeiro.</p>';$('#publicProfileContent').innerHTML='<header class="public-profile-head">'+avatar+'<div><h3>'+escapeHtml(formatDisplayName(profile.displayName))+'</h3><p>'+titles+'</p><small>🏆 '+Number(profile.stats.bestWins||0)+' melhores · 👎 '+Number(profile.stats.worstWins||0)+' piores · 🌈 '+Number(profile.stats.gayWins||0)+' sorteios</small></div></header>'+trophyRoom+'<section class="public-profile-comments"><h4>Comentários</h4>'+comments+'</section>';const form=$('#publicProfileCommentForm');form.classList.toggle('hidden',profile.id===appState.me.id);}
+document.addEventListener('click',async event=>{const button=event.target.closest('[data-public-profile]');if(!button)return;try{const data=await api('/api/profiles/'+encodeURIComponent(button.dataset.publicProfile));renderPublicProfile(data.profile);$('#publicProfileDialog').showModal();}catch(error){showToast(error.message,'error');}});
+$('#closePublicProfileDialog')?.addEventListener('click',()=>$('#publicProfileDialog').close());
+$('#publicProfileCommentForm')?.addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget;if(!openedPublicProfileId||!form.reportValidity())return;setBusy(form,true);try{const data=await api('/api/profiles/'+encodeURIComponent(openedPublicProfileId),{method:'POST',body:{message:form.elements.message.value}});form.reset();renderPublicProfile(data.profile);showToast('Comentário publicado no perfil.');}catch(error){showToast(error.message,'error');}finally{setBusy(form,false);}});
 
 function renderVoting() {
   const panel = $('#votingPanel');
@@ -1297,7 +1392,7 @@ function renderVoting() {
     const results = closed ? '<div class="vote-results"><span class="vote-badge best">▲ ' + item.bestVotes + ' melhor</span>' +
       '<span class="vote-badge worst">▼ ' + item.worstVotes + ' pior</span></div>' : '';
     const highlight = closed ? (item.isBestWinner ? ' winner-best' : '') + (item.isWorstWinner ? ' winner-worst' : '') : '';
-    const visual = item.imageUrl ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="' + escapeHtml(item.title) + '">' :
+    const visual = item.imageUrl ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" decoding="async">' :
       '<div class="vote-secret-visual"><span>👽</span><strong>IMAGEM RESERVADA</strong></div>';
     return '<article class="vote-card' + highlight + '">' + visual +
       '<div class="vote-card-body"><strong>' + escapeHtml(item.title) + '</strong>' + author + choices + results + '</div></article>';
@@ -1320,19 +1415,19 @@ function renderVoting() {
 
 function renderDraws() {
   const latest = appState.draws.slice(0, 3);
-  const drawLabel = (item) => item.type === 'theme' ? 'Tema da rodada' : item.type === 'gay' ? 'Gay da Rodada' : 'Wallpaper para ' + item.winner;
+  const drawLabel = (item) => item.type === 'theme' ? 'Tema da rodada' : item.type === 'gay' ? 'Gay da Rodada' : 'Wallpaper recebido: ' + (item.wallpaperTitle || item.detail || 'imagem da rodada');
   const drawType = (item) => item.type === 'theme' ? 'TEMA' : item.type === 'gay' ? 'GAY DA RODADA' : 'DISTRIBUIÇÃO';
   $('#latestDraws').classList.toggle('empty-state', !latest.length);
   $('#latestDraws').innerHTML = latest.length ? latest.map((item) =>
-    '<div class="latest-item">' + (item.imageUrl ? '<img class="latest-thumb" src="' + escapeHtml(item.imageUrl) + '" alt="">' : '<span class="latest-thumb secret-thumb" aria-hidden="true">👽</span>') +
+    '<div class="latest-item">' + (item.imageUrl ? '<img class="latest-thumb" src="' + escapeHtml(item.imageUrl) + '" alt="" loading="lazy" decoding="async">' : '<span class="latest-thumb secret-thumb" aria-hidden="true">👽</span>') +
     '<p><strong>' + escapeHtml(item.winner) + '</strong><small>' + escapeHtml(drawLabel(item)) + '</small></p></div>'
   ).join('') : 'Ainda não houve sorteio.';
 
   const history = $('#historyGrid');
   history.innerHTML = appState.draws.length ? appState.draws.map((item) =>
-    '<article class="history-card">' + (item.imageUrl ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="">' : '<span class="history-secret" aria-hidden="true">👽</span>') +
+    '<article class="history-card">' + (item.imageUrl ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="" loading="lazy" decoding="async">' : '<span class="history-secret" aria-hidden="true">👽</span>') +
     '<p><small>' + drawType(item) + '</small>' +
-    '<strong>' + escapeHtml(item.winner) + '</strong><span>' + escapeHtml(item.detail) + ' · ' + formatDate(item.createdAt) + '</span></p></article>'
+    '<strong>' + escapeHtml(item.type === 'wallpaper' ? (item.wallpaperTitle || item.detail || 'Wallpaper da rodada') : item.winner) + '</strong><span>' + escapeHtml(item.type === 'wallpaper' ? 'Recebido por ' + item.winner : item.detail) + ' · ' + formatDate(item.createdAt) + '</span></p></article>'
   ).join('') : '<div class="history-empty"><span aria-hidden="true">🏆</span><strong>A memória da equipe começa na primeira rodada</strong><small>Os vencedores e resultados aparecerão aqui automaticamente.</small></div>';
   $$('#latestDraws img, #historyGrid img').forEach((image) => image.addEventListener('error', () => {
     if (!image.src.endsWith('/gay-da-rodada.png')) image.src = '/gay-da-rodada.png';
@@ -1345,16 +1440,16 @@ function renderDailyWall(wall = {}) {
   const memes = Array.isArray(wall.memes) ? wall.memes : [];
   const reactionButtons = (item, type) => `<div class="daily-reactions">${['😂','👽','🤨','💀'].map((emoji) => `<button class="${(item.reactions?.mine || []).includes(emoji) ? 'active' : ''}" type="button" data-reaction-type="${type}" data-reaction-id="${escapeHtml(item.id)}" data-reaction-emoji="${emoji}">${emoji}<b>${Number(item.reactions?.counts?.[emoji] || 0)}</b></button>`).join('')}</div>`;
   $('#dailyPhraseList').innerHTML = phrases.length ? [...phrases].reverse().map((item) =>
-    `<article class="daily-phrase-item"><blockquote>${escapeHtml(item.phrase)}</blockquote>${reactionButtons(item, 'phrase')}<div><span>Por ${escapeHtml(formatDisplayName(item.authorName))} · ${escapeHtml(formatDate(item.createdAt))}</span>${item.canDelete ? `<button type="button" data-delete-phrase="${escapeHtml(item.id)}">Excluir</button>` : ''}</div></article>`
+    `<article class="daily-phrase-item"><blockquote>${escapeHtml(item.phrase)}</blockquote>${reactionButtons(item, 'phrase')}<div><span>${item.anonymous ? '🕵️ Anônimo' : 'Por ' + escapeHtml(formatDisplayName(item.authorName))} · ${escapeHtml(formatDate(item.createdAt))}</span>${item.canDelete ? `<button type="button" data-delete-phrase="${escapeHtml(item.id)}">Excluir</button>` : ''}</div></article>`
   ).join('') : '<p>A tripulação ainda não publicou frases hoje.</p>';
   $('#dailyPhraseCount').textContent = String($('#dailyPhraseInput').value.length);
   $('#dailyMemeCount').textContent = memes.length + (memes.length === 1 ? ' meme' : ' memes');
   $('#clearDailyMemesButton').classList.toggle('hidden', !appState || appState.me.role !== 'admin');
   const isAdmin = Boolean(appState && appState.me.role === 'admin');
   $('#dailyMemeGallery').innerHTML = memes.length ? [...memes].reverse().map((item) => {
-    const author = escapeHtml(formatDisplayName(item.authorName));
+    const author = item.anonymous ? '🕵️ Anônimo' : escapeHtml(formatDisplayName(item.authorName));
     const date = escapeHtml(formatDate(item.createdAt));
-    return `<article class="daily-meme-card${Number(item.reactions?.total || 0) >= 3 ? ' popular' : ''}"><button class="daily-meme-open" type="button" data-meme-url="${escapeHtml(item.imageUrl)}" data-meme-author="${author}" data-meme-date="${date}" aria-label="Ampliar meme de ${author}"><img src="${escapeHtml(item.imageUrl)}" alt="Meme publicado por ${author}"></button>${reactionButtons(item, 'meme')}<p><span><strong>${author}</strong><time datetime="${escapeHtml(item.createdAt)}">${date}</time></span>${isAdmin ? `<button class="daily-meme-delete" type="button" data-delete-meme="${escapeHtml(item.id)}" aria-label="Excluir meme de ${author}">Excluir</button>` : ''}</p></article>`;
+    return `<article class="daily-meme-card${Number(item.reactions?.total || 0) >= 3 ? ' popular' : ''}"><button class="daily-meme-open" type="button" data-meme-url="${escapeHtml(item.imageUrl)}" data-meme-author="${author}" data-meme-date="${date}" aria-label="Ampliar meme de ${author}"><img src="${escapeHtml(item.imageUrl)}" alt="Meme publicado por ${author}" loading="lazy" decoding="async"></button>${reactionButtons(item, 'meme')}<p><span><strong>${author}</strong><time datetime="${escapeHtml(item.createdAt)}">${date}</time></span>${isAdmin ? `<button class="daily-meme-delete" type="button" data-delete-meme="${escapeHtml(item.id)}" aria-label="Excluir meme de ${author}">Excluir</button>` : ''}</p></article>`;
   }).join('') : '<div class="daily-meme-empty"><span aria-hidden="true">🛸</span><strong>O mural está livre</strong><small>Publique o primeiro meme do dia.</small></div>';
 }
 
@@ -1426,10 +1521,22 @@ function renderHydration(hydration = {}) {
 
 function renderSeason(season = {}) {
   const current = season.current || { ranking: [], monthKey: '' };
-  $('#seasonMonth').textContent = current.monthKey || '';
+  const passTitle = $('#seasonPassTitle'), passUntil = $('#seasonPassUntil');
+  if (passTitle) passTitle.textContent = current.name || 'Temporada atual';
+  if (passUntil) passUntil.textContent = current.endsAt ? 'Vai até ' + new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(new Date(current.endsAt)) + '. Pontos vêm de água, mural, vitórias e participação.' : 'Aguardando definição da temporada.';
+  $('#seasonTitle').textContent = current.name || 'Tripulação em destaque';
+  $('#seasonMonth').textContent = current.monthKey ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(new Date(current.monthKey + '-15T12:00:00-03:00')) : '';
+  clearInterval(seasonCountdownTimer);
+  const updateSeasonClock = () => {
+    const remaining = Math.max(0, Date.parse(current.endsAt || '') - (Date.now() + serverClockOffset));
+    const days = Math.floor(remaining / 86400000), hours = Math.floor(remaining % 86400000 / 3600000), minutes = Math.floor(remaining % 3600000 / 60000);
+    $('#seasonCountdown').textContent = remaining ? `${days}d ${hours}h ${minutes}min` : 'Nova temporada iniciando';
+    $('#nextSeasonDate').textContent = current.endsAt ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', timeZone: 'America/Sao_Paulo' }).format(new Date(current.endsAt)) : '—';
+  };
+  updateSeasonClock(); seasonCountdownTimer = setInterval(updateSeasonClock, 60000);
   $('#seasonRanking').innerHTML = current.ranking.length ? current.ranking.map((person, index) => `<article${index === 0 && person.points > 0 ? ' class="leader"' : ''}><b>${index + 1}</b>${personAvatar(person, 'season-avatar')}<p><strong>${escapeHtml(formatDisplayName(person.displayName))}</strong><small>${person.water.toLocaleString('pt-BR')} ml · ${person.memes} memes · ${person.phrases} frases</small></p><em>${person.points} pts</em></article>`).join('') : '<p class="season-empty">A temporada começa com a primeira atividade do mês.</p>';
   const previous = season.previous;
-  $('#previousSeasonWinner').textContent = previous?.leader ? '🏅 Campeão de ' + previous.monthKey + ': ' + formatDisplayName(previous.leader.displayName) : 'A temporada anterior ainda não teve pontuação.';
+  $('#previousSeasonWinner').textContent = previous?.leader ? '🏅 Campeão de ' + (previous.name || previous.monthKey) + ': ' + formatDisplayName(previous.leader.displayName) : 'A temporada anterior ainda não teve pontuação.';
   const challenges = Array.isArray(season.challenges) ? season.challenges : [];
   const box = $('#seasonChallenges');
   if (!box) return;
@@ -1446,10 +1553,19 @@ function renderSeason(season = {}) {
 
 function mysteryStartCard() {
   const people = Array.isArray(appState?.powerParticipants) ? appState.powerParticipants : [];
-  return `<article class="card mystery-start-card"><span>🕯️</span><div><small>NOVO ENIGMA</small><h3>Abra um Mistério 51</h3><p>Você escolhe o leitor. A solução fica protegida até o encerramento.</p></div><form id="mysteryStartForm"><label>Leitor responsável<select name="readerUserId" required>${people.map((person) => `<option value="${escapeHtml(person.id)}">${escapeHtml(formatDisplayName(person.displayName))}</option>`).join('')}</select></label><label>Título do mistério<input name="title" maxlength="70" placeholder="Ex.: O último café da estação" required></label><label>Enigma para a tripulação<textarea name="premise" maxlength="900" rows="4" placeholder="Conte a situação estranha sem revelar a resposta." required></textarea></label><label>Solução secreta<textarea name="solution" maxlength="1800" rows="4" placeholder="A explicação completa, visível somente para você e o leitor até encerrar." required></textarea></label><button class="button button-primary" type="submit">Abrir mistério</button></form></article>`;
+  return `<article class="card mystery-start-card"><span>🕯️</span><div><small>CONVIDAR LEITOR</small><h3>Abra um Mistério 51</h3><p>Escolha quem será o leitor. Só ele escreve o enigma e a solução — assim você também pode investigar.</p></div><form id="mysteryStartForm"><label>Leitor responsável<select name="readerUserId" required>${people.map((person) => `<option value="${escapeHtml(person.id)}">${escapeHtml(formatDisplayName(person.displayName))}</option>`).join('')}</select></label><button class="button button-primary" type="submit">Convidar leitor</button></form></article>`;
 }
 
+function renderImpostor(impostor={}){const host=$('#impostorBoard');if(!host)return;const game=impostor.active;if(!game){const code=new URLSearchParams(location.search).get('sala')||'';host.innerHTML='<article class="card impostor-empty"><span>🕵️</span><h3>Nenhuma sala aberta</h3><p>Crie uma sala e compartilhe o código com a tripulação.</p><button class="button button-primary" data-impostor-action="create" type="button">Criar sala Impostor</button><form data-impostor-join><label>Tenho um código<input name="code" maxlength="5" value="'+escapeHtml(code)+'" placeholder="Ex.: A51X9" required></label><button type="submit">Entrar na sala</button></form></article>';return;}const players=game.players.map(p=>'<li>'+escapeHtml(p.name)+(p.isMe?' · você':'')+'</li>').join('');let body='';if(game.status==='lobby'){const link=location.origin+'/?pagina=impostor&sala='+encodeURIComponent(game.code);body='<p class="impostor-code">CÓDIGO DA SALA <strong>'+escapeHtml(game.code)+'</strong></p><button class="impostor-copy" type="button" data-impostor-copy="'+escapeHtml(link)+'">Copiar link da sala</button><p>Envie o link ou código para todos entrarem. '+game.players.length+'/3 jogadores mínimos.</p><ul>'+players+'</ul>'+(game.canStart?'<button class="button button-primary" data-impostor-action="start">Iniciar partida</button>':game.canJoin?'<form data-impostor-join><label>Código da sala<input name="code" value="'+escapeHtml(game.code)+'" required></label><button type="submit">Entrar nesta sala</button></form>':'<p>Aguardando o criador iniciar.</p>')+(game.canLeave?'<button class="button button-dark" data-impostor-action="leave">Sair da sala</button>':'')+(game.canCancel?'<button class="button button-dark" data-impostor-action="cancel">Cancelar sala</button>':'');}else if(game.status==='tips'){body='<div class="impostor-word">Sua palavra secreta <strong>'+escapeHtml(game.ownWord||'Aguardando entrada')+'</strong><small>Não revele diretamente.</small></div><h3>Dicas</h3><div class="impostor-tips">'+game.tips.map(t=>'<p><b>'+escapeHtml(t.authorName)+':</b> '+escapeHtml(t.text)+'</p>').join('')+'</div>'+(game.canTip?'<form data-impostor-tip><label>Sua dica<input name="text" maxlength="80" required placeholder="Uma palavra ou frase curta"></label><button class="button button-primary" type="submit">Enviar dica</button></form>':'<p class="impostor-turn">Vez de <strong>'+escapeHtml(game.currentTurn?.name||'…')+'</strong> dar a dica.</p>');}else if(game.status==='voting'){body='<div class="impostor-word">Sua palavra <strong>'+escapeHtml(game.ownWord||'')+'</strong></div><h3>Quem é o impostor?</h3>'+(game.canVote?'<form data-impostor-vote><div class="impostor-vote-list">'+game.players.filter(p=>!p.isMe).map(p=>'<label><input type="radio" name="targetId" value="'+escapeHtml(p.id)+'" required> '+escapeHtml(p.name)+'</label>').join('')+'</div><button class="button button-primary" type="submit">Confirmar voto</button></form>':'<p class="impostor-turn">Voto registrado. Aguardando os demais.</p>');}else {const r=game.result;body='<div class="impostor-result '+(r.winner==='tripulação'?'crew':'imp')+'"><h3>'+ (r.winner==='tripulação'?'Tripulação venceu!':'O impostor escapou!')+'</h3><p>Impostor: <strong>'+escapeHtml(r.impostorName)+'</strong></p><p>Palavra da tripulação: <b>'+escapeHtml(r.normalWord)+'</b> · Palavra do impostor: <b>'+escapeHtml(r.impostorWord)+'</b></p></div><div class="impostor-tips">'+r.votes.map(v=>'<p>'+escapeHtml(v.voterName)+' votou em '+escapeHtml(v.targetName)+'</p>').join('')+'</div>'+(game.hostId===appState.me.id?'<button class="button button-primary" data-impostor-action="replay">Jogar novamente</button>':'<p>Aguardando o criador abrir a próxima rodada.</p>')+(game.canEnd?'<button class="button button-dark" data-impostor-action="end">Encerrar sala</button>':'');}host.innerHTML='<article class="card impostor-game"><header><span>🕵️</span><div><small>SALA '+escapeHtml(game.code)+'</small><h3>Impostor 51</h3><p>Criada por '+escapeHtml(game.hostName)+'</p></div><b>'+game.players.length+' jogadores</b></header>'+body+'</article>';}
+$('#impostorBoard')?.addEventListener('click',async e=>{const copy=e.target.closest('[data-impostor-copy]');if(copy){try{await navigator.clipboard.writeText(copy.dataset.impostorCopy);showToast('Link da sala copiado.');}catch{showToast('Copie o código da sala manualmente.','error');}return;}const btn=e.target.closest('[data-impostor-action]');if(!btn)return;btn.disabled=true;try{applyState(await api('/api/impostor/'+btn.dataset.impostorAction,{method:'POST'}));showToast(btn.dataset.impostorAction==='create'?'Sala criada. Compartilhe o código!':'Partida atualizada.');}catch(err){showToast(err.message,'error');}finally{btn.disabled=false;}});
+$('#impostorBoard')?.addEventListener('submit',async e=>{const form=e.target;e.preventDefault();let url='',body={};if(form.matches('[data-impostor-join]')){url='/api/impostor/join';body={code:form.elements.code.value};}else if(form.matches('[data-impostor-tip]')){url='/api/impostor/tip';body={text:form.elements.text.value};}else if(form.matches('[data-impostor-vote]')){url='/api/impostor/vote';body={targetId:new FormData(form).get('targetId')};}else return;setBusy(form,true);try{applyState(await api(url,{method:'POST',body}));}catch(err){showToast(err.message,'error');}finally{setBusy(form,false);}});
+
+function showImpostorVotingTips(impostor={}){const game=impostor.active,host=$('#impostorBoard');if(!host||game?.status!=='voting'||host.querySelector('.impostor-tips-voting'))return;const title=[...host.querySelectorAll('h3')].find(item=>item.textContent.includes('Quem é o impostor'));if(!title)return;title.insertAdjacentHTML('beforebegin','<h3>Relembre as dicas</h3><div class="impostor-tips impostor-tips-voting">'+(game.tips||[]).map(t=>'<p><b>'+escapeHtml(t.authorName)+':</b> '+escapeHtml(t.text)+'</p>').join('')+'</div>');}
+function showImpostorRoundNotice(impostor={}){const game=impostor.active,host=$('#impostorBoard');if(!host||game?.status!=='tips'||host.querySelector('.impostor-round-notice'))return;const round=Math.min(2,Math.floor((game.tips||[]).length/Math.max(1,(game.players||[]).length))+1);const title=[...host.querySelectorAll('h3')].find(item=>item.textContent==='Dicas');if(title)title.insertAdjacentHTML('beforebegin','<p class="impostor-round-notice">RODADA DE DICAS '+round+' DE 2</p>');}
+function showImpostorAdminEnd(impostor={}){const game=impostor.active,host=$('#impostorBoard');if(!host||!game?.canEnd||host.querySelector('[data-impostor-action="end"]'))return;host.querySelector('.impostor-game')?.insertAdjacentHTML('beforeend','<button class="button button-dark impostor-admin-end" type="button" data-impostor-action="end">Encerrar sala (admin)</button>');}
+
 function renderMystery(mystery = {}) {
+  queueMicrotask(() => { showImpostorVotingTips(appState?.impostor); showImpostorRoundNotice(appState?.impostor); showImpostorAdminEnd(appState?.impostor); });
   const board = $('#mysteryBoard');
   if (!board) return;
   const active = mystery.active;
@@ -1457,12 +1573,18 @@ function renderMystery(mystery = {}) {
     board.innerHTML = mystery.canStart ? mysteryStartCard() : '<article class="card mystery-empty"><span>🕯️</span><h3>Nenhum mistério aberto</h3><p>O administrador poderá escolher o leitor e abrir o próximo enigma.</p></article>';
     return;
   }
+  if (active.isDraft) {
+    if (mystery.canSetup) return `<article class="card mystery-start-card mystery-reader-setup"><span>🔐</span><div><small>VOCÊ É O LEITOR</small><h3>Prepare seu Mistério 51</h3><p>O enigma e a solução ficarão secretos. O administrador e a equipe só verão a história depois de você abrir a investigação.</p></div><form id="mysterySetupForm"><label>Título do mistério<input name="title" maxlength="70" placeholder="Ex.: O último café da estação" required></label><label>Enigma para a tripulação<textarea name="premise" maxlength="900" rows="4" placeholder="Conte a situação estranha sem revelar a resposta." required></textarea></label><label>Solução secreta<textarea name="solution" maxlength="1800" rows="4" placeholder="A explicação completa que apenas você verá até encerrar." required></textarea></label><button class="button button-primary" type="submit">Abrir investigação</button></form></article>`;
+    return `<article class="card mystery-empty"><span>🕯️</span><h3>Leitor preparando o mistério</h3><p>${escapeHtml(formatDisplayName(active.readerName))} foi escolhido e abrirá a investigação quando o enigma estiver pronto.</p>${mystery.canDelete ? '<button id="deleteMysteryButton" class="mystery-delete-button" type="button">Cancelar convite</button>' : ''}</article>`;
+  }
   const status = active.status === 'open' ? 'EM INVESTIGAÇÃO' : 'MISTÉRIO ENCERRADO';
   const solution = active.solution ? `<details class="mystery-solution"${active.status === 'closed' ? ' open' : ''}><summary>${active.status === 'closed' ? 'Ver solução revelada' : 'Gabarito do leitor'}</summary><p>${escapeHtml(active.solution)}</p></details>` : '';
-  const askForm = mystery.canAsk ? `<form id="mysteryQuestionForm" class="mystery-question-form"><label for="mysteryQuestionInput">Sua pergunta para ${escapeHtml(formatDisplayName(active.readerName))}</label><div><input id="mysteryQuestionInput" name="text" maxlength="300" placeholder="Faça uma pergunta que possa ser respondida com sim, não ou irrelevante." required><button class="button button-primary" type="submit">Enviar pergunta</button></div></form>` : active.status === 'open' ? '<p class="mystery-reader-note">Você é o leitor responsável. Responda as perguntas pendentes abaixo.</p>' : '';
+  const reader = personAvatar({ id: active.readerId, displayName: active.readerName }, 'mystery-reader-avatar');
+  const askForm = mystery.canAsk ? `<section class="mystery-investigator-tools"><form id="mysteryQuestionForm" class="mystery-question-form"><label for="mysteryQuestionInput">Sua pergunta para ${escapeHtml(formatDisplayName(active.readerName))}</label><div><input id="mysteryQuestionInput" name="text" maxlength="300" placeholder="Faça uma pergunta que possa ser respondida com sim, não ou irrelevante." required><button class="button button-primary" type="submit">Enviar pergunta</button></div></form><form id="mysteryGuessForm" class="mystery-guess-form"><label for="mysteryGuessInput">Acha que resolveu? Envie seu palpite</label><textarea id="mysteryGuessInput" name="text" maxlength="900" rows="2" placeholder="Explique a história como você entende. O leitor indica o quanto você se aproximou."></textarea><button type="submit">Enviar palpite</button></form></section>` : active.status === 'open' ? '<section class="mystery-reader-note"><p>Você é o leitor responsável. Responda as perguntas pendentes abaixo.</p><form id="mysteryAnsweredQuestionForm" class="mystery-manual-answer"><input name="text" maxlength="300" placeholder="Adicionar pergunta já respondida"><select name="answer"><option value="sim">SIM</option><option value="nao">NÃO</option><option value="irrelevante">IRRELEVANTE</option></select><button type="submit">Adicionar</button></form></section>' : '';
   const questions = Array.isArray(active.questions) ? active.questions : [];
-  const cards = questions.length ? questions.map((question) => `<article class="mystery-question${question.answer ? ' answered answer-' + question.answer : ' pending'}"><header><span>${question.answer ? question.answerLabel : 'AGUARDANDO'}</span><small>${escapeHtml(formatDisplayName(question.authorName))} · ${escapeHtml(formatDate(question.createdAt))}</small></header><p>${escapeHtml(question.text)}</p>${question.answer ? `<footer>Respondida ${escapeHtml(formatDate(question.answeredAt || question.createdAt))}</footer>` : mystery.canManage && active.status === 'open' ? `<footer class="mystery-answer-actions"><button type="button" data-mystery-answer="sim" data-mystery-question="${escapeHtml(question.id)}">SIM</button><button type="button" data-mystery-answer="nao" data-mystery-question="${escapeHtml(question.id)}">NÃO</button><button type="button" data-mystery-answer="irrelevante" data-mystery-question="${escapeHtml(question.id)}">IRRELEVANTE</button></footer>` : '<footer>O leitor está avaliando esta pergunta.</footer>'}</article>`).join('') : '<p class="mystery-no-questions">Ainda não há perguntas. Comecem a investigação.</p>';
-  board.innerHTML = `<article class="card mystery-case-card"><header><div><small>${status}</small><h3>${escapeHtml(active.title)}</h3><p>Leitor responsável: <strong>${escapeHtml(formatDisplayName(active.readerName))}</strong></p></div><b>${Number(active.questionCount || 0)} perguntas</b></header><blockquote>${escapeHtml(active.premise)}</blockquote>${solution}${mystery.canManage && active.status === 'open' ? '<button id="closeMysteryButton" class="button button-dark" type="button">Encerrar e revelar solução</button>' : ''}${mystery.canDelete ? '<button id="deleteMysteryButton" class="mystery-delete-button" type="button">Apagar este mistério</button>' : ''}</article>${askForm}<section class="mystery-question-grid" aria-label="Perguntas e respostas do mistério">${cards}</section>${mystery.canClear ? '<button id="clearMysteryHistoryButton" class="mystery-clear-button" type="button">Limpar mistérios encerrados</button>' : ''}${mystery.canStart ? mysteryStartCard() : ''}`;
+  const cards = questions.length ? questions.map((question) => `<article class="mystery-question${question.answer ? ' answered answer-' + question.answer : ' pending'}"><header><span>${question.answer ? question.answerLabel : 'AGUARDANDO'}</span><small>${personAvatar(question, 'mystery-question-avatar')}${escapeHtml(formatDisplayName(question.authorName))} · ${escapeHtml(formatDate(question.createdAt))}</small></header><p>${escapeHtml(question.text)}</p>${question.answer ? `<footer>Respondida ${escapeHtml(formatDate(question.answeredAt || question.createdAt))}</footer>` : mystery.canManage && active.status === 'open' ? `<footer class="mystery-answer-actions"><button type="button" data-mystery-answer="sim" data-mystery-question="${escapeHtml(question.id)}">SIM</button><button type="button" data-mystery-answer="nao" data-mystery-question="${escapeHtml(question.id)}">NÃO</button><button type="button" data-mystery-answer="irrelevante" data-mystery-question="${escapeHtml(question.id)}">IRRELEVANTE</button></footer>` : question.authorId === appState.me.id ? `<footer><button type="button" class="mystery-cancel-question" data-mystery-cancel="${escapeHtml(question.id)}">Cancelar pergunta</button></footer>` : '<footer>O leitor está avaliando esta pergunta.</footer>'}</article>`).join('') : '<p class="mystery-no-questions">Ainda não há perguntas. Comecem a investigação.</p>';
+  const guesses = (active.guesses || []).length ? `<section class="mystery-guess-list"><h3>Palpites da tripulação</h3>${active.guesses.map((guess) => `<article class="mystery-guess"><header>${personAvatar(guess, 'mystery-question-avatar')}<strong>${escapeHtml(formatDisplayName(guess.authorName))}</strong>${guess.similarity !== null ? `<b>${guess.similarity}% próximo</b>` : '<b>aguardando leitor</b>'}</header><p>${escapeHtml(guess.text)}</p>${guess.reveal ? `<footer>🔎 Pista do leitor: ${escapeHtml(guess.reveal)}</footer>` : ''}${mystery.canManage && active.status === 'open' ? `<form data-mystery-guess-review="${escapeHtml(guess.id)}"><input name="similarity" type="number" min="0" max="100" value="${guess.similarity ?? ''}" placeholder="%"><input name="reveal" maxlength="500" value="${escapeHtml(guess.reveal || '')}" placeholder="Pista opcional"><button type="submit">Avaliar</button></form>` : ''}</article>`).join('')}</section>` : '';
+  board.innerHTML = `<article class="card mystery-case-card"><header><div><small>${status}</small><h3>${escapeHtml(active.title)}</h3><p>${reader} Leitor responsável: <strong>${escapeHtml(formatDisplayName(active.readerName))}</strong></p></div><b>${Number(active.questionCount || 0)} perguntas</b></header><blockquote>${escapeHtml(active.premise)}</blockquote>${solution}${mystery.canManage && active.status === 'open' ? '<button id="closeMysteryButton" class="button button-dark" type="button">Encerrar e revelar solução</button>' : ''}${mystery.canDelete ? '<button id="deleteMysteryButton" class="mystery-delete-button" type="button">Apagar este mistério</button>' : ''}</article>${askForm}<section class="mystery-question-grid" aria-label="Perguntas e respostas do mistério">${cards}</section>${guesses}${mystery.canClear ? '<button id="clearMysteryHistoryButton" class="mystery-clear-button" type="button">Limpar mistérios encerrados</button>' : ''}${mystery.canStart ? mysteryStartCard() : ''}`;
 }
 
 function lieAttribution(entry) {
@@ -1474,11 +1596,41 @@ function renderLieMeter(lieMeter = {}) {
   const pending = Array.isArray(lieMeter.pending) ? lieMeter.pending : [];
   $('#lieRanking').innerHTML = ranking.length ? ranking.map((person, index) => {
     const reasons = Array.isArray(person.reasons) ? person.reasons : [];
-    const history = reasons.length ? `<details class="lie-history"><summary>Ver histórico dos motivos <b>${reasons.length}</b></summary><div>${reasons.map((entry, reasonIndex) => `<article${reasonIndex === 0 ? ' class="latest"' : ''}><span>🤥</span><p><strong>${escapeHtml(entry.reason)}</strong><small>${escapeHtml(formatDate(entry.createdAt))}</small>${lieAttribution(entry)}<button type="button" class="lie-report-button" data-report-lie="${escapeHtml(entry.id)}">Denunciar esta mentira</button></p></article>`).join('')}</div></details>` : '';
+    const history = reasons.length ? `<details class="lie-history"><summary>Ver histórico dos motivos <b>${reasons.length}</b></summary><div>${reasons.map((entry, reasonIndex) => `<article${reasonIndex === 0 ? ' class="latest"' : ''}><span>🤥</span><p><strong>${escapeHtml(entry.reason)}</strong><small>${escapeHtml(formatDate(entry.createdAt))}</small>${lieAttribution(entry)}</p></article>`).join('')}</div></details>` : '';
     return `<article class="lie-person${index === 0 && person.total > 0 ? ' lie-leader' : ''}"><span class="lie-position">${index + 1}</span>${personAvatar(person, 'lie-avatar')}<div class="lie-person-copy"><strong>${escapeHtml(formatDisplayName(person.displayName))}${person.id === appState.me.id ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><small>${Number(person.total)} ${Number(person.total) === 1 ? 'mentira confirmada' : 'mentiras confirmadas'}</small>${person.latestReason ? `<em class="lie-reason"><span>ÚLTIMA MENTIRA</span>“${escapeHtml(person.latestReason)}”</em>${reasons[0] ? lieAttribution(reasons[0]) : ''}` : ''}${history}</div><b>${Number(person.total)}</b><div class="lie-actions"><button type="button" data-lie-delta="-1" data-lie-target="${escapeHtml(person.id)}" aria-label="Solicitar remoção de uma mentira de ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id || person.total <= 0 ? ' disabled' : ''}>−</button><button type="button" data-lie-delta="1" data-lie-target="${escapeHtml(person.id)}" aria-label="Marcar uma mentira para ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id ? ' disabled' : ''}>+</button></div></article>`;
   }).join('') : '<p class="lie-empty">Nenhuma pessoa disponível.</p>';
   $('#liePendingCount').textContent = pending.length + (pending.length === 1 ? ' pendente' : ' pendentes');
-  $('#liePendingList').innerHTML = pending.length ? pending.map((item) => `<article class="lie-pending"><span>${item.delta > 0 ? '🤥' : '↩️'}</span><p><strong>${item.delta > 0 ? 'Adicionar mentira para ' : 'Remover mentira de '}${escapeHtml(formatDisplayName(item.targetName))}</strong>${item.reason ? `<em class="lie-reason">“${escapeHtml(item.reason)}”</em>` : ''}<small>Pedido por ${escapeHtml(formatDisplayName(item.creatorName))} · ${escapeHtml(formatDate(item.createdAt))}</small></p><div>${item.canValidate ? `<button class="lie-validate" type="button" data-lie-validate="${escapeHtml(item.id)}">Confirmar</button><button class="lie-deny" type="button" data-lie-deny="${escapeHtml(item.id)}">Negar</button>` : '<small>Aguardando outra pessoa</small>'}${item.canCancel ? `<button class="lie-cancel" type="button" data-lie-cancel="${escapeHtml(item.id)}">Cancelar</button>` : ''}</div></article>`).join('') : '<p class="lie-empty">Nenhuma marcação aguardando validação.</p>';
+  const pendingList = $('#liePendingList');
+  pendingList.classList.toggle('lie-pending-scroll', pending.length > 3);
+  pendingList.innerHTML = pending.length ? pending.map((item) => {
+    const total = Math.max(1, Number(item.totalVoters || 0)); const received = Number(item.receivedVotes || 0);
+    const voterCard = (voter) => {
+      const voterPerson = { id: voter.id, displayName: voter.name };
+      const voteLabel = voter.vote === 'lie' ? 'Mentiu' : voter.vote === 'truth' ? 'Não mentiu' : 'Aguardando';
+      const voteIcon = voter.vote === 'lie' ? '✓' : voter.vote === 'truth' ? '✓' : '…';
+      return `<span class="lie-voter ${voter.vote || 'waiting'}">${personAvatar(voterPerson, 'lie-voter-avatar')}<span><em>${escapeHtml(formatDisplayName(voter.name))}</em><i><b>${voteIcon}</b>${voteLabel}</i></span></span>`;
+    };
+    const voted = (item.voters || []).filter((voter) => voter.vote).map(voterCard).join('');
+    const waiting = (item.voters || []).filter((voter) => !voter.vote).map(voterCard).join('');
+    const voterGroups = `<div class="lie-voter-groups">${voted ? `<section><strong class="lie-voter-group-title voted">✓ Já votaram <b>${received}</b></strong><div class="lie-voters">${voted}</div></section>` : ''}${waiting ? `<section><strong class="lie-voter-group-title waiting">⌛ Aguardando <b>${Math.max(0, total - received)}</b></strong><div class="lie-voters">${waiting}</div></section>` : ''}</div>`;
+    return `<article class="lie-pending"><div class="lie-pending-heading"><span>🗳️</span><div><strong>Votação coletiva: ${escapeHtml(formatDisplayName(item.targetName))} mentiu?</strong><small>Registrada por ${escapeHtml(formatDisplayName(item.creatorName))}</small></div></div><div class="lie-pending-copy"><p>${item.reason ? `<em class="lie-reason">“${escapeHtml(item.reason)}”</em>` : ''}</p><div class="lie-vote-progress"><span><b style="width:${Math.round(received / total * 100)}%"></b></span><strong>${received} de ${total} votaram</strong><em>Mentiu ${Number(item.lieVotes || 0)} · Não mentiu ${Number(item.truthVotes || 0)}</em></div>${voterGroups}</div><div class="lie-pending-actions">${item.canVote ? `<small>Sua escolha: <b>${item.myVote === 'lie' ? 'Mentiu' : item.myVote === 'truth' ? 'Não mentiu' : 'pendente'}</b></small><button class="lie-validate" type="button" data-lie-vote="lie" data-lie-vote-id="${escapeHtml(item.id)}">Mentiu</button><button class="lie-deny" type="button" data-lie-vote="truth" data-lie-vote-id="${escapeHtml(item.id)}">Não mentiu</button>` : '<small>Você não participa desta votação</small>'}${item.canCancel ? `<button class="lie-cancel" type="button" data-lie-cancel="${escapeHtml(item.id)}">Cancelar</button>` : ''}</div></article>`;
+  }).join('') : '<p class="lie-empty">Nenhuma votação de mentira aguardando a equipe.</p>';
+  const voteHistory = Array.isArray(lieMeter.history) ? lieMeter.history : [];
+  $('#lieVoteHistory').innerHTML = voteHistory.length ? `<details><summary>Histórico das votações <b>${voteHistory.length}</b></summary><div class="lie-vote-history-list">${voteHistory.map((item) => {
+    const resultLabel = item.outcome === 'lie' ? 'Resultado: mentiu' : 'Resultado: não mentiu';
+    const voters = (item.voters || []).map((voter) => `<span class="lie-voter ${voter.vote}">${personAvatar({ id: voter.id, displayName: voter.name }, 'lie-voter-avatar')}<span><em>${escapeHtml(formatDisplayName(voter.name))}</em><i><b>✓</b>${voter.vote === 'lie' ? 'Mentiu' : 'Não mentiu'}</i></span></span>`).join('');
+    return `<article class="lie-vote-history-item ${item.outcome}"><header><div><strong>${escapeHtml(formatDisplayName(item.targetName))}</strong><small>Registrada por ${escapeHtml(formatDisplayName(item.creatorName))} · ${escapeHtml(formatDate(item.resolvedAt))}</small></div><b>${resultLabel}</b></header>${item.reason ? `<p>“${escapeHtml(item.reason)}”</p>` : ''}<div class="lie-vote-history-score"><span>Mentiu <b>${Number(item.lieVotes || 0)}</b></span><span>Não mentiu <b>${Number(item.truthVotes || 0)}</b></span></div><div class="lie-voters">${voters}</div></article>`;
+  }).join('')}</div></details>` : '';
+  const disputes = Array.isArray(lieMeter.disputes) ? lieMeter.disputes : [];
+  const disputeBox = $('#lieDisputes');
+  disputeBox.classList.toggle('hidden', !disputes.length);
+  disputeBox.innerHTML = disputes.map((dispute) => {
+    const resolved = dispute.status !== 'open';
+    const participantMarkup = dispute.participants.map((person) => `<span class="lie-dispute-person${person.decision ? ' decided' : ''}">${escapeHtml(formatDisplayName(person.name))}<b>${escapeHtml(person.decisionLabel || 'aguardando')}</b></span>`).join('');
+    const messages = dispute.messages.map((message) => `<p class="lie-dispute-message${message.system ? ' system' : ''}"><strong>${escapeHtml(formatDisplayName(message.authorName || 'Sistema'))}</strong><span>${escapeHtml(message.text)}</span></p>`).join('');
+    const decisionControls = dispute.canParticipate ? `<div class="lie-dispute-decisions"><small>Sua decisão: <b>${escapeHtml(({truth:'Verdade',lie:'Mentira',withdraw:'Desistir'})[dispute.myDecision] || 'não escolhida')}</b></small><button type="button" data-lie-dispute-decision="truth" data-lie-dispute-id="${escapeHtml(dispute.id)}">Verdade</button><button type="button" data-lie-dispute-decision="lie" data-lie-dispute-id="${escapeHtml(dispute.id)}">Mentira</button><button type="button" data-lie-dispute-decision="withdraw" data-lie-dispute-id="${escapeHtml(dispute.id)}">Desistir</button></div><form class="lie-dispute-form" data-lie-dispute-message="${escapeHtml(dispute.id)}"><input maxlength="400" required placeholder="Escreva para as três pessoas envolvidas…"><button class="button" type="submit">Enviar</button></form>` : `<small class="lie-dispute-resolved">${resolved ? 'Discussão encerrada: ' + escapeHtml(({truth:'Verdade: mentira removida do placar.',lie:'Mentira: registro mantido.',withdraw:'Desistência: placar mantido.'})[dispute.outcome] || 'sem alteração.') : 'Apenas as três pessoas responsáveis participam da decisão.'}</small>`;
+    return `<section id="lie-dispute-${escapeHtml(dispute.id)}" class="lie-dispute${resolved ? ' resolved' : ''}"><header><div><small>REVISÃO POR CONSENSO</small><h3>Mentira de ${escapeHtml(formatDisplayName(dispute.targetName))}</h3><p>Denúncia: “${escapeHtml(dispute.reportReason)}”</p></div><span>${resolved ? 'Encerrada' : 'Em discussão'}</span></header><p class="lie-dispute-original">Registro contestado: “${escapeHtml(dispute.lieReason)}”</p><div class="lie-dispute-people">${participantMarkup}</div><div class="lie-dispute-chat">${messages}</div>${decisionControls}</section>`;
+  }).join('');
 }
 
 function maybeShowWaterReminder(hydration) {
@@ -1519,6 +1671,9 @@ function shopVisualPreview(item) {
     if (item.value === 'laser') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-laser.svg" alt="Cursor Laser Alienígena"><b>Laser Alienígena</b></span></div>';
     if (item.value === 'rocket') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-rocket.svg" alt="Cursor Foguete 51"><b>Foguete 51</b></span></div>';
     if (item.value === 'alien') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-alien.svg" alt="Cursor Agente ET"><b>Agente ET</b></span></div>';
+    if (item.value === 'petista') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-petista.svg" alt="Seta Lula"><b>Seta Lula</b></span></div>';
+    if (item.value === 'bolsonaro') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-bolsonaro.svg" alt="Seta Bolsonaro"><b>Seta Bolsonaro</b></span></div>';
+    if (item.value === 'umbanda') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-umbanda.svg" alt="Seta Muito Axé"><b>Seta Muito Axé</b></span></div>';
     return '<div class="shop-visual-preview cursor-preview cursor-preview-horn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-arrow-cursor.png" alt="Seta de mouse arco-íris em formato de chifre"> <b>Seta Unicórnio</b></span></div>';
   }
   if (item.type === 'trailStyle') return `<div class="shop-visual-preview trail-preview trail-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO RASTRO</small><span><i></i><b>${item.value === 'fruit' ? '🍉 🍊 🍓' : '🦄'}</b></span></div>`;
@@ -1531,9 +1686,9 @@ function shopVisualPreview(item) {
 }
 
 function setPreviewCursor(value) {
-  const classes = ['unicorn-cursor-active', 'horn-cursor-active', 'medicine-cursor-active', 'pirokinha-cursor-active', 'anvisa-cursor-active', 'commander-cursor-active', 'gay-power-cursor-active', 'giant-slow-cursor-active', 'black-hen-cursor-active', 'volleyball-cursor-active', 'bible-cursor-active', 'papa-bento-cursor-active', 'scrum-cursor-active', 'energy-cursor-active', 'laser-cursor-active', 'rocket-cursor-active', 'alien-cursor-active'];
+  const classes = ['unicorn-cursor-active', 'horn-cursor-active', 'medicine-cursor-active', 'pirokinha-cursor-active', 'anvisa-cursor-active', 'commander-cursor-active', 'gay-power-cursor-active', 'giant-slow-cursor-active', 'black-hen-cursor-active', 'volleyball-cursor-active', 'bible-cursor-active', 'papa-bento-cursor-active', 'scrum-cursor-active', 'energy-cursor-active', 'laser-cursor-active', 'rocket-cursor-active', 'alien-cursor-active', 'petista-cursor-active', 'bolsonaro-cursor-active', 'umbanda-cursor-active'];
   classes.forEach((name) => document.documentElement.classList.remove(name));
-  const classByValue = { unicorn: 'unicorn-cursor-active', horn: 'horn-cursor-active', dipirona: 'medicine-cursor-active', 'pirokinha-cosmica': 'pirokinha-cursor-active', anvisa: 'anvisa-cursor-active', gay: 'gay-power-cursor-active', 'giant-slow': 'giant-slow-cursor-active', commander: 'commander-cursor-active', 'galinha-preta': 'black-hen-cursor-active', volei: 'volleyball-cursor-active', biblia: 'bible-cursor-active', 'papa-bento': 'papa-bento-cursor-active', 'scrum-master': 'scrum-cursor-active', energetico: 'energy-cursor-active', laser: 'laser-cursor-active', rocket: 'rocket-cursor-active', alien: 'alien-cursor-active' };
+  const classByValue = { unicorn: 'unicorn-cursor-active', horn: 'horn-cursor-active', dipirona: 'medicine-cursor-active', 'pirokinha-cosmica': 'pirokinha-cursor-active', anvisa: 'anvisa-cursor-active', gay: 'gay-power-cursor-active', 'giant-slow': 'giant-slow-cursor-active', commander: 'commander-cursor-active', 'galinha-preta': 'black-hen-cursor-active', volei: 'volleyball-cursor-active', biblia: 'bible-cursor-active', 'papa-bento': 'papa-bento-cursor-active', 'scrum-master': 'scrum-cursor-active', energetico: 'energy-cursor-active', laser: 'laser-cursor-active', rocket: 'rocket-cursor-active', alien: 'alien-cursor-active', petista: 'petista-cursor-active', bolsonaro: 'bolsonaro-cursor-active', umbanda: 'umbanda-cursor-active' };
   if (classByValue[value]) document.documentElement.classList.add(classByValue[value]);
   document.documentElement.dataset.activeCursor = value || 'windows';
 }
@@ -1560,7 +1715,7 @@ function applyShopPreviewVisual(item) {
   } else if (item.type === 'cursorStyle') {
     setPreviewCursor(item.value);
     document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : 'none';
-    document.body.dataset.cursorEffect = ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica'].includes(item.value) ? item.value : '';
+    document.body.dataset.cursorEffect = ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(item.value) ? item.value : '';
   }
   else if (item.type === 'trailStyle') document.body.dataset.trailStyle = item.value;
   else if (item.type === 'badge') ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = item.value; });
@@ -1638,13 +1793,20 @@ function renderProfileEconomy(profile = {}) {
   const badgeItem = findEquipped('badge');
   const forcedGayCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'gay');
   const forcedGiantCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'giant-slow');
+  clearTimeout(forcedCursorExpiryTimer);
+  if (forcedGiantCursor && profile.forcedCursor?.expiresAt) {
+    const delay = Date.parse(profile.forcedCursor.expiresAt) - Date.now();
+    if (Number.isFinite(delay) && delay > 0) forcedCursorExpiryTimer = setTimeout(() => {
+      api('/api/state').then(applyState).catch(() => {});
+    }, delay + 400);
+  }
   const liveTitles = Array.isArray(profile.liveTitles) ? profile.liveTitles : [];
   const allowPersonalTheme = appState.visualTheme === 'user-choice' && !profile.loan?.overdue;
   document.documentElement.classList.toggle('debt-cursor', Boolean(profile.forcedCursor?.debt));
   applyPersonalTheme(allowPersonalTheme ? siteThemeItem?.value : null);
   const personalCursor = forcedGayCursor || forcedGiantCursor ? null : cursorItem;
   document.body.dataset.trailStyle = trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none');
-  document.body.dataset.cursorEffect = !trailItem && ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica'].includes(personalCursor?.value) ? personalCursor.value : '';
+  document.body.dataset.cursorEffect = ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(personalCursor?.value) ? personalCursor.value : '';
   if (forcedGayCursor || forcedGiantCursor) $$('.cursor-linked-effect').forEach((particle) => particle.remove());
   document.documentElement.classList.toggle('unicorn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'unicorn'));
   document.documentElement.classList.toggle('horn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'horn'));
@@ -1661,6 +1823,9 @@ function renderProfileEconomy(profile = {}) {
   document.documentElement.classList.toggle('laser-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'laser'));
   document.documentElement.classList.toggle('rocket-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'rocket'));
   document.documentElement.classList.toggle('alien-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'alien'));
+  document.documentElement.classList.toggle('petista-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'petista'));
+  document.documentElement.classList.toggle('bolsonaro-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'bolsonaro'));
+  document.documentElement.classList.toggle('umbanda-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'umbanda'));
   document.documentElement.classList.toggle('gay-power-cursor-active', Boolean(forcedGayCursor || (cursorItem && cursorItem.value === 'gay')));
   document.documentElement.classList.toggle('giant-slow-cursor-active', forcedGiantCursor);
   setPreviewCursor(forcedGayCursor ? 'gay' : forcedGiantCursor ? 'giant-slow' : (cursorItem?.value || null));
@@ -1675,7 +1840,9 @@ function renderProfileEconomy(profile = {}) {
   $('#shopPageWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
   renderAvatar($('#profileAvatar'), appState.me.avatarDataUrl, initials(appState.me.displayName));
   $('#profileDisplayName').textContent = formatDisplayName(appState.me.displayName);
-  ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = albumBadge?.icon || badgeItem?.value || ''; });
+  // A insígnia do álbum é uma conquista, não deve substituir um emblema comprado.
+  // O emblema continua no nome; a insígnia aparece junto dele na lista de visuais.
+  ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = badgeItem?.value || ''; });
   $('#profileEquippedTitle').textContent = liveTitles.length ? liveTitles.map((item) => item.icon + ' ' + item.name).join(' · ') : titleItem ? titleItem.value : 'Tripulante da Área 51';
   $('#profileDisplayName').className = nameItem ? 'name-style-' + nameItem.value : '';
   $('#profileIdentityCard').className = 'card profile-identity-card' + (frameItem ? ' frame-' + frameItem.value : '');
@@ -1694,7 +1861,8 @@ function renderProfileEconomy(profile = {}) {
     trailItem && ['✨', 'Rastro: ' + trailItem.name],
     frameItem && ['🖼️', 'Moldura: ' + frameItem.name],
     nameItem && ['🎨', 'Nome: ' + nameItem.name],
-    albumBadge ? [albumBadge.icon, 'Insígnia: ' + albumBadge.badge] : badgeItem && [badgeItem.value, 'Emblema: ' + badgeItem.name],
+    badgeItem && [badgeItem.value, 'Emblema: ' + badgeItem.name],
+    albumBadge && [albumBadge.icon, 'Insígnia: ' + albumBadge.badge],
     titleItem && ['🏷️', 'Título: ' + titleItem.name],
     ...liveTitles.map((item) => [item.icon, 'Título vivo: ' + item.name]),
   ].filter(Boolean);
@@ -1753,6 +1921,7 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   const unlocked = medals.filter((medal) => medal.unlocked).length;
   $('#medalCount').textContent = unlocked + ' de ' + medals.length + ' desbloqueadas';
   $('#profileMedals').innerHTML = medals.map((medal) => `<article class="profile-medal${medal.unlocked ? ' unlocked' : ' locked'}"><span>${medal.unlocked ? medal.icon : '🔒'}</span><div><strong>${escapeHtml(medal.name)}</strong><small>${escapeHtml(medal.description)}</small></div></article>`).join('');
+  renderTrophyRoom(profile);
   const gifts = profile.giftOptions || { people: [], items: [], weeklyCreditRemaining: 0 };
   const peopleOptions = (gifts.people || []).map((person) => `<option value="${escapeHtml(person.id)}">${escapeHtml(formatDisplayName(person.displayName))}</option>`).join('');
   $('#giftCreditsUser').innerHTML = peopleOptions || '<option value="">Nenhuma pessoa disponível</option>';
@@ -1792,7 +1961,13 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
     const canUseFree = freeShopAvailable && freeVisualTypes.includes(item.type) && !item.owned;
     const freeButton = canUseFree ? `<button class="shop-free-button" type="button" data-shop-free="${escapeHtml(item.id)}">Usar grátis</button>` : '';
     const featuredPower = item.id === 'power-force-gay-cursor';
-    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}">${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}<span class="shop-item-icon">${item.icon}</span><div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong><span class="shop-card-actions">${previewButton}${freeButton}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-equipped="${item.equipped}"${item.service && Number(item.availablePoints || 0) < 1 ? ' disabled' : ''}>${action}</button></span></footer></article>`;
+    const canBuyQuantity = Boolean(item.cardPack || item.mysteryBox || (item.type === 'power' && item.consumable));
+    const quantityPicker = canBuyQuantity ? `<label class="shop-quantity-picker"><span>Quantidade</span><input type="number" min="1" max="20" step="1" value="1" inputmode="numeric" data-shop-quantity="${escapeHtml(item.id)}" aria-label="Quantidade de ${escapeHtml(item.name)}"></label>` : '';
+    const buyMorePower = item.type === 'power' && item.consumable && Number(item.quantity || 0) > 0 ? `<button type="button" data-shop-action="purchase" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}">Comprar mais</button>` : '';
+    const boxInfo = item.mysteryBox ? ` data-box-info="true" data-box-name="${escapeHtml(item.name)}" data-box-icon="${escapeHtml(item.icon)}" data-box-credit="${Math.round(Number(item.creditChance || 0) * 100)}" data-box-power="${Math.round(Number(item.powerChance || 0) * 100)}" data-box-min="${Number(item.creditMin || 0)}" data-box-max="${Number(item.creditMax || 0)}" data-box-reward-min="${Number(item.minRewardPrice || 0)}" data-box-reward-max="${Number(item.maxRewardPrice || 0)}" data-box-physical-chance="${Number(item.physicalKitChance || 0)}"` : '';
+    const iconMarkup = item.mysteryBox ? `<button class="shop-item-icon" type="button" aria-label="Ver chances da ${escapeHtml(item.name)}">${item.icon}</button>` : `<span class="shop-item-icon">${item.icon}</span>`;
+    const oddsButton = item.mysteryBox ? '<button type="button" data-box-odds>Ver chances</button>' : '';
+    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}"${boxInfo}>${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}${iconMarkup}<div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong>${quantityPicker}<span class="shop-card-actions">${oddsButton}${previewButton}${freeButton}${buyMorePower}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}" data-equipped="${item.equipped}"${item.service && Number(item.availablePoints || 0) < 1 ? ' disabled' : ''}>${action}</button></span></footer></article>`;
   }).join('');
   const collectionCatalog = $('#collectionCatalog');
   collectionCatalog.innerHTML = '';
@@ -1879,6 +2054,96 @@ function renderAdmin() {
     stageRow('Visualização', 3, progress.missingViews, 'Aguardando a distribuição') +
     stageRow('Gay da Rodada', 3, [], 'Aguardando a distribuição') +
     stageRow('Votação', 4, progress.missingVotes, 'Aguardando o sorteio especial');
+  renderEventMode();
+  renderAdminHealth(appState.adminHealth || {});
+}
+
+function renderTodayHub(data) {
+  const phase = data.workflow?.phase || 'theme';
+  const phaseInfo = {
+    theme: ['🎨', 'Tema da rodada', 'Aguardando o próximo sorteio'],
+    uploads: ['🖼️', 'Envios abertos', data.meCanUpload ? 'Seu wallpaper ainda falta' : 'Seu envio está confirmado'],
+    assignments: ['🎡', 'Distribuição', 'Wallpapers sendo entregues'],
+    gay: ['🌈', 'Sorteio especial', 'Gay da Rodada é a próxima etapa'],
+    voting: ['🗳️', 'Votação aberta', data.voting?.userHasVoted ? 'Seu voto já foi salvo' : 'Seu voto ainda falta'],
+    results: ['🏆', 'Resultado disponível', 'Confira o fechamento da rodada'],
+  }[phase];
+  const missions = data.profile?.dailyMissions || [];
+  const missionDone = missions.filter((item) => item.completed).length;
+  const water = Number(data.hydration?.myTotalMl || 0);
+  const boxes = Number(data.profile?.mysteryBoxes?.length || 0) + Number(data.profile?.cardPacks?.length || 0);
+  const unread = Number(data.notifications?.unreadCount || 0);
+  $('#todayHubStatus').textContent = unread ? unread + (unread === 1 ? ' novidade' : ' novidades') : 'Tudo em ordem';
+  $('#todayHubCards').innerHTML = [
+    [phaseInfo[0], phaseInfo[1], phaseInfo[2], 'Rodada'],
+    ['💧', water.toLocaleString('pt-BR') + ' ml', Math.max(0, 2500 - water).toLocaleString('pt-BR') + ' ml restantes', 'Água hoje'],
+    ['🚀', missionDone + ' de ' + missions.length, missionDone === missions.length && missions.length ? 'Objetivos concluídos' : 'Missões diárias', 'Progresso'],
+    ['🎁', String(boxes), boxes ? 'Itens fechados esperando você' : 'Nenhum item fechado', 'Inventário'],
+  ].map(([icon,title,detail,label]) => `<article class="today-hub-card"><span>${icon}</span><p><small>${escapeHtml(label)}</small><strong>${escapeHtml(title)}</strong><em>${escapeHtml(detail)}</em></p></article>`).join('');
+  const primaryPage = phase === 'uploads' ? 'inscricoes' : phase === 'voting' || phase === 'results' ? 'sorteio' : 'sorteio';
+  const primaryLabel = phase === 'uploads' && data.meCanUpload ? 'Enviar wallpaper' : phase === 'voting' && !data.voting?.userHasVoted ? 'Votar agora' : phase === 'results' ? 'Ver resultado' : 'Ver rodada';
+  $('#todayQuickActions').innerHTML = `<a class="primary" href="?pagina=${primaryPage}" data-page="${primaryPage}">${primaryLabel}</a><a href="?pagina=agua" data-page="agua">Registrar água</a><a href="?pagina=perfil" data-page="perfil">Abrir inventário</a><a href="?pagina=classificacao" data-page="classificacao">Ver placares</a>`;
+  const recap = data.roundRecap;
+  $('#roundRecapCard').classList.toggle('hidden', !recap);
+  if (recap) {
+    $('#roundRecapTitle').textContent = recap.roundName;
+    $('#roundRecapPreview').textContent = [recap.theme ? 'Tema: ' + recap.theme : '', recap.best ? 'Melhor: ' + recap.best.name : '', recap.gayWinner ? 'Gay da Rodada: ' + recap.gayWinner : ''].filter(Boolean).join(' · ');
+  }
+}
+
+function renderTrophyRoom(profile = {}) {
+  const showcase = profile.showcase || { selected: [], selectedIds: [], options: [], max: 4 };
+  const tile = (item, selectable = false) => `<label class="${selectable ? 'trophy-option' : 'trophy-item'}">${selectable ? `<input type="checkbox" value="${escapeHtml(item.id)}"${showcase.selectedIds.includes(item.id) ? ' checked' : ''}>` : ''}<span>${item.icon}</span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.kind || item.description || '')}</small></label>`;
+  $('#trophyRoomDisplay').innerHTML = showcase.selected.length ? showcase.selected.map((item) => tile(item)).join('') : '<p class="trophy-room-empty">Sua vitrine ainda está vazia. Escolha conquistas desbloqueadas.</p>';
+  $('#trophyRoomOptions').innerHTML = showcase.options.length ? showcase.options.map((item) => tile(item, true)).join('') : '<p class="trophy-room-empty">Continue participando para liberar conquistas.</p>';
+  $('#saveTrophyRoomButton').disabled = !showcase.options.length;
+}
+
+function renderFeatureAvailability(flags = {}) {
+  const normalized = { casino: true, impostor: true, mystery: true, shop: true, uploads: true, ...flags };
+  $$('#siteMenu a[data-page]').forEach((link) => {
+    const feature = featurePageMap[link.dataset.page];
+    link.classList.toggle('feature-paused', Boolean(feature && normalized[feature] === false));
+    link.setAttribute('aria-disabled', String(Boolean(feature && normalized[feature] === false)));
+  });
+  const form = $('#featureFlagsForm');
+  if (form && document.activeElement?.form !== form) Object.entries(normalized).forEach(([key, enabled]) => { if (form.elements[key]) form.elements[key].checked = enabled; });
+  if (!normalized.casino && flightPollTimer) stopFlightPolling();
+  const current = currentPortalPage(); const required = featurePageMap[current];
+  if (required && normalized[required] === false) showPortalPage('memes', false, false);
+  const giftItemButton = $('#giftItemForm button[type="submit"]');
+  if (giftItemButton) { giftItemButton.disabled = normalized.shop === false; giftItemButton.title = normalized.shop === false ? 'A Loja 51 está pausada.' : ''; }
+}
+
+function renderEventMode() {
+  const enabled = localStorage.getItem('area51-event-focus') === 'true';
+  $('#eventModeToggle').checked = enabled;
+  document.body.classList.toggle('event-focus', enabled && currentPortalPage() === 'admin');
+  const phase = appState.workflow?.phase || 'theme';
+  const info = {
+    theme: ['🎨','Definir o tema','A roleta de temas inicia a rodada.'], uploads: ['🖼️','Receber os wallpapers',`${appState.readiness?.ready || 0} de ${appState.readiness?.total || 0} envios confirmados.`],
+    assignments: ['🎡','Distribuir wallpapers','Use a roleta para entregar um wallpaper a cada pessoa.'], gay: ['🌈','Sortear o Gay da Rodada','A distribuição terminou; o sorteio especial está liberado.'],
+    voting: ['🗳️','Acompanhar votação',`${appState.voting?.receivedVotes || 0} de ${appState.voting?.totalVoters || 0} votos recebidos.`], results: ['🏆','Fechar a rodada','Resultados concluídos; confirme antes de apagar as imagens pesadas.'],
+  }[phase];
+  $('#eventModeStage').innerHTML = `<span>${info[0]}</span><p><strong>${info[1]}</strong><small>${escapeHtml(info[2])}</small></p>`;
+  const actions = [`<button type="button" data-event-action="round">Abrir controle da rodada</button>`];
+  if (appState.readiness?.canStartWithReady) actions.push('<button class="secondary" type="button" data-event-action="ready">Fechar com quem enviou</button>');
+  if (phase === 'results' && appState.voting?.gayDrawCompleted) actions.push('<button class="secondary" type="button" data-event-action="finish">Encerrar e limpar imagens</button>');
+  $('#eventModeActions').innerHTML = actions.join('');
+}
+
+function renderAdminHealth(health = {}) {
+  const bytes = Number(health.databaseBytes || 0);
+  const formatBytes = (value) => value >= 1048576 ? (value / 1048576).toFixed(2) + ' MB' : value >= 1024 ? Math.round(value / 1024) + ' KB' : value + ' B';
+  const media = health.media || {};
+  $('#healthMetrics').innerHTML = [
+    ['Banco atual', formatBytes(bytes)], ['Mídias referenciadas', Number(media.referencedTotal || 0).toLocaleString('pt-BR')],
+    ['Contas ativas', `${Number(health.activeUsers || 0)} de ${Number(health.totalUsers || 0)}`], ['Online agora', Number(health.onlineUsers || 0).toLocaleString('pt-BR')],
+    ['Versão liberada', 'v' + Number(health.releaseVersion || 0)], ['Revisão dos dados', '#' + Number(health.revision || 0)],
+  ].map(([label,value]) => `<div class="health-metric"><small>${label}</small><strong>${escapeHtml(value)}</strong></div>`).join('');
+  const backup = health.lastBackupAt ? formatDate(health.lastBackupAt) : 'ainda não registrado';
+  const cleanup = health.lastCleanupAt ? formatDate(health.lastCleanupAt) : 'ainda não registrada';
+  $('#healthActivity').textContent = `Último backup: ${backup}. Última limpeza: ${cleanup}. Imagens: ${Number(media.wallpapers || 0)} wallpapers, ${Number(media.feedImages || 0)} no feed e ${Number(media.feedbackImages || 0)} em feedbacks.`;
 }
 
 function renderAnnouncement(announcement) {
@@ -1930,7 +2195,7 @@ function applyState(data) {
   const schedule = data.settings.roundSchedule || {};
   const scheduleItems = [['📤', 'Envios', schedule.submissionsAt], ['🎡', 'Sorteio', schedule.drawAt], ['🗳️', 'Votação', schedule.voteAt]].filter((item) => item[2]);
   $('#roundScheduleBanner').classList.toggle('hidden', !scheduleItems.length);
-  $('#roundScheduleBanner').innerHTML = scheduleItems.map(([icon, label, value]) => `<span>${icon}<b>${label}</b><small>${escapeHtml(new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value)))}</small></span>`).join('');
+  $('#roundScheduleBanner').innerHTML = scheduleItems.map(([icon, label, value]) => `<span>${icon}<b>${label}</b><small>${escapeHtml(new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' }).format(new Date(value + 'T12:00:00')))}</small></span>`).join('');
   const wallpaperCount = data.submissions.length;
   const peopleCount = data.participants.length;
   ['#heroWallpaperCount','#wallpaperCount'].forEach((id) => $(id).textContent = wallpaperCount);
@@ -1950,13 +2215,14 @@ function applyState(data) {
       noteText.textContent = 'Escolham com calma: não existe prazo automático e o tema “' + data.workflow.currentTheme + '” fica mantido até a distribuição.';
     }
   }
-  renderWorkflow(); renderNotifications(); renderCasino(data.casino); renderRoundSummary(); renderGallery(); renderAssignments(); renderDraws(); renderDailyWall(data.dailyWall); renderAnonymousWall(data.anonymousWall); renderHydration(data.hydration); renderLieMeter(data.lieMeter); renderMystery(data.mystery); renderProfileEconomy(data.profile); renderAdmin(); renderVoting(); renderRankings(); renderSeason(data.season); renderAnnouncement(data.announcement); drawWheel();
-  const canUpload = Boolean(data.meCanUpload);
+  renderFeatureAvailability(data.settings?.featureFlags); renderTodayHub(data); renderWorkflow(); renderNotifications(); renderCasino(data.casino); renderRoundSummary(); renderGallery(); renderAssignments(); renderDraws(); renderDailyWall(data.dailyWall); renderAnonymousWall(data.anonymousWall); renderHydration(data.hydration); renderLieMeter(data.lieMeter); renderMystery(data.mystery); renderImpostor(data.impostor); renderProfileEconomy(data.profile); renderAdmin(); renderVoting(); renderRankings(); renderSeason(data.season); renderAnnouncement(data.announcement); drawWheel();
+  const canUpload = Boolean(data.meCanUpload && data.settings?.featureFlags?.uploads !== false);
   $$('input,button', $('#uploadForm')).forEach((control) => { control.disabled = !canUpload; });
   const uploadLock = $('#uploadLock');
   uploadLock.classList.toggle('hidden', canUpload);
   if (!canUpload) {
-    if (data.workflow.phase === 'theme') uploadLock.textContent = '🔒 Os envios abrem assim que o tema for sorteado.';
+    if (data.settings?.featureFlags?.uploads === false) uploadLock.textContent = '⏸️ Os envios foram pausados temporariamente pelo administrador.';
+    else if (data.workflow.phase === 'theme') uploadLock.textContent = '🔒 Os envios abrem assim que o tema for sorteado.';
     else if (!data.participants.some((item) => item.id === data.me.id)) uploadLock.textContent = '🔒 Sua conta entra na próxima rodada.';
     else if (data.meHasSubmitted) uploadLock.textContent = '✓ Seu wallpaper foi recebido. Aguarde as outras pessoas.';
     else uploadLock.textContent = '🔒 Os envios desta rodada já foram encerrados.';
@@ -2151,6 +2417,11 @@ function receiveLiveDraw(payload) {
 
 function connectLive() {
   if (!appState || liveSource) return;
+  if (appState.realtimeTransport === 'adaptive-poll') {
+    $('#liveStatus').textContent = 'SINCRONIZADO';
+    schedulePortalSync(0);
+    return;
+  }
   $('#liveStatus').textContent = 'CONECTANDO';
   liveSource = new EventSource('/api/events');
   liveSource.addEventListener('ready', (event) => {
@@ -2206,11 +2477,20 @@ $$('[data-mobile-dot]').forEach((button) => button.addEventListener('click', () 
   setAuthSlide(Number(button.dataset.mobileDot)); startAuthCarousel();
 }));
 
-const rememberedLoginPreference = localStorage.getItem('area51RememberAccess') === 'true';
-$('#rememberMe').checked = rememberedLoginPreference;
-if (rememberedLoginPreference) $('#loginForm [name="username"]').value = localStorage.getItem('area51RememberedUsername') || '';
-function updateRememberAccessLabel() { $('#rememberMeStatus').textContent = $('#rememberMe').checked ? 'Ativado · sua sessão continuará neste aparelho por até 30 dias.' : 'Desativado · será necessário entrar novamente depois.'; }
-$('#rememberMe').addEventListener('change', updateRememberAccessLabel); updateRememberAccessLabel();
+function updateRememberAccessLabel() { $('#rememberMeStatus').textContent = $('#rememberMe').checked ? 'Ativado · fechar o navegador não encerra o acesso. Sair encerra a sessão por segurança.' : 'Desativado · será necessário entrar novamente depois.'; }
+function restoreRememberedLogin() {
+  const remembered = localStorage.getItem('area51RememberAccess') === 'true';
+  $('#rememberMe').checked = remembered;
+  if (remembered) $('#loginForm [name="username"]').value = localStorage.getItem('area51RememberedUsername') || '';
+  updateRememberAccessLabel();
+}
+$('#rememberMe').addEventListener('change', () => {
+  const remembered = $('#rememberMe').checked;
+  localStorage.setItem('area51RememberAccess', String(remembered));
+  if (!remembered) localStorage.removeItem('area51RememberedUsername');
+  updateRememberAccessLabel();
+});
+restoreRememberedLogin();
 
 $('#loginForm').addEventListener('submit', async (event) => {
   event.preventDefault(); primeMusicFromGesture(); const form = event.currentTarget; $('#loginError').textContent = ''; setBusy(form, true);
@@ -2474,14 +2754,20 @@ $('#memeUploadForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   $('#memeUploadError').textContent = '';
-  if (!selectedMemeFile) { $('#memeUploadError').textContent = 'Escolha um meme primeiro.'; return; }
+  const caption = $('#memeCaption').value.trim();
+  const anonymous = Boolean($('#feedPostAnonymous').checked);
+  if (!selectedMemeFile && !caption) { $('#memeUploadError').textContent = 'Escreva uma legenda, adicione uma imagem ou use os dois.'; return; }
   setBusy(form, true);
   try {
+    if (!selectedMemeFile) {
+      applyState(await api('/api/daily-wall/phrases', { method: 'POST', body: { phrase: caption, anonymous } }));
+      form.reset(); clearMemeSelection(); showToast(anonymous ? 'Frase anônima publicada no feed!' : 'Frase publicada no feed!'); return;
+    }
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(selectedMemeFile);
     });
-    applyState(await api('/api/memes', { method: 'POST', body: { dataUrl, caption: $('#memeCaption').value } }));
-    form.reset(); clearMemeSelection(); showToast('Meme publicado no mural!');
+    applyState(await api('/api/memes', { method: 'POST', body: { dataUrl, caption, anonymous } }));
+    form.reset(); clearMemeSelection(); showToast(anonymous ? 'Publicação anônima enviada ao feed!' : 'Publicação enviada ao feed!');
   } catch (error) { $('#memeUploadError').textContent = error.message; }
   finally { setBusy(form, false); }
 });
@@ -2647,7 +2933,7 @@ $('#casinoForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (casinoSpinInProgress) return;
   const form = event.currentTarget; const bet = Number($('#casinoBet').value); const walletSource = $('#casinoWalletSource').value;
-  if (!Number.isInteger(bet) || bet < 1 || bet > 100) { showToast('Aposte um valor inteiro de 1 a 100 créditos.', 'error'); return; }
+  if (!Number.isInteger(bet) || bet < 1) { showToast('Aposte um valor inteiro de pelo menos 1 crédito.', 'error'); return; }
   casinoSpinInProgress = true; setBusy(form, true); $('#casinoResult').textContent = 'Confirmando sua aposta…';
   try {
     const data = await submitRouletteBet(bet, walletSource);
@@ -2670,7 +2956,7 @@ $('#casinoForm').addEventListener('submit', async (event) => {
 
 $('#flightForm').addEventListener('submit', async (event) => {
   event.preventDefault(); if ($('#flightSky').dataset.phase === 'flying') return; const form = event.currentTarget; const bet = Number($('#flightBet').value); const walletSource = $('#flightWalletSource').value;
-  if (!Number.isInteger(bet) || bet < 1 || bet > 100) { showToast('Aposte um valor inteiro de 1 a 100 créditos.', 'error'); return; }
+  if (!Number.isInteger(bet) || bet < 1) { showToast('Aposte um valor inteiro de pelo menos 1 crédito.', 'error'); return; }
   setBusy(form, true);
   try { const data = await flightApi('/api/casino/flight/start', { method: 'POST', body: { bet, walletSource, autoCashout:Number($('#flightAutoCashout').value)||null } }); applyState(data); startFlightPolling(); showToast('Aposta confirmada. Todos decolam juntos ao fim da contagem!'); }
   catch (error) { showToast(error.message, 'error'); }
@@ -2764,6 +3050,27 @@ $('#hideOwnedVisuals').addEventListener('change', (event) => {
   localStorage.setItem('area51-hide-owned-visuals', String(hideOwnedVisuals));
   renderProfileEconomy(appState.profile);
 });
+document.addEventListener('click', (event) => {
+  const oddsTrigger = event.target.closest('[data-box-odds]');
+  if (!oddsTrigger && event.target.closest('[data-shop-action], [data-shop-preview], [data-shop-free], .shop-card-actions')) return;
+  const box = oddsTrigger?.closest('.shop-item[data-box-info]') || event.target.closest('.shop-item[data-box-info]');
+  if (!box) return;
+  const credits = Number(box.dataset.boxCredit || 0); const powers = Number(box.dataset.boxPower || 0); const visual = Math.max(0, 100 - credits - powers);
+  const minPrice = Number(box.dataset.boxRewardMin || 0); const maxPrice = Number(box.dataset.boxRewardMax || 0);
+  const catalog = Array.isArray(appState?.profile?.shop) ? appState.profile.shop : [];
+  const rewardsFor = (type) => { const base = catalog.filter((item) => !item.cardPack && !item.mysteryBox && !item.service && (type === 'power' ? item.type === 'power' : item.type !== 'power') && (item.consumable || !item.owned)); const inRange = base.filter((item) => Number(item.price || 0) >= minPrice && Number(item.price || 0) <= maxPrice); return inRange.length ? inRange : base; };
+  const powerItems = rewardsFor('power'); const visualItems = rewardsFor('visual'); const physicalChance = Number(box.dataset.boxPhysicalChance || 0);
+  const cardFor = (item, totalChance, kind, count) => `<article class="mystery-odds-card"><span>${escapeHtml(item.icon || (kind === 'PODER' ? '🎟️' : '✨'))}</span><div><small>${kind}</small><strong>${escapeHtml(item.name)}</strong><em>${(totalChance / Math.max(1, count)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% de chance</em></div></article>`;
+  const cards = [`<article class="mystery-odds-card mystery-odds-credit"><span>🪙</span><div><small>CRÉDITOS</small><strong>${Number(box.dataset.boxMin || 0)} a ${Number(box.dataset.boxMax || 0)} créditos</strong><em>${credits}% de chance</em></div></article>`, ...(physicalChance > 0 ? [`<article class="mystery-odds-card mystery-odds-physical"><span>📒</span><div><small>PRÊMIO FÍSICO ÚNICO</small><strong>Caderno e caneta doados</strong><em>${physicalChance.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% de chance</em></div></article>`] : []), ...powerItems.map((item) => cardFor(item, powers, 'PODER', powerItems.length)), ...visualItems.map((item) => cardFor(item, visual, 'VISUAL', visualItems.length))];
+  $('#mysteryBoxOddsContent').innerHTML = `<header><span>${escapeHtml(box.dataset.boxIcon || '🎁')}</span><div><small>CHANCES DA CAIXA</small><h3>${escapeHtml(box.dataset.boxName || 'Caixa misteriosa')}</h3></div></header><p>O prêmio é definido apenas ao abrir. Navegue pelos itens que podem sair agora:</p><div class="mystery-box-summary"><span>🪙 Créditos <b>${credits}%</b></span><span>🎟️ Poder <b>${powers}%</b></span><span>✨ Visual <b>${visual}%</b></span>${physicalChance > 0 ? `<span>📒 Kit físico <b>${physicalChance.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</b></span>` : ''}</div><section class="mystery-odds-carousel" aria-label="Prêmios possíveis"><button type="button" class="mystery-odds-nav" data-box-carousel="prev" aria-label="Prêmio anterior">‹</button><div class="mystery-odds-viewport"><div class="mystery-odds-track">${cards.join('')}</div></div><button type="button" class="mystery-odds-nav" data-box-carousel="next" aria-label="Próximo prêmio">›</button></section><footer>Cada item da mesma categoria tem a mesma chance. Itens já recebidos ou indisponíveis podem virar créditos.</footer>`;
+  $('#mysteryBoxOddsDialog').showModal();
+});
+document.addEventListener('click', (event) => {
+  const control = event.target.closest('[data-box-carousel]'); if (!control) return;
+  const viewport = control.closest('.mystery-odds-carousel')?.querySelector('.mystery-odds-viewport');
+  if (viewport) viewport.scrollBy({ left: (control.dataset.boxCarousel === 'next' ? 1 : -1) * Math.max(220, viewport.clientWidth * .8), behavior: 'smooth' });
+});
+$('#closeMysteryBoxOddsDialog').addEventListener('click', () => $('#mysteryBoxOddsDialog').close());
 $('#collectionCatalog').addEventListener('click', (event) => {
   const preview = event.target.closest('[data-shop-preview]');
   const free = event.target.closest('[data-shop-free]');
@@ -2819,14 +3126,26 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       applyState(await api('/api/shop/sell-best-win', { method: 'POST' }));
       showToast('Ponto vendido! 500 Créditos 51 foram adicionados ao seu saldo. 🏆');
     } else if (button.dataset.shopAction === 'purchase') {
-      if (!confirm('Comprar este item com seus Créditos 51?')) return;
-      applyState(await api('/api/shop/purchase', { method: 'POST', body: { itemId: button.dataset.shopItem } }));
-      showToast(button.dataset.shopType === 'power' ? 'Poder comprado! Agora você pode usá-lo. 🎟️' : 'Item comprado e equipado! 🛍️');
+      const quantityInput = button.closest('.shop-item')?.querySelector('[data-shop-quantity]');
+      const quantity = quantityInput ? Number(quantityInput.value) : 1;
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) throw new Error('Escolha uma quantidade inteira entre 1 e 20.');
+      const total = Number(button.dataset.shopPrice || 0) * quantity;
+      if (!confirm(`Comprar ${quantity} unidade${quantity === 1 ? '' : 's'} por ${total.toLocaleString('pt-BR')} Créditos 51?`)) return;
+      const data = await api('/api/shop/purchase', { method: 'POST', body: { itemId: button.dataset.shopItem, quantity } });
+      applyState(data);
+      if (button.dataset.shopType === 'cardPack') {
+        showToast(`${quantity} pacotinho${quantity === 1 ? '' : 's'} guardado${quantity === 1 ? '' : 's'} no seu perfil.`);
+        if (confirm('Compra concluída! Quer ir ao Perfil para abrir agora?')) showPortalPage('perfil', true);
+      } else showToast(button.dataset.shopType === 'power' ? `${quantity} poder${quantity === 1 ? '' : 'es'} comprado${quantity === 1 ? '' : 's'}! 🎟️` : 'Item comprado e equipado! 🛍️');
     } else if (button.dataset.shopAction === 'mystery-purchase') {
       const itemName = button.closest('.shop-item')?.querySelector('h4')?.textContent || 'Caixa misteriosa';
-      if (!confirm('Comprar “' + itemName + '” fechada?\n\nEla irá para Meus baús no perfil, onde você poderá abrir ou vender.')) return;
-      const data = await api('/api/shop/purchase', { method: 'POST', body: { itemId: button.dataset.shopItem } });
-      applyState(data); showToast(itemName + ' adicionada fechada ao seu perfil! 🎁');
+      const quantityInput = button.closest('.shop-item')?.querySelector('[data-shop-quantity]');
+      const quantity = quantityInput ? Number(quantityInput.value) : 1;
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) throw new Error('Escolha uma quantidade inteira entre 1 e 20.');
+      const total = Number(button.dataset.shopPrice || 0) * quantity;
+      if (!confirm(`Comprar ${quantity}x “${itemName}” por ${total.toLocaleString('pt-BR')} créditos?\n\nAs caixas irão fechadas para Meus baús no perfil.`)) return;
+      const data = await api('/api/shop/purchase', { method: 'POST', body: { itemId: button.dataset.shopItem, quantity } });
+      applyState(data); showToast(`${quantity} caixa${quantity === 1 ? '' : 's'} adicionada${quantity === 1 ? '' : 's'} ao seu perfil! 🎁`);
     } else if (button.dataset.shopAction === 'equip') {
       const itemId = button.dataset.equipped === 'true' ? null : button.dataset.shopItem;
       applyState(await api('/api/profile/equip', { method: 'POST', body: { type: button.dataset.shopType, itemId } }));
@@ -2933,6 +3252,51 @@ $('#clearFinishedRoundButton').addEventListener('click', async () => {
   } catch (error) { showToast(error.message, 'error'); }
 });
 
+$('#copyRoundRecapButton')?.addEventListener('click', async () => {
+  const text = appState?.roundRecap?.text;
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Resumo da rodada copiado para enviar no grupo.');
+  } catch {
+    showToast('O navegador bloqueou a cópia. Tente novamente após tocar na página.', 'error');
+  }
+});
+
+$('#trophyRoomOptions')?.addEventListener('change', (event) => {
+  if (!event.target.matches('input[type="checkbox"]')) return;
+  const selected = $$('#trophyRoomOptions input:checked');
+  if (selected.length > 4) { event.target.checked = false; showToast('Escolha no máximo quatro conquistas.', 'error'); }
+});
+
+$('#saveTrophyRoomButton')?.addEventListener('click', async () => {
+  const button = $('#saveTrophyRoomButton'); const ids = $$('#trophyRoomOptions input:checked').map((input) => input.value);
+  button.disabled = true;
+  try { applyState(await api('/api/profile/showcase', { method: 'POST', body: { ids } })); showToast('Sua Sala de Troféus foi atualizada. 🏛️'); }
+  catch (error) { showToast(error.message, 'error'); }
+  finally { button.disabled = false; }
+});
+
+$('#eventModeToggle')?.addEventListener('change', (event) => {
+  localStorage.setItem('area51-event-focus', String(event.target.checked));
+  renderEventMode();
+});
+
+$('#eventModeActions')?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-event-action]'); if (!button) return;
+  if (button.dataset.eventAction === 'round') showPortalPage('sorteio', true);
+  else if (button.dataset.eventAction === 'ready') $('#useReadyParticipantsButton')?.click();
+  else if (button.dataset.eventAction === 'finish') $('#clearFinishedRoundButton')?.click();
+});
+
+$('#featureFlagsForm')?.addEventListener('submit', async (event) => {
+  event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
+  const flags = Object.fromEntries(['casino','impostor','mystery','shop','uploads'].map((key) => [key, Boolean(form.elements[key].checked)]));
+  try { applyState(await api('/api/admin/features', { method: 'PATCH', body: { flags } })); showToast('Recursos do site atualizados.'); }
+  catch (error) { showToast(error.message, 'error'); }
+  finally { setBusy(form, false); }
+});
+
 $('#releaseUpdateButton').addEventListener('click', async () => {
   if (!confirm('Avisar todos os usuários conectados de que existe uma nova versão?')) return;
   try {
@@ -2963,6 +3327,11 @@ $('#settingsForm').addEventListener('submit', async (event) => {
     applyState(data); showToast('Configurações salvas.');
   } catch (error) { showToast(error.message, 'error'); }
   finally { setBusy(event.currentTarget, false); }
+});
+$('#clearVisualThemesButton')?.addEventListener('click', async () => {
+  if (!confirm('Encerrar agora os temas especiais de quem perdeu ou foi sorteado? O histórico continua salvo.')) return;
+  try { applyState(await api('/api/admin/visual-theme/clear', { method: 'POST' })); showToast('Temas especiais encerrados. Cada pessoa voltou ao seu tema normal.'); }
+  catch (error) { showToast(error.message, 'error'); }
 });
 $('#scheduleForm').addEventListener('submit', async (event) => {
   event.preventDefault(); setBusy(event.currentTarget, true);
@@ -3144,6 +3513,10 @@ $('#feedbackLauncher').addEventListener('click', () => {
   if (feedbackPanelOpen) closeFeedbackPanel(false);
   else openFeedbackPanel();
 });
+$('#feedbackTopButton').addEventListener('click', () => {
+  if (feedbackPanelOpen) closeFeedbackPanel(false);
+  else openFeedbackPanel();
+});
 $('#feedbackClose').addEventListener('click', () => closeFeedbackPanel());
 $$('[data-admin-feedback-filter]').forEach((button) => button.addEventListener('click', () => {
   adminFeedbackFilter = button.dataset.adminFeedbackFilter;
@@ -3181,6 +3554,10 @@ $('#adminFeedbackList').addEventListener('click', async (event) => {
 $('#feedbackMessage').addEventListener('input', (event) => {
   $('#feedbackCount').textContent = String(event.currentTarget.value.length);
 });
+$('#feedbackImage').addEventListener('change', (event) => {
+  const file = event.currentTarget.files?.[0];
+  $('#feedbackImageName').textContent = file ? file.name : 'PNG, JPG ou WEBP · até 900 KB';
+});
 $('#feedbackMessage').addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
     event.preventDefault();
@@ -3199,10 +3576,17 @@ $('#feedbackForm').addEventListener('submit', async (event) => {
   setBusy(form, true);
   try {
     const type = $('input[name="type"]:checked', form).value;
-    const data = await api('/api/feedback', { method: 'POST', body: { type, message } });
+    const file = $('#feedbackImage').files?.[0];
+    let imageDataUrl = null;
+    if (file) {
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 900000) throw new Error('Use um print PNG, JPG ou WEBP de até 900 KB.');
+      imageDataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('Não foi possível ler a imagem.')); reader.readAsDataURL(file); });
+    }
+    const data = await api('/api/feedback', { method: 'POST', body: { type, message, imageDataUrl } });
     if (appState.me.role === 'admin') renderAdminFeedback(data.messages);
     else renderMyFeedback(data.messages);
     $('#feedbackMessage').value = '';
+    $('#feedbackImage').value = ''; $('#feedbackImageName').textContent = 'PNG, JPG ou WEBP · até 900 KB';
     $('#feedbackCount').textContent = '0';
     form.classList.add('hidden');
     $('#feedbackSuccess').classList.remove('hidden');
@@ -3219,15 +3603,23 @@ $('#feedbackAgain').addEventListener('click', () => {
 });
 $('#refreshMyFeedback').addEventListener('click', () => refreshFeedback());
 $('#mentirometro').addEventListener('click', async (event) => {
+  const disputeDecision = event.target.closest('[data-lie-dispute-decision]');
+  const lieVote = event.target.closest('[data-lie-vote]');
   const changeButton = event.target.closest('[data-lie-target]');
   const validateButton = event.target.closest('[data-lie-validate]');
   const denyButton = event.target.closest('[data-lie-deny]');
   const cancelButton = event.target.closest('[data-lie-cancel]');
-  if (!changeButton && !validateButton && !denyButton && !cancelButton) return;
-  const button = changeButton || validateButton || denyButton || cancelButton;
+  if (!disputeDecision && !lieVote && !changeButton && !validateButton && !denyButton && !cancelButton) return;
+  const button = disputeDecision || lieVote || changeButton || validateButton || denyButton || cancelButton;
   button.disabled = true;
   try {
-    if (changeButton) {
+    if (disputeDecision) {
+      applyState(await api('/api/lie-disputes/' + disputeDecision.dataset.lieDisputeId + '/decision', { method: 'POST', body: { decision: disputeDecision.dataset.lieDisputeDecision } }));
+      showToast('Sua decisão foi registrada. O placar só muda com consenso dos três.');
+    } else if (lieVote) {
+      applyState(await api('/api/lie-meter/' + lieVote.dataset.lieVoteId + '/vote', { method: 'POST', body: { vote: lieVote.dataset.lieVote } }));
+      showToast('Voto registrado. A decisão sai quando toda a equipe votar.');
+    } else if (changeButton) {
       const delta = Number(changeButton.dataset.lieDelta);
       const reason = delta > 0 ? prompt('Qual foi a mentira?\n\nExplique rapidamente para a outra pessoa conseguir validar.') : '';
       if (delta > 0 && reason === null) return;
@@ -3246,28 +3638,45 @@ $('#mentirometro').addEventListener('click', async (event) => {
   } catch (error) { showToast(error.message, 'error'); }
   finally { if (button.isConnected) button.disabled = false; }
 });
+$('#mentirometro').addEventListener('submit', async (event) => {
+  const form = event.target.closest('[data-lie-dispute-message]');
+  if (!form) return;
+  event.preventDefault();
+  const input = form.querySelector('input');
+  const text = String(input?.value || '').trim();
+  if (!text) return;
+  setBusy(form, true);
+  try {
+    applyState(await api('/api/lie-disputes/' + form.dataset.lieDisputeMessage + '/messages', { method: 'POST', body: { text } }));
+    showToast('Mensagem enviada para a discussão.');
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { setBusy(form, false); }
+});
 $('#misterio').addEventListener('submit', async (event) => {
   const form = event.target;
-  if (form.id !== 'mysteryStartForm' && form.id !== 'mysteryQuestionForm') return;
+  const reviewId = form.dataset.mysteryGuessReview;
+  if (form.id !== 'mysteryStartForm' && form.id !== 'mysterySetupForm' && form.id !== 'mysteryQuestionForm' && form.id !== 'mysteryGuessForm' && form.id !== 'mysteryAnsweredQuestionForm' && !reviewId) return;
   event.preventDefault(); setBusy(form, true);
   try {
     const payload = Object.fromEntries(new FormData(form));
-    const data = form.id === 'mysteryStartForm' ? await api('/api/mystery', { method: 'POST', body: payload }) : await api('/api/mystery/questions', { method: 'POST', body: payload });
-    applyState(data); showToast(form.id === 'mysteryStartForm' ? 'Mistério aberto. O leitor foi avisado!' : 'Pergunta enviada ao leitor.');
+    const request = form.id === 'mysteryStartForm' ? ['/api/mystery', 'POST'] : form.id === 'mysterySetupForm' ? ['/api/mystery/setup', 'POST'] : form.id === 'mysteryQuestionForm' ? ['/api/mystery/questions', 'POST'] : form.id === 'mysteryGuessForm' ? ['/api/mystery/guesses', 'POST'] : form.id === 'mysteryAnsweredQuestionForm' ? ['/api/mystery/questions/answered', 'POST'] : ['/api/mystery/guesses/' + encodeURIComponent(reviewId), 'PATCH'];
+    const data = await api(request[0], { method: request[1], body: payload });
+    applyState(data); showToast(form.id === 'mysteryStartForm' ? 'Leitor convidado. Ele prepara o enigma em segredo.' : form.id === 'mysterySetupForm' ? 'Mistério aberto para a tripulação!' : form.id === 'mysteryGuessForm' ? 'Palpite enviado ao leitor.' : form.id === 'mysteryAnsweredQuestionForm' ? 'Pergunta respondida adicionada.' : reviewId ? 'Palpite avaliado.' : 'Pergunta enviada ao leitor.');
   } catch (error) { showToast(error.message, 'error'); }
   finally { if (form.isConnected) setBusy(form, false); }
 });
 $('#misterio').addEventListener('click', async (event) => {
-  const answerButton = event.target.closest('[data-mystery-answer]'); const closeButton = event.target.closest('#closeMysteryButton'); const clearButton = event.target.closest('#clearMysteryHistoryButton'); const deleteButton = event.target.closest('#deleteMysteryButton');
-  if (!answerButton && !closeButton && !clearButton && !deleteButton) return;
-  const button = answerButton || closeButton || clearButton || deleteButton;
+  const answerButton = event.target.closest('[data-mystery-answer]'); const cancelButton = event.target.closest('[data-mystery-cancel]'); const closeButton = event.target.closest('#closeMysteryButton'); const clearButton = event.target.closest('#clearMysteryHistoryButton'); const deleteButton = event.target.closest('#deleteMysteryButton');
+  if (!answerButton && !cancelButton && !closeButton && !clearButton && !deleteButton) return;
+  const button = answerButton || cancelButton || closeButton || clearButton || deleteButton;
   if (closeButton && !confirm('Encerrar este mistério e revelar a solução para toda a tripulação?')) return;
   if (clearButton && !confirm('Limpar apenas os mistérios já encerrados? Um mistério aberto será preservado.')) return;
   if (deleteButton && !confirm('Apagar este mistério inteiro, incluindo todas as perguntas e respostas? Esta ação não pode ser desfeita.')) return;
+  if (cancelButton && !confirm('Cancelar esta pergunta antes da resposta do leitor?')) return;
   button.disabled = true;
   try {
-    const data = answerButton ? await api('/api/mystery/questions/' + encodeURIComponent(answerButton.dataset.mysteryQuestion), { method: 'PATCH', body: { answer: answerButton.dataset.mysteryAnswer } }) : closeButton ? await api('/api/mystery/close', { method: 'POST' }) : deleteButton ? await api('/api/admin/mystery/current', { method: 'DELETE' }) : await api('/api/admin/mystery/history', { method: 'DELETE' });
-    applyState(data); showToast(answerButton ? 'Resposta oficial registrada.' : closeButton ? 'Mistério encerrado e solução revelada.' : deleteButton ? 'Mistério apagado por completo.' : 'Histórico de mistérios encerrados limpo.');
+    const data = answerButton ? await api('/api/mystery/questions/' + encodeURIComponent(answerButton.dataset.mysteryQuestion), { method: 'PATCH', body: { answer: answerButton.dataset.mysteryAnswer } }) : cancelButton ? await api('/api/mystery/questions/' + encodeURIComponent(cancelButton.dataset.mysteryCancel), { method: 'DELETE' }) : closeButton ? await api('/api/mystery/close', { method: 'POST' }) : deleteButton ? await api('/api/admin/mystery/current', { method: 'DELETE' }) : await api('/api/admin/mystery/history', { method: 'DELETE' });
+    applyState(data); showToast(answerButton ? 'Resposta oficial registrada.' : cancelButton ? 'Pergunta cancelada.' : closeButton ? 'Mistério encerrado e solução revelada.' : deleteButton ? 'Mistério apagado por completo.' : 'Histórico de mistérios encerrados limpo.');
   } catch (error) { showToast(error.message, 'error'); }
   finally { if (button.isConnected) button.disabled = false; }
 });
@@ -3301,17 +3710,26 @@ $('#profileAvatarInput').addEventListener('change', async (event) => {
 function setNotificationPanel(open) {
   $('#notificationPanel').classList.toggle('hidden', !open);
   $('#notificationButton').setAttribute('aria-expanded', String(open));
+  document.body.classList.toggle('notification-panel-open', open);
+}
+async function markNotificationsRead() {
+  if (!appState?.notifications?.unreadCount) return;
+  const previousNotifications = appState.notifications;
+  // Some o contador no mesmo clique, sem esperar a rede. Se a requisição falhar,
+  // restauramos o estado e avisamos a pessoa.
+  appState.notifications = {
+    ...previousNotifications,
+    unreadCount: 0,
+    items: (previousNotifications.items || []).map((item) => ({ ...item, unread: false }))
+  };
+  renderNotifications();
+  try { applyState(await api('/api/notifications/read', { method: 'POST' })); }
+  catch (error) { appState.notifications = previousNotifications; renderNotifications(); showToast(error.message, 'error'); }
 }
 $('#notificationButton').addEventListener('click', async () => {
   const opening = $('#notificationPanel').classList.contains('hidden');
   setNotificationPanel(opening);
-  if (opening && appState?.notifications?.unreadCount) {
-    const previousLocalRead = notificationsReadAtLocal;
-    notificationsReadAtLocal = new Date(Date.now() + 1000).toISOString();
-    renderNotifications();
-    try { applyState(await api('/api/notifications/read', { method: 'POST' })); }
-    catch (error) { notificationsReadAtLocal = previousLocalRead; renderNotifications(); showToast(error.message, 'error'); }
-  }
+  if (opening) await markNotificationsRead();
 });
 $('#closeNotificationPanel').addEventListener('click', () => setNotificationPanel(false));
 document.addEventListener('pointerdown', (event) => {
@@ -3323,7 +3741,7 @@ document.addEventListener('keydown', (event) => {
 $('#notificationList').addEventListener('click', (event) => {
   const item = event.target.closest('[data-notification-page]');
   if (!item) return;
-  setNotificationPanel(false); openNotificationTarget(item.dataset.notificationId, item.dataset.notificationPage);
+  setNotificationPanel(false); markNotificationsRead(); openNotificationTarget(item.dataset.notificationId, item.dataset.notificationPage);
 });
 window.addEventListener('popstate', () => { if (appState) showPortalPage(currentPortalPage()); });
 
@@ -3344,25 +3762,47 @@ async function initialize() {
 $('#sessionBootRetry').addEventListener('click',initialize);
 initialize();
 let portalSyncInProgress = false;
-setInterval(async () => {
-  if (!appState || portalSyncInProgress || document.hidden) return;
+let portalSyncTimer = null;
+let lastPortalActivityAt = Date.now();
+function portalSyncDelay() {
+  if (document.hidden) return 90000;
+  const page = currentPortalPage();
+  const impostorActive = page === 'impostor' && ['lobby', 'tips', 'voting'].includes(appState?.impostor?.active?.status);
+  const mysteryActive = page === 'misterio' && appState?.mystery?.active?.status === 'open';
+  const drawActive = page === 'sorteio';
+  const recentlyActive = Date.now() - lastPortalActivityAt < 5 * 60 * 1000;
+  if (!recentlyActive) return 60000;
+  if (drawActive) return 1800;
+  return impostorActive || mysteryActive ? 2500 : 15000;
+}
+function schedulePortalSync(delay = portalSyncDelay()) {
+  clearTimeout(portalSyncTimer);
+  portalSyncTimer = setTimeout(runPortalSync, Math.max(0, delay));
+}
+async function runPortalSync() {
+  if (!appState) return;
+  if (document.hidden || portalSyncInProgress || !navigator.onLine) { schedulePortalSync(); return; }
+  const editingMystery = currentPortalPage() === 'misterio' && $('#misterio')?.contains(document.activeElement) && document.activeElement?.matches('input,textarea,select');
   portalSyncInProgress = true;
   try {
-    const sync = await api('/api/sync');
+    const sync = await api('/api/sync', {}, false);
     if (!appState) return;
     if (Array.isArray(sync.onlinePeople)) { appState.onlinePeople = sync.onlinePeople; renderOnlinePeople(); }
     serverClockOffset = Number(sync.serverTime || Date.now()) - Date.now();
     if (sync.liveDraw) receiveLiveDraw(sync.liveDraw);
-    if (!spinning && !casinoSpinInProgress && !mysteryOpeningInProgress && (Number(sync.revision) !== Number(appState.serverRevision) || Boolean(sync.loanOverdue) !== Boolean(appState.profile?.loan?.overdue))) applyState(await api('/api/state'));
-  } catch {} finally { portalSyncInProgress = false; }
-}, 15000);
-
-setInterval(async () => {
-  const editing = document.activeElement && $('#misterio')?.contains(document.activeElement) && document.activeElement.matches('input,textarea,select');
-  if (!appState || mysterySyncInProgress || document.hidden || editing || currentPortalPage() !== 'misterio' || appState.mystery?.active?.status !== 'open') return;
-  mysterySyncInProgress = true;
-  try {
-    const sync = await api('/api/sync');
-    if (Number(sync.revision) !== Number(appState.serverRevision)) applyState(await api('/api/state', {}, false));
-  } catch {} finally { mysterySyncInProgress = false; }
-}, 4000);
+    const changed = Number(sync.revision) !== Number(appState.serverRevision) || Boolean(sync.loanOverdue) !== Boolean(appState.profile?.loan?.overdue);
+    if (changed && !editingMystery && !spinning && !casinoSpinInProgress && !mysteryOpeningInProgress) applyState(await api('/api/state', {}, false));
+  } catch {} finally { portalSyncInProgress = false; schedulePortalSync(); }
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && appState?.realtimeTransport === 'adaptive-poll') { lastPortalActivityAt = Date.now(); schedulePortalSync(0); }
+});
+function notePortalActivity() {
+  const wasIdle = Date.now() - lastPortalActivityAt >= 5 * 60 * 1000;
+  lastPortalActivityAt = Date.now();
+  if (wasIdle && appState?.realtimeTransport === 'adaptive-poll' && !document.hidden) schedulePortalSync(0);
+}
+document.addEventListener('pointermove', notePortalActivity, { passive: true });
+document.addEventListener('pointerdown', notePortalActivity, { passive: true });
+document.addEventListener('keydown', notePortalActivity, { passive: true });
+window.addEventListener('online', () => { if (appState?.realtimeTransport === 'adaptive-poll') schedulePortalSync(0); });
