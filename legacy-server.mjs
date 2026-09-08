@@ -976,7 +976,7 @@ function broadcastRefresh(reason) {
   broadcastLive('refresh', { reason, serverTime: Date.now() });
 }
 
-function startLiveDraw(result, candidates) {
+function startLiveDraw(result, candidates, notify = true) {
   const startedAt = Date.now() + 450;
   const safeResult = publicDraw(result);
   const items = candidates.map((item) => result.type === 'theme'
@@ -990,7 +990,7 @@ function startLiveDraw(result, candidates) {
     startedAt, duration: LIVE_DRAW_DURATION, endsAt: startedAt + LIVE_DRAW_DURATION,
   };
   db.settings.liveDraw = liveDraw;
-  broadcastLive('draw', liveDraw);
+  if (notify) broadcastLive('draw', liveDraw);
   clearTimeout(liveDrawCleanup);
   liveDrawCleanup = setTimeout(() => {
     if (liveDraw && liveDraw.id === result.id) liveDraw = null;
@@ -2095,7 +2095,9 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'GET' && route === '/api/sync') {
     const auth = requireAuth(req); const { user } = auth;
-    const onlinePeople = await heartbeatPresence(auth);
+    // A atualização de presença não pode impedir a sincronização do sorteio.
+    let onlinePeople = sharedOnlinePeople.length ? sharedOnlinePeople : [{ id: user.id, displayName: user.displayName }];
+    try { onlinePeople = await heartbeatPresence(auth); } catch {}
     json(res, 200, {
       onlinePeople,
       revision: stateRevision,
@@ -3197,8 +3199,12 @@ async function handleApi(req, res, route) {
       addScore(winner.id, { gayWins: 1 });
     } else throw new HttpError(400, 'Tipo de sorteio inválido.');
     db.draws.push(result);
+    // No Worker os participantes podem cair em instâncias diferentes. Grave o
+    // sorteio antes de avisar a interface para o polling enxergar a mesma roda.
+    const startedDraw = startLiveDraw(result, candidates, false);
     await persist();
-    json(res, 200, drawForUser(startLiveDraw(result, candidates), user.id)); return;
+    broadcastLive('draw', startedDraw);
+    json(res, 200, drawForUser(startedDraw, user.id)); return;
   }
 
   if (req.method === 'POST' && route === '/api/vote') {

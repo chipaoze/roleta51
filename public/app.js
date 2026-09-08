@@ -2576,14 +2576,35 @@ $('#markWallpaperSeenButton').addEventListener('click', async () => {
   finally { button.disabled = false; }
 });
 
+async function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('Não foi possível ler a imagem.')); reader.readAsDataURL(file); });
+}
+
+async function normalizeWallpaperDataUrl(file) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image(); image.src = objectUrl; await image.decode();
+    const maxSide = 4096; const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio)); canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+    const context = canvas.getContext('2d'); context.fillStyle = '#0b1220'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    for (const quality of [.92, .84, .76, .68]) {
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+      if (blob && blob.size <= 7.5 * 1024 * 1024) return fileToDataUrl(blob);
+    }
+    throw new Error('A imagem é grande demais. Escolha uma versão de até 8 MB ou reduza a resolução.');
+  } catch (error) {
+    throw new Error(error.message || 'Não foi possível preparar esta imagem. Tente exportá-la como JPG ou PNG.');
+  } finally { URL.revokeObjectURL(objectUrl); }
+}
+
 function chooseFile(file) {
   $('#uploadError').textContent = '';
   if (!file) return;
-  if (!['image/png','image/jpeg','image/webp'].includes(file.type)) {
-    $('#uploadError').textContent = 'Escolha um arquivo PNG, JPG ou WEBP.'; return;
+  if (!String(file.type || '').startsWith('image/')) {
+    $('#uploadError').textContent = 'Escolha um arquivo de imagem.'; return;
   }
-  if (file.size > 8 * 1024 * 1024) {
-    $('#uploadError').textContent = 'A imagem deve ter no máximo 8 MB.'; return;
+  if (file.size > 25 * 1024 * 1024) {
+    $('#uploadError').textContent = 'A imagem deve ter no máximo 25 MB antes da otimização.'; return;
   }
   selectedFile = file; $('#fileName').textContent = file.name;
   if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
@@ -2628,9 +2649,7 @@ $('#uploadForm').addEventListener('submit', async (event) => {
   if (!selectedFile) { $('#uploadError').textContent = 'Escolha uma imagem primeiro.'; return; }
   setBusy(form, true);
   try {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(selectedFile);
-    });
+    const dataUrl = await normalizeWallpaperDataUrl(selectedFile);
     const data = await api('/api/uploads', { method: 'POST', body: { dataUrl } });
     applyState(data); form.reset(); selectedFile = null;
     if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
