@@ -2337,12 +2337,13 @@ async function createWatermarkedWallpaper(result) {
 
 function showWinner(result) {
   const isTheme = result.type === 'theme';
+  const isThemeFinalist = isTheme && result.themeStage === 'finalist';
   const isGay = result.type === 'gay';
   $('#winnerDialog').classList.toggle('is-gay-winner', isGay);
-  $('#winnerKicker').textContent = isTheme ? 'O TEMA SORTEADO É…' : isGay ? 'O ÍCONE DA VEZ É…' : 'WALLPAPER ENTREGUE';
-  $('#winnerLabel').textContent = isTheme ? 'Tema da rodada' : isGay ? 'Gay da Rodada' : 'Quem recebeu';
+  $('#winnerKicker').textContent = isThemeFinalist ? 'FINALISTA DEFINIDO…' : isTheme ? 'O TEMA SORTEADO É…' : isGay ? 'O ÍCONE DA VEZ É…' : 'WALLPAPER ENTREGUE';
+  $('#winnerLabel').textContent = isThemeFinalist ? 'Tema finalista' : isTheme ? 'Tema da rodada' : isGay ? 'Gay da Rodada' : 'Quem recebeu';
   $('#winnerName').textContent = result.winner;
-  $('#winnerDetail').textContent = isTheme ? 'Envios liberados: cada pessoa pode mandar uma imagem.' :
+  $('#winnerDetail').textContent = isThemeFinalist ? 'Ele entrou na decisão final. Continue os sorteios até formar os 3 finalistas.' : isTheme ? 'Envios liberados: cada pessoa pode mandar uma imagem.' :
     isGay ? 'A faixa é sua. Aproveite a glória!' : 'Recebeu ' + result.wallpaperTitle + ' · 🔒 autoria secreta';
   const winnerImage = $('#winnerImage');
   const winnerVisual = winnerImage.parentElement;
@@ -2353,7 +2354,7 @@ function showWinner(result) {
   $('#watermarkStatus').classList.add('hidden');
   $('#downloadWatermark').classList.add('hidden');
   focusVotingAfterWinner = isGay;
-  $('#closeWinnerButton').textContent = isTheme ? 'Abrir envios' : isGay ? 'Abrir votação' : 'Continuar distribuição';
+  $('#closeWinnerButton').textContent = isThemeFinalist ? 'Continuar sorteio' : isTheme ? 'Abrir envios' : isGay ? 'Abrir votação' : 'Continuar distribuição';
   if ($('#winnerDialog').open) $('#winnerDialog').close();
   $('#winnerDialog').showModal();
   if (isGay && result.watermarkSourceUrl) createWatermarkedWallpaper(result);
@@ -3754,12 +3755,26 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && musicWanted && appState) startMusic();
 });
 
+let sessionBootAttempts = 0;
+let sessionBootRetryTimer = null;
 async function initialize() {
   drawWheel();
-  try { showApp(await api('/api/state')); }
-  catch(error) { if(error.status===401)showAuth();else { $('#sessionBootText').textContent='Não foi possível verificar sua sessão. Tente novamente sem sair da conta.';$('#sessionBootRetry').classList.remove('hidden'); } }
+  clearTimeout(sessionBootRetryTimer);
+  try { showApp(await api('/api/state')); sessionBootAttempts = 0; }
+  catch(error) {
+    if(error.status===401) { showAuth(); return; }
+    sessionBootAttempts += 1;
+    if (sessionBootAttempts < 3) {
+      $('#sessionBootText').textContent = 'Reconectando sua sessão…';
+      $('#sessionBootRetry').classList.add('hidden');
+      sessionBootRetryTimer = setTimeout(initialize, sessionBootAttempts * 1200);
+      return;
+    }
+    $('#sessionBootText').textContent='Não foi possível verificar sua sessão agora. Seu acesso foi preservado; tente novamente em instantes.';
+    $('#sessionBootRetry').classList.remove('hidden');
+  }
 }
-$('#sessionBootRetry').addEventListener('click',initialize);
+$('#sessionBootRetry').addEventListener('click',()=>{sessionBootAttempts=0;initialize();});
 initialize();
 let portalSyncInProgress = false;
 let portalSyncTimer = null;

@@ -1920,7 +1920,9 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'GET' && route === '/api/state') {
     const auth = requireAuth(req); const { user } = auth;
-    await heartbeatPresence(auth);
+    // Presença é apenas um indicador visual. Uma oscilação no D1 não pode
+    // impedir uma sessão válida de abrir o portal.
+    try { await heartbeatPresence(auth); } catch {}
     const settledCleanName = settleCleanNameRewards();
     const settledSeasonChallenges = settleSeasonalChallenges();
     if (settledCleanName || settledSeasonChallenges) await persist();
