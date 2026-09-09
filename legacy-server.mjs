@@ -1340,6 +1340,9 @@ function profileFor(user, computed = {}) {
     { id: 'champion', icon: '🏆', name: 'Campeão da Área 51', description: 'Venceu como melhor wallpaper.', unlocked: score.bestWins >= 1 },
     { id: 'collector', icon: '🛍️', name: 'Colecionador cósmico', description: 'Comprou pelo menos 3 itens.', unlocked: purchases.length >= 3 },
     { id: 'season-champion', icon: '🌟', name: 'Campeão da temporada', description: 'Terminou um mês na liderança geral.', unlocked: previousSeason.leader?.id === user.id },
+    { id: 'signal-lost', icon: '📡', name: 'Sinal perdido', description: 'Publicou 5 memes e 5 frases para a tripulação.', unlocked: memes >= 5 && phrases >= 5, secret: true },
+    { id: 'double-orbit', icon: '🪐', name: 'Órbita dupla', description: 'Foi melhor e pior wallpaper ao menos uma vez.', unlocked: score.bestWins >= 1 && score.worstWins >= 1, secret: true },
+    { id: 'cosmic-hoarder', icon: '🎴', name: 'Arquivo cósmico', description: 'Abriu 3 pacotinhos de cartas.', unlocked: purchases.filter((item) => item.cardPackOpenedAt).length >= 3, secret: true },
   ];
   const album = computed.cardAlbum || albumFor(db, user.id, saoPauloDayKey());
   const showcaseOptions = [

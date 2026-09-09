@@ -8,7 +8,7 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260909-174">
+  <link rel="stylesheet" href="/styles.css?v=20260909-175">
   <link rel="stylesheet" href="/improvements.css?v=20260902-118">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260909-174">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
@@ -320,7 +320,7 @@
         <header><div><small>SEU PAINEL DE HOJE</small><h3 id="todayHubTitle">Central da tripulação</h3></div><span id="todayHubStatus">Tudo em ordem</span></header>
         <div id="todayHubCards" class="today-hub-cards"></div>
         <nav id="todayQuickActions" class="today-quick-actions" aria-label="Atalhos de hoje"></nav>
-        <article id="roundRecapCard" class="round-recap-card hidden"><div><small>RESUMO PRONTO PARA O GRUPO</small><h4 id="roundRecapTitle">Última rodada</h4><p id="roundRecapPreview"></p></div><button id="copyRoundRecapButton" class="button button-dark" type="button">Copiar resumo</button></article>
+        <article id="roundRecapCard" class="round-recap-card hidden"><div><small>RESUMO PRONTO PARA O GRUPO</small><h4 id="roundRecapTitle">Última rodada</h4><p id="roundRecapPreview"></p><div id="roundRecapHighlights" class="round-recap-highlights"></div></div><button id="copyRoundRecapButton" class="button button-dark" type="button">Copiar resumo</button></article>
       </section>
       <div class="daily-wall-layout">
         <aside class="daily-wall-controls">
@@ -448,6 +448,7 @@
             <div class="profile-name-wrap"><small>PERFIL DA TRIPULAÇÃO</small><h3 id="profileDisplayName">Participante</h3><span id="profileEquippedTitle">Tripulante da Área 51</span></div>
             <div class="profile-wallet"><span class="coin-51 coin-51-large" aria-hidden="true">51</span><p><small>SALDO</small><strong><b id="profileWallet">0</b> Créditos 51</strong></p></div>
             <div class="active-visuals"><small>VISUAIS ATIVOS</small><div id="activeVisualsList"></div></div>
+            <button id="shareProfileCardButton" class="profile-share-card" type="button">🛸 Compartilhar cartão</button>
           </article>
           <article class="card season-pass-card"><div><small>PASSE DA TEMPORADA</small><h3 id="seasonPassTitle">Temporada atual</h3><p id="seasonPassUntil">Carregando prazo…</p></div><a class="button button-dark" href="?pagina=classificacao" data-page="classificacao">Ver passe e ranking</a></article>
           <article class="card weekly-mission-card mission-center-card">
@@ -771,6 +772,6 @@
   <script src="/visual-trading.js?v=20260902-140"></script>
   <script src="/card-album.js?v=20260904-170"></script>
   <script src="/weather.js?v=20260909-172"></script>
-  <script src="/app.js?v=20260909-174"></script>
+  <script src="/app.js?v=20260909-175"></script>
 </body>
 </html>

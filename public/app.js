@@ -1920,7 +1920,7 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   const medals = Array.isArray(profile.medals) ? profile.medals : [];
   const unlocked = medals.filter((medal) => medal.unlocked).length;
   $('#medalCount').textContent = unlocked + ' de ' + medals.length + ' desbloqueadas';
-  $('#profileMedals').innerHTML = medals.map((medal) => `<article class="profile-medal${medal.unlocked ? ' unlocked' : ' locked'}"><span>${medal.unlocked ? medal.icon : '🔒'}</span><div><strong>${escapeHtml(medal.name)}</strong><small>${escapeHtml(medal.description)}</small></div></article>`).join('');
+  $('#profileMedals').innerHTML = medals.map((medal) => `<article class="profile-medal${medal.unlocked ? ' unlocked' : ' locked'}${medal.secret ? ' secret-medal' : ''}"><span>${medal.unlocked ? medal.icon : '🔒'}</span><div><strong>${medal.unlocked || !medal.secret ? escapeHtml(medal.name) : 'Sinal desconhecido'}</strong><small>${escapeHtml(medal.unlocked || !medal.secret ? medal.description : 'Conquista secreta — explore a Área 51 para revelar.')}</small></div></article>`).join('');
   renderTrophyRoom(profile);
   const gifts = profile.giftOptions || { people: [], items: [], weeklyCreditRemaining: 0 };
   const peopleOptions = (gifts.people || []).map((person) => `<option value="${escapeHtml(person.id)}">${escapeHtml(formatDisplayName(person.displayName))}</option>`).join('');
@@ -2088,6 +2088,7 @@ function renderTodayHub(data) {
   if (recap) {
     $('#roundRecapTitle').textContent = recap.roundName;
     $('#roundRecapPreview').textContent = [recap.theme ? 'Tema: ' + recap.theme : '', recap.best ? 'Melhor: ' + recap.best.name : '', recap.gayWinner ? 'Gay da Rodada: ' + recap.gayWinner : ''].filter(Boolean).join(' · ');
+    $('#roundRecapHighlights').innerHTML = [[ '🎨', 'Tema', recap.theme ], [ '🏆', 'Melhor', recap.best?.name ], [ '😂', 'Caótico', recap.worst?.name ], [ '🌈', 'Sorteado', recap.gayWinner ], [ '🗳️', 'Votos', recap.voteCount + '/' + recap.participantCount ]].filter(([, , value]) => value).map(([icon, label, value]) => `<span><i>${icon}</i><small>${escapeHtml(label)}</small><b>${escapeHtml(String(value))}</b></span>`).join('');
   }
 }
 
@@ -3286,6 +3287,29 @@ $('#copyRoundRecapButton')?.addEventListener('click', async () => {
   } catch {
     showToast('O navegador bloqueou a cópia. Tente novamente após tocar na página.', 'error');
   }
+});
+
+$('#shareProfileCardButton')?.addEventListener('click', async () => {
+  const profile = appState?.profile; if (!profile) return;
+  const button = $('#shareProfileCardButton'); button.disabled = true;
+  try {
+    const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 620;
+    const context = canvas.getContext('2d');
+    const gradient = context.createLinearGradient(0, 0, 1080, 620); gradient.addColorStop(0, '#0b1b32'); gradient.addColorStop(.55, '#20143e'); gradient.addColorStop(1, '#063b51'); context.fillStyle = gradient; context.fillRect(0, 0, 1080, 620);
+    context.strokeStyle = '#f4c74d'; context.lineWidth = 5; context.strokeRect(24, 24, 1032, 572);
+    context.fillStyle = '#f6a34b'; context.font = 'bold 25px system-ui'; context.fillText('ÁREA 51 · CARTÃO DA TRIPULAÇÃO', 72, 100);
+    context.fillStyle = '#fff7e7'; context.font = 'bold 70px Georgia'; context.fillText(formatDisplayName(appState.me.displayName), 72, 185);
+    context.fillStyle = '#d5e4f6'; context.font = '28px system-ui'; context.fillText($('#profileEquippedTitle').textContent || 'Tripulante da Área 51', 75, 230);
+    context.fillStyle = '#ffd968'; context.font = 'bold 46px system-ui'; context.fillText(Number(profile.wallet || 0).toLocaleString('pt-BR') + ' Créditos 51', 75, 330);
+    const unlocked = (profile.medals || []).filter((medal) => medal.unlocked).slice(0, 4);
+    context.fillStyle = '#bcd5f2'; context.font = 'bold 23px system-ui'; context.fillText('CONQUISTAS DESBLOQUEADAS', 75, 410);
+    unlocked.forEach((medal, index) => { const x = 75 + index * 238; context.fillStyle = '#172a49'; context.fillRect(x, 438, 210, 100); context.fillStyle = '#fff'; context.font = '36px system-ui'; context.fillText(medal.icon, x + 15, 480); context.fillStyle = '#f6edff'; context.font = 'bold 17px system-ui'; context.fillText(medal.name.slice(0, 19), x + 62, 478); });
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png')); if (!blob) throw new Error('Não foi possível montar o cartão.');
+    const file = new File([blob], 'cartao-area-51.png', { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ title: 'Meu cartão da Área 51', text: 'Meu perfil na Área 51', files: [file] });
+    else { const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = file.name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); showToast('Cartão baixado para você enviar onde quiser.'); }
+  } catch (error) { if (error.name !== 'AbortError') showToast(error.message || 'Não foi possível compartilhar agora.', 'error'); }
+  finally { button.disabled = false; }
 });
 
 $('#trophyRoomOptions')?.addEventListener('change', (event) => {
