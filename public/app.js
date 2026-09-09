@@ -2348,6 +2348,11 @@ function showWinner(result) {
   const winnerImage = $('#winnerImage');
   const winnerVisual = winnerImage.parentElement;
   winnerVisual.classList.toggle('is-secret', !result.imageUrl);
+  winnerImage.onerror = () => {
+    // Um wallpaper restrito não deve aparecer como imagem quebrada para a equipe.
+    winnerVisual.classList.add('is-secret');
+    winnerImage.removeAttribute('src');
+  };
   if (result.imageUrl) winnerImage.src = result.imageUrl;
   else winnerImage.removeAttribute('src');
   winnerImage.alt = result.winner;
