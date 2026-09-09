@@ -23,6 +23,8 @@ assert.throws(()=>updateAlbum(db,'other','craft','aurora'));assert.throws(()=>up
 assert.equal(db.economy.wallets.u,123);assert.deepEqual(db.economy.purchases,[{id:'original'}]);
 db.economy.cardAlbums.other={cards:{'aurora:cristal':1.5}};
 assert.equal(albumFor(db,'other').collections[1].cards[0].count,0);
+db.economy.cardAlbums.legacy={cards:{},crafted:{exploradores:'2026-08-01T10:00:00.000Z',lendas:'2026-08-02T10:00:00.000Z'}};
+const legacyAlbum=albumFor(db,'legacy');assert.equal(legacyAlbum.collections.find(c=>c.id==='exploradores').medal.label,'Bronze');assert.equal(legacyAlbum.collections.find(c=>c.id==='lendas').medal.label,'Prata');
 const src=await readFile(new URL('../legacy-server.mjs',import.meta.url),'utf8');
 let writes=0,body={action:'craft',collectionId:'aurora'},response;
 class HttpError extends Error{constructor(status,message){super(message);this.status=status;}}
