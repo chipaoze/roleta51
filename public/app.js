@@ -2193,6 +2193,7 @@ function applyState(data) {
   renderOnlinePeople();
   document.body.classList.toggle('admin-command-mode', data.me.role === 'admin');
   applyVisualTheme(data);
+  document.dispatchEvent(new CustomEvent('area51:state', { detail: data }));
   if (!spinning) setMode(suggestedMode());
   $('#userName').textContent = formatDisplayName(data.me.displayName);
   $('#userRole').textContent = data.me.role === 'admin' ? 'Administrador' : 'Participante';
@@ -2384,6 +2385,7 @@ function selectLiveMode(mode) {
 
 function finishLiveDraw(result) {
   $('.wheel-stage').classList.remove('is-spinning');
+  document.body.classList.remove('roulette-cinema');
   musicForcedBySpin = false;
   showWinner(result);
   api('/api/state').then((data) => {
@@ -2405,6 +2407,7 @@ function receiveLiveDraw(payload) {
   spinning = true;
   musicForcedBySpin = !musicWanted;
   startMusic(true);
+  document.body.classList.add('roulette-cinema');
   $('.wheel-stage').classList.add('is-spinning');
   selectLiveMode(payload.mode || result.type);
   liveWheelItems = Array.isArray(payload.items) && payload.items.length ? payload.items : wheelItems();
