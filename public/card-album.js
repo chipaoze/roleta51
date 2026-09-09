@@ -1,6 +1,9 @@
 let albumSignature='';
 let cardPackOpening=false;
 let selectedCardPackId='';
+// A atualização ao vivo não pode substituir uma carta que a pessoa ainda está escolhendo.
+let cardMarketPublishSelection='';
+const cardMarketOfferSelections=new Map();
 function renderCardPacks(profile) {
   if(cardPackOpening || !profile)return;
   const closed=profile.cardPacks || [],history=profile.openedCardPacks || [];
@@ -58,7 +61,7 @@ function renderCardTrades(trading){
   const form=document.querySelector('#cardTradeForm');if(!form)return;
   const selected=Object.fromEntries(new FormData(form));
   const options=(items,label)=>'<option value="">'+label+'</option>'+items.map(i=>'<option value="'+escapeHtml(i.id)+'">'+escapeHtml(i.name)+'</option>').join('');
-  const visualChoices=(items,name,emptyText)=>items.length?'<div class="card-choice-strip" role="radiogroup" aria-label="Escolha uma carta">'+items.map((card,index)=>'<label class="card-choice"><input type="radio" name="'+name+'" value="'+escapeHtml(card.id)+'"'+(index===0?' checked':'')+'><span>'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small>'+Number(card.count||0)+' cópias</small></label>').join('')+'</div>':'<p class="card-choice-empty">'+emptyText+'</p>';
+  const visualChoices=(items,name,emptyText,selectedId='')=>{const chosen=items.some(card=>card.id===selectedId)?selectedId:items[0]?.id;return items.length?'<div class="card-choice-strip" role="radiogroup" aria-label="Escolha uma carta">'+items.map(card=>'<label class="card-choice"><input type="radio" name="'+name+'" value="'+escapeHtml(card.id)+'"'+(card.id===chosen?' checked':'')+'><span>'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small>'+Number(card.count||0)+' cópias</small></label>').join('')+'</div>':'<p class="card-choice-empty">'+emptyText+'</p>';};
   form.elements.partnerId.innerHTML=options((trading.partners || []).filter(p=>p.id!==appState.me.id),'Escolha alguém');
   form.elements.offeredId.innerHTML=options(trading.partners?.find(p=>p.id===appState.me.id)?.cards || [],'Minha carta repetida');
   form.elements.partnerId.value=selected.partnerId || '';form.elements.offeredId.value=selected.offeredId || '';
@@ -68,11 +71,14 @@ function renderCardTrades(trading){
   const marketForm=document.querySelector('#cardMarketForm'),mine=trading.partners?.find(p=>p.id===appState.me.id)?.cards || [];
   const publishedIds=new Set((trading.market || []).filter(post=>post.mine).map(post=>post.offeredId));
   const availableToPublish=mine.filter(card=>!publishedIds.has(card.id));
-  if(marketForm){marketForm.querySelector('label').innerHTML='<span>Minha carta repetida</span>'+visualChoices(availableToPublish,'offeredId','Todas as repetidas disponíveis já estão publicadas.');marketForm.querySelector('button[type="submit"]').disabled=!availableToPublish.length;}
+  const currentPublish=marketForm?.querySelector('input[name="offeredId"]:checked')?.value || cardMarketPublishSelection;
+  if(currentPublish)cardMarketPublishSelection=currentPublish;
+  if(marketForm){marketForm.querySelector('label').innerHTML='<span>Minha carta repetida</span>'+visualChoices(availableToPublish,'offeredId','Todas as repetidas disponíveis já estão publicadas.',cardMarketPublishSelection);marketForm.querySelector('button[type="submit"]').disabled=!availableToPublish.length;}
+  document.querySelectorAll('#cardTradeMarket [data-card-market-offer]').forEach(existing=>{const value=new FormData(existing).get('cardId');if(value)cardMarketOfferSelections.set(existing.dataset.cardMarketOffer,value);});
   const reservedOfferIds=new Set(trading.reservedOfferCardIds || []);
   document.querySelector('#cardTradeMarket').innerHTML=(trading.market || []).map(post=>{
     const eligibleMine=mine.filter(card=>!reservedOfferIds.has(card.id));
-    const offerOptions=visualChoices(eligibleMine,'cardId','Nenhuma carta diferente está disponível para esta oferta.');
+    const offerOptions=visualChoices(eligibleMine,'cardId','Nenhuma carta diferente está disponível para esta oferta.',cardMarketOfferSelections.get(post.id)||'');
     const offers=post.offers || [];
     const myOffer=offers.find(offer=>offer.fromId===appState.me.id);
     const ownerOffers='<div class="card-market-offers">'+(offers.length?offers.map(offer=>'<article class="card-market-offer"><span class="card-market-offer-icon">'+escapeHtml(offer.cardIcon)+'</span><div><strong>'+escapeHtml(offer.cardName)+'</strong><small>Oferta de '+escapeHtml(offer.fromName)+'</small><b class="card-offer-status '+(offer.offerKind==='credits'?'credits':offer.viewerHasCard?'owned':'new')+'">'+(offer.offerKind==='credits'?'Pagamento em moedas':offer.viewerHasCard?'Você já possui':'Nova para sua coleção')+'</b></div><span class="card-market-offer-actions"><button data-card-market="accept-market" data-id="'+escapeHtml(post.id)+'" data-offer-id="'+escapeHtml(offer.id)+'">Aceitar</button><button class="reject" data-card-market="reject-market-offer" data-id="'+escapeHtml(post.id)+'" data-offer-id="'+escapeHtml(offer.id)+'">Recusar</button></span></article>').join(''):'<small>Aguardando ofertas da equipe.</small>')+'</div>';
@@ -103,6 +109,8 @@ document.querySelector('#cardTradeList').addEventListener('click',async e=>{
   try{applyState(await api('/api/card-trades',{method:'POST',body:{action:button.dataset.cardTrade,id:button.dataset.id}}));showToast('Proposta atualizada.');}catch(error){showToast(error.message,'error');}finally{button.disabled=false;}
 });
 document.querySelector('#cardMarketForm').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;if(!form.reportValidity())return;setBusy(form,true);try{applyState(await api('/api/card-trades',{method:'POST',body:{action:'publish',offeredId:form.elements.offeredId.value}}));showToast('Carta publicada no mural de trocas.');}catch(error){showToast(error.message,'error');}finally{setBusy(form,false);}});
+document.querySelector('#cardMarketForm').addEventListener('change',e=>{if(e.target.name==='offeredId')cardMarketPublishSelection=e.target.value;});
+document.querySelector('#cardTradeMarket').addEventListener('change',e=>{if(e.target.name==='cardId'){const form=e.target.closest('[data-card-market-offer]');if(form)cardMarketOfferSelections.set(form.dataset.cardMarketOffer,e.target.value);}});
 document.querySelector('#cardTradeMarket').addEventListener('submit',async e=>{const form=e.target.closest('[data-card-market-offer]');if(!form)return;e.preventDefault();if(!form.reportValidity())return;setBusy(form,true);try{applyState(await api('/api/card-trades',{method:'POST',body:{action:'offer-market',id:form.dataset.cardMarketOffer,cardId:form.elements.cardId.value}}));showToast('Oferta enviada para a pessoa escolher.');}catch(error){showToast(error.message,'error');}finally{setBusy(form,false);}});
 document.querySelector('#cardTradeMarket').addEventListener('submit',async e=>{const form=e.target.closest('[data-card-market-credit-offer]');if(!form)return;e.preventDefault();if(!form.reportValidity())return;setBusy(form,true);try{applyState(await api('/api/card-trades',{method:'POST',body:{action:'offer-market-credits',id:form.dataset.cardMarketCreditOffer,creditAmount:Number(form.elements.creditAmount.value)}}));showToast('Oferta em créditos enviada. O valor ficou reservado.');}catch(error){showToast(error.message,'error');}finally{setBusy(form,false);}});
 document.querySelector('#cardTradeMarket').addEventListener('click',async e=>{const button=e.target.closest('[data-card-market]');if(!button)return;if(button.dataset.cardMarket==='accept-market'&&!confirm('Aceitar esta oferta e transferir a carta agora?'))return;if(button.dataset.cardMarket==='reject-market-offer'&&!confirm('Recusar esta oferta? A pessoa será avisada e o item oferecido ficará livre novamente.'))return;button.disabled=true;try{applyState(await api('/api/card-trades',{method:'POST',body:{action:button.dataset.cardMarket,id:button.dataset.id,offerId:button.dataset.offerId}}));showToast(button.dataset.cardMarket==='accept-market'?'Negócio concluído.':button.dataset.cardMarket==='reject-market-offer'?'Oferta recusada e participante avisado.':button.dataset.cardMarket==='cancel-market-offer'?'Sua oferta foi liberada.':'Oferta retirada.');}catch(error){showToast(error.message,'error');}finally{button.disabled=false;}});
