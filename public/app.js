@@ -27,8 +27,9 @@ let musicBufferPromise = null;
 let musicSource = null;
 let musicStartPromise = null;
 let fallbackAudio = null;
-let musicWanted = localStorage.getItem('roundMusic') !== 'off';
+let musicWanted = true;
 let musicForcedBySpin = false;
+let musicPrimedByGesture = false;
 let toastTimer;
 let focusVotingAfterWinner = false;
 let watermarkObjectUrl = null;
@@ -693,8 +694,8 @@ function updateMusicButton() {
   const blocked = Boolean(musicWanted && appState && !active);
   button.classList.toggle('on', active);
   button.classList.toggle('blocked', blocked);
-  button.textContent = active ? '♫' : '♪';
-  button.title = active ? 'Silenciar música da rodada' : 'Ativar música da rodada';
+  button.textContent = '♫'; button.disabled = true;
+  button.title = active ? 'Música da rodada ativa' : 'A música inicia após o primeiro toque na página';
   button.setAttribute('aria-label', button.title);
 }
 
@@ -738,7 +739,7 @@ function pauseMusic() {
 }
 
 function primeMusicFromGesture() {
-  if (!musicWanted) return;
+  musicWanted = true; localStorage.setItem('roundMusic', 'on');
   const context = ensureMusicContext();
   if (context) {
     context.resume().catch(() => {});
@@ -750,6 +751,16 @@ function primeMusicFromGesture() {
   audio.play().then(() => { audio.pause(); audio.volume = preferredVolume; })
     .catch(() => { audio.volume = preferredVolume; });
 }
+
+// Navegadores só liberam áudio após um gesto. Uma única interação prepara a
+// trilha para que qualquer roleta iniciada depois toque para toda a pessoa.
+function unlockRoundMusicFromAnyGesture() {
+  if (musicPrimedByGesture) return;
+  musicPrimedByGesture = true;
+  primeMusicFromGesture();
+  if (appState && musicEpoch) startMusic();
+}
+['pointerdown', 'keydown', 'touchstart'].forEach((eventName) => document.addEventListener(eventName, unlockRoundMusicFromAnyGesture, { passive: true, once: true }));
 
 function showAuth() {
   $('#sessionBoot')?.classList.add('hidden');
@@ -2373,7 +2384,6 @@ function selectLiveMode(mode) {
 
 function finishLiveDraw(result) {
   $('.wheel-stage').classList.remove('is-spinning');
-  if (musicForcedBySpin && !musicWanted) pauseMusic();
   musicForcedBySpin = false;
   showWinner(result);
   api('/api/state').then((data) => {
@@ -2536,13 +2546,7 @@ $('#themeToggle').addEventListener('click', () => {
   applyVisualTheme(appState);
 });
 $('#musicToggle').addEventListener('click', () => {
-  if (spinning) { showToast('A música permanece ligada enquanto a roleta está girando. 🎡'); return; }
-  const active = musicWanted && musicIsPlaying();
-  if (active) {
-    musicWanted = false; localStorage.setItem('roundMusic', 'off'); pauseMusic();
-  } else {
-    musicWanted = true; localStorage.setItem('roundMusic', 'on'); startMusic();
-  }
+  showToast('A trilha da rodada fica ligada. 🎵');
 });
 $('#volumeDownButton').addEventListener('click', () => {
   const dialog = $('#area51ProDialog');
