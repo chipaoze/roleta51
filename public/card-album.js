@@ -125,7 +125,7 @@ function renderCardTrades(trading){
 }
 function updateCardTradeWanted(selected=''){
   const form=document.querySelector('#cardTradeForm'),partner=appState.cardAlbum?.trading?.partners?.find(p=>p.id===form.elements.partnerId.value);
-  form.elements.wantedId.innerHTML='<option value="">Carta repetida da pessoa</option>'+(partner?.cards || []).map(c=>'<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+'</option>').join('');
+  form.elements.wantedId.innerHTML='<option value="">Carta repetida da pessoa</option>'+(partner?.cards || []).map(c=>'<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+(c.viewerCount?' · você já tem '+c.viewerCount:' · você não tem')+'</option>').join('');
   form.elements.wantedId.value=selected || partner?.cards?.[0]?.id || '';
 }
 function renderDirectTradeChoices(){
@@ -133,7 +133,7 @@ function renderDirectTradeChoices(){
   let host=form.querySelector('#directTradeVisualChoices');
   if(!host){host=document.createElement('div');host.id='directTradeVisualChoices';host.className='direct-trade-visual-choices';form.querySelector('button[type="submit"]').before(host);form.elements.offeredId.closest('label').classList.add('direct-trade-native-field');form.elements.wantedId.closest('label').classList.add('direct-trade-native-field');}
   const trading=appState.cardAlbum?.trading || {},mine=trading.partners?.find(person=>person.id===appState.me.id),partner=trading.partners?.find(person=>person.id===form.elements.partnerId.value);
-  const cards=(items,role,selectedId,emptyText)=>items?.length?'<div class="direct-trade-card-strip" role="radiogroup">'+items.map(card=>'<label class="direct-trade-card"><input type="radio" name="direct-'+role+'" value="'+escapeHtml(card.id)+'" data-direct-trade="'+role+'"'+(card.id===selectedId?' checked':'')+'><span>'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small>'+(role==='offer'?'✓ Tenho '+Number(card.count||0)+' cópias':'Quero receber')+'</small></label>').join('')+'</div>':'<p class="card-choice-empty">'+emptyText+'</p>';
+  const cards=(items,role,selectedId,emptyText)=>items?.length?'<div class="direct-trade-card-strip" role="radiogroup">'+items.map(card=>{const owned=role==='want'&&Number(card.viewerCount)>0;return '<label class="direct-trade-card'+(owned?' already-owned':'')+'"><input type="radio" name="direct-'+role+'" value="'+escapeHtml(card.id)+'" data-direct-trade="'+role+'"'+(card.id===selectedId?' checked':'')+'><span>'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small>'+(role==='offer'?'✓ Tenho '+Number(card.count||0)+' cópias':owned?'⚠ Você já tem '+Number(card.viewerCount)+' cópia'+(Number(card.viewerCount)>1?'s':''):'✦ Você ainda não tem')+'</small></label>';}).join('')+'</div>':'<p class="card-choice-empty">'+emptyText+'</p>';
   if(!partner){host.innerHTML='<p class="direct-trade-guidance">Escolha um participante para comparar as cartas disponíveis para troca.</p>';return;}
   host.innerHTML='<section class="direct-trade-pool mine"><header><small>MINHAS CARTAS</small><strong>Tenho para oferecer</strong></header>'+cards(mine?.cards,'offer',form.elements.offeredId.value,'Você ainda não tem cartas repetidas livres.')+'</section><section class="direct-trade-pool wanted"><header><small>CARTAS DE '+escapeHtml(partner.name).toUpperCase()+'</small><strong>Preciso receber</strong></header>'+cards(partner.cards,'want',form.elements.wantedId.value,escapeHtml(partner.name)+' não tem cartas repetidas disponíveis agora.')+'</section>';
 }
