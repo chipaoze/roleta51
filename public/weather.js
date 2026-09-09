@@ -28,7 +28,16 @@
       return '<article><strong>' + dayName(date, index) + '</strong><span>' + dayIcon + '</span><b>' + Math.round(Number(daily.temperature_2m_max?.[index])) + '° <small>' + Math.round(Number(daily.temperature_2m_min?.[index])) + '°</small></b><em>' + rain + '% chuva</em></article>';
     }).join('');
   };
-  const setOpen = (open) => { panel.classList.toggle('hidden', !open); button.setAttribute('aria-expanded', String(open)); };
+  const positionPanel = () => {
+    if (panel.classList.contains('hidden')) return;
+    const rect = button.getBoundingClientRect();
+    const panelWidth = panel.offsetWidth || 300;
+    const panelHeight = panel.offsetHeight || 250;
+    const left = Math.max(12, Math.min(window.innerWidth - panelWidth - 12, rect.right - panelWidth));
+    const top = Math.max(12, Math.min(window.innerHeight - panelHeight - 12, rect.bottom + 9));
+    panel.style.left = Math.round(left) + 'px'; panel.style.top = Math.round(top) + 'px';
+  };
+  const setOpen = (open) => { panel.classList.toggle('hidden', !open); button.setAttribute('aria-expanded', String(open)); if (open) requestAnimationFrame(positionPanel); };
   const loadWeather = async () => {
     try {
       const saved = JSON.parse(localStorage.getItem(cacheKey) || 'null');
@@ -46,5 +55,7 @@
   button.addEventListener('click', () => setOpen(panel.classList.contains('hidden')));
   document.querySelector('#weatherClose').addEventListener('click', () => setOpen(false));
   document.addEventListener('click', (event) => { if (!event.target.closest('.weather-widget')) setOpen(false); });
+  window.addEventListener('resize', positionPanel, { passive: true });
+  window.addEventListener('scroll', positionPanel, { passive: true });
   loadWeather();
 })();
