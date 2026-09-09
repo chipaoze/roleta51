@@ -280,8 +280,6 @@ function startRainbowMouseTrail() {
 
 startRainbowMouseTrail();
 
-// Os três cursores de frase possuem um emissor próprio: não dependem de
-// rastro, canvas ou distância mínima de movimento para o texto aparecer.
 function startPoliticalAndAxeCursorPhrases() {
   let lastAt = 0;
   const phrases = { petista: '🥩 TOMA PICANHA!', bolsonaro: '💥 TEY TEY TEY!', umbanda: '🕊️ A POMBA GIRA, A POMBA GIRA!' };

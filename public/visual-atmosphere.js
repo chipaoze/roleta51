@@ -3,24 +3,15 @@
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const body = document.body;
   const themes = [
-    { key: 'space', words: ['espaço', 'espaco', 'galáx', 'galax', 'estelar', 'alien', 'nasa', 'foguete'], accent: '#6aa8ff', phrases: ['Sinal estelar captado ✦', 'Órbita estável.', 'A nave aprovou esse movimento.'] },
-    { key: 'magic', words: ['magia', 'mág', 'brux', 'ritual', 'feit', 'pokemon'], accent: '#bd78ff', phrases: ['Uma faísca cósmica!', 'Isso parece encantado.', 'O oráculo observou.'] },
-    { key: 'retro', words: ['anos', 'retro', 'vintage', 'indiana', 'vilão', 'vilao'], accent: '#ffb24a', phrases: ['Estilo registrado.', 'Arquivo raro encontrado.', 'Essa energia é clássica.'] },
-    { key: 'nature', words: ['água', 'agua', 'floresta', 'animal', 'natureza', 'mar'], accent: '#54dfbc', phrases: ['Maré cósmica em movimento.', 'Gota registrada.', 'Sinal de vida detectado.'] },
-    { key: 'party', words: ['festa', 'gay', 'arco', 'rainbow', 'cor'], accent: '#ff72bd', phrases: ['Brilho autorizado ✨', 'A tripulação sentiu o impacto.', 'Energia máxima.'] }
+    { key: 'space', words: ['espaço', 'espaco', 'galáx', 'galax', 'estelar', 'alien', 'nasa', 'foguete'], accent: '#6aa8ff' },
+    { key: 'magic', words: ['magia', 'mág', 'brux', 'ritual', 'feit', 'pokemon'], accent: '#bd78ff' },
+    { key: 'retro', words: ['anos', 'retro', 'vintage', 'indiana', 'vilão', 'vilao'], accent: '#ffb24a' },
+    { key: 'nature', words: ['água', 'agua', 'floresta', 'animal', 'natureza', 'mar'], accent: '#54dfbc' },
+    { key: 'party', words: ['festa', 'gay', 'arco', 'rainbow', 'cor'], accent: '#ff72bd' }
   ];
-  let active = themes[0]; let lastTrail = 0; let phraseTimer = 0;
+  let active = themes[0]; let lastTrail = 0;
 
   const pickTheme = name => themes.find(theme => theme.words.some(word => name.includes(word))) || themes[0];
-  const phrase = () => active.phrases[Math.floor(Math.random() * active.phrases.length)];
-  const flashPhrase = (text, x = innerWidth / 2, y = 112) => {
-    if (reduced) return;
-    const note = document.createElement('span');
-    note.className = 'ambient-phrase'; note.textContent = text;
-    note.style.left = Math.max(12, Math.min(innerWidth - 230, x)) + 'px';
-    note.style.top = Math.max(12, Math.min(innerHeight - 60, y)) + 'px';
-    body.append(note); setTimeout(() => note.remove(), 1650);
-  };
   const spark = (x, y, count = 1) => {
     if (reduced) return;
     for (let i = 0; i < count; i++) {
@@ -48,11 +39,6 @@
     if (reduced || event.pointerType === 'touch' || performance.now() - lastTrail < 175) return;
     lastTrail = performance.now(); spark(event.clientX, event.clientY);
   }, { passive: true });
-  document.addEventListener('pointerenter', (event) => {
-    const target = event.target.closest('.shop-item, .album-card, .profile-medal, .ranking-row');
-    if (!target || reduced || performance.now() < phraseTimer) return;
-    phraseTimer = performance.now() + 2100; const rect = target.getBoundingClientRect(); flashPhrase(phrase(), rect.right - 30, rect.top - 10);
-  }, true);
   document.addEventListener('pointermove', (event) => {
     const card = event.target.closest('.album-card, .shop-item, .profile-medal'); if (!card || reduced) return;
     const rect = card.getBoundingClientRect(); card.style.setProperty('--tilt-x', ((event.clientY - rect.top) / rect.height * -7 + 3.5).toFixed(2) + 'deg'); card.style.setProperty('--tilt-y', ((event.clientX - rect.left) / rect.width * 7 - 3.5).toFixed(2) + 'deg');
