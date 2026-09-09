@@ -9,11 +9,12 @@ assert.throws(()=>updateAlbum(db,'u','craft','aurora'));assert.throws(()=>update
 db.economy.cardAlbums={u:{cards:{},crafted:{}}};
 for(const collection of CARD_COLLECTIONS){
   const keys=collection.cards.map(([id])=>collection.id+':'+id);
-  keys.forEach(k=>db.economy.cardAlbums.u.cards[k]=2);
+  keys.forEach(k=>db.economy.cardAlbums.u.cards[k]=5);
   db.economy.cardAlbums.u.cards[keys[4]]=0;
   const missing=JSON.stringify(db);assert.throws(()=>updateAlbum(db,'u','craft',collection.id));assert.equal(JSON.stringify(db),missing);
-  db.economy.cardAlbums.u.cards[keys[4]]=2;
-  assert.equal(updateAlbum(db,'u','craft',collection.id),true);assert.ok(keys.every(k=>db.economy.cardAlbums.u.cards[k]===1));
+  db.economy.cardAlbums.u.cards[keys[4]]=5;
+  ['Bronze','Prata','Ouro','Diamante'].forEach((tier,index)=>{assert.equal(updateAlbum(db,'u','craft',collection.id),true);const item=albumFor(db,'u').collections.find(c=>c.id===collection.id);assert.equal(item.crafts,index+1);assert.equal(item.medal.label,tier);});
+  assert.ok(keys.every(k=>db.economy.cardAlbums.u.cards[k]===1));
   const crafted=JSON.stringify(db);assert.equal(updateAlbum(db,'u','craft',collection.id),false);assert.equal(JSON.stringify(db),crafted);
   assert.equal(updateAlbum(db,'u','equip',collection.id),true);assert.equal(albumFor(db,'u').equipped,collection.id);
 }
@@ -29,4 +30,4 @@ const ctx=vm.createContext({req:{method:'POST'},res:{},route:'/api/card-album',r
 const handler=vm.runInContext('(async()=>{'+src.slice(src.indexOf("  if (req.method === 'POST' && route === '/api/card-album')"),src.indexOf('  if (await handleCommunityExtras'))+'})',ctx);
 await assert.rejects(handler(),e=>e.status===400);assert.equal(writes,0);
 ctx.requireAuth=()=>({user:{id:'u'}});await handler();assert.equal(writes,0);assert.equal(response.ok,true);
-console.log('PASS: 5x5 catalog, read-only empty album, all-or-nothing craft, duplicates retained, replay safe, ownership, equip/remove, HTTP checks, no wallet/purchase changes.');
+console.log('PASS: 5x5 catalog, read-only empty album, four-level collection crafting to Diamond, all-or-nothing craft, ownership, equip/remove, HTTP checks, no wallet/purchase changes.');
