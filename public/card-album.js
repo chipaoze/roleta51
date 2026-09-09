@@ -4,6 +4,36 @@ let selectedCardPackId='';
 // A atualização ao vivo não pode substituir uma carta que a pessoa ainda está escolhendo.
 let cardMarketPublishSelection='';
 const cardMarketOfferSelections=new Map();
+let albumFilter='all';
+let albumSearch='';
+
+function applyAlbumFilters(){
+  const host=document.querySelector('#cardAlbumCollections');if(!host)return;
+  let visible=0;
+  host.querySelectorAll('.album-collection').forEach(collection=>{
+    let collectionVisible=0;
+    collection.querySelectorAll('.album-card').forEach(card=>{
+      const name=card.querySelector('strong')?.textContent?.toLocaleLowerCase('pt-BR')||'';
+      const matchesSearch=!albumSearch||name.includes(albumSearch);
+      const matchesFilter=albumFilter==='all'||(albumFilter==='owned'&&card.classList.contains('owned'))||(albumFilter==='missing'&&card.classList.contains('missing'))||(albumFilter==='duplicate'&&card.classList.contains('duplicate'))||(albumFilter==='rare'&&card.classList.contains('album-rare'));
+      const show=matchesSearch&&matchesFilter;card.hidden=!show;if(show){visible++;collectionVisible++;}
+    });
+    collection.hidden=!collectionVisible;
+  });
+  const count=document.querySelector('#cardAlbumFilterCount');if(count)count.textContent=visible+(visible===1?' carta encontrada':' cartas encontradas');
+}
+function ensureAlbumControls(host){
+  let controls=document.querySelector('#cardAlbumControls');
+  if(!controls){
+    controls=document.createElement('div');controls.id='cardAlbumControls';controls.className='album-controls';
+    controls.innerHTML='<label class="album-search"><span>🔎</span><input type="search" placeholder="Buscar carta" aria-label="Buscar carta no álbum"></label><div class="album-filter-buttons" role="group" aria-label="Filtrar cartas"><button type="button" data-album-filter="all">Todas</button><button type="button" data-album-filter="owned">Tenho</button><button type="button" data-album-filter="missing">Faltam</button><button type="button" data-album-filter="duplicate">Repetidas</button><button type="button" data-album-filter="rare">Raras</button></div><small id="cardAlbumFilterCount" aria-live="polite"></small>';
+    host.insertAdjacentElement('beforebegin',controls);
+    controls.addEventListener('input',event=>{if(event.target.matches('input[type="search"]')){albumSearch=event.target.value.trim().toLocaleLowerCase('pt-BR');applyAlbumFilters();}});
+    controls.addEventListener('click',event=>{const button=event.target.closest('[data-album-filter]');if(!button)return;albumFilter=button.dataset.albumFilter;controls.querySelectorAll('[data-album-filter]').forEach(item=>item.classList.toggle('active',item===button));applyAlbumFilters();});
+  }
+  controls.querySelector('input[type="search"]').value=albumSearch;
+  controls.querySelectorAll('[data-album-filter]').forEach(button=>button.classList.toggle('active',button.dataset.albumFilter===albumFilter));
+}
 function renderCardPacks(profile) {
   if(cardPackOpening || !profile)return;
   const closed=profile.cardPacks || [],history=profile.openedCardPacks || [];
@@ -48,6 +78,7 @@ function renderCardAlbum(album) {
   renderCardTrades(album.trading || {});
   host.innerHTML=album.collections.map(c=>'<article class="album-collection album-'+escapeHtml(c.color)+'"><header><span class="album-medal" aria-hidden="true">'+escapeHtml(c.icon)+'</span><div><h4>'+escapeHtml(c.name)+'</h4><p>Insígnia: '+escapeHtml(c.badge)+'</p></div><strong class="album-progress">'+c.collected+' / 5</strong></header><div class="album-cards">'+c.cards.map((card,i)=>'<div class="album-card '+(card.count?'owned':'missing')+(card.count>1?' duplicate':'')+(card.rarity==='rare'?' album-rare':'')+'">'+(card.count?'<b class="album-owned-mark">✓ NA COLEÇÃO</b>':'<b class="album-missing-mark">FALTA</b>')+'<small>CARTA '+(i+1)+' / 5 · '+(card.rarity==='rare'?'RARA':'BÁSICA')+'</small><span aria-hidden="true">'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small class="album-card-count">'+(card.count?(card.count>1?card.count+' cópias · repetida':'1 cópia sua'):'Ainda não obtida')+'</small></div>').join('')+'</div><footer><p>'+(c.craftedAt?'✓ Insígnia montada':c.collected+' de 5 cartas diferentes')+'</p>'+(c.craftedAt?'<button type="button" data-album-action="equip" data-album-id="'+escapeHtml(c.id)+'" data-album-remove="'+(album.equipped===c.id)+'">'+(album.equipped===c.id?'Remover insígnia':'Usar insígnia')+'</button>':'<button type="button" data-album-action="craft" data-album-id="'+escapeHtml(c.id)+'"'+(c.canCraft?'':' disabled')+'>Montar insígnia</button>')+'</footer></article>').join('');
   host.querySelectorAll('.album-collection').forEach((element,index)=>{const medal=album.collections[index]?.medal;if(!medal)return;const target=element.querySelector('header div p');if(target)target.insertAdjacentHTML('beforeend',' <span class="album-tier tier-'+escapeHtml(medal.tier)+'">'+escapeHtml(medal.icon)+' '+escapeHtml(medal.label)+'</span>');});
+  ensureAlbumControls(host);applyAlbumFilters();
 }
 function showInsigniaCraftAnimation(collection){const medal=collection?.medal || {icon:'🥉',label:'Bronze',tier:'bronze'};const flash=document.createElement('div');flash.className='insignia-craft-animation tier-'+medal.tier;flash.innerHTML='<span>'+escapeHtml(medal.icon)+'</span><strong>INSÍGNIA MONTADA!</strong><b>'+escapeHtml(medal.label)+'</b>';document.body.appendChild(flash);setTimeout(()=>flash.remove(),2600);}
 document.querySelector('#cardAlbumCollections').addEventListener('click',async e=>{
