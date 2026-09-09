@@ -1666,7 +1666,7 @@ function shopVisualPreview(item) {
   if (item.consumable) return '';
   const previewName = escapeHtml(formatDisplayName(appState?.me?.displayName || 'Seu nome'));
   if (item.type === 'cursorStyle') {
-    if (['crystal','solar'].includes(item.value)) return `<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-${item.value}.svg" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b></span></div>`;
+    if (['crystal','solar','ufo','wand','comet-tail','thunder'].includes(item.value)) return `<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-${item.value}.svg" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b></span></div>`;
     if (item.value === 'unicorn') return '<div class="shop-visual-preview cursor-preview cursor-preview-unicorn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-cursor-full-v2.png" alt="Unicórnio completo"> <b>Galopa ao movimentar</b></span></div>';
     if (item.value === 'dipirona') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-dipirona.svg" alt="Seta Dipirona"><b>Seta Dipirona</b></span></div>';
     if (item.value === 'pirokinha-cosmica') return '<div class="shop-visual-preview cursor-preview cursor-preview-pirokinha"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-pirokinha-cosmica.svg" alt="Pirokinha Cósmica"><b>Pirokinha Cósmica</b></span></div>';
@@ -1706,13 +1706,11 @@ function setPreviewCursor(value) {
 
 function applyPersonalTheme(value) {
   applyVisualTheme(appState);
-  ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars', 'nebula'].forEach((theme) => document.body.classList.toggle('profile-theme-' + theme, theme === value));
+  ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars', 'nebula', 'hyperdrive', 'lunar-tide', 'coral-signal', 'prism'].forEach((theme) => document.body.classList.toggle('profile-theme-' + theme, theme === value));
+  document.body.classList.toggle('theme-light-override', Boolean(value) && !document.body.classList.contains('theme-dark'));
   if (value) {
-    // These shop palettes are dark. Do not mix them with light-only overrides,
-    // and do not overwrite the user's stored light/dark preference.
-    document.body.classList.add('theme-dark');
     const button = $('#themeToggle');
-    if (button) { button.disabled = true; button.title = 'Remova ou encerre o tema da loja para alternar o modo claro/escuro'; button.setAttribute('aria-label', button.title); button.setAttribute('aria-pressed', 'true'); button.textContent = '☀'; }
+    if (button) { button.disabled = false; button.title = document.body.classList.contains('theme-dark') ? 'Desativar modo escuro' : 'Ativar modo escuro'; button.setAttribute('aria-label', button.title); button.setAttribute('aria-pressed', String(document.body.classList.contains('theme-dark'))); }
   }
 }
 
@@ -2547,6 +2545,7 @@ $('#themeToggle').addEventListener('click', () => {
   const dark = !document.body.classList.contains('theme-dark');
   localStorage.setItem('area51DarkMode:' + appState.me.id, dark ? 'on' : 'off');
   applyVisualTheme(appState);
+  if (document.body.className.includes('profile-theme-')) document.body.classList.toggle('theme-light-override', !dark);
 });
 $('#musicToggle').addEventListener('click', () => {
   showToast('A trilha da rodada fica ligada. 🎵');

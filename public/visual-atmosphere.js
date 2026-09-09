@@ -64,7 +64,15 @@
     const reaction = event.target.closest('.daily-reactions button'); if (!reaction) return;
     const rect = reaction.getBoundingClientRect(); spark(rect.left + rect.width / 2, rect.top + 5, 7); reaction.classList.remove('reaction-burst'); requestAnimationFrame(() => reaction.classList.add('reaction-burst'));
   });
-  document.querySelector('.brand')?.addEventListener('dblclick', (event) => { event.preventDefault(); flashPhrase('👽 Transmissão secreta desbloqueada!', event.clientX, event.clientY); body.classList.add('ufo-easter-egg'); setTimeout(() => body.classList.remove('ufo-easter-egg'), 7000); });
+  const brand = document.querySelector('.brand'); let logoHoldTimer = 0; let logoHoldTriggered = false;
+  const unlockUfo = (x, y, text) => { body.classList.add('ufo-easter-egg'); flashPhrase(text, x, y); setTimeout(() => body.classList.remove('ufo-easter-egg'), 7000); };
+  brand?.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    logoHoldTriggered = false; clearTimeout(logoHoldTimer);
+    logoHoldTimer = setTimeout(() => { logoHoldTriggered = true; unlockUfo(event.clientX, event.clientY, '👽 Transmissão secreta desbloqueada!'); }, 850);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => brand?.addEventListener(type, () => { clearTimeout(logoHoldTimer); }));
+  brand?.addEventListener('click', event => { if (!logoHoldTriggered) return; event.preventDefault(); event.stopPropagation(); logoHoldTriggered = false; }, true);
   const code = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight']; let progress = 0;
-  addEventListener('keydown', event => { progress = event.key === code[progress] ? progress + 1 : 0; if (progress === code.length) { progress = 0; body.classList.add('ufo-easter-egg'); flashPhrase('🛸 Modo nave ativado!', innerWidth / 2 - 100, 90); setTimeout(() => body.classList.remove('ufo-easter-egg'), 7000); } });
+  addEventListener('keydown', event => { if (event.target.matches('input, textarea, select')) return; progress = event.key === code[progress] ? progress + 1 : (event.key === code[0] ? 1 : 0); if (progress === code.length) { progress = 0; unlockUfo(innerWidth / 2 - 100, 90, '🛸 Modo nave ativado!'); } });
 })();

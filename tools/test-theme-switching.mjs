@@ -5,7 +5,7 @@ const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8')
 const server = await readFile(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
 const themes = [...server.matchAll(/type: 'siteTheme', value: '([^']+)'/g)].map(m=>m[1]);
 const classes = new Set();
-const classList = { add: v=>classes.add(v), toggle: (v,on)=>on?classes.add(v):classes.delete(v) };
+const classList = { add: v=>classes.add(v), toggle: (v,on)=>on?classes.add(v):classes.delete(v), contains: v=>classes.has(v) };
 const button = { setAttribute(){} };
 let dark = false;
 const apply = vm.runInNewContext(app.slice(app.indexOf('function applyPersonalTheme('),app.indexOf('function applyShopPreviewVisual('))+';applyPersonalTheme', {
@@ -17,7 +17,8 @@ for (const preference of [false,true]) {
   for (const from of themes) for (const to of themes) {
     apply(from); apply(to);
     assert.deepEqual([...classes].filter(c=>c.startsWith('profile-theme-')),['profile-theme-'+to]);
-    assert.ok(classes.has('theme-dark'));
+    assert.equal(classes.has('theme-dark'), preference);
+    assert.equal(classes.has('theme-light-override'), !preference);
     apply(null);
     assert.equal(classes.has('theme-dark'),preference);
     assert.equal(button.disabled,false);
