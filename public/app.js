@@ -243,7 +243,7 @@ function startRainbowMouseTrail() {
       }
       const cursorEffect = document.body.dataset.cursorEffect || '';
       if (cursorEffect && !['petista', 'bolsonaro', 'umbanda'].includes(cursorEffect) && now - lastCursorEffectAt > 120) {
-        const labels = { 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA', 'pirokinha-cosmica': 'TOMA LEITADA', petista: '🥩 TOMA PICANHA!', bolsonaro: '💥 TEY TEY TEY!', umbanda: '🕊️ A POMBA GIRA, A POMBA GIRA!' };
+        const labels = { 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA', 'pirokinha-cosmica': 'TOMA LEITADA', 'giant-slow': 'SOU GAY', petista: '🥩 TOMA PICANHA!', bolsonaro: '💥 TEY TEY TEY!', umbanda: '🕊️ A POMBA GIRA, A POMBA GIRA!' };
         const papaSequence = ['EM NOME DO PAI', 'DO FILHO', 'E DO ESPÍRITO SANTO'];
         const particle = document.createElement('span');
         particle.className = 'cursor-linked-effect effect-' + cursorEffect + (['petista', 'bolsonaro', 'umbanda'].includes(cursorEffect) ? ' effect-phrase-trail' : '');
@@ -1806,7 +1806,7 @@ function renderProfileEconomy(profile = {}) {
   applyPersonalTheme(allowPersonalTheme ? siteThemeItem?.value : null);
   const personalCursor = forcedGayCursor || forcedGiantCursor ? null : cursorItem;
   document.body.dataset.trailStyle = trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none');
-  document.body.dataset.cursorEffect = ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(personalCursor?.value) ? personalCursor.value : '';
+  document.body.dataset.cursorEffect = forcedGiantCursor ? 'giant-slow' : ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(personalCursor?.value) ? personalCursor.value : '';
   if (forcedGayCursor || forcedGiantCursor) $$('.cursor-linked-effect').forEach((particle) => particle.remove());
   document.documentElement.classList.toggle('unicorn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'unicorn'));
   document.documentElement.classList.toggle('horn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'horn'));
