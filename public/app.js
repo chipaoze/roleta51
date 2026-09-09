@@ -1691,7 +1691,7 @@ function shopVisualPreview(item) {
   if (item.type === 'siteTheme') return `<div class="shop-visual-preview theme-preview theme-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO TEMA</small><span>✦ <b>ÁREA 51</b> · ✧ · ✦</span></div>`;
   if (item.type === 'frame') return `<div class="shop-visual-preview frame-preview frame-${escapeHtml(item.value)}"><small>PRÉVIA EXATA · PERFIL, TOPO E MENU</small><span><b>${escapeHtml(initials(appState?.me?.displayName || 'SN'))}</b><em>${previewName}</em></span></div>`;
   if (item.type === 'nameStyle') return `<div class="shop-visual-preview name-preview"><small>PRÉVIA DO NOME</small><strong class="name-style-${escapeHtml(item.value)}">${previewName}</strong></div>`;
-  if (item.type === 'badge') return `<div class="shop-visual-preview badge-preview"><small>PRÉVIA DA INSÍGNIA</small><span><b>${escapeHtml(item.value)}</b><em>${previewName}</em></span></div>`;
+  if (item.type === 'badge') return `<div class="shop-visual-preview badge-preview"><small>PRÉVIA DO EMBLEMA · NÃO ALTERA A COR DO NOME</small><span><b>${escapeHtml(item.value)}</b><em class="badge-preview-name">${previewName}</em><i>Somente o emblema é aplicado</i></span></div>`;
   if (item.type === 'title') return `<div class="shop-visual-preview title-preview"><small>PRÉVIA DO TÍTULO</small><span><b>${escapeHtml(initials(appState?.me?.displayName || 'SN'))}</b><em>${previewName}</em><strong>${escapeHtml(item.value)}</strong></span></div>`;
   return '';
 }

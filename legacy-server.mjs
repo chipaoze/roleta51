@@ -454,7 +454,7 @@ const SHOP_CATALOG = [
   { id: 'name-plasma', name: 'Nome Plasma Azul', description: 'Aplica azul elétrico e brilho de plasma ao seu nome em todo o site.', price: 260, type: 'nameStyle', value: 'plasma', icon: '⚡' },
   { id: 'name-cyan', name: 'Nome Ciano Quântico', description: 'Aplica ciano luminoso com brilho tecnológico ao nome.', price: 250, type: 'nameStyle', value: 'cyan', icon: '🩵' },
   { id: 'badge-ufo', name: 'Emblema Piloto UFO', description: 'Exibe uma nave ao lado do seu nome no topo, menu e perfil.', price: 190, type: 'badge', value: '🛸', icon: '🛸' },
-  { id: 'badge-crown', name: 'Emblema Coroa Cósmica', description: 'Exibe uma coroa dourada junto ao seu nome em todo o site.', price: 260, type: 'badge', value: '👑', icon: '👑' },
+  { id: 'badge-crown', name: 'Emblema Coroa Cósmica', description: 'Exibe uma coroa dourada ao lado do nome no perfil, topo e menu. Não altera a cor das letras.', price: 260, type: 'badge', value: '👑', icon: '👑' },
   { id: 'badge-alien', name: 'Emblema Agente Alien', description: 'Exibe o selo extraterrestre junto ao seu nome em todo o site.', price: 220, type: 'badge', value: '👽', icon: '👽' },
   { id: 'frame-cosmic', name: 'Moldura Cósmica', description: 'Moldura espacial azul-violeta com brilho estelar no perfil, cabeçalho e menu.', price: 220, type: 'frame', value: 'cosmic', icon: '🪐' },
   { id: 'frame-gold', name: 'Moldura Dourada', description: 'Moldura dourada de campeão no perfil, cabeçalho e menu.', price: 260, type: 'frame', value: 'gold', icon: '👑' },
