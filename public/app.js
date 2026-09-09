@@ -244,7 +244,7 @@ function startRainbowMouseTrail() {
       }
       const cursorEffect = document.body.dataset.cursorEffect || '';
       if (cursorEffect && !['petista', 'bolsonaro', 'umbanda'].includes(cursorEffect) && now - lastCursorEffectAt > 120) {
-        const labels = { 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA', 'pirokinha-cosmica': 'TOMA LEITADA', 'giant-slow': 'SOU GAY', petista: '🥩 TOMA PICANHA!', bolsonaro: '💥 TEY TEY TEY!', umbanda: '🕊️ A POMBA GIRA, A POMBA GIRA!' };
+        const labels = { gay: '🌈 EU SOU FOFO, QUERO CARINHO E CONFUSÃO', 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA', 'pirokinha-cosmica': 'TOMA LEITADA', 'giant-slow': 'SOU GAY', petista: '🥩 TOMA PICANHA!', bolsonaro: '💥 TEY TEY TEY!', umbanda: '🕊️ A POMBA GIRA, A POMBA GIRA!' };
         const papaSequence = ['EM NOME DO PAI', 'DO FILHO', 'E DO ESPÍRITO SANTO'];
         const particle = document.createElement('span');
         particle.className = 'cursor-linked-effect effect-' + cursorEffect + (['petista', 'bolsonaro', 'umbanda'].includes(cursorEffect) ? ' effect-phrase-trail' : '');
@@ -1724,7 +1724,7 @@ function applyShopPreviewVisual(item) {
   } else if (item.type === 'cursorStyle') {
     setPreviewCursor(item.value);
     document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : 'none';
-    document.body.dataset.cursorEffect = ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(item.value) ? item.value : '';
+    document.body.dataset.cursorEffect = ['gay', 'galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(item.value) ? item.value : '';
   }
   else if (item.type === 'trailStyle') document.body.dataset.trailStyle = item.value;
   else if (item.type === 'badge') ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = item.value; });
@@ -1815,7 +1815,7 @@ function renderProfileEconomy(profile = {}) {
   applyPersonalTheme(allowPersonalTheme ? siteThemeItem?.value : null);
   const personalCursor = forcedGayCursor || forcedGiantCursor ? null : cursorItem;
   document.body.dataset.trailStyle = trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none');
-  document.body.dataset.cursorEffect = forcedGiantCursor ? 'giant-slow' : ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(personalCursor?.value) ? personalCursor.value : '';
+  document.body.dataset.cursorEffect = forcedGiantCursor ? 'giant-slow' : (forcedGayCursor || personalCursor?.value === 'gay') ? 'gay' : ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(personalCursor?.value) ? personalCursor.value : '';
   if (forcedGayCursor || forcedGiantCursor) $$('.cursor-linked-effect').forEach((particle) => particle.remove());
   document.documentElement.classList.toggle('unicorn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'unicorn'));
   document.documentElement.classList.toggle('horn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'horn'));
