@@ -1043,7 +1043,7 @@ function feedbackForClient(user) {
     approvedAt: item.approvedAt || null,
     completedAt: item.completedAt || null,
     archivedAt: item.archivedAt || null,
-    imageUrl: item.imageFilename ? '/feedback-images/' + encodeURIComponent(item.imageFilename) : null,
+    imageUrl: item.imageFilename ? '/api/feedback/' + encodeURIComponent(item.id) + '/image' : null,
   }));
 }
 
@@ -2277,6 +2277,15 @@ async function handleApi(req, res, route) {
   if (req.method === 'GET' && route === '/api/feedback') {
     const { user } = requireAuth(req);
     json(res, 200, { messages: feedbackForClient(user) }); return;
+  }
+
+  const feedbackImageMatch = route.match(/^\/api\/feedback\/([^/]+)\/image$/);
+  if (req.method === 'GET' && feedbackImageMatch) {
+    const { user } = requireAuth(req);
+    const feedback = db.feedbackMessages.find((item) => item.id === feedbackImageMatch[1]);
+    if (!feedback || !feedback.imageFilename) throw new HttpError(404, 'Este print não está mais disponível.');
+    if (user.role !== 'admin' && feedback.authorId !== user.id) throw new HttpError(403, 'Este anexo é privado.');
+    await serveMemoryImage(res, feedback.imageFilename); return;
   }
 
   if (req.method === 'POST' && route === '/api/feedback') {
