@@ -1186,6 +1186,14 @@ html.cobblemon-ball-thrown,
 html.cobblemon-ball-thrown body,
 html.cobblemon-ball-thrown * { cursor: none !important; }
 
+html.premium-cursor-dragging,
+html.premium-cursor-dragging body,
+html.premium-cursor-dragging body * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
+}
+
 .cobblemon-wild-target {
   position: fixed;
   z-index: 10024;

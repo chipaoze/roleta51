@@ -1048,6 +1048,44 @@ function startWebSlingerCursor() {
 }
 startWebSlingerCursor();
 
+// Proteção única para todos os cursores premium: durante um arrasto, o gesto
+// pertence ao efeito e nunca deve iniciar a seleção nativa de texto da página.
+function preventTextSelectionOnPremiumCursorDrag() {
+  let start = null;
+  let blockNativeUntil = 0;
+  const isEffectCursor = () => {
+    const cursor = document.documentElement.dataset.activeCursor;
+    return Boolean(cursor && cursor !== 'windows');
+  };
+  const clear = () => { start = null; document.documentElement.classList.remove('premium-cursor-dragging'); };
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!isEffectCursor() || (event.pointerType && event.pointerType !== 'mouse')) return;
+    start = { x: event.clientX, y: event.clientY };
+  }, true);
+
+  document.addEventListener('pointermove', (event) => {
+    if (!start || !isEffectCursor()) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 4) return;
+    document.documentElement.classList.add('premium-cursor-dragging');
+    event.preventDefault();
+  }, { capture: true, passive: false });
+
+  document.addEventListener('pointerup', (event) => {
+    if (!start) return;
+    if (document.documentElement.classList.contains('premium-cursor-dragging')) {
+      blockNativeUntil = performance.now() + 700;
+      event.preventDefault();
+    }
+    clear();
+  }, true);
+  document.addEventListener('pointercancel', clear, true);
+  ['selectstart', 'dragstart', 'contextmenu'].forEach((type) => document.addEventListener(type, (event) => {
+    if (isEffectCursor() && (start || performance.now() < blockNativeUntil)) event.preventDefault();
+  }, true));
+}
+preventTextSelectionOnPremiumCursorDrag();
+
 function escapeHtml(value) {
   return String(value == null ? '' : value)
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
