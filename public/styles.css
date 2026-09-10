@@ -1210,9 +1210,6 @@ html.cobblemon-ball-thrown * { cursor: none !important; }
 }
 
 .cobblemon-wild-target img { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: contain; }
-/* O sprite de folha ocupa mais pixels do que os demais arquivos de 128px.
-   Reduzimos só ele para que todos apareçam no mesmo porte. */
-.cobblemon-wild-target img[src*="cobble-creature-leaf"] { transform: scale(.9); }
 .cobblemon-wild-target.captured { animation: cobblemonCreatureCaptured .7s ease-in forwards; }
 .cobblemon-wild-target.escaped { animation: cobblemonCreatureEscape .62s ease-out forwards; }
 
