@@ -3373,6 +3373,7 @@ $('#volumeDownButton').addEventListener('click', () => {
   const dialog = $('#area51ProDialog');
   if (!dialog.open) dialog.showModal();
 });
+$('#refundButton').addEventListener('click', () => showToast('Não tem devolução, comprou comprou. 😅', 'error'));
 function closeArea51Pro() { $('#area51ProDialog').close(); }
 $('#closeArea51Pro').addEventListener('click', closeArea51Pro);
 $('#declineArea51Pro').addEventListener('click', closeArea51Pro);
