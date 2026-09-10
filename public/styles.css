@@ -1345,3 +1345,34 @@ html.cobblemon-ball-thrown * { cursor: none !important; }
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Cobblemon: cenário continua visível, mas as informações ficam opacas e legíveis. */
+body.profile-theme-cobblemon .section {
+  background: linear-gradient(145deg, rgba(239, 255, 222, .97), rgba(207, 242, 181, .97)) !important;
+  color: #17351e;
+}
+
+body.profile-theme-cobblemon .card,
+body.profile-theme-cobblemon .shop-item,
+body.profile-theme-cobblemon .daily-meme-wall,
+body.profile-theme-cobblemon .anonymous-wall-wrap,
+body.profile-theme-cobblemon .hydration-team-wrap {
+  background: rgba(255, 255, 255, .98) !important;
+  border-color: #5c9a50 !important;
+  color: #17351e !important;
+  box-shadow: 0 13px 30px rgba(24, 69, 31, .18);
+}
+
+body.profile-theme-cobblemon :is(.section-heading h2, .section-heading p, .card h3, .shop-item h4, .daily-newspaper-head h3, .anonymous-wall-head h3, .hydration-team-head h3) {
+  color: #15371c !important;
+}
+
+body.profile-theme-cobblemon :is(.muted, .shop-item p, .card small) {
+  color: #3a6342 !important;
+}
+
+body.profile-theme-cobblemon :is(input, textarea, select) {
+  background: #fbfff8 !important;
+  border-color: #71a864 !important;
+  color: #15371c !important;
+}

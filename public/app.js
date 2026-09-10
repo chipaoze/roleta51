@@ -749,11 +749,20 @@ function startCobblemonCaptureThrow() {
   let dragging = false;
   let busy = false;
   let suppressClick = false;
+  let blockNativeUntil = 0;
   let generation = 0;
   let wildTarget = null;
   const creatures = ['/cobble-creature-electric.png', '/cobble-creature-fire-v2.png', '/cobble-creature-water.png', '/cobble-creature-leaf.png'];
   const isActive = () => document.documentElement.dataset.activeCursor === 'cobblemon';
   const place = (point, scale = 1) => `translate3d(${point.x - 32}px,${point.y - 32}px,0) scale(${scale})`;
+  const effectHost = () => document.querySelector('dialog[open]') || document.body;
+
+  function keepEffectsAboveDialog() {
+    const destination = effectHost();
+    [ball, hint].forEach((element) => {
+      if (element.parentElement !== destination) destination.appendChild(element);
+    });
+  }
 
   function removeWildTarget() {
     wildTarget?.element?.remove();
@@ -774,7 +783,7 @@ function startCobblemonCaptureThrow() {
     element.style.left = point.x + 'px';
     element.style.top = point.y + 'px';
     element.innerHTML = `<img src="${creatures[Math.floor(Math.random() * creatures.length)]}" alt="">`;
-    document.body.appendChild(element);
+    effectHost().appendChild(element);
     wildTarget = { element, ...point };
     hint.innerHTML = '<b>◉</b><span>Mire na criatura e solte</span>';
   }
@@ -790,7 +799,7 @@ function startCobblemonCaptureThrow() {
       particle.style.top = point.y + 'px';
       particle.style.setProperty('--capture-x', Math.cos(angle) * distance + 'px');
       particle.style.setProperty('--capture-y', Math.sin(angle) * distance + 'px');
-      document.body.appendChild(particle);
+      effectHost().appendChild(particle);
       setTimeout(() => particle.remove(), 720);
     }
   }
@@ -804,6 +813,7 @@ function startCobblemonCaptureThrow() {
     ball.classList.remove('visible', 'aiming', 'catching', 'exploding', 'captured');
     removeWildTarget();
     document.documentElement.classList.remove('cobblemon-ball-thrown');
+    document.documentElement.classList.remove('premium-pointer-gesture-active');
     hint.innerHTML = '<b>◉</b><span>Arraste e solte para capturar</span>';
   }
 
@@ -828,7 +838,7 @@ function startCobblemonCaptureThrow() {
       ring.className = 'cobblemon-capture-ring';
       ring.style.left = to.x + 'px';
       ring.style.top = to.y + 'px';
-      document.body.appendChild(ring);
+      effectHost().appendChild(ring);
       setTimeout(() => {
         if (currentGeneration !== generation || !isActive()) { ring.remove(); return; }
         ball.classList.remove('catching');
@@ -860,19 +870,24 @@ function startCobblemonCaptureThrow() {
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || busy || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
     if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
+    keepEffectsAboveDialog();
+    event.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    document.documentElement.classList.add('premium-pointer-gesture-active');
     start = { x: event.clientX, y: event.clientY };
     dragging = false;
     spawnWildTarget(start);
   }, true);
   document.addEventListener('pointermove', (event) => {
     if (!isActive() || busy || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
+    event.preventDefault();
     const current = { x: event.clientX, y: event.clientY };
     if (Math.hypot(current.x - start.x, current.y - start.y) < 14) return;
     dragging = true;
     ball.style.transform = place(start, .82);
     ball.classList.add('visible', 'aiming');
     hint.innerHTML = '<b>◉</b><span>Solte para lançar</span>';
-  }, { passive: true });
+  }, { capture: true, passive: false });
   document.addEventListener('pointerup', (event) => {
     if (!isActive() || busy || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
     const from = start;
@@ -880,16 +895,21 @@ function startCobblemonCaptureThrow() {
     const target = { x: Math.max(42, Math.min(innerWidth - 42, rawTarget.x)), y: Math.max(42, Math.min(innerHeight - 42, rawTarget.y)) };
     const distance = Math.hypot(target.x - from.x, target.y - from.y);
     start = null;
+    document.documentElement.classList.remove('premium-pointer-gesture-active');
     if (!dragging || distance < 30) { ball.classList.remove('visible', 'aiming'); dragging = false; removeWildTarget(); return; }
     dragging = false;
     suppressClick = true;
+    blockNativeUntil = performance.now() + 500;
     event.preventDefault();
     event.stopImmediatePropagation();
     const hit = Boolean(wildTarget && Math.hypot(rawTarget.x - wildTarget.x, rawTarget.y - wildTarget.y) <= 125);
     const destination = hit ? { x: wildTarget.x, y: wildTarget.y } : target;
     launch(from, destination, hit);
   }, true);
-  document.addEventListener('pointercancel', () => { start = null; dragging = false; if (!busy) { ball.classList.remove('visible', 'aiming'); removeWildTarget(); } }, true);
+  document.addEventListener('pointercancel', () => { start = null; dragging = false; document.documentElement.classList.remove('premium-pointer-gesture-active'); if (!busy) { ball.classList.remove('visible', 'aiming'); removeWildTarget(); } }, true);
+  document.addEventListener('selectstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('dragstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('contextmenu', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('click', (event) => {
     if (!suppressClick) return;
     suppressClick = false;
