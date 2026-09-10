@@ -712,7 +712,8 @@ function updateMusicButton() {
   const locked = isMusicLockedForDrawDay();
   button.classList.toggle('on', active);
   button.classList.toggle('blocked', blocked);
-  button.textContent = '♫'; button.disabled = !appState || (active && locked);
+  button.textContent = active ? '🔊' : (blocked ? '🎵' : '🔇');
+  button.disabled = !appState || (active && locked);
   button.title = locked ? (active ? 'Música fixa no dia de sorteio' : 'Tocar música do dia de sorteio') : (active ? 'Desativar música da rodada' : 'Tocar música da rodada');
   button.setAttribute('aria-label', button.title);
 }
