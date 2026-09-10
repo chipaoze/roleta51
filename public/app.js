@@ -627,6 +627,7 @@ function startWolverineCursorSlash() {
   let dragging = false;
   let suppressClick = false;
   let slicing = false;
+  let blockNativeUntil = 0;
   const isActive = () => document.documentElement.dataset.activeCursor === 'wolverine';
 
   function buildMark() {
@@ -653,72 +654,27 @@ function startWolverineCursorSlash() {
     dragging = false;
     mark?.remove();
     mark = null;
+    document.documentElement.classList.remove('premium-pointer-gesture-active');
     $('.app')?.classList.remove('wolverine-site-sliced');
   }
 
   function splitScreen(from, to) {
-    const source = $('.app');
-    if (!source || slicing) return;
-    const rect = source.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const a = { x: from.x - rect.left, y: from.y - rect.top };
-    const b = { x: to.x - rect.left, y: to.y - rect.top };
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
+    if (slicing) return;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
     const distance = Math.max(1, Math.hypot(dx, dy));
     const rift = document.createElement('span');
     rift.className = 'wolverine-reality-rift';
     rift.setAttribute('aria-hidden', 'true');
-    rift.innerHTML = '<i></i>';
+    rift.innerHTML = '<b></b><b></b><i></i>';
     rift.style.left = from.x + 'px';
     rift.style.top = from.y + 'px';
     rift.style.width = distance + 'px';
     rift.style.setProperty('--cut-turn', Math.atan2(to.y - from.y, to.x - from.x) + 'rad');
     document.body.appendChild(rift);
-    let firstClip;
-    let secondClip;
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      const slope = dy / (dx || 1);
-      const leftY = a.y - slope * a.x;
-      const rightY = a.y + slope * (width - a.x);
-      firstClip = `polygon(0 0,100% 0,100% ${rightY}px,0 ${leftY}px)`;
-      secondClip = `polygon(0 ${leftY}px,100% ${rightY}px,100% 100%,0 100%)`;
-    } else {
-      const slope = dx / (dy || 1);
-      const topX = a.x - slope * a.y;
-      const bottomX = a.x + slope * (height - a.y);
-      firstClip = `polygon(0 0,${topX}px 0,${bottomX}px 100%,0 100%)`;
-      secondClip = `polygon(${topX}px 0,100% 0,100% 100%,${bottomX}px 100%)`;
-    }
-    const normal = { x: (-dy / distance) * 14, y: (dx / distance) * 14 };
-    const pieces = [source.cloneNode(true), source.cloneNode(true)];
-    const previousVisibility = source.style.visibility;
     slicing = true;
-    pieces.forEach((piece, index) => {
-      piece.classList.add('wolverine-screen-slice');
-      piece.setAttribute('aria-hidden', 'true');
-      Object.assign(piece.style, {
-        left: rect.left + 'px',
-        top: rect.top + 'px',
-        width: width + 'px',
-        height: height + 'px',
-        clipPath: index ? secondClip : firstClip,
-      });
-      document.body.appendChild(piece);
-      const sign = index ? -1 : 1;
-      piece.animate([
-        { transform: 'translate3d(0,0,0)', offset: 0 },
-        { transform: `translate3d(${normal.x * sign}px,${normal.y * sign}px,0)`, offset: .22 },
-        { transform: `translate3d(${normal.x * sign}px,${normal.y * sign}px,0)`, offset: .78 },
-        { transform: 'translate3d(0,0,0)', offset: 1 },
-      ], { duration: 1600, easing: 'cubic-bezier(.2,.76,.2,1)', fill: 'forwards' });
-    });
-    source.style.visibility = 'hidden';
     setTimeout(() => {
-      pieces.forEach((piece) => piece.remove());
       rift.remove();
-      source.style.visibility = previousVisibility;
       slicing = false;
     }, 1620);
   }
@@ -726,19 +682,23 @@ function startWolverineCursorSlash() {
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
     if (event.target?.matches?.('input,textarea,select,[contenteditable="true"]')) return;
+    event.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    document.documentElement.classList.add('premium-pointer-gesture-active');
     start = { x: event.clientX, y: event.clientY };
     dragging = false;
   }, true);
 
   document.addEventListener('pointermove', (event) => {
     if (!isActive() || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
+    event.preventDefault();
     const current = { x: event.clientX, y: event.clientY };
     if (Math.hypot(current.x - start.x, current.y - start.y) < 14) return;
     dragging = true;
     if (!mark) mark = buildMark();
     positionMark(mark, start, current);
     mark.classList.add('drawing');
-  }, { passive: true });
+  }, { capture: true, passive: false });
 
   document.addEventListener('pointerup', (event) => {
     if (!isActive() || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
@@ -750,6 +710,8 @@ function startWolverineCursorSlash() {
     event.preventDefault();
     event.stopImmediatePropagation();
     suppressClick = true;
+    blockNativeUntil = performance.now() + 500;
+    document.documentElement.classList.remove('premium-pointer-gesture-active');
     positionMark(mark, from, to);
     mark.classList.remove('drawing');
     mark.classList.add('released');
@@ -761,6 +723,9 @@ function startWolverineCursorSlash() {
   }, true);
 
   document.addEventListener('pointercancel', reset, true);
+  document.addEventListener('selectstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('dragstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('contextmenu', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('click', (event) => {
     if (!suppressClick) return;
     suppressClick = false;
@@ -786,7 +751,7 @@ function startCobblemonCaptureThrow() {
   let suppressClick = false;
   let generation = 0;
   let wildTarget = null;
-  const creatures = ['/cobble-creature-electric.png', '/cobble-creature-fire.png', '/cobble-creature-water.png', '/cobble-creature-leaf.png'];
+  const creatures = ['/cobble-creature-electric.png', '/cobble-creature-fire-v2.png', '/cobble-creature-water.png', '/cobble-creature-leaf.png'];
   const isActive = () => document.documentElement.dataset.activeCursor === 'cobblemon';
   const place = (point, scale = 1) => `translate3d(${point.x - 32}px,${point.y - 32}px,0) scale(${scale})`;
 
@@ -943,6 +908,7 @@ function startWebSlingerCursor() {
   let start = null;
   let dragging = false;
   let suppressClick = false;
+  let blockNativeUntil = 0;
   const isActive = () => document.documentElement.dataset.activeCursor === 'web-slinger';
 
   function fireWeb(from, to) {
@@ -978,22 +944,27 @@ function startWebSlingerCursor() {
   function reset() {
     start = null;
     dragging = false;
+    document.documentElement.classList.remove('premium-pointer-gesture-active');
     hint.innerHTML = '<b>🕸</b><span>Arraste e solte para lançar</span>';
   }
 
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
     if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
+    event.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    document.documentElement.classList.add('premium-pointer-gesture-active');
     start = { x: event.clientX, y: event.clientY };
     dragging = false;
   }, true);
 
   document.addEventListener('pointermove', (event) => {
     if (!isActive() || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
+    event.preventDefault();
     if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 14) return;
     dragging = true;
     hint.innerHTML = '<b>🕸</b><span>Solte para disparar</span>';
-  }, { passive: true });
+  }, { capture: true, passive: false });
 
   document.addEventListener('pointerup', (event) => {
     if (!isActive() || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
@@ -1004,12 +975,16 @@ function startWebSlingerCursor() {
     reset();
     if (!didDrag || distance < 30) return;
     suppressClick = true;
+    blockNativeUntil = performance.now() + 500;
     event.preventDefault();
     event.stopImmediatePropagation();
     fireWeb(from, to);
   }, true);
 
   document.addEventListener('pointercancel', reset, true);
+  document.addEventListener('selectstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('dragstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('contextmenu', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('click', (event) => {
     if (!suppressClick) return;
     suppressClick = false;

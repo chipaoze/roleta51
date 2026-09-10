@@ -1112,6 +1112,25 @@ html[data-active-cursor="web-slinger"] :is(input,textarea) { cursor: text; }
   box-shadow: 0 0 12px #c270ff,0 0 28px #5c2fbf;
 }
 
+.wolverine-reality-rift > b {
+  position: absolute;
+  left: 0;
+  top: 13px;
+  width: 100%;
+  height: 11px;
+  border-radius: 999px;
+  background: linear-gradient(180deg,rgba(225,245,255,.72),rgba(74,34,115,.76) 38%,rgba(4,1,10,.92));
+  box-shadow: 0 0 10px #c4eeff,0 0 22px #8f49e9;
+  transform-origin: center;
+  animation: wolverineRiftEdgeTop 1.62s cubic-bezier(.2,.72,.22,1) forwards;
+}
+
+.wolverine-reality-rift > b:nth-child(2) {
+  top: 26px;
+  background: linear-gradient(0deg,rgba(225,245,255,.68),rgba(74,34,115,.72) 38%,rgba(4,1,10,.92));
+  animation-name: wolverineRiftEdgeBottom;
+}
+
 .wolverine-reality-rift i,
 .wolverine-reality-rift i::before,
 .wolverine-reality-rift i::after {
@@ -1143,6 +1162,24 @@ html[data-active-cursor="web-slinger"] :is(input,textarea) { cursor: text; }
   18% { opacity: 1; scale: 1 .92; }
   28%, 76% { opacity: 1; scale: 1 1; filter: brightness(1); }
   100% { opacity: 0; scale: 1 .02; filter: brightness(2); }
+}
+
+@keyframes wolverineRiftEdgeTop {
+  0%,100% { opacity:0; transform:translateY(0) scaleY(.1); }
+  18%,78% { opacity:.9; transform:translateY(-7px) scaleY(1); }
+}
+
+@keyframes wolverineRiftEdgeBottom {
+  0%,100% { opacity:0; transform:translateY(0) scaleY(.1); }
+  18%,78% { opacity:.9; transform:translateY(7px) scaleY(1); }
+}
+
+html.premium-pointer-gesture-active,
+html.premium-pointer-gesture-active body,
+html.premium-pointer-gesture-active body * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
 }
 
 html.cobblemon-ball-thrown,
