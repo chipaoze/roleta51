@@ -161,7 +161,7 @@ function startRainbowMouseTrail() {
       trailContext.lineTo(point.x, point.y);
       trailContext.lineWidth = 1.25 + (opacity * 3.25);
       const trailStyle = document.body.dataset.trailStyle || 'rainbow';
-      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67],laser:[158,100,58],alien:[112,100,55],white:[0,0,100] };
+      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67],laser:[158,100,58],alien:[112,100,55],white:[0,0,100],'gta-neon':[322,100,65],cobblemon:[96,68,52],wolverine:[46,100,58],samurai:[344,90,68],'god-war':[200,92,67] };
       const fixedColor = trailPalette[trailStyle];
       const rocketAge = Math.max(0, Math.min(1, (now - point.time) / lifetime));
       const hue = trailStyle === 'fire' ? 5 + ((point.hue / 360) * 48) : trailStyle === 'rocket' ? (rocketAge < .2 ? 198 : Math.max(5, 48 - ((rocketAge - .2) * 54))) : fixedColor ? fixedColor[0] : point.hue;
@@ -1690,7 +1690,7 @@ function shopVisualPreview(item) {
   const previewName = escapeHtml(formatDisplayName(appState?.me?.displayName || 'Seu nome'));
   if (item.type === 'cursorStyle') {
     const cursorEffectPreview = (source, alt, name, effect) => `<div class="shop-visual-preview cursor-preview cursor-preview-effect"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="${source}" alt="${alt}"><b>${name}</b><em>${effect}</em></span></div>`;
-    if (['crystal','solar','ufo','wand','comet-tail','thunder'].includes(item.value)) return `<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-${item.value}.svg" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b></span></div>`;
+    if (['crystal','solar','ufo','wand','comet-tail','thunder','gta-neon','cobblemon','wolverine','samurai','god-war'].includes(item.value)) return `<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="/cursor-${item.value}.svg" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b></span></div>`;
     if (item.value === 'unicorn') return '<div class="shop-visual-preview cursor-preview cursor-preview-unicorn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-cursor-full-v2.png" alt="Unicórnio completo"> <b>Galopa ao movimentar</b></span></div>';
     if (item.value === 'dipirona') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-dipirona.svg" alt="Seta Dipirona"><b>Seta Dipirona</b></span></div>';
     if (item.value === 'pirokinha-cosmica') return cursorEffectPreview('/cursor-pirokinha-cosmica.svg', 'Pirokinha Cósmica', 'Pirokinha Cósmica', 'TOMA LEITADA');
@@ -1716,7 +1716,7 @@ function shopVisualPreview(item) {
     return '<div class="shop-visual-preview cursor-preview cursor-preview-horn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-arrow-cursor.png" alt="Seta de mouse arco-íris em formato de chifre"> <b>Seta Unicórnio</b></span></div>';
   }
   if (item.type === 'trailStyle') return `<div class="shop-visual-preview trail-preview trail-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO RASTRO</small><span><i></i><b>${item.value === 'fruit' ? '🍉 🍊 🍓' : '🦄'}</b></span></div>`;
-  if (item.type === 'siteTheme') return `<div class="shop-visual-preview theme-preview theme-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO TEMA</small><span>✦ <b>ÁREA 51</b> · ✧ · ✦</span></div>`;
+  if (item.type === 'siteTheme') { const accents={ 'gta-neon':'🌴  NEON VICE  ·  ✦  ÁREA 51', cobblemon:'⛏️  MUNDO EM BLOCOS  ·  🐾', wolverine:'╲╲╲  MODO SELVAGEM  ·  ✦', samurai:'⛩️  NÉVOA DE YŌTEI  ·  🌸', 'god-war':'ᚱ  NORTE ANTIGO  ·  🪓' }; return `<div class="shop-visual-preview theme-preview theme-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO TEMA PREMIUM</small><span>${accents[item.value] || '✦  ÁREA 51  ·  ✧  ·  ✦'}</span></div>`; }
   if (item.type === 'frame') return `<div class="shop-visual-preview frame-preview frame-${escapeHtml(item.value)}"><small>PRÉVIA EXATA · PERFIL, TOPO E MENU</small><span><b>${escapeHtml(initials(appState?.me?.displayName || 'SN'))}</b><em>${previewName}</em></span></div>`;
   if (item.type === 'nameStyle') return `<div class="shop-visual-preview name-preview"><small>PRÉVIA DO NOME</small><strong class="name-style-${escapeHtml(item.value)}">${previewName}</strong></div>`;
   if (item.type === 'badge') return `<div class="shop-visual-preview badge-preview"><small>PRÉVIA DO EMBLEMA · NÃO ALTERA A COR DO NOME</small><span><b>${escapeHtml(item.value)}</b><em class="badge-preview-name">${previewName}</em><i>Somente o emblema é aplicado</i></span></div>`;
@@ -1734,7 +1734,7 @@ function setPreviewCursor(value) {
 
 function applyPersonalTheme(value) {
   applyVisualTheme(appState);
-  ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars', 'nebula', 'hyperdrive', 'lunar-tide', 'coral-signal', 'prism'].forEach((theme) => document.body.classList.toggle('profile-theme-' + theme, theme === value));
+  ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars', 'nebula', 'hyperdrive', 'lunar-tide', 'coral-signal', 'prism', 'gta-neon', 'cobblemon', 'wolverine', 'samurai', 'god-war'].forEach((theme) => document.body.classList.toggle('profile-theme-' + theme, theme === value));
   document.body.classList.toggle('theme-light-override', Boolean(value) && !document.body.classList.contains('theme-dark'));
   if (value) {
     const button = $('#themeToggle');
@@ -1749,6 +1749,8 @@ function applyShopPreviewVisual(item) {
     document.body.classList.add('shop-theme-preview-active');
     document.body.dataset.previewTheme = item.value;
     applyPersonalTheme(item.value);
+    const companions={ 'gta-neon':['gta-neon','gta-neon','gta-neon'],cobblemon:['cobblemon','cobblemon','cobblemon'],wolverine:['wolverine','wolverine','wolverine'],samurai:['samurai','samurai','samurai'],'god-war':['god-war','god-war','god-war'] }[item.value];
+    if(companions){setPreviewCursor(companions[0]);document.body.dataset.trailStyle=companions[1];['profileDisplayName','userName','menuUserName'].forEach(id=>$('#'+id)?.classList.add('name-style-'+companions[2]));}
   } else if (item.type === 'cursorStyle') {
     setPreviewCursor(item.value);
     document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : item.value === 'maradona' ? 'white' : 'none';
