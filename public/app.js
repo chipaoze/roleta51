@@ -1453,6 +1453,10 @@ function renderDailyWall(wall = {}) {
   ).join('') : '<p>A tripulação ainda não publicou frases hoje.</p>';
   $('#dailyPhraseCount').textContent = String($('#dailyPhraseInput').value.length);
   $('#dailyMemeCount').textContent = memes.length + (memes.length === 1 ? ' meme' : ' memes');
+  const history = Array.isArray(wall.history) ? wall.history : [];
+  const historyBox = $('#dailyWallHistory');
+  historyBox.classList.toggle('hidden', !history.length);
+  historyBox.innerHTML = history.length ? `<summary>📚 Histórico do mural <b>${history.length}</b></summary><div>${history.map((archive) => `<button type="button" data-wall-history-id="${escapeHtml(archive.id)}"><strong>${escapeHtml(formatDate(archive.closedAt))}</strong><small>${Number(archive.memeCount)} meme${Number(archive.memeCount) === 1 ? '' : 's'} · ${Number(archive.phraseCount)} frase${Number(archive.phraseCount) === 1 ? '' : 's'}</small></button>`).join('')}</div>` : '';
   $('#clearDailyMemesButton').classList.toggle('hidden', !appState || appState.me.role !== 'admin');
   const isAdmin = Boolean(appState && appState.me.role === 'admin');
   $('#dailyMemeGallery').innerHTML = memes.length ? [...memes].reverse().map((item) => {
@@ -2807,10 +2811,27 @@ $('#memeUploadForm').addEventListener('submit', async (event) => {
   finally { setBusy(form, false); }
 });
 $('#clearDailyMemesButton').addEventListener('click', async () => {
-  if (!confirm('Limpar todos os memes e a frase do dia? O mural ficará livre para novas publicações.')) return;
+  if (!confirm('Encerrar e limpar o mural atual? As publicações, comentários e reações ficarão guardados no Histórico do mural.')) return;
   try {
     applyState(await api('/api/admin/daily-wall/clear', { method: 'POST' }));
-    showToast('Mural diário limpo. Podem postar novamente!');
+    showToast('Mural encerrado e arquivado. Podem postar novamente!');
+  } catch (error) { showToast(error.message, 'error'); }
+});
+$('#dailyWallHistory').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-wall-history-id]');
+  if (!button) return;
+  try {
+    const archive = await api('/api/daily-wall/history/' + encodeURIComponent(button.dataset.wallHistoryId));
+    const dialog = document.createElement('dialog');
+    dialog.className = 'daily-wall-history-dialog';
+    const archiveAuthor = escapeHtml(formatDisplayName(archive.closedByName || 'Administrador'));
+    const archiveDate = escapeHtml(formatDate(archive.closedAt));
+    const phrases = (archive.phrases || []).map((item) => `<article><blockquote>${escapeHtml(item.phrase)}</blockquote><small>${item.anonymous ? '🕵️ Anônimo' : 'Por ' + escapeHtml(formatDisplayName(item.authorName))} · ${escapeHtml(formatDate(item.createdAt))}</small></article>`).join('') || '<p>Nenhuma frase nesta edição.</p>';
+    const memes = (archive.memes || []).map((item) => `<figure><img src="${escapeHtml(item.imageUrl)}" alt="Meme arquivado"><figcaption>${item.anonymous ? '🕵️ Anônimo' : escapeHtml(formatDisplayName(item.authorName))}${item.caption ? ' · ' + escapeHtml(item.caption) : ''}</figcaption></figure>`).join('') || '<p>Nenhum meme nesta edição.</p>';
+    dialog.innerHTML = `<button class="daily-history-close" type="button" aria-label="Fechar histórico">×</button><small>MURAL ARQUIVADO</small><h2>${archiveDate}</h2><p>Encerrado por ${archiveAuthor}. Publicações preservadas para consulta.</p><section><h3>Frases</h3>${phrases}</section><section><h3>Memes</h3><div class="daily-history-memes">${memes}</div></section>`;
+    dialog.addEventListener('click', (click) => { if (click.target === dialog || click.target.closest('.daily-history-close')) dialog.close(); });
+    dialog.addEventListener('close', () => dialog.remove());
+    document.body.appendChild(dialog); dialog.showModal();
   } catch (error) { showToast(error.message, 'error'); }
 });
 $('#dailyPhraseList').addEventListener('click', async (event) => {

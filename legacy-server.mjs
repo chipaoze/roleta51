@@ -280,6 +280,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.dailyMemes)) { db.dailyMemes = []; changed = true; }
   if (!Array.isArray(db.dailyPhrases)) { db.dailyPhrases = []; changed = true; }
   if (!Array.isArray(db.dailyReactions)) { db.dailyReactions = []; changed = true; }
+  if (!Array.isArray(db.dailyWallHistory)) { db.dailyWallHistory = []; changed = true; }
   if (!Array.isArray(db.anonymousPosts)) { db.anonymousPosts = []; changed = true; }
   if (!Array.isArray(db.waterEntries)) { db.waterEntries = []; changed = true; }
   if (!Array.isArray(db.rememberTokens)) { db.rememberTokens = []; changed = true; }
@@ -1682,6 +1683,7 @@ function stateFor(user) {
     season: { current: seasonSummary(), previous: previousSeason, challenges: seasonalChallengesFor(user.id) },
     dailyWall: {
       emojis: WALL_EMOJIS,
+      history: db.dailyWallHistory.slice(-30).reverse().map((archive) => ({ id: archive.id, closedAt: archive.closedAt, closedByName: archive.closedByName, memeCount: archive.memes?.length || 0, phraseCount: archive.phrases?.length || 0 })),
       phrases: db.dailyPhrases.map((item) => ({
         id: item.id, userId: item.userId, canEdit: item.userId === user.id, phrase: item.phrase, authorName: item.authorName, anonymous: Boolean(item.anonymous), createdAt: item.createdAt, comments: item.comments || [],
         canDelete: item.userId === user.id || user.role === 'admin', reactions: reactionsFor('phrase', item.id, user.id),
@@ -3005,15 +3007,39 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'POST' && route === '/api/admin/daily-wall/clear') {
     const { user } = requireAdmin(req);
-    await deleteStoredImages(db.dailyMemes);
+    const closedAt = new Date().toISOString();
+    if (db.dailyMemes.length || db.dailyPhrases.length) {
+      const archivedIds = new Set([...db.dailyMemes, ...db.dailyPhrases].map((item) => item.id));
+      db.dailyWallHistory.push({
+        id: randomUUID(), closedAt, closedByName: user.displayName,
+        memes: db.dailyMemes, phrases: db.dailyPhrases,
+        reactions: db.dailyReactions.filter((item) => archivedIds.has(item.targetId)),
+      });
+      db.dailyReactions = db.dailyReactions.filter((item) => !archivedIds.has(item.targetId));
+    }
     db.dailyMemes = [];
     db.dailyPhrases = [];
-    db.dailyReactions = [];
     db.settings.dailyPhrase = '';
     db.settings.dailyPhraseUpdatedAt = null;
     db.settings.dailyPhraseUpdatedBy = null;
-    db.settings.lastCleanupAt = new Date().toISOString();
+    db.settings.lastCleanupAt = closedAt;
     await persist(); broadcastRefresh('daily-wall'); json(res, 200, stateFor(user)); return;
+  }
+
+  const dailyWallHistoryMatch = route.match(/^\/api\/daily-wall\/history\/([^/]+)$/);
+  if (req.method === 'GET' && dailyWallHistoryMatch) {
+    requireAuth(req);
+    const archive = db.dailyWallHistory.find((item) => item.id === dailyWallHistoryMatch[1]);
+    if (!archive) throw new HttpError(404, 'Esta edição não foi encontrada no histórico.');
+    const reactionSummary = (type, id) => {
+      const entries = (archive.reactions || []).filter((item) => item.targetType === type && item.targetId === id);
+      return Object.fromEntries(WALL_EMOJIS.map((emoji) => [emoji, entries.filter((item) => item.emoji === emoji).length]));
+    };
+    json(res, 200, {
+      id: archive.id, closedAt: archive.closedAt, closedByName: archive.closedByName,
+      phrases: (archive.phrases || []).map((item) => ({ id: item.id, phrase: item.phrase, authorName: item.authorName, anonymous: Boolean(item.anonymous), createdAt: item.createdAt, reactions: reactionSummary('phrase', item.id) })),
+      memes: (archive.memes || []).map((item) => ({ id: item.id, imageUrl: '/memes/' + item.filename, caption: item.caption || '', authorName: item.authorName, anonymous: Boolean(item.anonymous), createdAt: item.createdAt, reactions: reactionSummary('meme', item.id) })),
+    }); return;
   }
 
   if (req.method === 'GET' && route === '/api/my-wallpaper') {
@@ -3362,7 +3388,7 @@ async function handleApi(req, res, route) {
     if (total > MAX_IMAGE_MEMORY || decoded.some((item) => !item.filename || !/^image\/(png|jpeg|webp)$/.test(item.mimeType))) throw new HttpError(413, 'As imagens do backup são inválidas ou excedem o limite.');
     const currentSecurity = db.gateAuthorizations; const currentGate = { gateSeed: db.settings.gateSeed, gateCodeHash: db.settings.gateCodeHash };
     db = restored;
-    db.feedbackMessages ||= []; db.dailyMemes ||= []; db.dailyPhrases ||= []; db.dailyReactions ||= [];
+    db.feedbackMessages ||= []; db.dailyMemes ||= []; db.dailyPhrases ||= []; db.dailyReactions ||= []; db.dailyWallHistory ||= [];
     db.anonymousPosts ||= []; db.waterEntries ||= []; db.rememberTokens ||= []; db.lieAccusations ||= []; db.mysteries ||= [];
     db.notificationsReadAt ||= {}; db.economy.wallets ||= {}; db.economy.purchases ||= [];
     db.economy.equipped ||= {}; db.economy.missionProgress ||= {}; db.economy.missionRewards ||= [];
@@ -3789,7 +3815,7 @@ export async function requestHandler(req, res) {
     if (url.pathname.startsWith('/memes/')) {
       requireAuth(req);
       const filename = path.basename(decodeURIComponent(url.pathname.slice(7)));
-      const meme = db.dailyMemes.find((item) => item.filename === filename);
+      const meme = db.dailyMemes.find((item) => item.filename === filename) || db.dailyWallHistory.some((archive) => archive.memes?.some((item) => item.filename === filename));
       if (!meme) throw new HttpError(404, 'Este meme não está mais no mural.');
       await serveMemoryImage(res, filename); return;
     }
