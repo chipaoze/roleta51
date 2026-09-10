@@ -2781,11 +2781,13 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
     const boxInfo = item.mysteryBox ? ` data-box-info="true" data-box-name="${escapeHtml(item.name)}" data-box-icon="${escapeHtml(item.icon)}" data-box-credit="${Math.round(Number(item.creditChance || 0) * 100)}" data-box-power="${Math.round(Number(item.powerChance || 0) * 100)}" data-box-min="${Number(item.creditMin || 0)}" data-box-max="${Number(item.creditMax || 0)}" data-box-reward-min="${Number(item.minRewardPrice || 0)}" data-box-reward-max="${Number(item.maxRewardPrice || 0)}" data-box-physical-chance="${Number(item.physicalKitChance || 0)}"` : '';
     const iconMarkup = item.mysteryBox ? `<button class="shop-item-icon" type="button" aria-label="Ver chances da ${escapeHtml(item.name)}">${item.icon}</button>` : `<span class="shop-item-icon">${item.icon}</span>`;
     const oddsButton = item.mysteryBox ? '<button type="button" data-box-odds>Ver chances</button>' : '';
-    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}"${boxInfo}>${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}${iconMarkup}<div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong>${quantityPicker}<span class="shop-card-actions">${oddsButton}${previewButton}${freeButton}${buyMorePower}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}" data-equipped="${item.equipped}"${item.service && Number(item.availablePoints || 0) < 1 ? ' disabled' : ''}>${action}</button></span></footer></article>`;
+    const purchased = Boolean(item.owned || Number(item.quantity || 0) > 0);
+    const refundButton = purchased ? '<button class="shop-refund-button" type="button" data-shop-refund>Devolver</button>' : '';
+    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${purchased ? ' purchased' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}"${boxInfo}>${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}${iconMarkup}<div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong>${quantityPicker}<span class="shop-card-actions">${oddsButton}${previewButton}${freeButton}${refundButton}${buyMorePower}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}" data-equipped="${item.equipped}"${item.service && Number(item.availablePoints || 0) < 1 ? ' disabled' : ''}>${action}</button></span></footer></article>`;
   }).join('');
   const collectionCatalog = $('#collectionCatalog');
   collectionCatalog.innerHTML = '';
-  $$('.shop-item.owned:not(.consumable):not(.mystery-box):not(.shop-service)', $('#shopCatalog')).forEach((card) => {
+  $$('.shop-item.purchased:not(.shop-service)', $('#shopCatalog')).forEach((card) => {
     const clone = card.cloneNode(true); clone.classList.remove('hidden'); collectionCatalog.appendChild(clone);
   });
   $('#collectionEmpty').classList.toggle('hidden', collectionCatalog.children.length > 0);
@@ -3373,7 +3375,6 @@ $('#volumeDownButton').addEventListener('click', () => {
   const dialog = $('#area51ProDialog');
   if (!dialog.open) dialog.showModal();
 });
-$('#refundButton').addEventListener('click', () => showToast('Não tem devolução, comprou comprou. 😅', 'error'));
 function closeArea51Pro() { $('#area51ProDialog').close(); }
 $('#closeArea51Pro').addEventListener('click', closeArea51Pro);
 $('#declineArea51Pro').addEventListener('click', closeArea51Pro);
@@ -3920,6 +3921,7 @@ $('#hideOwnedVisuals').addEventListener('change', (event) => {
   renderProfileEconomy(appState.profile);
 });
 document.addEventListener('click', (event) => {
+  if (event.target.closest('[data-shop-refund]')) { showToast('Complou porque quis, não tem galantia', 'error'); return; }
   const oddsTrigger = event.target.closest('[data-box-odds]');
   if (!oddsTrigger && event.target.closest('[data-shop-action], [data-shop-preview], [data-shop-free], .shop-card-actions')) return;
   const box = oddsTrigger?.closest('.shop-item[data-box-info]') || event.target.closest('.shop-item[data-box-info]');
