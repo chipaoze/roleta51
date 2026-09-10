@@ -27,7 +27,7 @@ let musicBufferPromise = null;
 let musicSource = null;
 let musicStartPromise = null;
 let fallbackAudio = null;
-let musicWanted = true;
+let musicWanted = localStorage.getItem('roundMusic') !== 'off';
 let musicForcedBySpin = false;
 let musicPrimedByGesture = false;
 let toastTimer;
@@ -695,15 +695,25 @@ function musicIsPlaying() {
   return webAudioPlaying || fallbackPlaying;
 }
 
+function isMusicLockedForDrawDay() {
+  const drawAt = String(appState?.settings?.roundSchedule?.drawAt || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(drawAt)) return false;
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const today = `${values.year}-${values.month}-${values.day}`;
+  return drawAt === today;
+}
+
 function updateMusicButton() {
   const button = $('#musicToggle');
   if (!button) return;
   const active = Boolean(musicWanted && musicIsPlaying());
   const blocked = Boolean(musicWanted && appState && !active);
+  const locked = isMusicLockedForDrawDay();
   button.classList.toggle('on', active);
   button.classList.toggle('blocked', blocked);
-  button.textContent = '♫'; button.disabled = !blocked;
-  button.title = active ? 'Música da rodada ativa e fixa' : 'Tocar música da rodada';
+  button.textContent = '♫'; button.disabled = !appState || (active && locked);
+  button.title = locked ? (active ? 'Música fixa no dia de sorteio' : 'Tocar música do dia de sorteio') : (active ? 'Desativar música da rodada' : 'Tocar música da rodada');
   button.setAttribute('aria-label', button.title);
 }
 
@@ -2423,8 +2433,10 @@ function receiveLiveDraw(payload) {
   clearTimeout(liveSpinStartTimer); clearTimeout(liveSpinFinishTimer);
   drawRequestPending = false;
   spinning = true;
-  musicForcedBySpin = !musicWanted;
-  startMusic(true);
+  const lockMusicForDraw = isMusicLockedForDrawDay();
+  musicForcedBySpin = lockMusicForDraw && !musicWanted;
+  if (lockMusicForDraw) startMusic(true);
+  else if (musicWanted) startMusic();
   document.body.classList.add('roulette-cinema');
   $('.wheel-stage').classList.add('is-spinning');
   selectLiveMode(payload.mode || result.type);
@@ -2568,6 +2580,11 @@ $('#themeToggle').addEventListener('click', () => {
   if (document.body.className.includes('profile-theme-')) document.body.classList.toggle('theme-light-override', !dark);
 });
 $('#musicToggle').addEventListener('click', () => {
+  if (musicIsPlaying() && !isMusicLockedForDrawDay()) {
+    musicWanted = false; localStorage.setItem('roundMusic', 'off'); pauseMusic();
+    showToast('Música da rodada desativada.');
+    return;
+  }
   musicPrimedByGesture = true;
   primeMusicFromGesture();
   startMusic(true).then(() => {
