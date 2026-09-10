@@ -1881,9 +1881,9 @@ function renderProfileEconomy(profile = {}) {
   if (powers.forcedGay) powerRows.push(['👑', 'Controle Gay da Rodada ativo', 'Escolhido: ' + powers.forcedGay, true, 'power-choose-gay']);
   if (powers.shield) powerRows.push(['🛡️', 'Escudo da Rodada ativo', 'Você está protegido nesta rodada', true, 'power-shield-gay']);
   if (powers.forcedTheme) powerRows.push(['🎨', 'Tema reservado', powers.forcedTheme, true]);
-  (powers.recentUses || []).forEach((entry) => powerRows.push([entry.icon, entry.name, (entry.detail ? entry.detail + ' · ' : '') + formatDate(entry.usedAt), false]));
+  (powers.available || []).forEach((entry) => powerRows.push([entry.icon, entry.name, entry.detail || 'Pronto para usar.', false, null, entry.itemId]));
   $('#activePowersCard').classList.toggle('hidden', powerRows.length === 0);
-  $('#activePowersList').innerHTML = powerRows.map(([icon, title, detail, active, cancelId]) => `<div class="active-power-row${active ? ' is-active' : ''}"><span>${icon}</span><p><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></p>${cancelId ? `<button type="button" data-cancel-power="${cancelId}">Cancelar</button>` : active ? '<b>ATIVO</b>' : '<b>USADO</b>'}</div>`).join('');
+  $('#activePowersList').innerHTML = powerRows.map(([icon, title, detail, active, cancelId, availableId]) => `<div class="active-power-row${active ? ' is-active' : ''}"><span>${icon}</span><p><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></p>${cancelId ? `<button type="button" data-cancel-power="${cancelId}">Cancelar</button>` : availableId ? `<button type="button" data-profile-power-use="${escapeHtml(availableId)}">Usar</button>` : '<b>ATIVO</b>'}</div>`).join('');
   const mysteryBoxes = Array.isArray(profile.mysteryBoxes) ? profile.mysteryBoxes : [];
   const mysteryRewards = Array.isArray(profile.mysteryRewards) ? profile.mysteryRewards : [];
   const physicalPrizes = profile.physicalPrizes || [];
@@ -3138,6 +3138,14 @@ $('#shopCatalog').addEventListener('click', (event) => {
   if (previewButton) startShopPreview(previewButton.dataset.shopPreview);
 });
 
+$('#activePowersList').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-profile-power-use]');
+  if (!button) return;
+  const shopButton = $(`#shopCatalog [data-shop-action]:not([data-shop-action="purchase"])[data-shop-item="${CSS.escape(button.dataset.profilePowerUse)}"]`);
+  if (!shopButton) { showToast('Esse poder não está disponível agora.', 'error'); return; }
+  shopButton.click();
+});
+
 $('#shopCatalog').addEventListener('click', async (event) => {
   const freeButton = event.target.closest('[data-shop-free]');
   const actionButton = event.target.closest('[data-shop-action]');
@@ -3537,6 +3545,17 @@ $('#resetMyPurchasesButton').addEventListener('click', async () => {
     applyState(data);
     showToast('Compras zeradas. ' + Number(data.refundedCredits || 0).toLocaleString('pt-BR') + ' créditos foram devolvidos.');
   } catch (error) { showToast(error.message, 'error'); }
+});
+
+$('#resetMyCasinoTestsButton')?.addEventListener('click', async () => {
+  if (!confirm('Remover a entrada manual de 99.000 créditos e todas as suas apostas feitas depois dela? O apostômetro também será limpo. Esta ação não pode ser desfeita.')) return;
+  const button = $('#resetMyCasinoTestsButton'); button.disabled = true;
+  try {
+    const data = await api('/api/admin/reset-my-casino-tests', { method: 'POST' });
+    applyState(data);
+    showToast(`${data.removedCredits.toLocaleString('pt-BR')} créditos e ${data.removedPlays} aposta(s) de teste foram removidos.`);
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { button.disabled = false; }
 });
 
 $('#passwordForm').addEventListener('submit', async (event) => {
