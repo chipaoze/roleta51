@@ -10,6 +10,23 @@
     { key: 'party', words: ['festa', 'gay', 'arco', 'rainbow', 'cor'], accent: '#ff72bd' }
   ];
   let active = themes[0]; let lastTrail = 0;
+  const cursorParticles = {
+    crystal: { glyph: '◆', kind: 'crystal', color: '#7ee8ff' },
+    solar: { glyph: '✦', kind: 'solar', color: '#ffc947' },
+    ufo: { glyph: '⌁', kind: 'ufo', color: '#6ef5d4' },
+    wand: { glyph: '✧', kind: 'magic', color: '#d798ff' },
+    'comet-tail': { glyph: '☄', kind: 'comet', color: '#7bdcff' },
+    thunder: { glyph: 'ϟ', kind: 'thunder', color: '#ffe15c' },
+    thor: { glyph: 'ϟ', kind: 'thor', color: '#baf7ff', always: true },
+    horn: { glyph: '♦', kind: 'rainbow', color: '#ff75c8' },
+    dipirona: { glyph: '✚', kind: 'medicine', color: '#7ccfff' },
+    anvisa: { glyph: '✚', kind: 'medicine', color: '#66e2b5' },
+    'gta-neon': { glyph: '▬', kind: 'neon', color: '#ff58c8' },
+    cobblemon: { glyph: '■', kind: 'pixel', color: '#8edf5d' },
+    wolverine: { glyph: '╱', kind: 'claw', color: '#ffd22f' },
+    samurai: { glyph: '❀', kind: 'petal', color: '#ff9ab1' },
+    'god-war': { glyph: 'ᚱ', kind: 'rune', color: '#8de9ff' },
+  };
 
   const pickTheme = name => themes.find(theme => theme.words.some(word => name.includes(word))) || themes[0];
   const spark = (x, y, count = 1) => {
@@ -19,6 +36,22 @@
       dot.style.left = (x + (Math.random() * 18 - 9)) + 'px'; dot.style.top = (y + (Math.random() * 18 - 9)) + 'px';
       dot.style.setProperty('--spark-color', active.accent); body.append(dot); setTimeout(() => dot.remove(), 700);
     }
+  };
+  const cursorSpark = (x, y) => {
+    const cursor = document.documentElement.dataset.activeCursor || '';
+    const config = cursorParticles[cursor];
+    const hasOwnEffect = Boolean(body.dataset.cursorEffect) || (body.dataset.trailStyle && body.dataset.trailStyle !== 'none');
+    const thorBusy = document.documentElement.classList.contains('thor-cursor-thrown') || document.documentElement.classList.contains('thor-aiming');
+    if (!config || (hasOwnEffect && !config.always) || thorBusy) return;
+    const particle = document.createElement('i');
+    particle.className = 'cursor-themed-particle particle-' + config.kind;
+    particle.textContent = config.glyph;
+    particle.style.left = (x + (Math.random() * 10 - 5)) + 'px';
+    particle.style.top = (y + (Math.random() * 10 - 5)) + 'px';
+    particle.style.setProperty('--cursor-particle-color', config.color);
+    particle.style.setProperty('--particle-drift', (Math.random() * 18 - 9) + 'px');
+    body.append(particle);
+    setTimeout(() => particle.remove(), 720);
   };
   const updateSignature = (state) => {
     const signature = document.querySelector('#profileVisualSignature'); if (!signature) return;
@@ -37,7 +70,7 @@
 
   document.addEventListener('pointermove', (event) => {
     if (reduced || event.pointerType === 'touch' || performance.now() - lastTrail < 175) return;
-    lastTrail = performance.now(); spark(event.clientX, event.clientY);
+    lastTrail = performance.now(); cursorSpark(event.clientX, event.clientY);
   }, { passive: true });
   document.addEventListener('pointermove', (event) => {
     const card = event.target.closest('.album-card, .shop-item, .profile-medal'); if (!card || reduced) return;

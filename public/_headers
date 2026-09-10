@@ -34,6 +34,15 @@
 /favicon.svg
   Cache-Control: public, max-age=31536000, immutable
 
+/cursor-*-v2.png
+  Cache-Control: public, max-age=31536000, immutable
+
+/cursor-samurai.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+/theme-cobblemon-v3.webp
+  Cache-Control: public, max-age=31536000, immutable
+
 /manifest.webmanifest
   Cache-Control: public, max-age=86400
 
