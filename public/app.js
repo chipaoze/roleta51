@@ -353,6 +353,7 @@ function startThorCursorThrow() {
   let dragging = false;
   let suppressNextClick = false;
   let sparkGeneration = 0;
+  let blockNativeUntil = 0;
 
   const isActive = () => document.documentElement.dataset.activeCursor === 'thor';
   const transformAt = (point, rotation = 0, scale = 1) => `translate3d(${point.x - 24}px,${point.y - 24}px,0) rotate(${rotation}deg) scale(${scale})`;
@@ -423,6 +424,7 @@ function startThorCursorThrow() {
     $$('.thor-flight-spark').forEach((spark) => spark.remove());
     document.documentElement.classList.remove('thor-cursor-thrown');
     document.documentElement.classList.remove('thor-aiming');
+    document.documentElement.classList.remove('premium-pointer-gesture-active');
     dragStart = null;
     dragging = false;
     hint.innerHTML = '<b>🔨</b><span>Arraste e solte para arremessar</span>';
@@ -521,6 +523,7 @@ function startThorCursorThrow() {
 
   document.addEventListener('pointermove', (event) => {
     if (event.pointerType && event.pointerType !== 'mouse') return;
+    if (dragStart && phase === 'held') event.preventDefault();
     const next = { x: event.clientX, y: event.clientY };
     const dx = next.x - pointer.x;
     const dy = next.y - pointer.y;
@@ -539,7 +542,7 @@ function startThorCursorThrow() {
         hint.innerHTML = '<b>⚡</b><span>Solte para arremessar</span>';
       }
     }
-  }, { passive: true });
+  }, { capture: true, passive: false });
 
   document.addEventListener('keydown', (event) => {
     if (!isActive() || event.repeat || event.key.toLowerCase() !== 't') return;
@@ -564,6 +567,9 @@ function startThorCursorThrow() {
       return;
     }
     if (event.target?.matches?.('input,textarea,select,[contenteditable="true"]')) return;
+    event.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    document.documentElement.classList.add('premium-pointer-gesture-active');
     dragStart = { x: event.clientX, y: event.clientY };
     dragging = false;
   }, true);
@@ -574,6 +580,7 @@ function startThorCursorThrow() {
     const dragY = event.clientY - dragStart.y;
     const distance = Math.hypot(dragX, dragY);
     document.documentElement.classList.remove('thor-aiming');
+    document.documentElement.classList.remove('premium-pointer-gesture-active');
     const origin = { ...dragStart };
     dragStart = null;
     if (!dragging || distance < 28) {
@@ -588,6 +595,7 @@ function startThorCursorThrow() {
     direction = { x: dragX, y: dragY };
     dragging = false;
     suppressNextClick = true;
+    blockNativeUntil = performance.now() + 500;
     throwHammer(origin);
   }, true);
 
@@ -596,8 +604,13 @@ function startThorCursorThrow() {
     dragging = false;
     hammer.classList.remove('visible', 'aiming');
     document.documentElement.classList.remove('thor-aiming');
+    document.documentElement.classList.remove('premium-pointer-gesture-active');
     hint.innerHTML = '<b>🔨</b><span>Arraste e solte para arremessar</span>';
   }, true);
+
+  document.addEventListener('selectstart', (event) => { if (isActive() && (dragStart || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('dragstart', (event) => { if (isActive() && (dragStart || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('contextmenu', (event) => { if (isActive() && (dragStart || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
 
   document.addEventListener('click', (event) => {
     if (!suppressNextClick) return;
@@ -853,7 +866,8 @@ function startCobblemonCaptureThrow() {
       setTimeout(() => {
         if (currentGeneration !== generation || !isActive()) { ring.remove(); return; }
         ball.classList.remove('catching');
-        const captured = hit && Math.random() < .55;
+        // A captura depende somente da mira: acertou o Pokémon, capturou.
+        const captured = hit;
         if (captured) {
           ball.classList.add('captured');
           ring.classList.add('captured');
