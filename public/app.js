@@ -1664,25 +1664,26 @@ function shopVisualPreview(item) {
   if (item.consumable) return '';
   const previewName = escapeHtml(formatDisplayName(appState?.me?.displayName || 'Seu nome'));
   if (item.type === 'cursorStyle') {
+    const cursorEffectPreview = (source, alt, name, effect) => `<div class="shop-visual-preview cursor-preview cursor-preview-effect"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="${source}" alt="${alt}"><b>${name}</b><em>${effect}</em></span></div>`;
     if (['crystal','solar','ufo','wand','comet-tail','thunder'].includes(item.value)) return `<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-${item.value}.svg" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b></span></div>`;
     if (item.value === 'unicorn') return '<div class="shop-visual-preview cursor-preview cursor-preview-unicorn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-cursor-full-v2.png" alt="Unicórnio completo"> <b>Galopa ao movimentar</b></span></div>';
     if (item.value === 'dipirona') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-dipirona.svg" alt="Seta Dipirona"><b>Seta Dipirona</b></span></div>';
-    if (item.value === 'pirokinha-cosmica') return '<div class="shop-visual-preview cursor-preview cursor-preview-pirokinha"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-pirokinha-cosmica.svg" alt="Pirokinha Cósmica"><b>Pirokinha Cósmica</b></span></div>';
+    if (item.value === 'pirokinha-cosmica') return cursorEffectPreview('/cursor-pirokinha-cosmica.svg', 'Pirokinha Cósmica', 'Pirokinha Cósmica', 'TOMA LEITADA');
     if (item.value === 'anvisa') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-anvisa.svg" alt="Seta Anvisa Intergaláctica"><b>Seta Anvisa Intergaláctica</b></span></div>';
-    if (item.value === 'gay') return '<div class="shop-visual-preview cursor-preview cursor-preview-gay"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-gay-power.svg" alt="Seta Gay Arco-íris"><b>Seta Gay Arco-íris</b></span></div>';
+    if (item.value === 'gay') return cursorEffectPreview('/cursor-gay-power.svg', 'Seta Gay Arco-íris', 'Seta Gay Arco-íris', '🌈 EU SOU FOFO, QUERO CARINHO E CONFUSÃO');
     if (item.value === 'commander') return '<div class="shop-visual-preview cursor-preview cursor-preview-commander"><small>ITEM DE COMANDO · EXCLUSIVO ADMIN</small><span><img src="/cursor-commander.svg" alt="Cursor Comandante da Área 51"><b>Cursor Comandante da Área 51</b></span></div>';
-    if (item.value === 'galinha-preta') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-galinha-preta.svg" alt="Seta Galinha Preta"><b>Seta Galinha Preta</b></span></div>';
-    if (item.value === 'volei') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-volei.svg" alt="Seta Bola de Vôlei"><b>Seta Bola de Vôlei</b></span></div>';
-    if (item.value === 'biblia') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-biblia.svg" alt="Seta Bíblia"><b>Seta Bíblia Sagrada</b></span></div>';
-    if (item.value === 'papa-bento') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-papa-bento.svg" alt="Cursor Papa Bento"><b>Cursor Papa Bento</b></span></div>';
-    if (item.value === 'scrum-master') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-scrum-master.svg?v=2" alt="Seta Scrum Master"><b>Seta Planilha Scrum</b></span></div>';
-    if (item.value === 'energetico') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-energetico.svg?v=2" alt="Seta Energético"><b>Latinha Energética</b></span></div>';
+    if (item.value === 'galinha-preta') return cursorEffectPreview('/cursor-galinha-preta.svg', 'Seta Galinha Preta', 'Seta Galinha Preta', 'COCORICÓ!');
+    if (item.value === 'volei') return cursorEffectPreview('/cursor-volei.svg', 'Seta Bola de Vôlei', 'Seta Bola de Vôlei', 'GIBA NELES!');
+    if (item.value === 'biblia') return cursorEffectPreview('/cursor-biblia.svg', 'Seta Bíblia', 'Seta Bíblia Sagrada', 'AMÉM!');
+    if (item.value === 'papa-bento') return cursorEffectPreview('/cursor-papa-bento.svg', 'Cursor Papa Bento', 'Cursor Papa Bento', 'EM NOME DO PAI · DO FILHO · E DO ESPÍRITO SANTO');
+    if (item.value === 'scrum-master') return cursorEffectPreview('/cursor-scrum-master.svg?v=2', 'Seta Scrum Master', 'Seta Planilha Scrum', '✓ PLANILHA');
+    if (item.value === 'energetico') return cursorEffectPreview('/cursor-energetico.svg?v=2', 'Seta Energético', 'Latinha Energética', '⚡ ENERGIA');
     if (item.value === 'laser') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-laser.svg" alt="Cursor Laser Alienígena"><b>Laser Alienígena</b></span></div>';
     if (item.value === 'rocket') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-rocket.svg" alt="Cursor Foguete 51"><b>Foguete 51</b></span></div>';
     if (item.value === 'alien') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-alien.svg" alt="Cursor Agente ET"><b>Agente ET</b></span></div>';
-    if (item.value === 'petista') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-petista.svg" alt="Seta Lula"><b>Seta Lula</b></span></div>';
-    if (item.value === 'bolsonaro') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-bolsonaro.svg" alt="Seta Bolsonaro"><b>Seta Bolsonaro</b></span></div>';
-    if (item.value === 'umbanda') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-umbanda.svg" alt="Seta Muito Axé"><b>Seta Muito Axé</b></span></div>';
+    if (item.value === 'petista') return cursorEffectPreview('/cursor-petista.svg', 'Seta Lula', 'Seta Lula', '🥩 TOMA PICANHA!');
+    if (item.value === 'bolsonaro') return cursorEffectPreview('/cursor-bolsonaro.svg', 'Seta Bolsonaro', 'Seta Bolsonaro', '💥 TEY TEY TEY!');
+    if (item.value === 'umbanda') return cursorEffectPreview('/cursor-umbanda.svg', 'Seta Muito Axé', 'Seta Muito Axé', '🕊️ A POMBA GIRA, A POMBA GIRA!');
     if (['messi', 'cristiano', 'pele', 'maradona', 'neymar'].includes(item.value)) {
       const phrases = { messi: 'HIJO DA PUTA', cristiano: 'SIUUUUUUUU', pele: 'NÃO, O JÔ SOARES SUA FDP', maradona: 'QUIERO PÓ · RASTRO BRANCO', neymar: 'CAIU, FALTA NELE' };
       return `<div class="shop-visual-preview cursor-preview cursor-preview-football"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="/cursor-${escapeHtml(item.value)}.svg" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b><em>${escapeHtml(phrases[item.value])}</em></span></div>`;
