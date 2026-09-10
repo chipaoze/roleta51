@@ -543,7 +543,7 @@ function startThorCursorThrow() {
 
   document.addEventListener('keydown', (event) => {
     if (!isActive() || event.repeat || event.key.toLowerCase() !== 't') return;
-    if (event.target?.matches?.('input,textarea,select,[contenteditable="true"]')) return;
+    if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
     if (phase !== 'stuck') return;
     event.preventDefault();
     recallHammer();
@@ -616,6 +616,409 @@ function startThorCursorThrow() {
   new MutationObserver(() => { if (!isActive()) resetThor(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-active-cursor'] });
 }
 startThorCursorThrow();
+
+function startWolverineCursorSlash() {
+  const hint = document.createElement('aside');
+  hint.className = 'premium-cursor-hint wolverine-cursor-hint';
+  hint.innerHTML = '<b>✦</b><span>Arraste para cortar</span>';
+  document.body.appendChild(hint);
+  let start = null;
+  let mark = null;
+  let dragging = false;
+  let suppressClick = false;
+  let slicing = false;
+  const isActive = () => document.documentElement.dataset.activeCursor === 'wolverine';
+
+  function buildMark() {
+    const element = document.createElement('span');
+    element.className = 'wolverine-cut-mark';
+    element.setAttribute('aria-hidden', 'true');
+    element.innerHTML = '<i></i><i></i><i></i>';
+    document.body.appendChild(element);
+    return element;
+  }
+
+  function positionMark(element, from, to) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    element.style.left = from.x + 'px';
+    element.style.top = from.y + 'px';
+    element.style.width = distance + 'px';
+    element.style.setProperty('--cut-turn', Math.atan2(dy, dx) + 'rad');
+  }
+
+  function reset() {
+    start = null;
+    dragging = false;
+    mark?.remove();
+    mark = null;
+    $('.app')?.classList.remove('wolverine-site-sliced');
+  }
+
+  function splitScreen(from, to) {
+    const source = $('.app');
+    if (!source || slicing) return;
+    const rect = source.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const a = { x: from.x - rect.left, y: from.y - rect.top };
+    const b = { x: to.x - rect.left, y: to.y - rect.top };
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const rift = document.createElement('span');
+    rift.className = 'wolverine-reality-rift';
+    rift.setAttribute('aria-hidden', 'true');
+    rift.innerHTML = '<i></i>';
+    rift.style.left = from.x + 'px';
+    rift.style.top = from.y + 'px';
+    rift.style.width = distance + 'px';
+    rift.style.setProperty('--cut-turn', Math.atan2(to.y - from.y, to.x - from.x) + 'rad');
+    document.body.appendChild(rift);
+    let firstClip;
+    let secondClip;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      const slope = dy / (dx || 1);
+      const leftY = a.y - slope * a.x;
+      const rightY = a.y + slope * (width - a.x);
+      firstClip = `polygon(0 0,100% 0,100% ${rightY}px,0 ${leftY}px)`;
+      secondClip = `polygon(0 ${leftY}px,100% ${rightY}px,100% 100%,0 100%)`;
+    } else {
+      const slope = dx / (dy || 1);
+      const topX = a.x - slope * a.y;
+      const bottomX = a.x + slope * (height - a.y);
+      firstClip = `polygon(0 0,${topX}px 0,${bottomX}px 100%,0 100%)`;
+      secondClip = `polygon(${topX}px 0,100% 0,100% 100%,${bottomX}px 100%)`;
+    }
+    const normal = { x: (-dy / distance) * 14, y: (dx / distance) * 14 };
+    const pieces = [source.cloneNode(true), source.cloneNode(true)];
+    const previousVisibility = source.style.visibility;
+    slicing = true;
+    pieces.forEach((piece, index) => {
+      piece.classList.add('wolverine-screen-slice');
+      piece.setAttribute('aria-hidden', 'true');
+      Object.assign(piece.style, {
+        left: rect.left + 'px',
+        top: rect.top + 'px',
+        width: width + 'px',
+        height: height + 'px',
+        clipPath: index ? secondClip : firstClip,
+      });
+      document.body.appendChild(piece);
+      const sign = index ? -1 : 1;
+      piece.animate([
+        { transform: 'translate3d(0,0,0)', offset: 0 },
+        { transform: `translate3d(${normal.x * sign}px,${normal.y * sign}px,0)`, offset: .22 },
+        { transform: `translate3d(${normal.x * sign}px,${normal.y * sign}px,0)`, offset: .78 },
+        { transform: 'translate3d(0,0,0)', offset: 1 },
+      ], { duration: 1600, easing: 'cubic-bezier(.2,.76,.2,1)', fill: 'forwards' });
+    });
+    source.style.visibility = 'hidden';
+    setTimeout(() => {
+      pieces.forEach((piece) => piece.remove());
+      rift.remove();
+      source.style.visibility = previousVisibility;
+      slicing = false;
+    }, 1620);
+  }
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!isActive() || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
+    if (event.target?.matches?.('input,textarea,select,[contenteditable="true"]')) return;
+    start = { x: event.clientX, y: event.clientY };
+    dragging = false;
+  }, true);
+
+  document.addEventListener('pointermove', (event) => {
+    if (!isActive() || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
+    const current = { x: event.clientX, y: event.clientY };
+    if (Math.hypot(current.x - start.x, current.y - start.y) < 14) return;
+    dragging = true;
+    if (!mark) mark = buildMark();
+    positionMark(mark, start, current);
+    mark.classList.add('drawing');
+  }, { passive: true });
+
+  document.addEventListener('pointerup', (event) => {
+    if (!isActive() || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
+    const from = start;
+    const to = { x: event.clientX, y: event.clientY };
+    const distance = Math.hypot(to.x - from.x, to.y - from.y);
+    start = null;
+    if (!dragging || !mark || distance < 30) { reset(); return; }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    suppressClick = true;
+    positionMark(mark, from, to);
+    mark.classList.remove('drawing');
+    mark.classList.add('released');
+    const releasedMark = mark;
+    mark = null;
+    dragging = false;
+    splitScreen(from, to);
+    setTimeout(() => releasedMark.remove(), 1740);
+  }, true);
+
+  document.addEventListener('pointercancel', reset, true);
+  document.addEventListener('click', (event) => {
+    if (!suppressClick) return;
+    suppressClick = false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+  new MutationObserver(() => { if (!isActive()) reset(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-active-cursor'] });
+}
+startWolverineCursorSlash();
+
+function startCobblemonCaptureThrow() {
+  const ball = document.createElement('span');
+  const hint = document.createElement('aside');
+  ball.className = 'cobblemon-thrown-ball';
+  ball.setAttribute('aria-hidden', 'true');
+  ball.innerHTML = '<img src="/capture-ball-cobblemon.png" alt="">';
+  hint.className = 'premium-cursor-hint cobblemon-cursor-hint';
+  hint.innerHTML = '<b>◉</b><span>Arraste e solte para capturar</span>';
+  document.body.append(ball, hint);
+  let start = null;
+  let dragging = false;
+  let busy = false;
+  let suppressClick = false;
+  let generation = 0;
+  let wildTarget = null;
+  const creatures = ['/cobble-creature-electric.png', '/cobble-creature-fire.png', '/cobble-creature-water.png', '/cobble-creature-leaf.png'];
+  const isActive = () => document.documentElement.dataset.activeCursor === 'cobblemon';
+  const place = (point, scale = 1) => `translate3d(${point.x - 32}px,${point.y - 32}px,0) scale(${scale})`;
+
+  function removeWildTarget() {
+    wildTarget?.element?.remove();
+    wildTarget = null;
+  }
+
+  function spawnWildTarget(origin) {
+    removeWildTarget();
+    let point = { x: innerWidth * .7, y: innerHeight * .45 };
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const candidate = { x: 75 + Math.random() * Math.max(1, innerWidth - 150), y: 130 + Math.random() * Math.max(1, innerHeight - 210) };
+      point = candidate;
+      if (Math.hypot(candidate.x - origin.x, candidate.y - origin.y) > 210) break;
+    }
+    const element = document.createElement('span');
+    element.className = 'cobblemon-wild-target';
+    element.setAttribute('aria-hidden', 'true');
+    element.style.left = point.x + 'px';
+    element.style.top = point.y + 'px';
+    element.innerHTML = `<img src="${creatures[Math.floor(Math.random() * creatures.length)]}" alt="">`;
+    document.body.appendChild(element);
+    wildTarget = { element, ...point };
+    hint.innerHTML = '<b>◉</b><span>Mire na criatura e solte</span>';
+  }
+
+  function burst(point, purple = false) {
+    for (let index = 0; index < 16; index += 1) {
+      const angle = (Math.PI * 2 * index / 16) + Math.random() * .25;
+      const distance = 42 + Math.random() * 42;
+      const particle = document.createElement('i');
+      particle.className = `cobblemon-capture-particle${purple ? ' purple' : ''}`;
+      particle.textContent = purple ? (index % 2 ? '✦' : '·') : index % 3 === 0 ? '✦' : index % 2 ? '■' : '●';
+      particle.style.left = point.x + 'px';
+      particle.style.top = point.y + 'px';
+      particle.style.setProperty('--capture-x', Math.cos(angle) * distance + 'px');
+      particle.style.setProperty('--capture-y', Math.sin(angle) * distance + 'px');
+      document.body.appendChild(particle);
+      setTimeout(() => particle.remove(), 720);
+    }
+  }
+
+  function reset() {
+    generation += 1;
+    start = null;
+    dragging = false;
+    busy = false;
+    ball.getAnimations().forEach((animation) => animation.cancel());
+    ball.classList.remove('visible', 'aiming', 'catching', 'exploding', 'captured');
+    removeWildTarget();
+    document.documentElement.classList.remove('cobblemon-ball-thrown');
+    hint.innerHTML = '<b>◉</b><span>Arraste e solte para capturar</span>';
+  }
+
+  function launch(from, to, hit) {
+    busy = true;
+    const currentGeneration = ++generation;
+    const middle = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - Math.min(150, 65 + Math.hypot(to.x - from.x, to.y - from.y) * .22) };
+    document.documentElement.classList.add('cobblemon-ball-thrown');
+    ball.classList.add('visible');
+    ball.classList.remove('aiming');
+    const flight = ball.animate([
+      { transform: place(from, .86), offset: 0 },
+      { transform: place(middle, 1.08), offset: .52 },
+      { transform: place(to, 1), offset: 1 },
+    ], { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : 760, easing: 'cubic-bezier(.22,.62,.28,1)', fill: 'forwards' });
+    flight.onfinish = () => {
+      if (currentGeneration !== generation || !isActive()) return reset();
+      ball.style.transform = place(to, 1);
+      flight.cancel();
+      ball.classList.add('catching');
+      const ring = document.createElement('i');
+      ring.className = 'cobblemon-capture-ring';
+      ring.style.left = to.x + 'px';
+      ring.style.top = to.y + 'px';
+      document.body.appendChild(ring);
+      setTimeout(() => {
+        if (currentGeneration !== generation || !isActive()) { ring.remove(); return; }
+        ball.classList.remove('catching');
+        const captured = hit && Math.random() < .55;
+        if (captured) {
+          ball.classList.add('captured');
+          ring.classList.add('captured');
+          wildTarget?.element?.classList.add('captured');
+          burst(to, true);
+        } else {
+          ball.classList.add('exploding');
+          wildTarget?.element?.classList.add('escaped');
+          burst(to);
+          ring.classList.add('failed');
+        }
+        setTimeout(() => ring.remove(), captured ? 760 : 520);
+        setTimeout(() => {
+          if (currentGeneration !== generation) return;
+          ball.classList.remove('visible', 'exploding', 'captured');
+          removeWildTarget();
+          document.documentElement.classList.remove('cobblemon-ball-thrown');
+          busy = false;
+          hint.innerHTML = '<b>◉</b><span>Arraste e solte para capturar</span>';
+        }, captured ? 720 : 680);
+      }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 200 : 1500);
+    };
+  }
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!isActive() || busy || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
+    if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
+    start = { x: event.clientX, y: event.clientY };
+    dragging = false;
+    spawnWildTarget(start);
+  }, true);
+  document.addEventListener('pointermove', (event) => {
+    if (!isActive() || busy || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
+    const current = { x: event.clientX, y: event.clientY };
+    if (Math.hypot(current.x - start.x, current.y - start.y) < 14) return;
+    dragging = true;
+    ball.style.transform = place(start, .82);
+    ball.classList.add('visible', 'aiming');
+    hint.innerHTML = '<b>◉</b><span>Solte para lançar</span>';
+  }, { passive: true });
+  document.addEventListener('pointerup', (event) => {
+    if (!isActive() || busy || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
+    const from = start;
+    const rawTarget = { x: event.clientX, y: event.clientY };
+    const target = { x: Math.max(42, Math.min(innerWidth - 42, rawTarget.x)), y: Math.max(42, Math.min(innerHeight - 42, rawTarget.y)) };
+    const distance = Math.hypot(target.x - from.x, target.y - from.y);
+    start = null;
+    if (!dragging || distance < 30) { ball.classList.remove('visible', 'aiming'); dragging = false; removeWildTarget(); return; }
+    dragging = false;
+    suppressClick = true;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const hit = Boolean(wildTarget && Math.hypot(rawTarget.x - wildTarget.x, rawTarget.y - wildTarget.y) <= 125);
+    const destination = hit ? { x: wildTarget.x, y: wildTarget.y } : target;
+    launch(from, destination, hit);
+  }, true);
+  document.addEventListener('pointercancel', () => { start = null; dragging = false; if (!busy) { ball.classList.remove('visible', 'aiming'); removeWildTarget(); } }, true);
+  document.addEventListener('click', (event) => {
+    if (!suppressClick) return;
+    suppressClick = false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+  new MutationObserver(() => { if (!isActive()) reset(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-active-cursor'] });
+}
+startCobblemonCaptureThrow();
+
+function startWebSlingerCursor() {
+  const hint = document.createElement('aside');
+  hint.className = 'premium-cursor-hint web-slinger-cursor-hint';
+  hint.innerHTML = '<b>🕸</b><span>Arraste e solte para lançar</span>';
+  document.body.appendChild(hint);
+  let start = null;
+  let dragging = false;
+  let suppressClick = false;
+  const isActive = () => document.documentElement.dataset.activeCursor === 'web-slinger';
+
+  function fireWeb(from, to) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const strand = document.createElement('i');
+    const projectile = document.createElement('i');
+    const splat = document.createElement('span');
+    strand.className = 'web-slinger-strand';
+    projectile.className = 'web-slinger-projectile';
+    splat.className = 'web-slinger-splat';
+    strand.style.left = from.x + 'px';
+    strand.style.top = from.y + 'px';
+    strand.style.width = distance + 'px';
+    strand.style.setProperty('--web-turn', Math.atan2(dy, dx) + 'rad');
+    projectile.style.left = from.x + 'px';
+    projectile.style.top = from.y + 'px';
+    splat.style.left = to.x + 'px';
+    splat.style.top = to.y + 'px';
+    splat.innerHTML = '<b></b>' + Array.from({ length: 8 }, (_, index) => `<i style="--ray:${index * 45}deg"></i>`).join('');
+    document.body.append(strand, projectile, splat);
+    projectile.animate([
+      { transform: 'translate3d(0,0,0) scale(.6)' },
+      { transform: `translate3d(${dx}px,${dy}px,0) scale(1)` },
+    ], { duration: 520, easing: 'cubic-bezier(.18,.7,.25,1)', fill: 'forwards' });
+    setTimeout(() => splat.classList.add('arrived'), 470);
+    setTimeout(() => projectile.remove(), 560);
+    setTimeout(() => strand.remove(), 1120);
+    setTimeout(() => splat.remove(), 1580);
+  }
+
+  function reset() {
+    start = null;
+    dragging = false;
+    hint.innerHTML = '<b>🕸</b><span>Arraste e solte para lançar</span>';
+  }
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!isActive() || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
+    if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
+    start = { x: event.clientX, y: event.clientY };
+    dragging = false;
+  }, true);
+
+  document.addEventListener('pointermove', (event) => {
+    if (!isActive() || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 14) return;
+    dragging = true;
+    hint.innerHTML = '<b>🕸</b><span>Solte para disparar</span>';
+  }, { passive: true });
+
+  document.addEventListener('pointerup', (event) => {
+    if (!isActive() || !start || (event.pointerType && event.pointerType !== 'mouse')) return;
+    const from = start;
+    const to = { x: event.clientX, y: event.clientY };
+    const distance = Math.hypot(to.x - from.x, to.y - from.y);
+    const didDrag = dragging;
+    reset();
+    if (!didDrag || distance < 30) return;
+    suppressClick = true;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    fireWeb(from, to);
+  }, true);
+
+  document.addEventListener('pointercancel', reset, true);
+  document.addEventListener('click', (event) => {
+    if (!suppressClick) return;
+    suppressClick = false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+  new MutationObserver(() => { if (!isActive()) reset(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-active-cursor'] });
+}
+startWebSlingerCursor();
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -1986,6 +2389,7 @@ function shopVisualPreview(item) {
     const cursorEffectPreview = (source, alt, name, effect) => `<div class="shop-visual-preview cursor-preview cursor-preview-effect"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="${source}" alt="${alt}"><b>${name}</b><em>${effect}</em></span></div>`;
     const premiumCursorSources = { 'gta-neon': '/cursor-gta-neon-v2.png', cobblemon: '/cursor-cobblemon-v2.png', wolverine: '/cursor-wolverine-v2.png', 'god-war': '/cursor-god-war-v2.png', samurai: '/cursor-samurai.svg?v=2' };
     if (item.value === 'thor') return cursorEffectPreview('/cursor-thor.svg', 'Mjölnir', 'Mjölnir Retornável', 'CLIQUE + ARRASTE + SOLTE · T OU CLIQUE PARA CHAMAR');
+    if (item.value === 'web-slinger') return cursorEffectPreview('/cursor-web-slinger-v2.png', 'Luva lançadora de teia', 'Cursor Lançador de Teia', 'CLIQUE + ARRASTE + SOLTE PARA DISPARAR');
     if (['crystal','solar','ufo','wand','comet-tail','thunder','gta-neon','cobblemon','wolverine','samurai','god-war'].includes(item.value)) return `<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="${premiumCursorSources[item.value] || `/cursor-${item.value}.svg`}" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b></span></div>`;
     if (item.value === 'unicorn') return '<div class="shop-visual-preview cursor-preview cursor-preview-unicorn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-cursor-full-v2.png" alt="Unicórnio completo"> <b>Galopa ao movimentar</b></span></div>';
     if (item.value === 'dipirona') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-dipirona.svg" alt="Seta Dipirona"><b>Seta Dipirona</b></span></div>';
