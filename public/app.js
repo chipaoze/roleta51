@@ -339,7 +339,17 @@ function initials(name) {
 
 function personAvatar(person, className) {
   const photo = appState?.avatars?.[person.id] || (person.id === appState?.me?.id ? appState.me.avatarDataUrl : null);
-  return `<span class="${className}${photo ? ' has-photo' : ''}">${photo ? `<img src="${escapeHtml(photo)}" alt="Foto de ${escapeHtml(formatDisplayName(person.displayName))}">` : escapeHtml(initials(person.displayName))}</span>`;
+  const frame = appState?.identities?.[person.id]?.frame || '';
+  return `<span class="${className}${photo ? ' has-photo' : ''}" data-identity-frame="${escapeHtml(frame)}">${photo ? `<img src="${escapeHtml(photo)}" alt="Foto de ${escapeHtml(formatDisplayName(person.displayName))}">` : escapeHtml(initials(person.displayName))}</span>`;
+}
+
+function visualName(person, fallbackName = '') {
+  const id = typeof person === 'object' ? person?.id : person;
+  const name = typeof person === 'object' ? (person.displayName || fallbackName) : fallbackName;
+  const identity = appState?.identities?.[id] || {};
+  const style = identity.nameStyle ? ' name-style-' + identity.nameStyle : '';
+  const badge = identity.badge ? ` data-badge="${escapeHtml(identity.badge)}"` : '';
+  return `<span class="participant-identity${style}"${badge}>${escapeHtml(formatDisplayName(name))}</span>`;
 }
 
 async function api(url, options = {}, retry = true) {
@@ -1353,7 +1363,7 @@ function renderRankings() {
     const rowStyle = '--rank-hue:' + ((index * 47 + 205) % 360) + ';--gay-level:' + gayLevel.toFixed(3) + ';--gay-alpha:' + (value ? 0.11 + gayLevel * 0.35 : 0.035).toFixed(3);
     return '<button type="button" data-public-profile="' + escapeHtml(item.id) + '" class="ranking-row ' + type + '-ranking-row' + podiumClass + '" style="' + rowStyle + '"><span class="rank-position">' + (index + 1) + '</span>' +
       personAvatar(item, 'rank-avatar') +
-      '<p><strong>' + escapeHtml(formatDisplayName(item.displayName)) + '</strong><span class="ranking-live-titles">' + liveTitleChips(item.liveTitles) + '</span><small>' + meta + '</small></p>' +
+      '<p><strong>' + visualName(item) + '</strong><span class="ranking-live-titles">' + liveTitleChips(item.liveTitles) + '</span><small>' + meta + '</small></p>' +
       '<strong class="rank-value">' + value + '</strong></button>';
   }).join('') : '<div class="ranking-empty">A classificação começa após a primeira rodada.</div>';
   $('#bestRanking').innerHTML = rankingRows(best, 'best');
@@ -1449,7 +1459,7 @@ function renderDailyWall(wall = {}) {
   const memes = Array.isArray(wall.memes) ? wall.memes : [];
   const reactionButtons = (item, type) => `<div class="daily-reactions">${['😂','👽','🤨','💀'].map((emoji) => `<button class="${(item.reactions?.mine || []).includes(emoji) ? 'active' : ''}" type="button" data-reaction-type="${type}" data-reaction-id="${escapeHtml(item.id)}" data-reaction-emoji="${emoji}">${emoji}<b>${Number(item.reactions?.counts?.[emoji] || 0)}</b></button>`).join('')}</div>`;
   $('#dailyPhraseList').innerHTML = phrases.length ? [...phrases].reverse().map((item) =>
-    `<article class="daily-phrase-item"><blockquote>${escapeHtml(item.phrase)}</blockquote>${reactionButtons(item, 'phrase')}<div><span>${item.anonymous ? '🕵️ Anônimo' : 'Por ' + escapeHtml(formatDisplayName(item.authorName))} · ${escapeHtml(formatDate(item.createdAt))}</span>${item.canDelete ? `<button type="button" data-delete-phrase="${escapeHtml(item.id)}">Excluir</button>` : ''}</div></article>`
+    `<article class="daily-phrase-item"><blockquote>${escapeHtml(item.phrase)}</blockquote>${reactionButtons(item, 'phrase')}<div><span>${item.anonymous ? '🕵️ Anônimo' : 'Por ' + visualName({ id: item.userId, displayName: item.authorName })} · ${escapeHtml(formatDate(item.createdAt))}</span>${item.canDelete ? `<button type="button" data-delete-phrase="${escapeHtml(item.id)}">Excluir</button>` : ''}</div></article>`
   ).join('') : '<p>A tripulação ainda não publicou frases hoje.</p>';
   $('#dailyPhraseCount').textContent = String($('#dailyPhraseInput').value.length);
   $('#dailyMemeCount').textContent = memes.length + (memes.length === 1 ? ' meme' : ' memes');
@@ -1523,7 +1533,7 @@ function renderHydration(hydration = {}) {
   const people = Array.isArray(hydration.people) ? hydration.people : [];
   $('#hydrationPeople').innerHTML = people.length ? people.map((person, index) => {
     const personPercent = goal ? Math.min(100, Math.round(person.totalMl / goal * 100)) : 0;
-    return `<article class="hydration-person${person.isMe ? ' is-me' : ''}"><span class="hydration-position">${index + 1}</span>${personAvatar(person, 'hydration-avatar')}<div><strong>${escapeHtml(formatDisplayName(person.displayName))}${person.isMe ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><span><i style="width:${personPercent}%"></i></span><small>${Number(person.totalMl).toLocaleString('pt-BR')} ml · ${personPercent}% da meta</small></div></article>`;
+    return `<article class="hydration-person${person.isMe ? ' is-me' : ''}"><span class="hydration-position">${index + 1}</span>${personAvatar(person, 'hydration-avatar')}<div><strong>${visualName(person)}${person.isMe ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><span><i style="width:${personPercent}%"></i></span><small>${Number(person.totalMl).toLocaleString('pt-BR')} ml · ${personPercent}% da meta</small></div></article>`;
   }).join('') : '<p class="water-empty">Nenhum participante ativo.</p>';
   const entries = Array.isArray(hydration.entries) ? hydration.entries : [];
   $('#waterEntryList').innerHTML = entries.length ? entries.map((entry) =>
@@ -1547,7 +1557,7 @@ function renderSeason(season = {}) {
     $('#nextSeasonDate').textContent = current.endsAt ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', timeZone: 'America/Sao_Paulo' }).format(new Date(current.endsAt)) : '—';
   };
   updateSeasonClock(); seasonCountdownTimer = setInterval(updateSeasonClock, 60000);
-  $('#seasonRanking').innerHTML = current.ranking.length ? current.ranking.map((person, index) => `<article${index === 0 && person.points > 0 ? ' class="leader"' : ''}><b>${index + 1}</b>${personAvatar(person, 'season-avatar')}<p><strong>${escapeHtml(formatDisplayName(person.displayName))}</strong><small>${person.water.toLocaleString('pt-BR')} ml · ${person.memes} memes · ${person.phrases} frases</small></p><em>${person.points} pts</em></article>`).join('') : '<p class="season-empty">A temporada começa com a primeira atividade do mês.</p>';
+  $('#seasonRanking').innerHTML = current.ranking.length ? current.ranking.map((person, index) => `<article${index === 0 && person.points > 0 ? ' class="leader"' : ''}><b>${index + 1}</b>${personAvatar(person, 'season-avatar')}<p><strong>${visualName(person)}</strong><small>${person.water.toLocaleString('pt-BR')} ml · ${person.memes} memes · ${person.phrases} frases</small></p><em>${person.points} pts</em></article>`).join('') : '<p class="season-empty">A temporada começa com a primeira atividade do mês.</p>';
   const previous = season.previous;
   $('#previousSeasonWinner').textContent = previous?.leader ? '🏅 Campeão de ' + (previous.name || previous.monthKey) + ': ' + formatDisplayName(previous.leader.displayName) : 'A temporada anterior ainda não teve pontuação.';
   const challenges = Array.isArray(season.challenges) ? season.challenges : [];
@@ -1610,7 +1620,7 @@ function renderLieMeter(lieMeter = {}) {
   $('#lieRanking').innerHTML = ranking.length ? ranking.map((person, index) => {
     const reasons = Array.isArray(person.reasons) ? person.reasons : [];
     const history = reasons.length ? `<details class="lie-history"><summary>Ver histórico dos motivos <b>${reasons.length}</b></summary><div>${reasons.map((entry, reasonIndex) => `<article${reasonIndex === 0 ? ' class="latest"' : ''}><span>🤥</span><p><strong>${escapeHtml(entry.reason)}</strong><small>${escapeHtml(formatDate(entry.createdAt))}</small>${lieAttribution(entry)}</p></article>`).join('')}</div></details>` : '';
-    return `<article class="lie-person${index === 0 && person.total > 0 ? ' lie-leader' : ''}"><span class="lie-position">${index + 1}</span>${personAvatar(person, 'lie-avatar')}<div class="lie-person-copy"><strong>${escapeHtml(formatDisplayName(person.displayName))}${person.id === appState.me.id ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><small>${Number(person.total)} ${Number(person.total) === 1 ? 'mentira confirmada' : 'mentiras confirmadas'}</small>${person.latestReason ? `<em class="lie-reason"><span>ÚLTIMA MENTIRA</span>“${escapeHtml(person.latestReason)}”</em>${reasons[0] ? lieAttribution(reasons[0]) : ''}` : ''}${history}</div><b>${Number(person.total)}</b><div class="lie-actions"><button type="button" data-lie-delta="-1" data-lie-target="${escapeHtml(person.id)}" aria-label="Solicitar remoção de uma mentira de ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id || person.total <= 0 ? ' disabled' : ''}>−</button><button type="button" data-lie-delta="1" data-lie-target="${escapeHtml(person.id)}" aria-label="Marcar uma mentira para ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id ? ' disabled' : ''}>+</button></div></article>`;
+    return `<article class="lie-person${index === 0 && person.total > 0 ? ' lie-leader' : ''}"><span class="lie-position">${index + 1}</span>${personAvatar(person, 'lie-avatar')}<div class="lie-person-copy"><strong>${visualName(person)}${person.id === appState.me.id ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><small>${Number(person.total)} ${Number(person.total) === 1 ? 'mentira confirmada' : 'mentiras confirmadas'}</small>${person.latestReason ? `<em class="lie-reason"><span>ÚLTIMA MENTIRA</span>“${escapeHtml(person.latestReason)}”</em>${reasons[0] ? lieAttribution(reasons[0]) : ''}` : ''}${history}</div><b>${Number(person.total)}</b><div class="lie-actions"><button type="button" data-lie-delta="-1" data-lie-target="${escapeHtml(person.id)}" aria-label="Solicitar remoção de uma mentira de ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id || person.total <= 0 ? ' disabled' : ''}>−</button><button type="button" data-lie-delta="1" data-lie-target="${escapeHtml(person.id)}" aria-label="Marcar uma mentira para ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id ? ' disabled' : ''}>+</button></div></article>`;
   }).join('') : '<p class="lie-empty">Nenhuma pessoa disponível.</p>';
   $('#liePendingCount').textContent = pending.length + (pending.length === 1 ? ' pendente' : ' pendentes');
   const pendingList = $('#liePendingList');

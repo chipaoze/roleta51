@@ -896,6 +896,17 @@ function cosmeticsFor(userId) {
   return db.economy.equipped[userId] || { title: null, nameStyle: null, frame: null };
 }
 
+function publicIdentityFor(userId) {
+  const equipped = cosmeticsFor(userId);
+  const byId = new Map(SHOP_CATALOG.map((item) => [item.id, item]));
+  const itemFor = (type) => byId.get(equipped[type]);
+  return {
+    nameStyle: itemFor('nameStyle')?.value || null,
+    frame: itemFor('frame')?.value || null,
+    badge: itemFor('badge')?.value || null,
+  };
+}
+
 function availablePowerPurchases(userId, itemId) {
   const used = new Set(db.economy.powerUses.map((item) => item.purchaseId));
   return db.economy.purchases.filter((item) => item.userId === userId && item.itemId === itemId && !item.mysteryDecisionPending && !used.has(item.id));
@@ -1617,6 +1628,7 @@ function stateFor(user) {
     me: { ...safeUser(user), cosmetics: cosmeticsFor(user.id) }, settings: { ...db.settings, featureFlags: featureFlags(), announcement: undefined },
     // A foto do próprio usuário já está em `me`; não a duplique no payload.
     avatars: Object.fromEntries(db.users.filter((item) => item.active && item.id !== user.id).map((item) => [item.id, item.avatarDataUrl || null])),
+    identities: Object.fromEntries(db.users.filter((item) => item.active).map((item) => [item.id, publicIdentityFor(item.id)])),
     announcement: db.settings.announcement ? { id: db.settings.announcement.id, title: db.settings.announcement.title, message: db.settings.announcement.message, createdAt: db.settings.announcement.createdAt, createdBy: db.settings.announcement.createdBy, unread: !db.settings.announcement.seenUserIds.includes(user.id), seenCount: user.role === 'admin' ? db.settings.announcement.seenUserIds.length : undefined } : null,
     liveDraw: liveDraw && liveDraw.endsAt > Date.now() ? drawForUser(liveDraw, user.id) : null,
     profile: profileFor(user, { liveTitleMap, previousSeason, creditLedger, cardAlbum }), notifications: notificationsFor(user, creditLedger), roundRecap: roundRecapFor(recapVoting),
@@ -3037,8 +3049,8 @@ async function handleApi(req, res, route) {
     };
     json(res, 200, {
       id: archive.id, closedAt: archive.closedAt, closedByName: archive.closedByName,
-      phrases: (archive.phrases || []).map((item) => ({ id: item.id, phrase: item.phrase, authorName: item.authorName, anonymous: Boolean(item.anonymous), createdAt: item.createdAt, reactions: reactionSummary('phrase', item.id) })),
-      memes: (archive.memes || []).map((item) => ({ id: item.id, imageUrl: '/memes/' + item.filename, caption: item.caption || '', authorName: item.authorName, anonymous: Boolean(item.anonymous), createdAt: item.createdAt, reactions: reactionSummary('meme', item.id) })),
+      phrases: (archive.phrases || []).map((item) => ({ id: item.id, userId: item.userId, phrase: item.phrase, authorName: item.authorName, anonymous: Boolean(item.anonymous), createdAt: item.createdAt, reactions: reactionSummary('phrase', item.id) })),
+      memes: (archive.memes || []).map((item) => ({ id: item.id, userId: item.userId, imageUrl: '/memes/' + item.filename, caption: item.caption || '', authorName: item.authorName, anonymous: Boolean(item.anonymous), createdAt: item.createdAt, reactions: reactionSummary('meme', item.id) })),
     }); return;
   }
 
