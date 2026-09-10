@@ -1274,6 +1274,22 @@ html.cobblemon-ball-thrown * { cursor: none !important; }
   text-shadow: 0 0 7px #fff, 0 0 15px #b34dff, 0 0 24px #7b2aca;
 }
 
+.cobblemon-capture-confirmation {
+  position: fixed;
+  z-index: 10033;
+  padding: 8px 12px;
+  border: 2px solid #c8ff87;
+  border-radius: 10px;
+  background: #173a22;
+  color: #efffd8;
+  font: 1000 12px/1 system-ui;
+  letter-spacing: .8px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px #173a22cc, 0 8px 18px #07100ab8;
+  animation: cobblemonCaptureConfirmation .92s ease-out forwards;
+}
+
 @keyframes cobblemonCatchHop {
   0%, 100% { translate: 0 0; scale: 1; }
   42% { translate: 0 -7px; scale: 1.02 .98; }
@@ -1329,6 +1345,12 @@ html.cobblemon-ball-thrown * { cursor: none !important; }
 @keyframes cobblemonParticle {
   from { opacity: 1; translate: 0 0; scale: .7; }
   to { opacity: 0; translate: var(--capture-x) var(--capture-y); scale: 1.25; rotate: 160deg; }
+}
+
+@keyframes cobblemonCaptureConfirmation {
+  0% { opacity: 0; transform: translate(-50%, -36%) scale(.7); }
+  20%, 68% { opacity: 1; transform: translate(-50%, -92%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -130%) scale(.92); }
 }
 
 @media (max-width: 700px), (pointer: coarse) {

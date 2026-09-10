@@ -752,8 +752,7 @@ function startCobblemonCaptureThrow() {
   let blockNativeUntil = 0;
   let generation = 0;
   let wildTarget = null;
-  const wildCreatures = ['/cobble-creature-electric.png', '/cobble-creature-fire-v2.png', '/cobble-creature-water.png'];
-  const capturedCreature = '/cobble-creature-leaf.png';
+  const creatures = ['/cobble-creature-electric.png', '/cobble-creature-fire-v2.png', '/cobble-creature-water.png', '/cobble-creature-leaf.png'];
   const isActive = () => document.documentElement.dataset.activeCursor === 'cobblemon';
   const place = (point, scale = 1) => `translate3d(${point.x - 32}px,${point.y - 32}px,0) scale(${scale})`;
   const effectHost = () => document.querySelector('dialog[open]') || document.body;
@@ -783,22 +782,21 @@ function startCobblemonCaptureThrow() {
     element.setAttribute('aria-hidden', 'true');
     element.style.left = point.x + 'px';
     element.style.top = point.y + 'px';
-    element.innerHTML = `<img src="${wildCreatures[Math.floor(Math.random() * wildCreatures.length)]}" alt="">`;
+    element.innerHTML = `<img src="${creatures[Math.floor(Math.random() * creatures.length)]}" alt="">`;
     effectHost().appendChild(element);
     wildTarget = { element, ...point };
     hint.innerHTML = '<b>◉</b><span>Mire na criatura e solte</span>';
   }
 
-  function showCapturedCreature(point) {
-    const element = document.createElement('span');
-    element.className = 'cobblemon-wild-target cobblemon-captured-creature';
+  function showCaptureConfirmation(point) {
+    const element = document.createElement('b');
+    element.className = 'cobblemon-capture-confirmation';
     element.setAttribute('aria-hidden', 'true');
+    element.textContent = '✓ CAPTURADO!';
     element.style.left = point.x + 'px';
     element.style.top = point.y + 'px';
-    element.innerHTML = `<img src="${capturedCreature}" alt="">`;
     effectHost().appendChild(element);
-    setTimeout(() => element.classList.add('captured'), 820);
-    setTimeout(() => element.remove(), 1540);
+    setTimeout(() => element.remove(), 920);
   }
 
   function burst(point, purple = false) {
@@ -860,7 +858,7 @@ function startCobblemonCaptureThrow() {
           ball.classList.add('captured');
           ring.classList.add('captured');
           wildTarget?.element?.classList.add('captured');
-          showCapturedCreature(to);
+          showCaptureConfirmation(to);
           burst(to, true);
         } else {
           ball.classList.add('exploding');
