@@ -702,8 +702,8 @@ function updateMusicButton() {
   const blocked = Boolean(musicWanted && appState && !active);
   button.classList.toggle('on', active);
   button.classList.toggle('blocked', blocked);
-  button.textContent = '♫'; button.disabled = true;
-  button.title = active ? 'Música da rodada ativa' : 'A música inicia após o primeiro toque na página';
+  button.textContent = '♫'; button.disabled = !blocked;
+  button.title = active ? 'Música da rodada ativa e fixa' : 'Tocar música da rodada';
   button.setAttribute('aria-label', button.title);
 }
 
@@ -2205,7 +2205,10 @@ function applyState(data) {
     }, 250);
   }
   appState = data;
+  serverClockOffset = Number(data.serverTime || Date.now()) - Date.now();
+  musicEpoch = Number(data.musicEpoch || musicEpoch || Date.now());
   renderOnlinePeople();
+  if (musicPrimedByGesture) startMusic();
   document.body.classList.toggle('admin-command-mode', data.me.role === 'admin');
   applyVisualTheme(data);
   document.dispatchEvent(new CustomEvent('area51:state', { detail: data }));
@@ -2565,7 +2568,11 @@ $('#themeToggle').addEventListener('click', () => {
   if (document.body.className.includes('profile-theme-')) document.body.classList.toggle('theme-light-override', !dark);
 });
 $('#musicToggle').addEventListener('click', () => {
-  showToast('A trilha da rodada fica ligada. 🎵');
+  musicPrimedByGesture = true;
+  primeMusicFromGesture();
+  startMusic(true).then(() => {
+    if (!musicIsPlaying()) showToast('Não foi possível tocar a trilha agora. Verifique o som do navegador.', 'error');
+  });
 });
 $('#volumeDownButton').addEventListener('click', () => {
   const dialog = $('#area51ProDialog');

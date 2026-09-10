@@ -1624,6 +1624,7 @@ function stateFor(user) {
   })).sort((a, b) => b.totalMl - a.totalMl || a.displayName.localeCompare(b.displayName));
   return {
     serverRevision: stateRevision,
+    serverTime: Date.now(), musicEpoch: MUSIC_EPOCH, musicLoopMs: MUSIC_LOOP_MS,
     realtimeTransport: runtimeEnv ? 'adaptive-poll' : 'sse',
     me: { ...safeUser(user), cosmetics: cosmeticsFor(user.id) }, settings: { ...db.settings, featureFlags: featureFlags(), announcement: undefined },
     // A foto do próprio usuário já está em `me`; não a duplique no payload.
