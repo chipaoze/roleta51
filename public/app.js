@@ -3548,7 +3548,7 @@ $('#resetMyPurchasesButton').addEventListener('click', async () => {
 });
 
 $('#resetMyCasinoTestsButton')?.addEventListener('click', async () => {
-  if (!confirm('Remover a entrada manual de 99.000 créditos e todas as suas apostas feitas depois dela? O apostômetro também será limpo. Esta ação não pode ser desfeita.')) return;
+  if (!confirm('Remover a entrada manual de 99.999 créditos e todas as suas apostas feitas depois dela? O apostômetro também será limpo. Esta ação não pode ser desfeita.')) return;
   const button = $('#resetMyCasinoTestsButton'); button.disabled = true;
   try {
     const data = await api('/api/admin/reset-my-casino-tests', { method: 'POST' });

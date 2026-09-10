@@ -1407,7 +1407,7 @@ function profileFor(user, computed = {}) {
       }),
       available: db.economy.purchases.filter((entry) => {
         const catalogItem = SHOP_CATALOG.find((item) => item.id === entry.itemId);
-        return entry.userId === user.id && !entry.mysteryDecisionPending && Boolean(catalogItem?.consumable) && !db.economy.powerUses.some((use) => use.purchaseId === entry.id);
+        return entry.userId === user.id && !entry.mysteryDecisionPending && catalogItem?.type === 'power' && !db.economy.powerUses.some((use) => use.purchaseId === entry.id);
       }).map((entry) => {
         const catalogItem = SHOP_CATALOG.find((item) => item.id === entry.itemId);
         return { purchaseId: entry.id, itemId: entry.itemId, name: catalogItem?.name || 'Poder da Loja 51', icon: catalogItem?.icon || '🎟️', detail: catalogItem?.description || 'Pronto para usar.' };
@@ -3598,20 +3598,20 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'POST' && route === '/api/admin/reset-my-casino-tests') {
     const { user } = requireAdmin(req);
-    const manualCredit = [...db.economy.creditAdjustments].reverse().find((entry) => entry.userId === user.id && entry.adminId === user.id && Number(entry.amount) === 99000 && ['add', 'set'].includes(entry.mode));
-    if (!manualCredit) throw new HttpError(404, 'Não encontrei a entrada manual de 99.000 créditos para remover.');
+    const manualCredit = [...db.economy.creditAdjustments].reverse().find((entry) => entry.userId === user.id && entry.adminId === user.id && Number(entry.amount) === 99999 && ['add', 'set'].includes(entry.mode));
+    if (!manualCredit) throw new HttpError(404, 'Não encontrei a entrada manual de 99.999 créditos para remover.');
     const testStartedAt = String(manualCredit.createdAt || '');
     const testPlays = db.economy.casinoPlays.filter((entry) => entry.userId === user.id && String(entry.createdAt || '') >= testStartedAt);
     const shopNet = testPlays.filter((entry) => entry.walletSource === 'shop').reduce((sum, entry) => sum + Number(entry.net || 0), 0);
     const before = walletFor(user.id);
-    const after = Math.max(0, before - 99000 - shopNet);
+    const after = Math.max(0, before - 99999 - shopNet);
     db.economy.wallets[user.id] = after;
     db.economy.creditAdjustments = db.economy.creditAdjustments.filter((entry) => entry.id !== manualCredit.id && !(entry.userId === user.id && String(entry.createdAt || '') >= testStartedAt && ['casino-shop', 'casino-cashout'].includes(entry.mode)));
     db.economy.casinoPlays = db.economy.casinoPlays.filter((entry) => !(entry.userId === user.id && String(entry.createdAt || '') >= testStartedAt));
     if (db.economy.globalFlight?.bets) db.economy.globalFlight.bets = db.economy.globalFlight.bets.filter((entry) => entry.userId !== user.id || String(entry.joinedAt || '') < testStartedAt);
     delete db.economy.casinoAccounts[user.id];
     await persist(); broadcastRefresh('economy');
-    json(res, 200, { ...stateFor(user), removedCredits: 99000, removedPlays: testPlays.length, restoredShopNet: -shopNet }); return;
+    json(res, 200, { ...stateFor(user), removedCredits: 99999, removedPlays: testPlays.length, restoredShopNet: -shopNet }); return;
   }
 
   if (req.method === 'POST' && route === '/api/admin/reset-tests') {
