@@ -382,7 +382,7 @@ function startThorCursorThrow() {
     cancelAnimation();
     phase = 'held';
     restingPoint = null;
-    hammer.classList.remove('visible', 'stuck');
+    hammer.classList.remove('visible', 'stuck', 'aiming');
     impact.classList.remove('visible');
     crack.classList.remove('visible', 'departing');
     aim.classList.remove('visible');
@@ -393,7 +393,7 @@ function startThorCursorThrow() {
     hint.innerHTML = '<b>↗</b><span>Arraste e solte para arremessar</span>';
   }
 
-  function wallTarget() {
+  function wallTarget(origin = pointer) {
     const margin = 30;
     let dx = direction.x;
     let dy = direction.y;
@@ -401,14 +401,14 @@ function startThorCursorThrow() {
     const length = Math.hypot(dx, dy);
     dx /= length; dy /= length;
     const times = [];
-    if (dx > .001) times.push((innerWidth - margin - pointer.x) / dx);
-    if (dx < -.001) times.push((margin - pointer.x) / dx);
-    if (dy > .001) times.push((innerHeight - margin - pointer.y) / dy);
-    if (dy < -.001) times.push((margin - pointer.y) / dy);
+    if (dx > .001) times.push((innerWidth - margin - origin.x) / dx);
+    if (dx < -.001) times.push((margin - origin.x) / dx);
+    if (dy > .001) times.push((innerHeight - margin - origin.y) / dy);
+    if (dy < -.001) times.push((margin - origin.y) / dy);
     const travel = Math.max(70, Math.min(...times.filter((value) => value > 0)));
     return {
-      x: Math.max(margin, Math.min(innerWidth - margin, pointer.x + dx * travel)),
-      y: Math.max(margin, Math.min(innerHeight - margin, pointer.y + dy * travel)),
+      x: Math.max(margin, Math.min(innerWidth - margin, origin.x + dx * travel)),
+      y: Math.max(margin, Math.min(innerHeight - margin, origin.y + dy * travel)),
     };
   }
 
@@ -429,16 +429,16 @@ function startThorCursorThrow() {
     setTimeout(() => app?.classList.remove('thor-site-shake'), 430);
   }
 
-  function throwHammer() {
+  function throwHammer(origin = pointer) {
     if (!isActive() || phase !== 'held') return;
     phase = 'throwing';
-    restingPoint = wallTarget();
+    const start = { ...origin };
+    restingPoint = wallTarget(start);
     document.documentElement.classList.add('thor-cursor-thrown');
     hammer.classList.add('visible');
-    hammer.classList.remove('stuck');
-    const distance = Math.hypot(restingPoint.x - pointer.x, restingPoint.y - pointer.y);
+    hammer.classList.remove('stuck', 'aiming');
+    const distance = Math.hypot(restingPoint.x - start.x, restingPoint.y - start.y);
     const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 80 : Math.max(300, Math.min(760, distance * 1.15));
-    const start = { ...pointer };
     const flight = hammer.animate(throwFrames(start, restingPoint, 0, 1440, 1), { duration, easing: 'cubic-bezier(.18,.62,.2,1)', fill: 'forwards' });
     animation = flight;
     flight.onfinish = () => {
@@ -492,6 +492,8 @@ function startThorCursorThrow() {
         aim.style.top = dragStart.y + 'px';
         aim.style.width = Math.min(distance, 240) + 'px';
         aim.style.transform = `rotate(${Math.atan2(dragY, dragX)}rad)`;
+        hammer.style.transform = transformAt(dragStart, 0, .9);
+        hammer.classList.add('visible', 'aiming');
         hint.innerHTML = '<b>⚡</b><span>Solte para arremessar</span>';
       }
     }
@@ -531,9 +533,11 @@ function startThorCursorThrow() {
     const distance = Math.hypot(dragX, dragY);
     aim.classList.remove('visible');
     document.documentElement.classList.remove('thor-aiming');
+    const origin = { ...dragStart };
     dragStart = null;
     if (!dragging || distance < 28) {
       dragging = false;
+      hammer.classList.remove('visible', 'aiming');
       hint.innerHTML = '<b>↗</b><span>Arraste e solte para arremessar</span>';
       return;
     }
@@ -543,14 +547,16 @@ function startThorCursorThrow() {
     direction = { x: dragX, y: dragY };
     dragging = false;
     suppressNextClick = true;
-    throwHammer();
+    throwHammer(origin);
   }, true);
 
   document.addEventListener('pointercancel', () => {
     dragStart = null;
     dragging = false;
     aim.classList.remove('visible');
+    hammer.classList.remove('visible', 'aiming');
     document.documentElement.classList.remove('thor-aiming');
+    hint.innerHTML = '<b>↗</b><span>Arraste e solte para arremessar</span>';
   }, true);
 
   document.addEventListener('click', (event) => {
