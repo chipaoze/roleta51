@@ -1749,8 +1749,17 @@ function applyShopPreviewVisual(item) {
     document.body.classList.add('shop-theme-preview-active');
     document.body.dataset.previewTheme = item.value;
     applyPersonalTheme(item.value);
-    const companions={ 'gta-neon':['gta-neon','gta-neon','gta-neon'],cobblemon:['cobblemon','cobblemon','cobblemon'],wolverine:['wolverine','wolverine','wolverine'],samurai:['samurai','samurai','samurai'],'god-war':['god-war','god-war','god-war'] }[item.value];
-    if(companions){setPreviewCursor(companions[0]);document.body.dataset.trailStyle=companions[1];['profileDisplayName','userName','menuUserName'].forEach(id=>$('#'+id)?.classList.add('name-style-'+companions[2]));}
+    const companions = { 'gta-neon': { badge: '🌴' }, cobblemon: { badge: '⚡' }, wolverine: { badge: '🐾' }, samurai: { badge: '⛩️' }, 'god-war': { badge: 'ᚱ' } }[item.value];
+    if (companions) {
+      setPreviewCursor(item.value);
+      document.body.dataset.trailStyle = item.value;
+      ['profileDisplayName', 'userName', 'menuUserName'].forEach((id) => {
+        const element = $('#' + id);
+        if (!element) return;
+        element.className = 'name-style-' + item.value;
+        element.dataset.badge = companions.badge;
+      });
+    }
   } else if (item.type === 'cursorStyle') {
     setPreviewCursor(item.value);
     document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : item.value === 'maradona' ? 'white' : 'none';
