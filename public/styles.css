@@ -1412,3 +1412,28 @@ body.profile-theme-cobblemon :is(input, textarea, select) {
   border-color: #71a864 !important;
   color: #15371c !important;
 }
+
+/* O modo claro do Cobblemon precisa declarar sua própria superfície: sem essas
+   variáveis os cards herdavam transparência da imagem do cenário. */
+body.theme-light-override.profile-theme-cobblemon {
+  --theme-light-surface: #eaf8df;
+  --theme-light-card: #ffffff;
+  --theme-light-border: #5f9554;
+}
+
+body.theme-light-override.profile-theme-cobblemon .profile-shop-section,
+body.theme-light-override.profile-theme-cobblemon .profile-shop-section .section {
+  background: #eaf8df !important;
+  opacity: 1 !important;
+}
+
+body.theme-light-override.profile-theme-cobblemon .profile-shop-section .shop-item,
+body.theme-light-override.profile-theme-cobblemon .profile-shop-section .shop-item > *,
+body.theme-light-override.profile-theme-cobblemon .profile-shop-section .shop-item .shop-visual-preview {
+  opacity: 1 !important;
+}
+
+body.theme-light-override.profile-theme-cobblemon .profile-shop-section .shop-item {
+  background: #ffffff !important;
+  border-color: #5f9554 !important;
+}
