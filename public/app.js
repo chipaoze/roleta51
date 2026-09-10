@@ -765,7 +765,7 @@ function startCobblemonCaptureThrow() {
   let blockNativeUntil = 0;
   let generation = 0;
   let wildTarget = null;
-  const creatures = ['/cobble-creature-electric.png', '/cobble-creature-fire-v2.png', '/cobble-creature-water.png', '/cobble-creature-leaf-full.png'];
+  const creatures = ['/cobble-creature-electric.png', '/cobble-creature-fire-v2.png', '/cobble-creature-water.png', '/cobble-creature-leaf-complete.png'];
   const isActive = () => document.documentElement.dataset.activeCursor === 'cobblemon';
   const place = (point, scale = 1) => `translate3d(${point.x - 32}px,${point.y - 32}px,0) scale(${scale})`;
   const effectHost = () => document.querySelector('dialog[open]') || document.body;
