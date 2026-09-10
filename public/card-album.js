@@ -91,25 +91,27 @@ document.querySelector('#cardAlbumCollections').addEventListener('click',async e
 function renderCardTrades(trading){
   const form=document.querySelector('#cardTradeForm');if(!form)return;
   const selected=Object.fromEntries(new FormData(form));
+  const availableCards=items=>(items || []).filter(card=>card.available!==false);
   const options=(items,label)=>'<option value="">'+label+'</option>'+items.map(i=>'<option value="'+escapeHtml(i.id)+'">'+escapeHtml(i.name)+'</option>').join('');
   const visualChoices=(items,name,emptyText,selectedId='')=>{const chosen=items.some(card=>card.id===selectedId)?selectedId:items[0]?.id;return items.length?'<div class="card-choice-strip" role="radiogroup" aria-label="Escolha uma carta">'+items.map(card=>'<label class="card-choice"><input type="radio" name="'+name+'" value="'+escapeHtml(card.id)+'"'+(card.id===chosen?' checked':'')+'><span>'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small>'+Number(card.count||0)+' cópias</small></label>').join('')+'</div>':'<p class="card-choice-empty">'+emptyText+'</p>';};
   form.elements.partnerId.innerHTML=options((trading.partners || []).filter(p=>p.id!==appState.me.id),'Escolha alguém');
-  form.elements.offeredId.innerHTML=options(trading.partners?.find(p=>p.id===appState.me.id)?.cards || [],'Minha carta repetida');
-  form.elements.partnerId.value=selected.partnerId || '';form.elements.offeredId.value=selected.offeredId || trading.partners?.find(p=>p.id===appState.me.id)?.cards?.[0]?.id || '';
+  const myAvailableCards=availableCards(trading.partners?.find(p=>p.id===appState.me.id)?.cards);
+  form.elements.offeredId.innerHTML=options(myAvailableCards,'Minha carta repetida');
+  form.elements.partnerId.value=selected.partnerId || '';form.elements.offeredId.value=selected.offeredId || myAvailableCards[0]?.id || '';
   updateCardTradeWanted(selected.wantedId);
   renderDirectTradeChoices();
   const labels={pending:'Aguardando confirmação',accepted:'Troca concluída',rejected:'Recusada',cancelled:'Cancelada',expired:'Expirada'};
   document.querySelector('#cardTradeList').innerHTML=(trading.trades || []).map(t=>'<article><strong>'+escapeHtml(t.partnerName)+'</strong><p>'+escapeHtml(t.offeredName)+' ↔ '+escapeHtml(t.wantedName)+'</p><small>'+escapeHtml(labels[t.status] || t.status)+'</small>'+(t.status==='pending'?'<div>'+(t.incoming?'<button data-card-trade="accept" data-id="'+escapeHtml(t.id)+'">Aceitar</button><button data-card-trade="reject" data-id="'+escapeHtml(t.id)+'">Recusar</button>':'<button data-card-trade="cancel" data-id="'+escapeHtml(t.id)+'">Cancelar</button>')+'</div>':'')+'</article>').join('') || '<p>Nenhuma proposta. Encontre cartas repetidas para começar a trocar.</p>';
   const marketForm=document.querySelector('#cardMarketForm'),mine=trading.partners?.find(p=>p.id===appState.me.id)?.cards || [];
   const publishedIds=new Set((trading.market || []).filter(post=>post.mine).map(post=>post.offeredId));
-  const availableToPublish=mine.filter(card=>!publishedIds.has(card.id));
+  const availableToPublish=mine.filter(card=>card.available!==false&&!publishedIds.has(card.id));
   const currentPublish=marketForm?.querySelector('input[name="offeredId"]:checked')?.value || cardMarketPublishSelection;
   if(currentPublish)cardMarketPublishSelection=currentPublish;
   if(marketForm){marketForm.querySelector('label').innerHTML='<span>Minha carta repetida</span>'+visualChoices(availableToPublish,'offeredId','Todas as repetidas disponíveis já estão publicadas.',cardMarketPublishSelection);marketForm.querySelector('button[type="submit"]').disabled=!availableToPublish.length;}
   document.querySelectorAll('#cardTradeMarket [data-card-market-offer]').forEach(existing=>{const value=new FormData(existing).get('cardId');if(value)cardMarketOfferSelections.set(existing.dataset.cardMarketOffer,value);});
   const reservedOfferIds=new Set(trading.reservedOfferCardIds || []);
   document.querySelector('#cardTradeMarket').innerHTML=(trading.market || []).map(post=>{
-    const eligibleMine=mine.filter(card=>!reservedOfferIds.has(card.id));
+    const eligibleMine=mine.filter(card=>card.available!==false&&!reservedOfferIds.has(card.id));
     const offerOptions=visualChoices(eligibleMine,'cardId','Nenhuma carta diferente está disponível para esta oferta.',cardMarketOfferSelections.get(post.id)||'');
     const offers=post.offers || [];
     const myOffer=offers.find(offer=>offer.fromId===appState.me.id);
@@ -125,15 +127,16 @@ function renderCardTrades(trading){
 }
 function updateCardTradeWanted(selected=''){
   const form=document.querySelector('#cardTradeForm'),partner=appState.cardAlbum?.trading?.partners?.find(p=>p.id===form.elements.partnerId.value);
-  form.elements.wantedId.innerHTML='<option value="">Carta repetida da pessoa</option>'+(partner?.cards || []).map(c=>'<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+(c.viewerCount?' · você já tem '+c.viewerCount:' · você não tem')+'</option>').join('');
-  form.elements.wantedId.value=selected || partner?.cards?.[0]?.id || '';
+  const available=(partner?.cards || []).filter(card=>card.available!==false);
+  form.elements.wantedId.innerHTML='<option value="">Carta repetida da pessoa</option>'+available.map(c=>'<option value="'+escapeHtml(c.id)+'">'+escapeHtml(c.name)+(c.viewerCount?' · você já tem '+c.viewerCount:' · você não tem')+'</option>').join('');
+  form.elements.wantedId.value=selected || available[0]?.id || '';
 }
 function renderDirectTradeChoices(){
   const form=document.querySelector('#cardTradeForm');if(!form)return;
   let host=form.querySelector('#directTradeVisualChoices');
   if(!host){host=document.createElement('div');host.id='directTradeVisualChoices';host.className='direct-trade-visual-choices';form.querySelector('button[type="submit"]').before(host);form.elements.offeredId.closest('label').classList.add('direct-trade-native-field');form.elements.wantedId.closest('label').classList.add('direct-trade-native-field');}
   const trading=appState.cardAlbum?.trading || {},mine=trading.partners?.find(person=>person.id===appState.me.id),partner=trading.partners?.find(person=>person.id===form.elements.partnerId.value);
-  const cards=(items,role,selectedId,emptyText)=>items?.length?'<div class="direct-trade-card-strip" role="radiogroup">'+items.map(card=>{const owned=role==='want'&&Number(card.viewerCount)>0;return '<label class="direct-trade-card'+(owned?' already-owned':'')+'"><input type="radio" name="direct-'+role+'" value="'+escapeHtml(card.id)+'" data-direct-trade="'+role+'"'+(card.id===selectedId?' checked':'')+'><span>'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small>'+(role==='offer'?'✓ Tenho '+Number(card.count||0)+' cópias':owned?'⚠ Você já tem '+Number(card.viewerCount)+' cópia'+(Number(card.viewerCount)>1?'s':''):'✦ Você ainda não tem')+'</small></label>';}).join('')+'</div>':'<p class="card-choice-empty">'+emptyText+'</p>';
+  const cards=(items,role,selectedId,emptyText)=>items?.length?'<div class="direct-trade-card-strip" role="radiogroup">'+items.map(card=>{const owned=role==='want'&&Number(card.viewerCount)>0,reserved=card.available===false;const detail=reserved?'🔒 Reservada em outra negociação':role==='offer'?'✓ Tenho '+Number(card.count||0)+' cópias':owned?'⚠ Você já tem '+Number(card.viewerCount)+' cópia'+(Number(card.viewerCount)>1?'s':''):'✦ Você ainda não tem';return '<label class="direct-trade-card'+(owned?' already-owned':'')+(reserved?' reserved':'')+'"><input type="radio" name="direct-'+role+'" value="'+escapeHtml(card.id)+'" data-direct-trade="'+role+'"'+(card.id===selectedId?' checked':'')+(reserved?' disabled':'')+'><span>'+escapeHtml(card.icon)+'</span><strong>'+escapeHtml(card.name)+'</strong><small>'+detail+'</small></label>';}).join('')+'</div>':'<p class="card-choice-empty">'+emptyText+'</p>';
   if(!partner){host.innerHTML='<p class="direct-trade-guidance">Escolha um participante para comparar as cartas disponíveis para troca.</p>';return;}
   host.innerHTML='<section class="direct-trade-pool mine"><header><small>MINHAS CARTAS</small><strong>Tenho para oferecer</strong></header>'+cards(mine?.cards,'offer',form.elements.offeredId.value,'Você ainda não tem cartas repetidas livres.')+'</section><section class="direct-trade-pool wanted"><header><small>CARTAS DE '+escapeHtml(partner.name).toUpperCase()+'</small><strong>Preciso receber</strong></header>'+cards(partner.cards,'want',form.elements.wantedId.value,escapeHtml(partner.name)+' não tem cartas repetidas disponíveis agora.')+'</section>';
 }
