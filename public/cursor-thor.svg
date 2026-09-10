@@ -24,4 +24,6 @@
     <path d="m17 8 3.5 3.2-2 4.1 4.5 3.5-1.5 4.2M32 7l-3 4 2.5 3.5-4 4 2 4.5" fill="none" stroke="#75e8ff" stroke-width="1.4" stroke-linecap="round"/>
     <circle cx="24.5" cy="15.5" r="2.2" fill="#eaffff"/>
   </g>
+  <path d="M2 2h10L8.4 5.6 12 9.2 9.2 12 5.6 8.4 2 12z" fill="#eaffff" stroke="#132b3d" stroke-width="1.2"/>
+  <circle cx="3.3" cy="3.3" r="1.7" fill="#62e8ff" stroke="#fff" stroke-width=".8"/>
 </svg>

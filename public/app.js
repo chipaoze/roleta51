@@ -327,6 +327,7 @@ function startThorCursorThrow() {
   const hammer = document.createElement('span');
   const impact = document.createElement('span');
   const crack = document.createElement('span');
+  const aim = document.createElement('span');
   const hint = document.createElement('aside');
   hammer.className = 'thor-flying-hammer';
   hammer.setAttribute('aria-hidden', 'true');
@@ -336,18 +337,41 @@ function startThorCursorThrow() {
   crack.className = 'thor-crack';
   crack.setAttribute('aria-hidden', 'true');
   crack.innerHTML = '<svg viewBox="0 0 150 150"><path d="M75 75 58 48 61 25 47 8M75 75 91 51 88 31 105 15M75 75 112 72 132 58 146 65M75 75 104 96 128 98 139 119M75 75 76 111 65 129 72 148M75 75 49 101 26 105 12 122M75 75 38 70 19 55 3 59M75 75 63 61 45 62M75 75 89 84 105 81"/></svg>';
+  aim.className = 'thor-aim-line';
+  aim.setAttribute('aria-hidden', 'true');
   hint.className = 'thor-cursor-hint';
-  hint.innerHTML = '<kbd>T</kbd><span>Arremessar Mjölnir</span>';
-  document.body.append(crack, hammer, impact, hint);
+  hint.innerHTML = '<b>↗</b><span>Arraste e solte para arremessar</span>';
+  document.body.append(aim, crack, hammer, impact, hint);
 
   let pointer = { x: innerWidth / 2, y: innerHeight / 2 };
   let direction = { x: 1, y: 0 };
   let restingPoint = null;
   let phase = 'held';
   let animation = null;
+  let dragStart = null;
+  let dragging = false;
+  let suppressNextClick = false;
 
   const isActive = () => document.documentElement.dataset.activeCursor === 'thor';
   const transformAt = (point, rotation = 0, scale = 1) => `translate3d(${point.x - 24}px,${point.y - 24}px,0) rotate(${rotation}deg) scale(${scale})`;
+
+  function throwFrames(from, to, startRotation, endRotation, curveSide = 1) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const normal = { x: -dy / distance, y: dx / distance };
+    const curve = Math.min(82, Math.max(34, distance * .13)) * curveSide;
+    return [0, .18, .4, .64, .84, 1].map((progress) => {
+      const arc = Math.sin(Math.PI * progress) * curve;
+      const point = {
+        x: from.x + dx * progress + normal.x * arc,
+        y: from.y + dy * progress + normal.y * arc,
+      };
+      const rotation = startRotation + (endRotation - startRotation) * progress;
+      const scale = .88 + Math.sin(Math.PI * progress) * .2;
+      return { transform: transformAt(point, rotation, scale), offset: progress };
+    });
+  }
 
   function cancelAnimation() {
     hammer.getAnimations().forEach((current) => current.cancel());
@@ -361,8 +385,12 @@ function startThorCursorThrow() {
     hammer.classList.remove('visible', 'stuck');
     impact.classList.remove('visible');
     crack.classList.remove('visible', 'departing');
+    aim.classList.remove('visible');
     document.documentElement.classList.remove('thor-cursor-thrown');
-    hint.querySelector('span').textContent = 'Arremessar Mjölnir';
+    document.documentElement.classList.remove('thor-aiming');
+    dragStart = null;
+    dragging = false;
+    hint.innerHTML = '<b>↗</b><span>Arraste e solte para arremessar</span>';
   }
 
   function wallTarget() {
@@ -395,6 +423,10 @@ function startThorCursorThrow() {
     crack.style.setProperty('--crack-turn', (Math.atan2(direction.y, direction.x) * 180 / Math.PI) + 'deg');
     crack.classList.remove('departing');
     requestAnimationFrame(() => crack.classList.add('visible'));
+    const app = $('.app');
+    app?.classList.remove('thor-site-shake');
+    requestAnimationFrame(() => app?.classList.add('thor-site-shake'));
+    setTimeout(() => app?.classList.remove('thor-site-shake'), 430);
   }
 
   function throwHammer() {
@@ -406,18 +438,16 @@ function startThorCursorThrow() {
     hammer.classList.remove('stuck');
     const distance = Math.hypot(restingPoint.x - pointer.x, restingPoint.y - pointer.y);
     const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 80 : Math.max(300, Math.min(760, distance * 1.15));
-    const flight = hammer.animate([
-      { transform: transformAt(pointer, 0, .88) },
-      { transform: transformAt(restingPoint, 900, 1.06) },
-    ], { duration, easing: 'cubic-bezier(.2,.72,.2,1)', fill: 'forwards' });
+    const start = { ...pointer };
+    const flight = hammer.animate(throwFrames(start, restingPoint, 0, 1440, 1), { duration, easing: 'cubic-bezier(.18,.62,.2,1)', fill: 'forwards' });
     animation = flight;
     flight.onfinish = () => {
       animation = null;
       phase = 'stuck';
-      hammer.style.transform = transformAt(restingPoint, 900, 1);
+      hammer.style.transform = transformAt(restingPoint, 1440, 1);
       flight.cancel();
       hammer.classList.add('stuck');
-      hint.querySelector('span').textContent = 'Chamar Mjölnir de volta';
+      hint.innerHTML = '<kbd>T</kbd><span>Chamar Mjölnir de volta</span>';
       showImpact(restingPoint);
     };
   }
@@ -430,10 +460,7 @@ function startThorCursorThrow() {
     setTimeout(() => crack.classList.remove('visible', 'departing'), 420);
     const destination = { ...pointer };
     const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 80 : 480;
-    const returning = hammer.animate([
-      { transform: transformAt(restingPoint, 900, 1) },
-      { transform: transformAt(destination, -180, .86) },
-    ], { duration, easing: 'cubic-bezier(.55,.02,.22,1)', fill: 'forwards' });
+    const returning = hammer.animate(throwFrames(restingPoint, destination, 1440, 0, -1), { duration, easing: 'cubic-bezier(.34,.02,.18,1)', fill: 'forwards' });
     animation = returning;
     returning.onfinish = () => {
       animation = null;
@@ -442,7 +469,7 @@ function startThorCursorThrow() {
       returning.cancel();
       hammer.classList.remove('visible');
       document.documentElement.classList.remove('thor-cursor-thrown');
-      hint.querySelector('span').textContent = 'Arremessar Mjölnir';
+      hint.innerHTML = '<b>↗</b><span>Arraste e solte para arremessar</span>';
     };
   }
 
@@ -453,28 +480,91 @@ function startThorCursorThrow() {
     const dy = next.y - pointer.y;
     if (Math.hypot(dx, dy) > 3 && phase === 'held') direction = { x: dx, y: dy };
     pointer = next;
+    if (dragStart && phase === 'held') {
+      const dragX = next.x - dragStart.x;
+      const dragY = next.y - dragStart.y;
+      const distance = Math.hypot(dragX, dragY);
+      if (distance >= 18) {
+        dragging = true;
+        document.documentElement.classList.add('thor-aiming');
+        aim.classList.add('visible');
+        aim.style.left = dragStart.x + 'px';
+        aim.style.top = dragStart.y + 'px';
+        aim.style.width = Math.min(distance, 240) + 'px';
+        aim.style.transform = `rotate(${Math.atan2(dragY, dragX)}rad)`;
+        hint.innerHTML = '<b>⚡</b><span>Solte para arremessar</span>';
+      }
+    }
   }, { passive: true });
 
   document.addEventListener('keydown', (event) => {
     if (!isActive() || event.repeat || event.key.toLowerCase() !== 't') return;
     if (event.target?.matches?.('input,textarea,select,[contenteditable="true"]')) return;
+    if (phase !== 'stuck') return;
     event.preventDefault();
-    if (phase === 'held') throwHammer();
-    else if (phase === 'stuck') recallHammer();
+    recallHammer();
   });
 
   document.addEventListener('pointerdown', (event) => {
-    if (!isActive() || phase !== 'stuck') return;
+    if (!isActive() || event.button !== 0) return;
+    if (phase === 'stuck') {
+      suppressNextClick = true;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      recallHammer();
+      return;
+    }
+    if (phase !== 'held') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (event.target?.matches?.('input,textarea,select,[contenteditable="true"]')) return;
+    dragStart = { x: event.clientX, y: event.clientY };
+    dragging = false;
+  }, true);
+
+  document.addEventListener('pointerup', (event) => {
+    if (!isActive() || !dragStart || phase !== 'held') return;
+    const dragX = event.clientX - dragStart.x;
+    const dragY = event.clientY - dragStart.y;
+    const distance = Math.hypot(dragX, dragY);
+    aim.classList.remove('visible');
+    document.documentElement.classList.remove('thor-aiming');
+    dragStart = null;
+    if (!dragging || distance < 28) {
+      dragging = false;
+      hint.innerHTML = '<b>↗</b><span>Arraste e solte para arremessar</span>';
+      return;
+    }
     event.preventDefault();
     event.stopImmediatePropagation();
-    recallHammer();
+    pointer = { x: event.clientX, y: event.clientY };
+    direction = { x: dragX, y: dragY };
+    dragging = false;
+    suppressNextClick = true;
+    throwHammer();
+  }, true);
+
+  document.addEventListener('pointercancel', () => {
+    dragStart = null;
+    dragging = false;
+    aim.classList.remove('visible');
+    document.documentElement.classList.remove('thor-aiming');
+  }, true);
+
+  document.addEventListener('click', (event) => {
+    if (!suppressNextClick) return;
+    suppressNextClick = false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
   }, true);
 
   window.addEventListener('resize', () => {
     if (!restingPoint) return;
     restingPoint.x = Math.max(30, Math.min(innerWidth - 30, restingPoint.x));
     restingPoint.y = Math.max(30, Math.min(innerHeight - 30, restingPoint.y));
-    if (phase === 'stuck') hammer.style.transform = transformAt(restingPoint, 900, 1);
+    if (phase === 'stuck') hammer.style.transform = transformAt(restingPoint, 1440, 1);
   }, { passive: true });
 
   new MutationObserver(() => { if (!isActive()) resetThor(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-active-cursor'] });
@@ -1848,7 +1938,7 @@ function shopVisualPreview(item) {
   const previewName = escapeHtml(formatDisplayName(appState?.me?.displayName || 'Seu nome'));
   if (item.type === 'cursorStyle') {
     const cursorEffectPreview = (source, alt, name, effect) => `<div class="shop-visual-preview cursor-preview cursor-preview-effect"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="${source}" alt="${alt}"><b>${name}</b><em>${effect}</em></span></div>`;
-    if (item.value === 'thor') return cursorEffectPreview('/cursor-thor.svg', 'Mjölnir', 'Mjölnir Retornável', 'MOVA O MOUSE · T PARA LANÇAR · T OU CLIQUE PARA CHAMAR');
+    if (item.value === 'thor') return cursorEffectPreview('/cursor-thor.svg', 'Mjölnir', 'Mjölnir Retornável', 'CLIQUE + ARRASTE + SOLTE · T OU CLIQUE PARA CHAMAR');
     if (['crystal','solar','ufo','wand','comet-tail','thunder','gta-neon','cobblemon','wolverine','samurai','god-war'].includes(item.value)) return `<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="/cursor-${item.value}.svg" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b></span></div>`;
     if (item.value === 'unicorn') return '<div class="shop-visual-preview cursor-preview cursor-preview-unicorn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-cursor-full-v2.png" alt="Unicórnio completo"> <b>Galopa ao movimentar</b></span></div>';
     if (item.value === 'dipirona') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-dipirona.svg" alt="Seta Dipirona"><b>Seta Dipirona</b></span></div>';
