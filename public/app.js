@@ -325,12 +325,16 @@ startCommanderCursorEffects();
 
 function startThorCursorThrow() {
   const hammer = document.createElement('span');
+  const hand = document.createElement('span');
   const impact = document.createElement('span');
   const crack = document.createElement('span');
   const hint = document.createElement('aside');
   hammer.className = 'thor-flying-hammer';
   hammer.setAttribute('aria-hidden', 'true');
   hammer.innerHTML = '<img src="/cursor-thor.svg" alt="">';
+  hand.className = 'thor-cursor-hand';
+  hand.setAttribute('aria-hidden', 'true');
+  hand.innerHTML = '<img src="/cursor-thor-hand.svg" alt="">';
   impact.className = 'thor-impact';
   impact.setAttribute('aria-hidden', 'true');
   crack.className = 'thor-crack';
@@ -338,7 +342,7 @@ function startThorCursorThrow() {
   crack.innerHTML = '<svg viewBox="0 0 150 150"><path d="M75 75 58 48 61 25 47 8M75 75 91 51 88 31 105 15M75 75 112 72 132 58 146 65M75 75 104 96 128 98 139 119M75 75 76 111 65 129 72 148M75 75 49 101 26 105 12 122M75 75 38 70 19 55 3 59M75 75 63 61 45 62M75 75 89 84 105 81"/></svg>';
   hint.className = 'thor-cursor-hint';
   hint.innerHTML = '<b>🔨</b><span>Arraste e solte para arremessar</span>';
-  document.body.append(crack, hammer, impact, hint);
+  document.body.append(crack, hammer, hand, impact, hint);
 
   let pointer = { x: innerWidth / 2, y: innerHeight / 2 };
   let direction = { x: 1, y: 0 };
@@ -352,6 +356,10 @@ function startThorCursorThrow() {
 
   const isActive = () => document.documentElement.dataset.activeCursor === 'thor';
   const transformAt = (point, rotation = 0, scale = 1) => `translate3d(${point.x - 24}px,${point.y - 24}px,0) rotate(${rotation}deg) scale(${scale})`;
+
+  function updateHandPosition() {
+    hand.style.transform = `translate3d(${pointer.x - 12}px,${pointer.y - 9}px,0)`;
+  }
 
   function flightPoint(from, to, progress, curveSide = 1) {
     const dx = to.x - from.x;
@@ -408,6 +416,7 @@ function startThorCursorThrow() {
     phase = 'held';
     restingPoint = null;
     hammer.classList.remove('visible', 'stuck', 'aiming', 'in-flight');
+    hand.classList.remove('visible', 'pulling');
     impact.classList.remove('visible');
     crack.classList.remove('visible', 'departing');
     sparkGeneration += 1;
@@ -461,6 +470,9 @@ function startThorCursorThrow() {
     const start = { ...origin };
     restingPoint = wallTarget(start);
     document.documentElement.classList.add('thor-cursor-thrown');
+    updateHandPosition();
+    hand.classList.add('visible');
+    hand.classList.remove('pulling');
     hammer.classList.add('visible');
     hammer.classList.remove('stuck', 'aiming');
     const distance = Math.hypot(restingPoint.x - start.x, restingPoint.y - start.y);
@@ -485,6 +497,7 @@ function startThorCursorThrow() {
     if (!isActive() || phase !== 'stuck' || !restingPoint) return;
     phase = 'returning';
     hammer.classList.remove('stuck');
+    hand.classList.add('pulling');
     crack.classList.add('departing');
     setTimeout(() => crack.classList.remove('visible', 'departing'), 420);
     const destination = { ...pointer };
@@ -500,6 +513,7 @@ function startThorCursorThrow() {
       restingPoint = null;
       returning.cancel();
       hammer.classList.remove('visible', 'in-flight');
+      hand.classList.remove('visible', 'pulling');
       document.documentElement.classList.remove('thor-cursor-thrown');
       hint.innerHTML = '<b>🔨</b><span>Arraste e solte para arremessar</span>';
     };
@@ -512,6 +526,7 @@ function startThorCursorThrow() {
     const dy = next.y - pointer.y;
     if (Math.hypot(dx, dy) > 3 && phase === 'held') direction = { x: dx, y: dy };
     pointer = next;
+    if (phase === 'throwing' || phase === 'stuck') updateHandPosition();
     if (dragStart && phase === 'held') {
       const dragX = next.x - dragStart.x;
       const dragY = next.y - dragStart.y;
