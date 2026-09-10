@@ -3547,16 +3547,6 @@ $('#resetMyPurchasesButton').addEventListener('click', async () => {
   } catch (error) { showToast(error.message, 'error'); }
 });
 
-$('#resetMyCasinoTestsButton')?.addEventListener('click', async () => {
-  if (!confirm('Remover a entrada manual de 99.999 créditos e todas as suas apostas feitas depois dela? O apostômetro também será limpo. Esta ação não pode ser desfeita.')) return;
-  const button = $('#resetMyCasinoTestsButton'); button.disabled = true;
-  try {
-    const data = await api('/api/admin/reset-my-casino-tests', { method: 'POST' });
-    applyState(data);
-    showToast(`${data.removedCredits.toLocaleString('pt-BR')} créditos e ${data.removedPlays} aposta(s) de teste foram removidos.`);
-  } catch (error) { showToast(error.message, 'error'); }
-  finally { button.disabled = false; }
-});
 
 $('#passwordForm').addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.currentTarget; $('#passwordError').textContent = ''; setBusy(form, true);
