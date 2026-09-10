@@ -784,9 +784,16 @@ function startCobblemonCaptureThrow() {
 
   function spawnWildTarget(origin) {
     removeWildTarget();
-    let point = { x: innerWidth * .7, y: innerHeight * .45 };
+    const dialog = document.querySelector('dialog[open]');
+    const frame = dialog?.getBoundingClientRect();
+    const inset = 72;
+    const minX = frame ? Math.min(frame.left + inset, frame.right - inset) : 75;
+    const maxX = frame ? Math.max(frame.left + inset, frame.right - inset) : Math.max(75, innerWidth - 150);
+    const minY = frame ? Math.min(frame.top + inset, frame.bottom - inset) : 130;
+    const maxY = frame ? Math.max(frame.top + inset, frame.bottom - inset) : Math.max(130, innerHeight - 210);
+    let point = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
     for (let attempt = 0; attempt < 12; attempt += 1) {
-      const candidate = { x: 75 + Math.random() * Math.max(1, innerWidth - 150), y: 130 + Math.random() * Math.max(1, innerHeight - 210) };
+      const candidate = { x: minX + Math.random() * Math.max(1, maxX - minX), y: minY + Math.random() * Math.max(1, maxY - minY) };
       point = candidate;
       if (Math.hypot(candidate.x - origin.x, candidate.y - origin.y) > 210) break;
     }
