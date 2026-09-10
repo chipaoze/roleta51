@@ -1197,6 +1197,12 @@ html.cobblemon-ball-thrown * { cursor: none !important; }
   animation: cobblemonCreatureAppear .48s cubic-bezier(.2,1.3,.35,1) forwards;
 }
 
+/* Os efeitos são renderizados no dialog aberto para ficarem acima da modal.
+   Sem isto, as bordas do dialog recortam a criatura quando ela aparece perto dele. */
+html[data-active-cursor="cobblemon"] dialog[open] {
+  overflow: visible;
+}
+
 .cobblemon-wild-target::after {
   content: '';
   position: absolute;
@@ -1370,19 +1376,25 @@ html.cobblemon-ball-thrown * { cursor: none !important; }
 
 /* Cobblemon: cenário continua visível, mas as informações ficam opacas e legíveis. */
 body.profile-theme-cobblemon .section {
-  background: linear-gradient(145deg, rgba(239, 255, 222, .97), rgba(207, 242, 181, .97)) !important;
+  background: linear-gradient(145deg, rgba(239, 255, 222, .995), rgba(207, 242, 181, .995)) !important;
   color: #17351e;
 }
 
-body.profile-theme-cobblemon .card,
+body.profile-theme-cobblemon .app main :is(.card, .profile-identity-card, .profile-stats-card, .weekly-mission-card, .profile-wallet),
 body.profile-theme-cobblemon .shop-item,
 body.profile-theme-cobblemon .daily-meme-wall,
 body.profile-theme-cobblemon .anonymous-wall-wrap,
 body.profile-theme-cobblemon .hydration-team-wrap {
-  background: rgba(255, 255, 255, .98) !important;
+  background: #ffffff !important;
   border-color: #5c9a50 !important;
   color: #17351e !important;
   box-shadow: 0 13px 30px rgba(24, 69, 31, .18);
+}
+
+body.profile-theme-cobblemon .app main :is(.profile-stats > div, .profile-medal, .shop-item-icon, .active-visuals span) {
+  background: #f6fff1 !important;
+  border-color: #79ad6c !important;
+  color: #17351e !important;
 }
 
 body.profile-theme-cobblemon :is(.section-heading h2, .section-heading p, .card h3, .shop-item h4, .daily-newspaper-head h3, .anonymous-wall-head h3, .hydration-team-head h3) {
