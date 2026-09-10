@@ -161,7 +161,7 @@ function startRainbowMouseTrail() {
       trailContext.lineTo(point.x, point.y);
       trailContext.lineWidth = 1.25 + (opacity * 3.25);
       const trailStyle = document.body.dataset.trailStyle || 'rainbow';
-      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67],laser:[158,100,58],alien:[112,100,55] };
+      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67],laser:[158,100,58],alien:[112,100,55],white:[0,0,100] };
       const fixedColor = trailPalette[trailStyle];
       const rocketAge = Math.max(0, Math.min(1, (now - point.time) / lifetime));
       const hue = trailStyle === 'fire' ? 5 + ((point.hue / 360) * 48) : trailStyle === 'rocket' ? (rocketAge < .2 ? 198 : Math.max(5, 48 - ((rocketAge - .2) * 54))) : fixedColor ? fixedColor[0] : point.hue;
@@ -244,7 +244,7 @@ function startRainbowMouseTrail() {
       }
       const cursorEffect = document.body.dataset.cursorEffect || '';
       if (cursorEffect && !['petista', 'bolsonaro', 'umbanda'].includes(cursorEffect) && now - lastCursorEffectAt > 120) {
-        const labels = { gay: '🌈 EU SOU FOFO, QUERO CARINHO E CONFUSÃO', 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA', 'pirokinha-cosmica': 'TOMA LEITADA', 'giant-slow': 'SOU GAY', petista: '🥩 TOMA PICANHA!', bolsonaro: '💥 TEY TEY TEY!', umbanda: '🕊️ A POMBA GIRA, A POMBA GIRA!' };
+        const labels = { gay: '🌈 EU SOU FOFO, QUERO CARINHO E CONFUSÃO', 'galinha-preta': 'COCORICÓ!', volei: 'GIBA NELES!', biblia: 'AMÉM!', 'scrum-master': '✓ PLANILHA', energetico: '⚡ ENERGIA', 'pirokinha-cosmica': 'TOMA LEITADA', 'giant-slow': 'SOU GAY', petista: '🥩 TOMA PICANHA!', bolsonaro: '💥 TEY TEY TEY!', umbanda: '🕊️ A POMBA GIRA, A POMBA GIRA!', messi: 'HIJO DA PUTA', cristiano: 'SIUUUUUUUU', pele: 'NÃO, O JÔ SOARES SUA FDP', maradona: 'QUIERO PÓ', neymar: 'CAIU, FALTA NELE' };
         const papaSequence = ['EM NOME DO PAI', 'DO FILHO', 'E DO ESPÍRITO SANTO'];
         const particle = document.createElement('span');
         particle.className = 'cursor-linked-effect effect-' + cursorEffect + (['petista', 'bolsonaro', 'umbanda'].includes(cursorEffect) ? ' effect-phrase-trail' : '');
@@ -1683,6 +1683,10 @@ function shopVisualPreview(item) {
     if (item.value === 'petista') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-petista.svg" alt="Seta Lula"><b>Seta Lula</b></span></div>';
     if (item.value === 'bolsonaro') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-bolsonaro.svg" alt="Seta Bolsonaro"><b>Seta Bolsonaro</b></span></div>';
     if (item.value === 'umbanda') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-umbanda.svg" alt="Seta Muito Axé"><b>Seta Muito Axé</b></span></div>';
+    if (['messi', 'cristiano', 'pele', 'maradona', 'neymar'].includes(item.value)) {
+      const phrases = { messi: 'HIJO DA PUTA', cristiano: 'SIUUUUUUUU', pele: 'NÃO, O JÔ SOARES SUA FDP', maradona: 'QUIERO PÓ · RASTRO BRANCO', neymar: 'CAIU, FALTA NELE' };
+      return `<div class="shop-visual-preview cursor-preview cursor-preview-football"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="/cursor-${escapeHtml(item.value)}.svg" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b><em>${escapeHtml(phrases[item.value])}</em></span></div>`;
+    }
     return '<div class="shop-visual-preview cursor-preview cursor-preview-horn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-arrow-cursor.png" alt="Seta de mouse arco-íris em formato de chifre"> <b>Seta Unicórnio</b></span></div>';
   }
   if (item.type === 'trailStyle') return `<div class="shop-visual-preview trail-preview trail-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO RASTRO</small><span><i></i><b>${item.value === 'fruit' ? '🍉 🍊 🍓' : '🦄'}</b></span></div>`;
@@ -1721,8 +1725,8 @@ function applyShopPreviewVisual(item) {
     applyPersonalTheme(item.value);
   } else if (item.type === 'cursorStyle') {
     setPreviewCursor(item.value);
-    document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : 'none';
-    document.body.dataset.cursorEffect = ['gay', 'galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(item.value) ? item.value : '';
+    document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : item.value === 'maradona' ? 'white' : 'none';
+    document.body.dataset.cursorEffect = ['gay', 'galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda', 'messi', 'cristiano', 'pele', 'maradona', 'neymar'].includes(item.value) ? item.value : '';
   }
   else if (item.type === 'trailStyle') document.body.dataset.trailStyle = item.value;
   else if (item.type === 'badge') ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = item.value; });
@@ -1812,8 +1816,8 @@ function renderProfileEconomy(profile = {}) {
   document.documentElement.classList.toggle('debt-cursor', Boolean(profile.forcedCursor?.debt));
   applyPersonalTheme(allowPersonalTheme ? siteThemeItem?.value : null);
   const personalCursor = forcedGayCursor || forcedGiantCursor ? null : cursorItem;
-  document.body.dataset.trailStyle = trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none');
-  document.body.dataset.cursorEffect = forcedGiantCursor ? 'giant-slow' : (forcedGayCursor || personalCursor?.value === 'gay') ? 'gay' : ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda'].includes(personalCursor?.value) ? personalCursor.value : '';
+  document.body.dataset.trailStyle = personalCursor?.value === 'maradona' ? 'white' : (trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none'));
+  document.body.dataset.cursorEffect = forcedGiantCursor ? 'giant-slow' : (forcedGayCursor || personalCursor?.value === 'gay') ? 'gay' : ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda', 'messi', 'cristiano', 'pele', 'maradona', 'neymar'].includes(personalCursor?.value) ? personalCursor.value : '';
   if (forcedGayCursor || forcedGiantCursor) $$('.cursor-linked-effect').forEach((particle) => particle.remove());
   document.documentElement.classList.toggle('unicorn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'unicorn'));
   document.documentElement.classList.toggle('horn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'horn'));
