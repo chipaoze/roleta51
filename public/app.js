@@ -765,7 +765,8 @@ function startCobblemonCaptureThrow() {
   let blockNativeUntil = 0;
   let generation = 0;
   let wildTarget = null;
-  const creatures = ['/cobble-creature-electric.png', '/cobble-creature-fire-v2.png', '/cobble-creature-water.png', '/cobble-creature-leaf-complete.png'];
+  // Todas as criaturas da captura usam versões com margem transparente para nunca recortar no efeito.
+  const creatures = ['/cobble-creature-electric-v2.png', '/cobble-creature-fire-v2.png', '/cobble-creature-water-v2.png', '/cobble-creature-leaf-complete.png'];
   const isActive = () => document.documentElement.dataset.activeCursor === 'cobblemon';
   const place = (point, scale = 1) => `translate3d(${point.x - 32}px,${point.y - 32}px,0) scale(${scale})`;
   const effectHost = () => document.querySelector('dialog[open]') || document.body;
@@ -2512,8 +2513,33 @@ function applyShopPreviewVisual(item) {
   if (!item) return;
   if (item.type === 'cursorStyle' && appState?.profile?.forcedCursor) return;
   if (item.type === 'siteTheme') {
+    const previewPalettes = {
+      galaxy: ['radial-gradient(circle at 18% 12%,#5b3aa7 0,transparent 30%),radial-gradient(circle at 84% 24%,#1b78cb 0,transparent 32%),linear-gradient(145deg,#050915,#121a38 54%,#07172c)', '#9f8cff'],
+      sunset: ['radial-gradient(circle at 84% 10%,#ffd16b 0,transparent 21%),linear-gradient(145deg,#3b1439,#a93362 52%,#f17d57)', '#ffbc72'],
+      ocean: ['radial-gradient(circle at 14% 8%,#63f0de 0,transparent 25%),linear-gradient(145deg,#03182d,#075e88 52%,#087e89)', '#54e4dd'],
+      retro: ['repeating-linear-gradient(0deg,#16092d 0 2px,#130829 2px 6px),linear-gradient(145deg,#130629,#5a2178 52%,#006c79)', '#fa56d0'],
+      matrix: ['repeating-linear-gradient(90deg,#0a2514 0 1px,transparent 1px 34px),linear-gradient(145deg,#010906,#062b17 55%,#08140d)', '#4fff93'],
+      eclipse: ['radial-gradient(circle at 83% 10%,#eab74b 0,transparent 23%),linear-gradient(145deg,#050608,#251906 58%,#080807)', '#efc24a'],
+      aurora: ['radial-gradient(circle at 16% 10%,#38e8b5 0,transparent 28%),radial-gradient(circle at 84% 12%,#9d70ff 0,transparent 29%),linear-gradient(145deg,#061722,#102b42)', '#62e8c3'],
+      mars: ['radial-gradient(circle at 83% 10%,#ff7f42 0,transparent 25%),linear-gradient(145deg,#1b0807,#5c1d16 55%,#19090a)', '#ff8959'],
+      nebula: ['radial-gradient(circle at 15% 11%,#e05ad8 0,transparent 27%),radial-gradient(circle at 85% 13%,#5689ff 0,transparent 28%),linear-gradient(145deg,#180a2e,#3e1a60)', '#d688ff'],
+      hyperdrive: ['radial-gradient(circle at 16% 12%,#ff4ac6 0,transparent 25%),radial-gradient(circle at 84% 8%,#43dfff 0,transparent 27%),linear-gradient(145deg,#09051c,#261254 54%,#04334d)', '#ff75df'],
+      'lunar-tide': ['radial-gradient(circle at 82% 10%,#c4f1ff 0,transparent 21%),linear-gradient(145deg,#061a3c,#094e7a 54%,#1486a2)', '#a4e8ff'],
+      'coral-signal': ['radial-gradient(circle at 15% 10%,#ffbc75 0,transparent 25%),linear-gradient(145deg,#351135,#a03f5e 53%,#ef8063)', '#ffaf77'],
+      prism: ['radial-gradient(circle at 14% 12%,#54eacb 0,transparent 26%),radial-gradient(circle at 85% 12%,#f179ff 0,transparent 26%),linear-gradient(145deg,#181140,#40377c 53%,#531a70)', '#d78dff'],
+      'gta-neon': ['radial-gradient(circle at 82% 9%,#ff61b7 0,transparent 22%),radial-gradient(circle at 14% 17%,#48e8ff 0,transparent 24%),linear-gradient(145deg,#0b0720,#4b1d50 55%,#ff6f83)', '#ff7fc1'],
+      cobblemon: ['linear-gradient(#74c9f5 0 29%,#b9e17d 30% 45%,#4d843d 46% 68%,#31271f 69%)', '#9de76a'],
+      wolverine: ['repeating-linear-gradient(116deg,transparent 0 78px,#ffd33332 80px 85px,transparent 87px 130px),linear-gradient(145deg,#090c11,#29384a 57%,#14110b)', '#ffd23d'],
+      samurai: ['radial-gradient(circle at 78% 14%,#ffd39a 0,transparent 18%),radial-gradient(circle at 18% 21%,#e8829b 0,transparent 19%),linear-gradient(145deg,#180e19,#682338 52%,#1b1928)', '#ffbdc9'],
+      'god-war': ['radial-gradient(circle at 83% 10%,#a7e9ff 0,transparent 22%),repeating-linear-gradient(115deg,transparent 0 76px,#8edbff1c 78px 81px,transparent 84px 140px),linear-gradient(145deg,#06131f,#355064 54%,#31191a)', '#a6e9ff'],
+    };
+    const palette = previewPalettes[item.value];
     document.body.classList.add('shop-theme-preview-active');
     document.body.dataset.previewTheme = item.value;
+    if (palette) {
+      document.body.style.setProperty('--shop-preview-background', palette[0]);
+      document.body.style.setProperty('--shop-preview-accent', palette[1]);
+    }
     applyPersonalTheme(item.value);
     const companions = { 'gta-neon': { badge: '🌴' }, cobblemon: { badge: '⚡' }, wolverine: { badge: '🐾' }, samurai: { badge: '⛩️' }, 'god-war': { badge: 'ᚱ' } }[item.value];
     if (companions) {
@@ -2560,6 +2586,8 @@ function stopShopPreview(showMessage = false) {
   delete document.body.dataset.papaStep;
   document.body.classList.remove('shop-theme-preview-active');
   delete document.body.dataset.previewTheme;
+  document.body.style.removeProperty('--shop-preview-background');
+  document.body.style.removeProperty('--shop-preview-accent');
   $('#shopPreviewBanner')?.remove();
   if (appState?.profile) renderProfileEconomy(appState.profile);
   if (showMessage) showToast('Teste encerrado. Seus visuais foram restaurados.');
@@ -3922,8 +3950,26 @@ $('#hideOwnedVisuals').addEventListener('change', (event) => {
   localStorage.setItem('area51-hide-owned-visuals', String(hideOwnedVisuals));
   renderProfileEconomy(appState.profile);
 });
+function showRefundMerchantPopup() {
+  const dialog = $('#refundMerchantDialog');
+  if (!dialog) return;
+  if (!dialog.open) dialog.showModal();
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const voiceLine = new SpeechSynthesisUtterance('Comprou porque quis, não tem garantia.');
+  voiceLine.lang = 'pt-BR';
+  voiceLine.rate = .92;
+  voiceLine.pitch = .86;
+  const portugueseVoice = window.speechSynthesis.getVoices().find((voice) => /^pt(-|_)/i.test(voice.lang));
+  if (portugueseVoice) voiceLine.voice = portugueseVoice;
+  window.speechSynthesis.speak(voiceLine);
+}
+
+$('#closeRefundMerchantDialog')?.addEventListener('click', () => { window.speechSynthesis?.cancel(); $('#refundMerchantDialog').close(); });
+$('#acknowledgeRefundMerchant')?.addEventListener('click', () => { window.speechSynthesis?.cancel(); $('#refundMerchantDialog').close(); });
+
 document.addEventListener('click', (event) => {
-  if (event.target.closest('[data-shop-refund]')) { showToast('Complou porque quis, não tem galantia', 'error'); return; }
+  if (event.target.closest('[data-shop-refund]')) { showRefundMerchantPopup(); return; }
   const oddsTrigger = event.target.closest('[data-box-odds]');
   if (!oddsTrigger && event.target.closest('[data-shop-action], [data-shop-preview], [data-shop-free], .shop-card-actions')) return;
   const box = oddsTrigger?.closest('.shop-item[data-box-info]') || event.target.closest('.shop-item[data-box-info]');
