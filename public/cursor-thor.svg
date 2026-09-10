@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7fbff"/>
+      <stop offset=".42" stop-color="#92a7b9"/>
+      <stop offset=".72" stop-color="#e5eef5"/>
+      <stop offset="1" stop-color="#526879"/>
+    </linearGradient>
+    <linearGradient id="leather" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#9b633d"/>
+      <stop offset="1" stop-color="#3f251d"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="1.8" flood-color="#6fe8ff" flood-opacity=".95"/>
+      <feDropShadow dx="1" dy="2" stdDeviation="1.2" flood-color="#07111e" flood-opacity=".8"/>
+    </filter>
+  </defs>
+  <g transform="rotate(-35 23 23)" filter="url(#glow)">
+    <path d="M21 22h7v22h-7z" fill="url(#leather)" stroke="#d7b07a" stroke-width="1.2"/>
+    <path d="M20.8 27.5h7.4M20.8 33h7.4M20.8 38.5h7.4" stroke="#d3a067" stroke-width="1"/>
+    <path d="M20 43c3 2 6.2 2 9 0" fill="none" stroke="#d9edf7" stroke-width="1.6"/>
+    <path d="M7 8.5 13 4h24l5 5.5v13L36.5 27h-24L7 22z" fill="url(#metal)" stroke="#eaf8ff" stroke-width="1.5"/>
+    <path d="M13 4v23M36.5 4v23M7 9h35M7 22h35" fill="none" stroke="#617789" stroke-width="1" opacity=".85"/>
+    <path d="m17 8 3.5 3.2-2 4.1 4.5 3.5-1.5 4.2M32 7l-3 4 2.5 3.5-4 4 2 4.5" fill="none" stroke="#75e8ff" stroke-width="1.4" stroke-linecap="round"/>
+    <circle cx="24.5" cy="15.5" r="2.2" fill="#eaffff"/>
+  </g>
+</svg>
