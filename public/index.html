@@ -8,7 +8,7 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260911-223">
+  <link rel="stylesheet" href="/styles.css?v=20260911-224">
   <link rel="stylesheet" href="/improvements.css?v=20260902-118">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260910-210">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
@@ -543,6 +543,7 @@
       </div>
       <div class="admin-grid">
         <article class="card admin-card admin-event-card admin-wide"><header><div><small>CONTROLE RÁPIDO</small><h3>Modo Evento</h3><p>Acompanhe a etapa e use os mesmos controles seguros da rodada, em uma visão simplificada.</p></div><label class="event-mode-switch"><input id="eventModeToggle" type="checkbox"><span>Ativar foco</span></label></header><div id="eventModeStage" class="event-mode-stage"></div><div id="eventModeActions" class="event-mode-actions"></div></article>
+        <div class="admin-columns admin-wide">
         <form id="featureFlagsForm" class="card admin-card feature-flags-card"><div class="card-title-row"><div><h3>Recursos do site</h3><p>Pause áreas sem apagar dados. A mudança só acontece ao salvar.</p></div><span>🎛️</span></div><div id="featureFlagControls" class="feature-flag-controls"><label><input type="checkbox" name="casino"><span><strong>Jogos 51</strong><small>Roleta e Voo do Unicórnio</small></span></label><label><input type="checkbox" name="impostor"><span><strong>Impostor 51</strong><small>Salas e partidas</small></span></label><label><input type="checkbox" name="mystery"><span><strong>Mistério 51</strong><small>Perguntas e respostas</small></span></label><label><input type="checkbox" name="shop"><span><strong>Loja 51</strong><small>Novas compras</small></span></label><label><input type="checkbox" name="uploads"><span><strong>Envio de wallpapers</strong><small>Participantes e envio assistido</small></span></label></div><button class="button button-dark" type="submit">Salvar recursos</button></form>
         <article class="card admin-card health-panel-card"><div class="card-title-row"><div><h3>Saúde da plataforma</h3><p>Indicadores calculados junto com o estado normal da página.</p></div><span id="healthOverallStatus">● Saudável</span></div><div id="healthMetrics" class="health-metrics"></div><p id="healthActivity" class="health-activity"></p></article>
         <form id="settingsForm" class="card admin-card">
@@ -556,6 +557,7 @@
         <div class="card admin-card"><div class="card-title-row"><div><h3>Atualização do site</h3><p>Use depois que uma nova versão for publicada. A equipe receberá o aviso para atualizar sem perder a sessão.</p></div><strong id="releaseVersionLabel">Versão 0</strong></div><button id="releaseUpdateButton" class="button button-primary button-wide" type="button">🚀 Liberar atualização para todos</button></div>
         <div class="card admin-card announcement-admin-card"><div class="card-title-row"><div><h3>Aviso para toda a equipe</h3><p>Cada usuário verá o aviso uma vez. Um novo aviso será exibido novamente para todos.</p></div><span>📢</span></div><form id="announcementForm"><label>Título<input id="announcementTitle" maxlength="70" placeholder="Ex.: Novidades da rodada" required></label><label>Mensagem<textarea id="announcementMessage" maxlength="700" rows="5" placeholder="Escreva o aviso para a equipe…" required></textarea></label><button class="button button-primary button-wide" type="submit">Publicar novo aviso</button><button id="clearAnnouncementButton" class="button button-dark button-wide" type="button">Remover aviso atual</button></form><small id="announcementStatus">Nenhum aviso publicado.</small></div>
         <div class="card admin-card backup-card"><h3>Backup do site</h3><p>Inclui contas, históricos, economia, configurações e imagens armazenadas.</p><button id="downloadBackupButton" class="button button-dark button-wide" type="button">⬇ Baixar backup completo</button><label class="backup-picker">Restaurar um backup<input id="restoreBackupFile" type="file" accept="application/json,.json"></label><button id="restoreBackupButton" class="button button-danger button-wide" type="button">Restaurar arquivo selecionado</button></div>
+        </div>
         <div class="card admin-card">
           <div class="card-title-row"><h3>Participantes</h3><span id="adminUserCount"></span></div>
           <div id="adminUsers" class="admin-users"></div>
