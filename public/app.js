@@ -2853,9 +2853,6 @@ function renderAdmin() {
     '<button class="admin-user-credits" type="button" data-credit-user="' + user.id + '" data-user-name="' + escapeHtml(user.displayName) + '" data-user-wallet="' + Number(user.wallet || 0) + '">Créditos</button>' +
     (user.id !== appState.me.id ? '<button class="admin-user-delete" type="button" data-delete-user="' + user.id + '" data-user-name="' + escapeHtml(user.displayName) + '">Excluir</button>' : '') + '</div></div>'
   ).join('');
-  const security = appState.security || { devices: [] };
-  $('#securityDeviceCount').textContent = security.devices.length + (security.devices.length === 1 ? ' dispositivo' : ' dispositivos');
-  $('#authorizedDevices').innerHTML = security.devices.length ? security.devices.map((device) => `<article><span>${device.device.startsWith('Celular') ? '📱' : '💻'}</span><p><strong>${escapeHtml(device.device)} · ${escapeHtml(device.browser)}</strong><small>${escapeHtml(device.ip || 'IP local')} · autorizado em ${escapeHtml(formatDate(device.createdAt))}</small></p><button type="button" data-revoke-device="${escapeHtml(device.id)}">Revogar</button></article>`).join('') : '<p class="security-empty">Nenhum dispositivo autorizado.</p>';
   const attendanceCard = $('#roundAttendanceCard');
   const readiness = appState.readiness || { ready: 0, total: 0, missing: [] };
   const showAttendance = Boolean(appState.workflow.roundId && appState.workflow.phase === 'uploads');
@@ -4288,19 +4285,6 @@ $('#scheduleForm').addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
   try { applyState(await api('/api/admin/settings', { method: 'PATCH', body: { roundSchedule: { submissionsAt: $('#scheduleSubmissions').value, drawAt: $('#scheduleDraw').value, voteAt: $('#scheduleVote').value } } })); showToast('Calendário atualizado para toda a equipe.'); }
   catch (error) { showToast(error.message, 'error'); } finally { setBusy(form, false); }
-});
-$('#gateCodeForm').addEventListener('submit', async (event) => {
-  event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
-  try { applyState(await api('/api/admin/security/code', { method: 'POST', body: { code: $('#newGateCode').value, currentPassword: $('#gateAdminPassword').value } })); form.reset(); showToast('Código secreto alterado. Os dispositivos atuais continuam autorizados.'); }
-  catch (error) { showToast(error.message, 'error'); } finally { setBusy(form, false); }
-});
-$('#authorizedDevices').addEventListener('click', async (event) => {
-  const button = event.target.closest('[data-revoke-device]'); if (!button || !confirm('Revogar este dispositivo?')) return;
-  try { applyState(await api('/api/admin/security/devices/' + button.dataset.revokeDevice, { method: 'DELETE' })); showToast('Dispositivo revogado.'); } catch (error) { showToast(error.message, 'error'); }
-});
-$('#revokeAllDevices').addEventListener('click', async () => {
-  if (!confirm('Todos os navegadores voltarão a ver a página 404, inclusive este. Continuar?')) return;
-  try { await api('/api/admin/security/revoke-all', { method: 'POST' }); showToast('Todos os dispositivos foram revogados.'); setTimeout(() => location.reload(), 900); } catch (error) { showToast(error.message, 'error'); }
 });
 $('#downloadBackupButton').addEventListener('click', async () => {
   try { const response = await fetch('/api/admin/backup'); if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Não foi possível criar o backup.'); const blob = await response.blob(); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'area51-backup-' + new Date().toISOString().slice(0, 10) + '.json'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1500); showToast('Backup completo baixado.'); } catch (error) { showToast(error.message, 'error'); }

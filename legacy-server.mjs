@@ -8,7 +8,9 @@ const SESSION_TTL = 12 * 60 * 60 * 1000;
 const REMEMBER_TTL = 30 * 24 * 60 * 60 * 1000;
 const GATE_TTL = 30 * 24 * 60 * 60;
 const GATE_CODE = String(process.env.AREA51_GATE_CODE || '51');
-const GATE_DISABLED = String(process.env.AREA51_GATE_DISABLED || '').toLowerCase() === 'true';
+// O antigo portão por código não faz mais parte do acesso da Área 51.
+// A autenticação normal de cada conta é a única entrada ativa.
+const GATE_DISABLED = true;
 const sessions = new Map();
 const attempts = new Map();
 const feedbackPostTimes = new Map();
@@ -1853,10 +1855,6 @@ function stateFor(user) {
       const { avatarDataUrl, ...summary } = safeUser(person);
       return { ...summary, wallet: walletFor(person.id) };
     }) : undefined,
-    security: user.role === 'admin' ? {
-      devices: db.gateAuthorizations.filter((item) => item.expiresAt > Date.now()).map((item) => ({ id: item.id, createdAt: item.createdAt, expiresAt: item.expiresAt, ip: item.ip, device: /Mobile|Android|iPhone/i.test(item.userAgent) ? 'Celular ou tablet' : 'Computador', browser: item.userAgent.includes('Edg/') ? 'Edge' : item.userAgent.includes('Chrome/') ? 'Chrome' : item.userAgent.includes('Firefox/') ? 'Firefox' : 'Navegador' })),
-      pendingUsers: db.users.filter((item) => item.approved === false).length,
-    } : undefined,
     adminProgress: user.role === 'admin' ? {
       missingUploads: missingParticipants.map(({ id, displayName }) => ({ id, displayName })),
       pendingAssignments: roundUsers.filter((participant) => !revealedAssignments.some((assignment) => assignment.userId === participant.id))
