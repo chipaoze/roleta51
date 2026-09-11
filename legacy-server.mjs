@@ -273,6 +273,7 @@ async function ensureDatabase(seedDatabase) {
     '73beebc7-87dc-4fb8-89ba-2131f1c6998b': 'Concluído: o mural de cartas agora aceita ofertas em créditos, com reserva de saldo e transferência segura ao aceitar.',
     '0ee51576-6d43-45d5-a861-b18fd80feb59': 'Concluído: a foto do próprio usuário agora aparece corretamente em suas publicações do mural.',
     '2d20ed5b-9e09-4402-8100-a502acd04eaa': 'Concluído: o calendário da rodada agora trabalha apenas com datas, sem exigir ou exibir horário.',
+    '5be10c8a-dc45-4a66-9686-253e4f03dcd7': 'Concluído: o tema Cobblemon ganhou fundo pixelado leve, sem imagem realista, e todas as áreas de conteúdo ficaram opacas para manter a leitura.',
   };
   db.feedbackMessages.forEach((item) => {
     if (completedFeedback[item.id] && (item.status !== 'done' || item.adminComment !== completedFeedback[item.id])) { item.status = 'done'; item.adminComment = completedFeedback[item.id]; item.updatedAt = new Date().toISOString(); changed = true; }

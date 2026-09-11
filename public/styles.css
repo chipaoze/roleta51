@@ -1441,3 +1441,84 @@ body.theme-light-override.profile-theme-cobblemon .profile-shop-section .shop-it
   background: #ffffff !important;
   border-color: #5f9554 !important;
 }
+
+/* Temas premium em linguagem Área 51: gráfica, leve e legível.
+   GTA permanece com a arte que já foi aprovada; os demais evitam cenários fotográficos. */
+body.profile-theme-cobblemon .app {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.16) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(180deg, #86cbe5 0 24%, #d8e89b 24% 26%, #679c4b 26% 61%, #355c3b 61% 100%) !important;
+}
+body.profile-theme-cobblemon .app:before {
+  content: '✦  ◼  ✦\A   ◻  ✦  ◼' !important;
+  width: min(310px, 35vw) !important;
+  height: auto !important;
+  right: 4vw !important;
+  bottom: 6vh !important;
+  background: none !important;
+  color: #eaffb8;
+  font: 900 clamp(22px, 3.2vw, 44px)/1.45 system-ui, sans-serif;
+  letter-spacing: .24em;
+  opacity: .2 !important;
+  filter: drop-shadow(3px 4px 0 #1d532b) !important;
+}
+body.profile-theme-cobblemon .section {
+  background: #f7fff3 !important;
+  color: #17351e;
+  box-shadow: inset 0 0 0 1px #c0d99d, 0 14px 32px rgba(24,69,31,.16) !important;
+}
+body.profile-theme-cobblemon .app main :is(.card,.profile-identity-card,.profile-stats-card,.weekly-mission-card,.profile-wallet),
+body.profile-theme-cobblemon .shop-item,
+body.profile-theme-cobblemon .daily-meme-wall,
+body.profile-theme-cobblemon .anonymous-wall-wrap,
+body.profile-theme-cobblemon .hydration-team-wrap { background:#ffffff !important; }
+.theme-preview-cobblemon { background:linear-gradient(90deg,rgba(255,255,255,.16) 1px,transparent 1px) 0 0/22px 22px,linear-gradient(#86cbe5 0 32%,#d8e89b 32% 36%,#679c4b 36% 72%,#355c3b 72%) !important; }
+
+body.profile-theme-wolverine .app {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 58px, #ffd3371f 59px 62px, transparent 63px 116px),
+    linear-gradient(145deg,#10151d,#263342 55%,#171a21) !important;
+}
+body.profile-theme-wolverine .app:before {
+  content: '///\A///' !important;
+  width: auto !important;
+  height: auto !important;
+  right: 7vw !important;
+  bottom: 9vh !important;
+  background: none !important;
+  color:#ffd23d;
+  font:900 clamp(46px,7vw,92px)/.68 Impact, sans-serif;
+  letter-spacing:.04em;
+  opacity:.17 !important;
+  transform:rotate(-14deg);
+  filter:drop-shadow(4px 5px 0 #071019) !important;
+}
+body.profile-theme-wolverine .section { background:#131c27 !important; }
+.theme-preview-wolverine { background:repeating-linear-gradient(135deg,#101923 0 20px,#ffd33733 21px 23px,#101923 24px 43px),linear-gradient(135deg,#10151d,#263342) !important; }
+
+body.profile-theme-samurai .app {
+  background:
+    radial-gradient(circle at 78% 15%,#f6c6a0 0 7%,transparent 7.4%),
+    radial-gradient(circle at 74% 17%,#ffd7b7 0 2px,transparent 2.5px) 0 0/34px 34px,
+    linear-gradient(145deg,#251525,#5d2b42 54%,#211b2b) !important;
+}
+body.profile-theme-samurai .app:before {
+  content:'✦  ·  ✦\A  ·  ✦' !important;
+  width:auto !important;
+  height:auto !important;
+  right:7vw !important;
+  bottom:9vh !important;
+  background:none !important;
+  color:#ffd1dd;
+  font:900 clamp(22px,3.8vw,52px)/1.35 system-ui,sans-serif;
+  letter-spacing:.18em;
+  opacity:.23 !important;
+  filter:none !important;
+}
+body.profile-theme-samurai .section { background:#241a2b !important; }
+.theme-preview-samurai { background:radial-gradient(circle at 78% 20%,#f6c6a0 0 11%,transparent 12%),linear-gradient(135deg,#251525,#6b304a 55%,#211b2b) !important; }
+
+@media(max-width:700px){
+  body.profile-theme-cobblemon .app:before,body.profile-theme-wolverine .app:before,body.profile-theme-samurai .app:before { right:5vw !important; bottom:5vh !important; opacity:.13 !important; }
+}

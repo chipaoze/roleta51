@@ -2528,9 +2528,9 @@ function applyShopPreviewVisual(item) {
       'coral-signal': ['radial-gradient(circle at 15% 10%,#ffbc75 0,transparent 25%),linear-gradient(145deg,#351135,#a03f5e 53%,#ef8063)', '#ffaf77'],
       prism: ['radial-gradient(circle at 14% 12%,#54eacb 0,transparent 26%),radial-gradient(circle at 85% 12%,#f179ff 0,transparent 26%),linear-gradient(145deg,#181140,#40377c 53%,#531a70)', '#d78dff'],
       'gta-neon': ['radial-gradient(circle at 82% 9%,#ff61b7 0,transparent 22%),radial-gradient(circle at 14% 17%,#48e8ff 0,transparent 24%),linear-gradient(145deg,#0b0720,#4b1d50 55%,#ff6f83)', '#ff7fc1'],
-      cobblemon: ['linear-gradient(#74c9f5 0 29%,#b9e17d 30% 45%,#4d843d 46% 68%,#31271f 69%)', '#9de76a'],
-      wolverine: ['repeating-linear-gradient(116deg,transparent 0 78px,#ffd33332 80px 85px,transparent 87px 130px),linear-gradient(145deg,#090c11,#29384a 57%,#14110b)', '#ffd23d'],
-      samurai: ['radial-gradient(circle at 78% 14%,#ffd39a 0,transparent 18%),radial-gradient(circle at 18% 21%,#e8829b 0,transparent 19%),linear-gradient(145deg,#180e19,#682338 52%,#1b1928)', '#ffbdc9'],
+      cobblemon: ['linear-gradient(180deg,#86cbe5 0 24%,#d8e89b 24% 26%,#679c4b 26% 61%,#355c3b 61% 100%)', '#d7f078'],
+      wolverine: ['repeating-linear-gradient(135deg,#111923 0 42px,#172435 42px 44px,#111923 44px 86px),linear-gradient(145deg,#10151d,#222c39 58%,#11151d)', '#ffd23d'],
+      samurai: ['radial-gradient(circle at 78% 15%,#f6c6a0 0,transparent 14%),linear-gradient(145deg,#251525,#5d2b42 54%,#211b2b)', '#ffc0cb'],
       'god-war': ['radial-gradient(circle at 83% 10%,#a7e9ff 0,transparent 22%),repeating-linear-gradient(115deg,transparent 0 76px,#8edbff1c 78px 81px,transparent 84px 140px),linear-gradient(145deg,#06131f,#355064 54%,#31191a)', '#a6e9ff'],
     };
     const palette = previewPalettes[item.value];
