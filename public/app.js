@@ -2528,10 +2528,10 @@ function applyShopPreviewVisual(item) {
       'coral-signal': ['radial-gradient(circle at 15% 10%,#ffbc75 0,transparent 25%),linear-gradient(145deg,#351135,#a03f5e 53%,#ef8063)', '#ffaf77'],
       prism: ['radial-gradient(circle at 14% 12%,#54eacb 0,transparent 26%),radial-gradient(circle at 85% 12%,#f179ff 0,transparent 26%),linear-gradient(145deg,#181140,#40377c 53%,#531a70)', '#d78dff'],
       'gta-neon': ['radial-gradient(circle at 82% 9%,#ff61b7 0,transparent 22%),radial-gradient(circle at 14% 17%,#48e8ff 0,transparent 24%),linear-gradient(145deg,#0b0720,#4b1d50 55%,#ff6f83)', '#ff7fc1'],
-      cobblemon: ['linear-gradient(180deg,#86cbe5 0 24%,#d8e89b 24% 26%,#679c4b 26% 61%,#355c3b 61% 100%)', '#d7f078'],
-      wolverine: ['repeating-linear-gradient(135deg,#111923 0 42px,#172435 42px 44px,#111923 44px 86px),linear-gradient(145deg,#10151d,#222c39 58%,#11151d)', '#ffd23d'],
-      samurai: ['radial-gradient(circle at 78% 15%,#f6c6a0 0,transparent 14%),linear-gradient(145deg,#251525,#5d2b42 54%,#211b2b)', '#ffc0cb'],
-      'god-war': ['repeating-linear-gradient(135deg,#0a1d2b 0 38px,#102a3b 38px 40px,#0a1d2b 40px 78px),linear-gradient(145deg,#081923,#1d3c4a 56%,#312024)', '#aee8ff'],
+      cobblemon: ['linear-gradient(90deg,#071d3ae8,#08366399),url(/theme-cobblemon-ocean-v1.png) center/cover', '#8be8ff'],
+      wolverine: ['linear-gradient(90deg,#231a05e9,#7d590b77),url(/theme-wolverine-comic-v1.png) center/cover', '#ffd23d'],
+      samurai: ['linear-gradient(90deg,#161222e9,#37243a99),url(/theme-yotei-landscape-v1.png) center/cover', '#ffc0cb'],
+      'god-war': ['linear-gradient(90deg,#071523e9,#1736538c),url(/theme-olympus-v1.png) center/cover', '#f4d59b'],
     };
     const palette = previewPalettes[item.value];
     document.body.classList.add('shop-theme-preview-active');
