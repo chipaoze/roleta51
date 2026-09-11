@@ -1545,13 +1545,34 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
       if (mention) items.push({ id: 'mention:' + comment.id, icon: '💬', title: comment.authorName + ' marcou você', detail: comment.message, page: 'memes', createdAt: mention.createdAt });
     }
   }
+  // Aprovações são uma pendência administrativa: cada conta aguardando ganha um
+  // atalho próprio, para o sino abrir exatamente a linha daquela pessoa.
+  if (user.role === 'admin') {
+    db.users.filter((person) => person.approved === false).slice(-5).forEach((person) => items.push({
+      id: 'approval:' + person.id,
+      icon: '🛂',
+      title: 'Nova conta aguardando aprovação',
+      detail: person.displayName + ' (@' + person.username + ') quer entrar na Área 51.',
+      page: 'admin',
+      targetId: 'admin-user-' + person.id,
+      createdAt: person.createdAt,
+    }));
+  }
   const forcedCursor = [...db.economy.forcedCursors].reverse().find((item) => item.targetUserId === user.id && isForcedCursorActive(item, roundId));
   if (forcedCursor) items.push({ id: 'forced-cursor:' + forcedCursor.id, icon: forcedCursor.style === 'giant-slow' ? '🐌' : '🌈', title: forcedCursor.style === 'giant-slow' ? 'Maldição do Mouse Gigante ativada' : 'Seta Gay Compulsória ativada', detail: forcedCursor.style === 'giant-slow' ? 'Duração de 24 horas a partir da ativação.' : 'Seu cursor especial ficará ativo durante esta rodada.', page: 'perfil', createdAt: forcedCursor.createdAt });
   const assignment = db.assignments.find((item) => item.roundId === roundId && item.userId === user.id && item.revealed);
   if (assignment) items.push({ id: 'assignment:' + assignment.id, icon: '🖼️', title: 'Seu wallpaper chegou', detail: assignment.seenAt ? 'Wallpaper visualizado.' : 'Abra o Sorteio para visualizar.', page: 'sorteio', createdAt: assignment.revealedAt || assignment.createdAt });
   const voting = openVoting();
   if (voting && voting.requiredVoterIds.includes(user.id) && !voting.votes.some((vote) => vote.userId === user.id)) items.push({ id: 'vote:' + voting.id, icon: '🗳️', title: 'Sua votação está disponível', detail: 'Escolha o melhor e o pior wallpaper.', page: 'sorteio', createdAt: voting.openedAt });
-  db.feedbackMessages.filter((item) => item.authorId === user.id && item.status !== 'pending').slice(-4).forEach((item) => items.push({ id: 'feedback:' + item.id + ':' + item.updatedAt, icon: '💬', title: 'Sua solicitação foi atualizada', detail: item.status === 'approved' ? 'Aprovada' : item.status === 'done' ? 'Concluída' : item.status === 'rejected' ? 'Não aprovada' : 'Arquivada', page: 'sorteio', createdAt: item.updatedAt || item.createdAt }));
+  db.feedbackMessages.filter((item) => item.authorId === user.id && (item.status !== 'pending' || item.adminComment)).slice(-4).forEach((item) => items.push({
+    id: 'feedback:' + item.id + ':' + item.updatedAt,
+    icon: '💬',
+    title: 'Sua solicitação foi atualizada',
+    detail: item.status === 'approved' ? 'Aprovada' : item.status === 'done' ? 'Concluída' : item.status === 'rejected' ? 'Não aprovada' : item.status === 'archived' ? 'Arquivada' : 'Novo retorno do administrador',
+    page: 'sorteio',
+    targetId: 'my-feedback-' + item.id,
+    createdAt: item.updatedAt || item.createdAt,
+  }));
   creditLedger.filter((item) => item.amount > 0 && !item.id.startsWith('gift:')).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + item.amount + ' Créditos 51', detail: item.label, page: 'perfil', createdAt: item.createdAt }));
   db.economy.gifts.filter((item) => item.toUserId === user.id).slice(-5).forEach((item) => items.push({ id: 'gift:' + item.id, icon: '🎁', title: 'Você recebeu um presente secreto', targetId: item.type === 'credits' ? 'creditLedger' : 'collectionCatalog', detail: item.type === 'credits' ? item.amount + ' Créditos 51' : (SHOP_CATALOG.find((catalog) => catalog.id === item.itemId)?.name || 'Item da Loja 51'), page: 'perfil', createdAt: item.createdAt }));
   const readAt = db.notificationsReadAt[user.id] || null;

@@ -1860,12 +1860,12 @@ function renderNotifications() {
   const badge = $('#notificationBadge');
   badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
   badge.classList.toggle('hidden', !unreadCount);
-  $('#notificationList').innerHTML = visibleItems.length ? visibleItems.map((item) => `<button type="button" class="notification-item${item.unread ? ' unread' : ''}" data-notification-page="${escapeHtml(item.page || 'sorteio')}" data-notification-id="${escapeHtml(item.id)}"><span>${item.icon || '👽'}</span><p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail || '')}</small><em>${escapeHtml(formatDate(item.createdAt))}</em></p></button>`).join('') : '<div class="notification-empty"><span>🛸</span><strong>Tudo tranquilo por aqui</strong><small>Seus novos avisos aparecerão neste espaço.</small></div>';
+  $('#notificationList').innerHTML = visibleItems.length ? visibleItems.map((item) => `<button type="button" class="notification-item${item.unread ? ' unread' : ''}" data-notification-page="${escapeHtml(item.page || 'sorteio')}" data-notification-id="${escapeHtml(item.id)}" data-notification-target="${escapeHtml(item.targetId || '')}"><span>${item.icon || '👽'}</span><p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail || '')}</small><em>${escapeHtml(formatDate(item.createdAt))}</em></p></button>`).join('') : '<div class="notification-empty"><span>🛸</span><strong>Tudo tranquilo por aqui</strong><small>Seus novos avisos aparecerão neste espaço.</small></div>';
 }
 
-async function openNotificationTarget(id, page) {
+async function openNotificationTarget(id, page, requestedTargetId = '') {
   showPortalPage(portalPages.includes(page) ? page : 'sorteio', true);
-  let targetId = 'profileIdentityCard';
+  let targetId = requestedTargetId || 'profileIdentityCard';
   if (id.startsWith('mention:')) targetId = 'feed-comment-' + id.slice(8);
   else if (id.startsWith('lie-dispute:')) targetId = 'lie-dispute-' + id.slice(12);
   else if (id.startsWith('feedback:')) {
@@ -2845,7 +2845,7 @@ function renderAdmin() {
   const users = appState.adminUsers || [];
   $('#adminUserCount').textContent = users.length + ' contas';
   $('#adminUsers').innerHTML = users.map((user) =>
-    '<div class="admin-user' + (user.approved === false ? ' pending-approval' : '') + '"><p><strong>' + escapeHtml(formatDisplayName(user.displayName)) + '</strong><small>@' + escapeHtml(user.username) + (user.role === 'admin' ? ' · Administrador' : '') + (user.approved === false ? ' · Aguardando aprovação' : '') + ' · <span class="coin-51" aria-hidden="true">51</span> ' + Number(user.wallet || 0).toLocaleString('pt-BR') + '</small></p>' +
+    '<div id="admin-user-' + escapeHtml(user.id) + '" class="admin-user' + (user.approved === false ? ' pending-approval' : '') + '"><p><strong>' + escapeHtml(formatDisplayName(user.displayName)) + '</strong><small>@' + escapeHtml(user.username) + (user.role === 'admin' ? ' · Administrador' : '') + (user.approved === false ? ' · Aguardando aprovação' : '') + ' · <span class="coin-51" aria-hidden="true">51</span> ' + Number(user.wallet || 0).toLocaleString('pt-BR') + '</small></p>' +
     '<div class="admin-user-actions"><button class="tiny-toggle ' + (user.eligible ? 'on' : 'off') + '" data-user-action="eligible" data-user-id="' + user.id + '" data-value="' + (!user.eligible) + '">' + (user.eligible ? 'Participa' : 'Fora da roleta') + '</button>' +
     '<button class="tiny-toggle ' + (user.active ? 'on' : 'off') + '" data-user-action="active" data-user-id="' + user.id + '" data-value="' + (!user.active) + '">' + (user.active ? 'Ativo' : 'Inativo') + '</button>' +
     (user.approved === false ? '<button class="admin-user-approve" type="button" data-user-action="approved" data-user-id="' + user.id + '" data-value="true">Aprovar acesso</button>' : '') +
@@ -4693,7 +4693,7 @@ document.addEventListener('keydown', (event) => {
 $('#notificationList').addEventListener('click', (event) => {
   const item = event.target.closest('[data-notification-page]');
   if (!item) return;
-  setNotificationPanel(false); markNotificationsRead(); openNotificationTarget(item.dataset.notificationId, item.dataset.notificationPage);
+  setNotificationPanel(false); markNotificationsRead(); openNotificationTarget(item.dataset.notificationId, item.dataset.notificationPage, item.dataset.notificationTarget);
 });
 window.addEventListener('popstate', () => { if (appState) showPortalPage(currentPortalPage()); });
 
