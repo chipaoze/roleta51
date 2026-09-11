@@ -161,7 +161,7 @@ function startRainbowMouseTrail() {
       trailContext.lineTo(point.x, point.y);
       trailContext.lineWidth = 1.25 + (opacity * 3.25);
       const trailStyle = document.body.dataset.trailStyle || 'rainbow';
-      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67],laser:[158,100,58],alien:[112,100,55],white:[0,0,100],'gta-neon':[322,100,65],cobblemon:[96,68,52],wolverine:[46,100,58],samurai:[344,90,68],'god-war':[200,92,67] };
+      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67],laser:[158,100,58],alien:[112,100,55],white:[0,0,100],'gta-neon':[322,100,65],cobblemon:[96,68,52],wolverine:[46,100,58],samurai:[344,90,68],'god-war':[200,92,67],sovereign:[47,100,68] };
       const fixedColor = trailPalette[trailStyle];
       const rocketAge = Math.max(0, Math.min(1, (now - point.time) / lifetime));
       const hue = trailStyle === 'fire' ? 5 + ((point.hue / 360) * 48) : trailStyle === 'rocket' ? (rocketAge < .2 ? 198 : Math.max(5, 48 - ((rocketAge - .2) * 54))) : fixedColor ? fixedColor[0] : point.hue;
@@ -308,7 +308,7 @@ function startCommanderCursorEffects() {
     lastParticleAt = Date.now();
     const particle = document.createElement('i');
     particle.className = forcedGay ? 'gay-cursor-particle' : 'commander-cursor-particle';
-    particle.textContent = forcedGay ? (Math.random() > .45 ? '🌈' : '✦') : (Math.random() > .45 ? '51' : '✦');
+    particle.textContent = forcedGay ? (Math.random() > .45 ? '🌈' : '✦') : (Math.random() > .62 ? '👑' : Math.random() > .38 ? '◆' : '51');
     particle.style.left = event.clientX + 8 + 'px'; particle.style.top = event.clientY + 12 + 'px';
     document.body.appendChild(particle); setTimeout(() => particle.remove(), 650);
   }, { passive: true });
@@ -2483,7 +2483,7 @@ function shopVisualPreview(item) {
     return '<div class="shop-visual-preview cursor-preview cursor-preview-horn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-arrow-cursor.png" alt="Seta de mouse arco-íris em formato de chifre"> <b>Seta Unicórnio</b></span></div>';
   }
   if (item.type === 'trailStyle') return `<div class="shop-visual-preview trail-preview trail-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO RASTRO</small><span><i></i><b>${item.value === 'fruit' ? '🍉 🍊 🍓' : '🦄'}</b></span></div>`;
-  if (item.type === 'siteTheme') { const accents={ 'gta-neon':'🌴  NEON VICE  ·  ✦  ÁREA 51', cobblemon:'⛏️  MUNDO EM BLOCOS  ·  🐾', wolverine:'╲╲╲  MODO SELVAGEM  ·  ✦', samurai:'⛩️  NÉVOA DE YŌTEI  ·  🌸', 'god-war':'ᚱ  NORTE ANTIGO  ·  🪓' }; return `<div class="shop-visual-preview theme-preview theme-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO TEMA PREMIUM</small><span>${accents[item.value] || '✦  ÁREA 51  ·  ✧  ·  ✦'}</span></div>`; }
+  if (item.type === 'siteTheme') { const accents={ 'gta-neon':'🌴  NEON VICE  ·  ✦  ÁREA 51', cobblemon:'⛏️  MUNDO EM BLOCOS  ·  🐾', wolverine:'╲╲╲  MODO SELVAGEM  ·  ✦', samurai:'⛩️  NÉVOA DE YŌTEI  ·  🌸', 'god-war':'ᚱ  NORTE ANTIGO  ·  🪓', sovereign:'👑  COMANDO SOBERANO 51  ·  ✦' }; return `<div class="shop-visual-preview theme-preview theme-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO TEMA PREMIUM</small><span>${accents[item.value] || '✦  ÁREA 51  ·  ✧  ·  ✦'}</span></div>`; }
   if (item.type === 'frame') return `<div class="shop-visual-preview frame-preview frame-${escapeHtml(item.value)}"><small>PRÉVIA EXATA · PERFIL, TOPO E MENU</small><span><b>${escapeHtml(initials(appState?.me?.displayName || 'SN'))}</b><em>${previewName}</em></span></div>`;
   if (item.type === 'nameStyle') return `<div class="shop-visual-preview name-preview"><small>PRÉVIA DO NOME</small><strong class="name-style-${escapeHtml(item.value)}">${previewName}</strong></div>`;
   if (item.type === 'badge') return `<div class="shop-visual-preview badge-preview"><small>PRÉVIA DO EMBLEMA · NÃO ALTERA A COR DO NOME</small><span><b>${escapeHtml(item.value)}</b><em class="badge-preview-name">${previewName}</em><i>Somente o emblema é aplicado</i></span></div>`;
@@ -2501,7 +2501,7 @@ function setPreviewCursor(value) {
 
 function applyPersonalTheme(value) {
   applyVisualTheme(appState);
-  ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars', 'nebula', 'hyperdrive', 'lunar-tide', 'coral-signal', 'prism', 'gta-neon', 'cobblemon', 'wolverine', 'samurai', 'god-war'].forEach((theme) => document.body.classList.toggle('profile-theme-' + theme, theme === value));
+  ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars', 'nebula', 'hyperdrive', 'lunar-tide', 'coral-signal', 'prism', 'gta-neon', 'cobblemon', 'wolverine', 'samurai', 'god-war', 'sovereign'].forEach((theme) => document.body.classList.toggle('profile-theme-' + theme, theme === value));
   document.body.classList.toggle('theme-light-override', Boolean(value) && !document.body.classList.contains('theme-dark'));
   if (value) {
     const button = $('#themeToggle');
@@ -2532,6 +2532,7 @@ function applyShopPreviewVisual(item) {
       wolverine: ['linear-gradient(90deg,#231a05e9,#7d590b77),url(/theme-wolverine-comic-v1.png) center/cover', '#ffd23d'],
       samurai: ['linear-gradient(90deg,#161222e9,#37243a99),url(/theme-yotei-landscape-v1.png) center/cover', '#ffc0cb'],
       'god-war': ['linear-gradient(90deg,#071523e9,#1736538c),url(/theme-olympus-v1.png) center/cover', '#f4d59b'],
+      sovereign: ['linear-gradient(90deg,#09071be0,#2e184f86),url(/theme-sovereign-command-v1.png) center/cover', '#f7d46c'],
     };
     const palette = previewPalettes[item.value];
     document.body.classList.add('shop-theme-preview-active');
@@ -2541,7 +2542,7 @@ function applyShopPreviewVisual(item) {
       document.body.style.setProperty('--shop-preview-accent', palette[1]);
     }
     applyPersonalTheme(item.value);
-    const companions = { 'gta-neon': { badge: '🌴' }, cobblemon: { badge: '⚡' }, wolverine: { badge: '🐾' }, samurai: { badge: '⛩️' }, 'god-war': { badge: 'ᚱ' } }[item.value];
+    const companions = { 'gta-neon': { badge: '🌴' }, cobblemon: { badge: '⚡' }, wolverine: { badge: '🐾' }, samurai: { badge: '⛩️' }, 'god-war': { badge: 'ᚱ' }, sovereign: { badge: '👑' } }[item.value];
     if (companions) {
       setPreviewCursor(item.value);
       document.body.dataset.trailStyle = item.value;
