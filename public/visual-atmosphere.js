@@ -24,8 +24,8 @@
     'gta-neon': { glyph: '▬', kind: 'neon', color: '#ff58c8' },
     cobblemon: { glyph: '■', kind: 'pixel', color: '#8edf5d' },
     wolverine: { glyph: '╱', kind: 'claw', color: '#ffd22f' },
-    samurai: { glyph: '❀', kind: 'petal', color: '#ff9ab1' },
-    'god-war': { glyph: 'ᚱ', kind: 'rune', color: '#8de9ff' },
+    samurai: { glyph: '🌸', kind: 'petal', color: '#ff9ab1', count: 2, always: true },
+    'god-war': { glyph: '◆', kind: 'frost', color: '#bdf5ff', count: 2, always: true },
   };
 
   const pickTheme = name => themes.find(theme => theme.words.some(word => name.includes(word))) || themes[0];
@@ -43,15 +43,17 @@
     const hasOwnEffect = Boolean(body.dataset.cursorEffect) || (body.dataset.trailStyle && body.dataset.trailStyle !== 'none');
     const thorBusy = document.documentElement.classList.contains('thor-cursor-thrown') || document.documentElement.classList.contains('thor-aiming');
     if (!config || (hasOwnEffect && !config.always) || thorBusy) return;
-    const particle = document.createElement('i');
-    particle.className = 'cursor-themed-particle particle-' + config.kind;
-    particle.textContent = config.glyph;
-    particle.style.left = (x + (Math.random() * 10 - 5)) + 'px';
-    particle.style.top = (y + (Math.random() * 10 - 5)) + 'px';
-    particle.style.setProperty('--cursor-particle-color', config.color);
-    particle.style.setProperty('--particle-drift', (Math.random() * 18 - 9) + 'px');
-    body.append(particle);
-    setTimeout(() => particle.remove(), 720);
+    for (let index = 0; index < (config.count || 1); index += 1) {
+      const particle = document.createElement('i');
+      particle.className = 'cursor-themed-particle particle-' + config.kind;
+      particle.textContent = config.glyph;
+      particle.style.left = (x + (Math.random() * 18 - 9)) + 'px';
+      particle.style.top = (y + (Math.random() * 16 - 8)) + 'px';
+      particle.style.setProperty('--cursor-particle-color', config.color);
+      particle.style.setProperty('--particle-drift', (Math.random() * 24 - 12) + 'px');
+      body.append(particle);
+      setTimeout(() => particle.remove(), 900);
+    }
   };
   const updateSignature = (state) => {
     const signature = document.querySelector('#profileVisualSignature'); if (!signature) return;
@@ -69,7 +71,7 @@
   });
 
   document.addEventListener('pointermove', (event) => {
-    if (reduced || event.pointerType === 'touch' || performance.now() - lastTrail < 175) return;
+    if (reduced || event.pointerType === 'touch' || performance.now() - lastTrail < 105) return;
     lastTrail = performance.now(); cursorSpark(event.clientX, event.clientY);
   }, { passive: true });
   document.addEventListener('pointermove', (event) => {
