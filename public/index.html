@@ -8,7 +8,7 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260911-221">
+  <link rel="stylesheet" href="/styles.css?v=20260911-223">
   <link rel="stylesheet" href="/improvements.css?v=20260902-118">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260910-210">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
@@ -572,6 +572,16 @@
           </nav>
           <div id="adminFeedbackList" class="admin-feedback-list"><p class="admin-feedback-empty">Nenhuma solicitação recebida.</p></div>
         </div>
+        <section class="card admin-card admin-maintenance-card admin-wide" aria-labelledby="maintenanceTitle">
+          <header class="admin-maintenance-heading"><div><small>MANUTENÇÃO</small><h3 id="maintenanceTitle">Ações de limpeza</h3><p>Use apenas quando precisar iniciar uma nova etapa ou limpar dados de teste. Cada ação explica exatamente o que será preservado.</p></div><span aria-hidden="true">🧹</span></header>
+          <div class="admin-maintenance-actions">
+            <article class="maintenance-action soft"><span aria-hidden="true">🎡</span><div><h4>Nova rodada</h4><p>Remove as imagens inscritas. O histórico de sorteios permanece.</p></div><button id="clearRoundButton" class="button button-danger" type="button">Limpar inscrições</button></article>
+            <article class="maintenance-action warning"><span aria-hidden="true">🗂️</span><div><h4>Limpar histórico</h4><p>Apaga sorteios, votações, imagens e pontuações. Usuários e senhas permanecem.</p></div><button id="clearHistoryButton" class="button button-danger" type="button">Apagar histórico</button></article>
+            <article class="maintenance-action soft"><span aria-hidden="true">🤥</span><div><h4>Contador de mentiras</h4><p>Remove mentiras confirmadas, recusadas e votações pendentes. Os demais históricos permanecem.</p></div><button id="clearLiesButton" class="button button-danger" type="button">Zerar mentiras</button></article>
+            <article class="maintenance-action warning"><span aria-hidden="true">🧪</span><div><h4>Ambiente de testes</h4><p>Remove todas as contas, exceto Raul, além de imagens, sorteios, votações e placares.</p></div><button id="resetTestsButton" class="button button-danger" type="button">Manter só meu admin</button></article>
+            <article class="maintenance-action personal"><span aria-hidden="true">🪙</span><div><h4>Minhas compras de teste</h4><p>Remove apenas seu inventário, visuais e poderes e devolve os créditos gastos. Os demais usuários não são alterados.</p></div><button id="resetMyPurchasesButton" class="button button-danger" type="button">Zerar e reembolsar</button></article>
+          </div>
+        </section>
         <div id="roundAttendanceCard" class="card admin-card attendance-card hidden">
           <div class="card-title-row"><h3>Envios da rodada</h3><strong id="attendanceCount">0 de 0</strong></div>
           <div class="attendance-progress"><i id="attendanceProgressBar"></i></div>
@@ -590,27 +600,6 @@
           <button id="adminUploadSubmit" class="button button-primary button-wide" type="submit">Enviar em nome da pessoa</button>
           <div id="adminAssistedUploadList" class="assisted-upload-list"></div>
         </form>
-        <div class="card admin-card danger-card">
-          <h3>Nova rodada</h3>
-          <p>Remove todas as imagens inscritas. O histórico de sorteios permanece.</p>
-          <button id="clearRoundButton" class="button button-danger" type="button">Limpar inscrições</button>
-          <hr>
-          <h3>Limpar histórico</h3>
-          <p>Apaga sorteios, votações, imagens e pontuações. Usuários e senhas permanecem.</p>
-          <button id="clearHistoryButton" class="button button-danger" type="button">Apagar todo o histórico</button>
-          <hr>
-          <h3>Limpar contador de mentiras</h3>
-          <p>Apaga mentiras confirmadas, recusadas e solicitações pendentes. Contas, créditos e demais históricos permanecem.</p>
-          <button id="clearLiesButton" class="button button-danger" type="button">🤥 Zerar todas as mentiras</button>
-          <hr>
-          <h3>Limpar ambiente de testes</h3>
-          <p>Remove todas as contas, exceto Raul, e apaga imagens, sorteios, votações, resultados e placares.</p>
-          <button id="resetTestsButton" class="button button-danger" type="button">Deixar somente meu administrador</button>
-          <hr>
-          <h3>Zerar minhas compras de teste</h3>
-          <p>Remove seu inventário, visuais e poderes da Loja 51 e devolve todos os créditos gastos. As compras dos outros usuários permanecem.</p>
-          <button id="resetMyPurchasesButton" class="button button-danger" type="button">🧪 Zerar minhas compras e reembolsar</button>
-        </div>
       </div>
     </section>
 
