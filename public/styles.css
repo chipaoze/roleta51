@@ -1550,7 +1550,7 @@ body.profile-theme-god-war .card { background:#102a38 !important; border-color:#
 
 /* Cenários premium: ilustração ao fundo e interface Área 51 preservada por superfícies opacas. */
 body.profile-theme-cobblemon .app {
-  background:linear-gradient(90deg,#061b36a6 0%,#0838643d 52%,#05234b12 100%),url('/theme-cobblemon-ocean-v1.png') center/cover fixed !important;
+  background:linear-gradient(90deg,#061b3666 0%,#0838641c 48%,transparent 82%),url('/theme-cobblemon-ocean-v1.png') center/cover fixed !important;
 }
 body.profile-theme-cobblemon .app:before { content:none !important; }
 body.profile-theme-cobblemon .topbar { background:#061b36ee !important; border-color:#74dff5 !important; }
@@ -1562,14 +1562,14 @@ body.profile-theme-cobblemon :is(.muted,.shop-item p,.card small) { color:#b7d9e
 body.profile-theme-cobblemon :is(input,textarea,select) { background:#0a2138 !important;border-color:#58a7ca !important;color:#f0fbff !important; }
 .theme-preview-cobblemon { background:linear-gradient(90deg,#061b36bb,#08386455),url('/theme-cobblemon-ocean-v1.png') center/cover !important; }
 
-body.profile-theme-samurai .app { background:linear-gradient(90deg,#151021ac 0%,#30213e48 52%,#20142612 100%),url('/theme-yotei-landscape-v1.png') center/cover fixed !important; }
+body.profile-theme-samurai .app { background:linear-gradient(90deg,#15102166 0%,#30213e1d 48%,transparent 82%),url('/theme-yotei-landscape-v1.png') center/cover fixed !important; }
 body.profile-theme-samurai .app:before { content:none !important; }
 body.profile-theme-samurai .topbar { background:#171021ed !important;border-color:#ecabbc !important; }
 body.profile-theme-samurai .section { background:#21182bf5 !important;border-color:#9c5f7b !important; }
 body.profile-theme-samurai .card,body.profile-theme-samurai .shop-item { background:#2b1e37fa !important;border-color:#a86d88 !important; }
 .theme-preview-samurai { background:linear-gradient(90deg,#151021bd,#30213e55),url('/theme-yotei-landscape-v1.png') center/cover !important; }
 
-body.profile-theme-god-war .app { background:linear-gradient(90deg,#071523ab 0%,#17365350 52%,#1d182312 100%),url('/theme-olympus-v1.png') center/cover fixed !important; }
+body.profile-theme-god-war .app { background:linear-gradient(90deg,#07152366 0%,#17365320 48%,transparent 82%),url('/theme-olympus-v1.png') center/cover fixed !important; }
 body.profile-theme-god-war .app:before { content:none !important; }
 body.profile-theme-god-war .topbar { background:#071523ef !important;border-color:#f4d59b !important; }
 body.profile-theme-god-war .section { background:#0d2132f5 !important;border-color:#8baec0 !important; }
@@ -1579,7 +1579,7 @@ body.profile-theme-god-war .card,body.profile-theme-god-war .shop-item { backgro
   body.profile-theme-cobblemon .app,body.profile-theme-samurai .app,body.profile-theme-god-war .app { background-attachment:scroll !important;background-position:68% center !important; }
 }
 
-body.profile-theme-wolverine .app { background:linear-gradient(90deg,#211704ad 0%,#5f430b4d 54%,#ffcc1716 100%),url('/theme-wolverine-comic-v1.png') center/cover fixed !important; }
+body.profile-theme-wolverine .app { background:linear-gradient(90deg,#21170466 0%,#5f430b20 48%,transparent 82%),url('/theme-wolverine-comic-v1.png') center/cover fixed !important; }
 body.profile-theme-wolverine .app:before { content:none !important; }
 body.profile-theme-wolverine .topbar { background:#211704f0 !important;border-color:#ffd23d !important; }
 body.profile-theme-wolverine .section { background:#171b24f6 !important;border-color:#d8ad29 !important; }
