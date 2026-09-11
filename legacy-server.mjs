@@ -1534,6 +1534,22 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     const pending = dispute.participantIds.filter((id) => !dispute.decisions?.[id]).length;
     items.push({ id: 'lie-dispute:' + dispute.id, icon: '⚖️', title: 'Discussão sobre uma mentira', detail: lie?.reason || (pending + ' decisão(ões) aguardando'), page: 'mentirometro', createdAt: dispute.updatedAt || dispute.createdAt });
   }
+  // Uma nova acusação depende do voto coletivo. O mesmo aviso é mostrado para
+  // toda a tripulação elegível, inclusive para quem abriu a votação, que também
+  // participa da decisão e pode acompanhar as respostas pelo atalho.
+  for (const accusation of db.lieAccusations.filter((item) => item.status === 'pending' && Number(item.delta) > 0).slice(-4)) {
+    const target = db.users.find((person) => person.id === accusation.targetUserId);
+    const creator = db.users.find((person) => person.id === accusation.createdByUserId);
+    items.push({
+      id: 'lie-vote:' + accusation.id,
+      icon: '🤥',
+      title: 'Nova mentira aguardando voto',
+      detail: (creator?.displayName || 'Alguém') + ' marcou ' + (target?.displayName || 'um participante') + ': “' + (accusation.reason || 'Sem motivo registrado') + '”',
+      page: 'mentirometro',
+      targetId: 'lie-pending-' + accusation.id,
+      createdAt: accusation.createdAt
+    });
+  }
   for (const trade of (db.economy.trades || []).filter(t => (t.toId===user.id || t.fromId===user.id) && (t.status!=='pending' || Date.parse(t.expiresAt)>Date.now())).slice(-4)) {
     items.push({id:'trade:'+trade.id,icon:'🔄',title:trade.status==='pending'?'Proposta de troca de visuais':'Proposta de troca atualizada',detail:trade.offeredName+' ↔ '+trade.wantedName,page:'perfil',createdAt:trade.updatedAt});
   }
