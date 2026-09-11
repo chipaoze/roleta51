@@ -1522,3 +1522,28 @@ body.profile-theme-samurai .section { background:#241a2b !important; }
 @media(max-width:700px){
   body.profile-theme-cobblemon .app:before,body.profile-theme-wolverine .app:before,body.profile-theme-samurai .app:before { right:5vw !important; bottom:5vh !important; opacity:.13 !important; }
 }
+
+/* God of War: norte gelado e runas em versão gráfica, sem arte realista. */
+body.profile-theme-god-war .app {
+  background:
+    repeating-linear-gradient(135deg,#0a1d2b 0 38px,#102a3b 38px 40px,#0a1d2b 40px 78px),
+    linear-gradient(145deg,#081923,#1d3c4a 56%,#312024) !important;
+}
+body.profile-theme-god-war .app:before {
+  content:'ᚠ  ᚢ  ᚱ\A  ·  ᛏ  ·' !important;
+  width:auto !important;
+  height:auto !important;
+  right:7vw !important;
+  bottom:9vh !important;
+  background:none !important;
+  color:#bceeff;
+  font:900 clamp(28px,5vw,68px)/1.12 system-ui,sans-serif;
+  letter-spacing:.16em;
+  opacity:.22 !important;
+  filter:drop-shadow(3px 4px 0 #071117) !important;
+}
+body.profile-theme-god-war .topbar { border-color:#aee8ff !important; background:#0a1b27ee !important; }
+body.profile-theme-god-war .section { background:#0d2230 !important; border-color:#5da9be !important; }
+body.profile-theme-god-war .card { background:#102a38 !important; border-color:#69c7ea !important; }
+.theme-preview-god-war { background:repeating-linear-gradient(135deg,#0a1d2b 0 16px,#aee8ff30 17px 19px,#0a1d2b 20px 38px),linear-gradient(135deg,#081923,#1d3c4a,#312024) !important; }
+@media(max-width:700px){body.profile-theme-god-war .app:before{right:5vw !important;bottom:5vh !important;opacity:.14 !important}}

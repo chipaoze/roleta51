@@ -2531,7 +2531,7 @@ function applyShopPreviewVisual(item) {
       cobblemon: ['linear-gradient(180deg,#86cbe5 0 24%,#d8e89b 24% 26%,#679c4b 26% 61%,#355c3b 61% 100%)', '#d7f078'],
       wolverine: ['repeating-linear-gradient(135deg,#111923 0 42px,#172435 42px 44px,#111923 44px 86px),linear-gradient(145deg,#10151d,#222c39 58%,#11151d)', '#ffd23d'],
       samurai: ['radial-gradient(circle at 78% 15%,#f6c6a0 0,transparent 14%),linear-gradient(145deg,#251525,#5d2b42 54%,#211b2b)', '#ffc0cb'],
-      'god-war': ['radial-gradient(circle at 83% 10%,#a7e9ff 0,transparent 22%),repeating-linear-gradient(115deg,transparent 0 76px,#8edbff1c 78px 81px,transparent 84px 140px),linear-gradient(145deg,#06131f,#355064 54%,#31191a)', '#a6e9ff'],
+      'god-war': ['repeating-linear-gradient(135deg,#0a1d2b 0 38px,#102a3b 38px 40px,#0a1d2b 40px 78px),linear-gradient(145deg,#081923,#1d3c4a 56%,#312024)', '#aee8ff'],
     };
     const palette = previewPalettes[item.value];
     document.body.classList.add('shop-theme-preview-active');
