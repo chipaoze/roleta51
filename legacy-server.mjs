@@ -1378,8 +1378,12 @@ async function handleCommunityExtras(req,res,route) {
 
 
 function publicProfileFor(target) {
-  const score=scoreFor(target.id),titles=liveTitleAssignments().get(target.id)||[];
-  return {id:target.id,displayName:target.displayName,avatarDataUrl:target.avatarDataUrl||null,liveTitles:titles,showcase:profileFor(target).showcase.selected,stats:{bestWins:score.bestWins||0,worstWins:score.worstWins||0,gayWins:score.gayWins||0},comments:(db.profileComments||[]).filter(item=>item.targetUserId===target.id).slice(-30).reverse().map(item=>({id:item.id,authorName:item.authorName,message:item.message,createdAt:item.createdAt}))};
+  const score=scoreFor(target.id),titles=liveTitleAssignments().get(target.id)||[],profile=profileFor(target),album=albumFor(db,target.id,saoPauloDayKey());
+  const favorite=[...album.collections].sort((a,b)=>b.collected-a.collected || b.crafts-a.crafts)[0],itemFor=id=>SHOP_CATALOG.find(item=>item.id===id);
+  const theme=itemFor(profile.equipped.siteTheme),cursor=itemFor(profile.equipped.cursorStyle),badge=itemFor(profile.equipped.badge),insignia=album.collections.find(item=>item.id===album.equipped);
+  return {id:target.id,displayName:target.displayName,avatarDataUrl:target.avatarDataUrl||null,liveTitles:titles,showcase:profile.showcase.selected,
+    social:{favoriteCollection:favorite&&favorite.collected?{name:favorite.name,icon:favorite.icon,collected:favorite.collected}:null,theme:theme?{name:theme.name,icon:theme.icon}:null,cursor:cursor?{name:cursor.name,icon:cursor.icon}:null,badge:badge?{name:badge.name,icon:badge.icon}:null,insignia:insignia?.craftedAt?{name:insignia.badge,icon:insignia.medal?.icon||insignia.icon,tier:insignia.medal?.label||'Bronze'}:null},
+    stats:{bestWins:score.bestWins||0,worstWins:score.worstWins||0,gayWins:score.gayWins||0,memes:profile.stats.memes||0,phrases:profile.stats.phrases||0,hydrationDays:profile.stats.hydrationDays||0},comments:(db.profileComments||[]).filter(item=>item.targetUserId===target.id).slice(-30).reverse().map(item=>({id:item.id,authorId:item.authorId,authorName:item.authorName,message:item.message,createdAt:item.createdAt}))};
 }
 
 function profileFor(user, computed = {}) {
@@ -1534,6 +1538,7 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     items.push({id:'trade:'+trade.id,icon:'🔄',title:trade.status==='pending'?'Proposta de troca de visuais':'Proposta de troca atualizada',detail:trade.offeredName+' ↔ '+trade.wantedName,page:'perfil',createdAt:trade.updatedAt});
   }
   for(const drop of (db.economy.cardAlbums?.[user.id]?.drops || []).slice(-2))items.push({id:'card-drop:'+drop.eventId,icon:drop.icon,title:'Você encontrou uma carta!',detail:drop.name,page:'album',createdAt:drop.createdAt});
+  db.economy.purchases.filter((item) => item.userId === user.id && item.cardPackOpenedAt).slice(-2).forEach((item) => items.push({id:'card-pack:'+item.id,icon:'🎴',title:'Cartas recebidas no pacotinho',detail:(item.cardPackRewards || []).map((card) => card.name).join(' · ') || 'Abra o Álbum para conferir.',page:'album',targetId:'cardAlbumCollections',createdAt:item.cardPackOpenedAt}));
   for(const trade of (db.economy.cardTrades || []).filter(t=>t.toId===user.id || t.fromId===user.id).slice(-2))items.push({id:'card-trade:'+trade.id,icon:'🎴',title:trade.status==='pending'?'Proposta de troca de cartas':'Troca de cartas atualizada',detail:'Confira no Álbum de cartas.',page:'album',createdAt:trade.updatedAt});
   const rejectedCardOffers=(db.economy.cardTradePosts || []).flatMap(post=>(post.offers || []).filter(offer=>offer.fromId===user.id&&offer.status==='rejected').map(offer=>({post,offer}))).sort((a,b)=>(b.offer.updatedAt || '').localeCompare(a.offer.updatedAt || '')).slice(0,4);
   for(const {post,offer} of rejectedCardOffers){const card=CARD_COLLECTIONS.flatMap(collection=>collection.cards.map(([id,name])=>[collection.id+':'+id,name])).find(([id])=>id===offer.cardId);items.push({id:'card-market-rejected:'+offer.id,icon:'↩️',title:'Sua oferta foi recusada',detail:offer.creditAmount?offer.creditAmount+' créditos foram liberados para novas ofertas.':(card?.[1] || 'Sua carta')+' foi liberada para outra troca.',page:'album',createdAt:offer.updatedAt});}
@@ -1547,6 +1552,7 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
       if (mention) items.push({ id: 'mention:' + comment.id, icon: '💬', title: comment.authorName + ' marcou você', detail: comment.message, page: 'memes', createdAt: mention.createdAt });
     }
   }
+  for (const comment of (db.profileComments || []).filter((item) => item.targetUserId === user.id && item.authorId !== user.id).slice(-4)) items.push({id:'profile-comment:'+comment.id,icon:'💭',title:'Novo comentário no seu perfil',detail:comment.authorName+': '+comment.message,page:'memes',profileId:user.id,createdAt:comment.createdAt});
   // Aprovações são uma pendência administrativa: cada conta aguardando ganha um
   // atalho próprio, para o sino abrir exatamente a linha daquela pessoa.
   if (user.role === 'admin') {

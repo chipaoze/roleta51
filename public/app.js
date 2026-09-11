@@ -1860,10 +1860,10 @@ function renderNotifications() {
   const badge = $('#notificationBadge');
   badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
   badge.classList.toggle('hidden', !unreadCount);
-  $('#notificationList').innerHTML = visibleItems.length ? visibleItems.map((item) => `<button type="button" class="notification-item${item.unread ? ' unread' : ''}" data-notification-page="${escapeHtml(item.page || 'sorteio')}" data-notification-id="${escapeHtml(item.id)}" data-notification-target="${escapeHtml(item.targetId || '')}"><span>${item.icon || '👽'}</span><p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail || '')}</small><em>${escapeHtml(formatDate(item.createdAt))}</em></p></button>`).join('') : '<div class="notification-empty"><span>🛸</span><strong>Tudo tranquilo por aqui</strong><small>Seus novos avisos aparecerão neste espaço.</small></div>';
+  $('#notificationList').innerHTML = visibleItems.length ? visibleItems.map((item) => `<button type="button" class="notification-item${item.unread ? ' unread' : ''}" data-notification-page="${escapeHtml(item.page || 'sorteio')}" data-notification-id="${escapeHtml(item.id)}" data-notification-target="${escapeHtml(item.targetId || '')}" data-notification-profile="${escapeHtml(item.profileId || '')}"><span>${item.icon || '👽'}</span><p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail || '')}</small><em>${escapeHtml(formatDate(item.createdAt))}</em></p></button>`).join('') : '<div class="notification-empty"><span>🛸</span><strong>Tudo tranquilo por aqui</strong><small>Seus novos avisos aparecerão neste espaço.</small></div>';
 }
 
-async function openNotificationTarget(id, page, requestedTargetId = '') {
+async function openNotificationTarget(id, page, requestedTargetId = '', profileId = '') {
   showPortalPage(portalPages.includes(page) ? page : 'sorteio', true);
   let targetId = requestedTargetId || 'profileIdentityCard';
   if (id.startsWith('mention:')) targetId = 'feed-comment-' + id.slice(8);
@@ -1888,6 +1888,15 @@ async function openNotificationTarget(id, page, requestedTargetId = '') {
   else if (id.startsWith('card-trade:')) targetId = 'cardTradingCard';
   else if (id.startsWith('trade:')) targetId = 'visualTradingCard';
   else if (id.startsWith('feature-master')) targetId = 'mysteryInventoryCard';
+  else if (id.startsWith('card-pack:')) targetId = 'cardAlbumCollections';
+  else if (id.startsWith('profile-comment:') && profileId) {
+    try {
+      const data = await api('/api/profiles/' + encodeURIComponent(profileId));
+      renderPublicProfile(data.profile);
+      $('#publicProfileDialog').showModal();
+      targetId = 'profile-comment-' + id.slice('profile-comment:'.length);
+    } catch (error) { showToast(error.message, 'error'); return; }
+  }
   const target = document.getElementById(targetId);
   if (!target || target.closest('.hidden')) {
     showToast('Este conteúdo não está mais disponível. A seção correspondente foi aberta.');
@@ -2147,8 +2156,9 @@ function renderRankings() {
 }
 
 let openedPublicProfileId='';
-function renderPublicProfile(profile){openedPublicProfileId=profile.id;const avatar=profile.avatarDataUrl?'<img src="'+escapeHtml(profile.avatarDataUrl)+'" alt="">':'<span class="public-profile-avatar">'+escapeHtml((profile.displayName||'?').slice(0,1).toUpperCase())+'</span>';const titles=(profile.liveTitles||[]).map(t=>'<span class="live-title-chip">'+escapeHtml(t.icon+' '+t.name)+'</span>').join('');const trophies=(profile.showcase||[]).map(item=>'<span title="'+escapeHtml(item.description||'')+'">'+escapeHtml(item.icon+' '+item.name)+'</span>').join('');const trophyRoom=trophies?'<section class="public-trophy-room"><h4>🏛️ Sala de Troféus</h4><div class="public-trophy-list">'+trophies+'</div></section>':'';const comments=(profile.comments||[]).map(c=>'<article><strong>'+escapeHtml(formatDisplayName(c.authorName))+'</strong><p>'+escapeHtml(c.message)+'</p><small>'+new Date(c.createdAt).toLocaleString('pt-BR')+'</small></article>').join('')||'<p class="public-profile-empty">Ainda não há comentários. Seja o primeiro.</p>';$('#publicProfileContent').innerHTML='<header class="public-profile-head">'+avatar+'<div><h3>'+escapeHtml(formatDisplayName(profile.displayName))+'</h3><p>'+titles+'</p><small>🏆 '+Number(profile.stats.bestWins||0)+' melhores · 👎 '+Number(profile.stats.worstWins||0)+' piores · 🌈 '+Number(profile.stats.gayWins||0)+' sorteios</small></div></header>'+trophyRoom+'<section class="public-profile-comments"><h4>Comentários</h4>'+comments+'</section>';const form=$('#publicProfileCommentForm');form.classList.toggle('hidden',profile.id===appState.me.id);}
-document.addEventListener('click',async event=>{const button=event.target.closest('[data-public-profile]');if(!button)return;try{const data=await api('/api/profiles/'+encodeURIComponent(button.dataset.publicProfile));renderPublicProfile(data.profile);$('#publicProfileDialog').showModal();}catch(error){showToast(error.message,'error');}});
+function renderPublicProfile(profile){openedPublicProfileId=profile.id;const avatar=profile.avatarDataUrl?'<img src="'+escapeHtml(profile.avatarDataUrl)+'" alt="">':'<span class="public-profile-avatar">'+escapeHtml((profile.displayName||'?').slice(0,1).toUpperCase())+'</span>';const titles=(profile.liveTitles||[]).map(t=>'<span class="live-title-chip">'+escapeHtml(t.icon+' '+t.name)+'</span>').join('');const trophies=(profile.showcase||[]).map(item=>'<span title="'+escapeHtml(item.description||'')+'">'+escapeHtml(item.icon+' '+item.name)+'</span>').join('');const trophyRoom=trophies?'<section class="public-trophy-room"><h4>🏛️ Sala de Troféus</h4><div class="public-trophy-list">'+trophies+'</div></section>':'';const social=profile.social||{},visuals=[social.theme,social.cursor,social.badge,social.insignia].filter(Boolean).map(item=>'<span>'+escapeHtml((item.icon||'✦')+' '+item.name)+(item.tier?' · '+escapeHtml(item.tier):'')+'</span>').join('');const favorite=social.favoriteCollection?'<span>'+escapeHtml(social.favoriteCollection.icon+' '+social.favoriteCollection.name+' · '+social.favoriteCollection.collected+'/5')+'</span>':'<span>🎴 Coleção ainda em formação</span>';const socialPanel='<section class="public-profile-social"><h4>Identidade pública</h4><div><strong>⭐ Coleção favorita</strong>'+favorite+'</div><div><strong>🎨 Visuais ativos</strong>'+(visuals||'<span>Nenhum visual equipado</span>')+'</div><div><strong>📊 Jornada</strong><span>💧 '+Number(profile.stats.hydrationDays||0)+' dias · 😂 '+Number(profile.stats.memes||0)+' memes · 💬 '+Number(profile.stats.phrases||0)+' frases</span></div></section>';const comments=(profile.comments||[]).map(c=>'<article id="profile-comment-'+escapeHtml(c.id)+'"><strong>'+escapeHtml(formatDisplayName(c.authorName))+'</strong><p>'+escapeHtml(c.message)+'</p><small>'+new Date(c.createdAt).toLocaleString('pt-BR')+'</small></article>').join('')||'<p class="public-profile-empty">Ainda não há comentários. Seja o primeiro.</p>';$('#publicProfileContent').innerHTML='<header class="public-profile-head">'+avatar+'<div><h3>'+escapeHtml(formatDisplayName(profile.displayName))+'</h3><p>'+titles+'</p><small>🏆 '+Number(profile.stats.bestWins||0)+' melhores · 👎 '+Number(profile.stats.worstWins||0)+' piores · 🌈 '+Number(profile.stats.gayWins||0)+' sorteios</small></div></header>'+socialPanel+trophyRoom+'<section class="public-profile-comments"><h4>Comentários</h4>'+comments+'</section>';const form=$('#publicProfileCommentForm');form.classList.toggle('hidden',profile.id===appState.me.id);}
+async function openPublicProfile(profileId){const data=await api('/api/profiles/'+encodeURIComponent(profileId));renderPublicProfile(data.profile);$('#publicProfileDialog').showModal();}
+document.addEventListener('click',async event=>{const button=event.target.closest('[data-public-profile]');if(!button)return;try{await openPublicProfile(button.dataset.publicProfile);}catch(error){showToast(error.message,'error');}});
 $('#closePublicProfileDialog')?.addEventListener('click',()=>$('#publicProfileDialog').close());
 $('#publicProfileCommentForm')?.addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget;if(!openedPublicProfileId||!form.reportValidity())return;setBusy(form,true);try{const data=await api('/api/profiles/'+encodeURIComponent(openedPublicProfileId),{method:'POST',body:{message:form.elements.message.value}});form.reset();renderPublicProfile(data.profile);showToast('Comentário publicado no perfil.');}catch(error){showToast(error.message,'error');}finally{setBusy(form,false);}});
 
@@ -4677,7 +4687,7 @@ document.addEventListener('keydown', (event) => {
 $('#notificationList').addEventListener('click', (event) => {
   const item = event.target.closest('[data-notification-page]');
   if (!item) return;
-  setNotificationPanel(false); markNotificationsRead(); openNotificationTarget(item.dataset.notificationId, item.dataset.notificationPage, item.dataset.notificationTarget);
+  setNotificationPanel(false); markNotificationsRead(); openNotificationTarget(item.dataset.notificationId, item.dataset.notificationPage, item.dataset.notificationTarget, item.dataset.notificationProfile);
 });
 window.addEventListener('popstate', () => { if (appState) showPortalPage(currentPortalPage()); });
 
