@@ -1537,7 +1537,19 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   for (const trade of (db.economy.trades || []).filter(t => (t.toId===user.id || t.fromId===user.id) && (t.status!=='pending' || Date.parse(t.expiresAt)>Date.now())).slice(-4)) {
     items.push({id:'trade:'+trade.id,icon:'🔄',title:trade.status==='pending'?'Proposta de troca de visuais':'Proposta de troca atualizada',detail:trade.offeredName+' ↔ '+trade.wantedName,page:'perfil',createdAt:trade.updatedAt});
   }
-  for(const drop of (db.economy.cardAlbums?.[user.id]?.drops || []).slice(-2))items.push({id:'card-drop:'+drop.eventId,icon:drop.icon,title:'Você encontrou uma carta!',detail:drop.name,page:'album',createdAt:drop.createdAt});
+  for (const drop of (db.economy.cardAlbums?.[user.id]?.drops || []).slice(-2)) {
+    const collection = CARD_COLLECTIONS.find((item) => drop.id?.startsWith(item.id + ':'));
+    const copies = Number(db.economy.cardAlbums?.[user.id]?.cards?.[drop.id] || 0);
+    items.push({
+      id: 'card-drop:' + drop.eventId,
+      icon: drop.icon,
+      title: 'Você encontrou uma carta!',
+      detail: drop.name + (copies ? ' · ' + copies + (copies === 1 ? ' cópia no Álbum.' : ' cópias no Álbum.') : ''),
+      page: 'album',
+      targetId: collection ? 'album-collection-' + collection.id : 'cardAlbumCollections',
+      createdAt: drop.createdAt
+    });
+  }
   db.economy.purchases.filter((item) => item.userId === user.id && item.cardPackOpenedAt).slice(-2).forEach((item) => items.push({id:'card-pack:'+item.id,icon:'🎴',title:'Cartas recebidas no pacotinho',detail:(item.cardPackRewards || []).map((card) => card.name).join(' · ') || 'Abra o Álbum para conferir.',page:'album',targetId:'cardAlbumCollections',createdAt:item.cardPackOpenedAt}));
   for(const trade of (db.economy.cardTrades || []).filter(t=>t.toId===user.id || t.fromId===user.id).slice(-2))items.push({id:'card-trade:'+trade.id,icon:'🎴',title:trade.status==='pending'?'Proposta de troca de cartas':'Troca de cartas atualizada',detail:'Confira no Álbum de cartas.',page:'album',createdAt:trade.updatedAt});
   const rejectedCardOffers=(db.economy.cardTradePosts || []).flatMap(post=>(post.offers || []).filter(offer=>offer.fromId===user.id&&offer.status==='rejected').map(offer=>({post,offer}))).sort((a,b)=>(b.offer.updatedAt || '').localeCompare(a.offer.updatedAt || '')).slice(0,4);
