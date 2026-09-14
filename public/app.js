@@ -1340,6 +1340,7 @@ function showPortalPage(page, pushState = false, resetScroll = true) {
   else if (currentPortalPage() !== page) history.replaceState({ page }, '', '?pagina=' + encodeURIComponent(page));
   if (resetScroll) window.scrollTo({ top: 0, behavior: pushState ? 'smooth' : 'auto' });
   updateCobblemonHuntSector(page);
+  if (appState && !renderingActivePortalPage) renderActivePortalPage(appState);
 }
 
 function updateActiveNavigation() {
@@ -3143,6 +3144,39 @@ function renderAnnouncement(announcement) {
   if (!dialog.open) dialog.showModal();
 }
 
+let renderingActivePortalPage = false;
+function optimizeRenderedImages() {
+  $$('img').forEach((image) => {
+    if (!image.closest('header, nav, .topbar')) image.loading = 'lazy';
+    image.decoding = 'async';
+  });
+}
+
+// Atualiza somente a área aberta. As demais páginas continuam com os dados no
+// estado em memória e são renderizadas no momento da navegação.
+function renderActivePortalPage(data = appState) {
+  if (!data || renderingActivePortalPage) return;
+  renderingActivePortalPage = true;
+  try {
+    const page = currentPortalPage();
+    if (page === 'memes') {
+      renderGallery(); renderDailyWall(data.dailyWall); renderAnonymousWall(data.anonymousWall);
+    } else if (page === 'sorteio') {
+      renderWorkflow(); renderRoundSummary(); renderAssignments(); renderDraws(); renderVoting(); drawWheel();
+    } else if (page === 'inscricoes') {
+      renderWorkflow(); renderGallery();
+    } else if (page === 'agua') renderHydration(data.hydration);
+    else if (page === 'mentirometro') renderLieMeter(data.lieMeter);
+    else if (page === 'misterio') renderMystery(data.mystery);
+    else if (page === 'impostor') renderImpostor(data.impostor);
+    else if (['perfil', 'cobblemon', 'album'].includes(page)) renderProfileEconomy(data.profile);
+    else if (page === 'classificacao') { renderRankings(); renderSeason(data.season); }
+    else if (page === 'jogos') renderCasino(data.casino);
+    else if (page === 'admin') renderAdmin();
+    optimizeRenderedImages();
+  } finally { renderingActivePortalPage = false; }
+}
+
 async function acknowledgeAnnouncement() {
   const dialog = $('#announcementDialog'); const id = dialog.dataset.announcementId;
   if (dialog.open) dialog.close();
@@ -3207,7 +3241,7 @@ function applyState(data) {
       noteText.textContent = 'Escolham com calma: não existe prazo automático e o tema “' + data.workflow.currentTheme + '” fica mantido até a distribuição.';
     }
   }
-  renderFeatureAvailability(data.settings?.featureFlags); renderTodayHub(data); renderWorkflow(); renderNotifications(); renderCasino(data.casino); renderRoundSummary(); renderGallery(); renderAssignments(); renderDraws(); renderDailyWall(data.dailyWall); renderAnonymousWall(data.anonymousWall); renderHydration(data.hydration); renderLieMeter(data.lieMeter); renderMystery(data.mystery); renderImpostor(data.impostor); renderProfileEconomy(data.profile); renderAdmin(); renderVoting(); renderRankings(); renderSeason(data.season); renderAnnouncement(data.announcement); drawWheel();
+  renderFeatureAvailability(data.settings?.featureFlags); renderTodayHub(data); renderNotifications(); renderAnnouncement(data.announcement); renderActivePortalPage(data);
   const canUpload = Boolean(data.meCanUpload && data.settings?.featureFlags?.uploads !== false);
   $$('input,button', $('#uploadForm')).forEach((control) => { control.disabled = !canUpload; });
   const uploadLock = $('#uploadLock');
