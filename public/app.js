@@ -4867,7 +4867,7 @@ $('#currentYear').textContent = new Date().getFullYear();
 window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault(); deferredInstallPrompt = event; $('#installAppButton').classList.remove('hidden'); });
 $('#installAppButton').addEventListener('click', async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; $('#installAppButton').classList.add('hidden'); });
 window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; $('#installAppButton').classList.add('hidden'); showToast('Área 51 instalada como aplicativo! 📲'); });
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js?v=20260911-221').catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js?v=20260914-1').catch(() => {}));
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && musicWanted && appState) startMusic();
 });
