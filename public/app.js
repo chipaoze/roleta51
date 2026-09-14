@@ -3196,7 +3196,7 @@ function renderActivePortalPage(data = appState) {
     else if (page === 'mentirometro') renderLieMeter(data.lieMeter);
     else if (page === 'misterio') renderMystery(data.mystery);
     else if (page === 'impostor') renderImpostor(data.impostor);
-    else if (['perfil', 'cobblemon', 'album'].includes(page)) renderProfileEconomy(data.profile);
+    else if (['perfil', 'cobblemon', 'album', 'loja'].includes(page)) renderProfileEconomy(data.profile);
     else if (page === 'classificacao') { renderRankings(); renderSeason(data.season); }
     else if (page === 'jogos') renderCasino(data.casino);
     else if (page === 'admin') renderAdmin();
@@ -3268,6 +3268,11 @@ function applyState(data) {
       noteText.textContent = 'Escolham com calma: não existe prazo automático e o tema “' + data.workflow.currentTheme + '” fica mantido até a distribuição.';
     }
   }
+  // Elementos globais que precisam refletir o perfil mesmo quando outra aba está aberta.
+  const isAdmin = data.me.role === 'admin';
+  $('#adminNav').classList.toggle('hidden', !isAdmin);
+  $('#admin').classList.toggle('hidden', !isAdmin);
+  $('#adminLiveChecklist').classList.toggle('hidden', !isAdmin);
   renderFeatureAvailability(data.settings?.featureFlags); renderTodayHub(data); renderNotifications(); renderAnnouncement(data.announcement); renderActivePortalPage(data);
   const canUpload = Boolean(data.meCanUpload && data.settings?.featureFlags?.uploads !== false);
   $$('input,button', $('#uploadForm')).forEach((control) => { control.disabled = !canUpload; });
