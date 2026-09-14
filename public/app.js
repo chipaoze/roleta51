@@ -4928,6 +4928,17 @@ function showCobblemonCaptureFx(point, captured) {
   setTimeout(() => ring.remove(), 820);
 }
 
+function showCobblemonCaptureOutcome(pokemon, data) {
+  document.querySelector('.cobblemon-global-outcome')?.remove();
+  const outcome = document.createElement('aside');
+  outcome.className = `cobblemon-global-outcome ${data.captured ? 'captured' : 'escaped'}`;
+  outcome.setAttribute('role', 'status');
+  outcome.innerHTML = `<img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(pokemon.id)}.webp" alt="${escapeHtml(pokemon.name)}"><p><small>${data.captured ? 'CAPTURA CONFIRMADA' : data.missed ? 'ARREMESSO PERDIDO' : 'A POKÉ BALL ABRIU'}</small><strong>${data.captured ? 'CAPTURADO!' : 'FUGIU!'}</strong><span>${escapeHtml(pokemon.name)}${data.captured ? ' entrou na sua Pokédex.' : data.missed ? ' escapou porque a Poké Ball errou.' : ' conseguiu escapar da Poké Ball.'}</span></p>`;
+  document.body.appendChild(outcome);
+  requestAnimationFrame(() => outcome.classList.add('show'));
+  setTimeout(() => { outcome.classList.remove('show'); setTimeout(() => outcome.remove(), 320); }, 3200);
+}
+
 function resetCobblemonPageCapture(clearResult = false) {
   const ball = $('#cobblemonPageBall');
   const target = $('#cobblemonEncounterTarget');
@@ -5020,6 +5031,7 @@ async function finishCobblemonPageThrow(event) {
     target.classList.add(data.captured ? 'captured' : data.missed ? 'missed-target' : 'escaped');
     ball.className = `cobblemon-page-ball hunting ${data.captured ? 'caught' : data.missed ? 'lost' : 'failed'}`;
     showCobblemonCaptureFx({ x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 }, data.captured);
+    showCobblemonCaptureOutcome(mon, data);
     const outcome = data.captured ? `✓ ${escapeHtml(mon.name)} foi capturado!` : data.missed ? `Você errou ${escapeHtml(mon.name)} e gastou 1 Poké Ball.` : `${escapeHtml(mon.name)} escapou. Chance desta tentativa: ${Number(data.chance)}%.`;
     $('#cobblemonCaptureResult').innerHTML = `<span><img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.id)}.webp" alt="" style="width:48px;height:48px;object-fit:contain;vertical-align:middle"> ${outcome}</span>`;
     $('#cobblemonCaptureHint').textContent = data.captured ? 'Captura confirmada pelo servidor!' : data.missed ? 'O Pokémon fugiu após o arremesso.' : 'A bola abriu e o Pokémon escapou.';
