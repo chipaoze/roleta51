@@ -321,6 +321,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.mysteryBoxes)) { db.economy.mysteryBoxes = []; changed = true; }
   if (!db.economy.cobblemonDex || typeof db.economy.cobblemonDex !== 'object') { db.economy.cobblemonDex = {}; changed = true; }
   if (!Array.isArray(db.economy.cobblemonDeliveries)) { db.economy.cobblemonDeliveries = []; changed = true; }
+  if (!Array.isArray(db.economy.cobblemonRouletteSpins)) { db.economy.cobblemonRouletteSpins = []; changed = true; }
   if (!Array.isArray(db.economy.scoreTrades)) { db.economy.scoreTrades = []; changed = true; }
   if (!Array.isArray(db.economy.loans)) { db.economy.loans = []; changed = true; }
   if (!Array.isArray(db.economy.flights)) { db.economy.flights = []; changed = true; }
@@ -581,9 +582,24 @@ const CASINO_WHEEL_OUTCOMES = [
 ];
 
 const COBBLEMON_BOXES = {
-  trainer: { name: 'Carga de Treinador', price: 180, rewards: [{ name: 'Poké Ball ×64', sellPrice: 55, weight: 55 }, { name: 'Great Ball ×64', sellPrice: 80, weight: 25 }, { name: 'Ancient Poké Ball ×32', sellPrice: 95, weight: 12 }, { name: 'Item de invocação comum', sellPrice: 120, weight: 8 }] },
-  evolution: { name: 'Caixa das Pedras', price: 480, rewards: [{ name: 'Pedra evolutiva ×4', sellPrice: 140, weight: 52 }, { name: 'Rare Candy ×16', sellPrice: 180, weight: 25 }, { name: 'Ultra Ball ×32', sellPrice: 210, weight: 15 }, { name: 'Item de invocação de bioma', sellPrice: 260, weight: 8 }] },
-  professor: { name: 'Relíquia do Professor', price: 1200, rewards: [{ name: 'Kit Ultra Ball ×64', sellPrice: 330, weight: 55 }, { name: 'Ability Capsule', sellPrice: 420, weight: 27 }, { name: 'Voucher Shiny definido', sellPrice: 620, weight: 15 }, { name: 'Voucher lendário definido', sellPrice: 850, weight: 3 }] },
+  trainer: { name: 'Carga de Treinador', price: 180, rewards: [{ id: 'poke-ball', name: 'Poké Ball ×64', sprite: 'https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png', sellPrice: 55, weight: 55 }, { id: 'great-ball', name: 'Great Ball ×64', sprite: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', sellPrice: 80, weight: 25 }, { id: 'ancient-ball', name: 'Ancient Poké Ball ×32', sprite: 'https://wiki.cobblemon.com/images/4/4e/Ancient_Poke_Ball.png', sellPrice: 95, weight: 12 }, { id: 'quick-ball', name: 'Quick Ball ×16', sprite: 'https://wiki.cobblemon.com/images/b/be/Quick_Ball.png', sellPrice: 120, weight: 8 }] },
+  evolution: { name: 'Caixa das Pedras', price: 480, rewards: [{ id: 'fire-stone', name: 'Pedra evolutiva sortida ×4', sprite: 'https://wiki.cobblemon.com/images/6/63/Fire_Stone.png', sellPrice: 140, weight: 52 }, { id: 'rare-candy', name: 'Rare Candy ×16', sprite: 'https://wiki.cobblemon.com/images/a/a2/Rare_Candy.png', sellPrice: 180, weight: 25 }, { id: 'ultra-ball', name: 'Ultra Ball ×32', sprite: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', sellPrice: 210, weight: 15 }, { id: 'ability-capsule', name: 'Ability Capsule', sprite: 'https://wiki.cobblemon.com/images/9/90/Ability_Capsule.png', sellPrice: 260, weight: 8 }] },
+  professor: { name: 'Relíquia do Professor', price: 1200, rewards: [{ id: 'ultra-kit', name: 'Kit Ultra Ball ×64', sprite: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', sellPrice: 330, weight: 66 }, { id: 'ability-capsule', name: 'Ability Capsule', sprite: 'https://wiki.cobblemon.com/images/9/90/Ability_Capsule.png', sellPrice: 420, weight: 26 }, { id: 'shiny-voucher', name: 'Voucher Shiny definido', sprite: 'https://wiki.cobblemon.com/images/c/c3/Cherish_Ball.png', sellPrice: 620, weight: 7 }, { id: 'legendary-voucher', name: 'Voucher lendário definido', sprite: 'https://wiki.cobblemon.com/images/e/ee/Master_Ball.png', sellPrice: 850, weight: 1 }] },
+};
+
+const COBBLEMON_ROULETTE = {
+  price: 260,
+  cooldownMs: 72 * 60 * 60 * 1000,
+  rewards: [
+    { id: 'poke-ball-roulette', name: 'Poké Ball ×32', sprite: 'https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png', sellPrice: 45, weight: 38 },
+    { id: 'great-ball-roulette', name: 'Great Ball ×24', sprite: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', sellPrice: 65, weight: 27 },
+    { id: 'quick-ball-roulette', name: 'Quick Ball ×16', sprite: 'https://wiki.cobblemon.com/images/b/be/Quick_Ball.png', sellPrice: 85, weight: 16 },
+    { id: 'stone-roulette', name: 'Pedra evolutiva sortida ×2', sprite: 'https://wiki.cobblemon.com/images/6/63/Fire_Stone.png', sellPrice: 110, weight: 10 },
+    { id: 'ultra-ball-roulette', name: 'Ultra Ball ×16', sprite: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', sellPrice: 145, weight: 6 },
+    { id: 'ability-roulette', name: 'Ability Capsule', sprite: 'https://wiki.cobblemon.com/images/9/90/Ability_Capsule.png', sellPrice: 300, weight: 2 },
+    { id: 'shiny-roulette', name: 'Voucher Shiny definido', sprite: 'https://wiki.cobblemon.com/images/c/c3/Cherish_Ball.png', sellPrice: 650, weight: .8 },
+    { id: 'legendary-roulette', name: 'Voucher lendário definido', sprite: 'https://wiki.cobblemon.com/images/e/ee/Master_Ball.png', sellPrice: 900, weight: .2 },
+  ],
 };
 
 function weightedCobblemonReward(box) {
@@ -1439,6 +1455,11 @@ function profileFor(user, computed = {}) {
       caught: Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : [],
       total: COBBLEMON_CATALOG.length,
       deliveries: db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id || user.role === 'admin' || /^davi\b/i.test(String(user.displayName || ''))).slice(-30).reverse(),
+      roulette: (() => {
+        const last = [...db.economy.cobblemonRouletteSpins].reverse().find((entry) => entry.userId === user.id);
+        const nextSpinAt = last ? new Date(Date.parse(last.createdAt) + COBBLEMON_ROULETTE.cooldownMs).toISOString() : null;
+        return { price: COBBLEMON_ROULETTE.price, cooldownHours: 72, nextSpinAt, canSpin: !nextSpinAt || Date.parse(nextSpinAt) <= Date.now(), last: last || null };
+      })(),
     },
     cardPacks: db.economy.purchases.filter(p=>p.userId===user.id && CARD_PACK_RULES[p.itemId] && !p.cardPackOpenedAt).map(p=>{const item=SHOP_CATALOG.find(entry=>entry.id===p.itemId);return {id:p.id,itemId:p.itemId,name:item?.name || 'Pacotinho',icon:item?.icon || '🎴',rareChance:Math.round(CARD_PACK_RULES[p.itemId].rareChance*100),value:item?.value || 'cosmic'};}),
     openedCardPacks: db.economy.purchases.filter(p=>p.userId===user.id && p.cardPackOpenedAt).slice(-3).reverse().map(p=>({id:p.id,cards:p.cardPackRewards,openedAt:p.cardPackOpenedAt})),
@@ -2795,8 +2816,21 @@ async function handleApi(req, res, route) {
     if (!box) throw new HttpError(404, 'Baú Cobblemon não encontrado.');
     if (walletFor(user.id) < box.price) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const before = walletFor(user.id), reward = weightedCobblemonReward(box), createdAt = new Date().toISOString(); addCredits(user.id, -box.price);
-    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, name: reward.name, sellPrice: reward.sellPrice, status: 'decision-pending', createdAt };
+    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, rewardId: reward.id, name: reward.name, sprite: reward.sprite, sellPrice: reward.sellPrice, status: 'decision-pending', createdAt };
     db.economy.cobblemonDeliveries.push(delivery); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box', amount: -box.price, before, after: before - box.price, reason: box.name, createdAt });
+    await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
+  }
+  if (req.method === 'POST' && route === '/api/cobblemon/roulette/spin') {
+    const { user } = requireAuth(req); const now = Date.now();
+    const last = [...db.economy.cobblemonRouletteSpins].reverse().find((entry) => entry.userId === user.id);
+    if (last && now - Date.parse(last.createdAt) < COBBLEMON_ROULETTE.cooldownMs) throw new HttpError(409, 'Sua próxima rodada Cobblemon libera em ' + new Date(Date.parse(last.createdAt) + COBBLEMON_ROULETTE.cooldownMs).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) + '.');
+    if (walletFor(user.id) < COBBLEMON_ROULETTE.price) throw new HttpError(409, 'Créditos 51 insuficientes para girar.');
+    const before = walletFor(user.id), reward = weightedCobblemonReward(COBBLEMON_ROULETTE), createdAt = new Date(now).toISOString(); addCredits(user.id, -COBBLEMON_ROULETTE.price);
+    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: 'roulette', boxName: 'Roleta Cobblemon', rewardId: reward.id, name: reward.name, sprite: reward.sprite, sellPrice: reward.sellPrice, status: 'decision-pending', createdAt };
+    db.economy.cobblemonDeliveries.push(delivery);
+    db.economy.cobblemonRouletteSpins.push({ id: randomUUID(), userId: user.id, rewardId: reward.id, rewardName: reward.name, createdAt });
+    if (db.economy.cobblemonRouletteSpins.length > 1000) db.economy.cobblemonRouletteSpins = db.economy.cobblemonRouletteSpins.slice(-1000);
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-roulette', amount: -COBBLEMON_ROULETTE.price, before, after: before - COBBLEMON_ROULETTE.price, reason: 'Roleta Cobblemon', createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/reward/decision') {

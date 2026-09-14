@@ -2637,6 +2637,45 @@ function startShopPreview(itemId) {
 }
 
 let cobblemonDexPage = 0;
+const COBBLEMON_ITEM_SPRITES = {
+  poke: 'https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png', great: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', ancient: 'https://wiki.cobblemon.com/images/4/4e/Ancient_Poke_Ball.png', quick: 'https://wiki.cobblemon.com/images/b/be/Quick_Ball.png', ultra: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', candy: 'https://wiki.cobblemon.com/images/a/a2/Rare_Candy.png', capsule: 'https://wiki.cobblemon.com/images/9/90/Ability_Capsule.png', stone: 'https://wiki.cobblemon.com/images/6/63/Fire_Stone.png', cherish: 'https://wiki.cobblemon.com/images/c/c3/Cherish_Ball.png', master: 'https://wiki.cobblemon.com/images/e/ee/Master_Ball.png'
+};
+const COBBLEMON_BOX_CATALOG = {
+  trainer: { name: 'Carga de Treinador', price: 180, accent: 'basic', cover: COBBLEMON_ITEM_SPRITES.poke, rewards: [['Poké Ball ×64',COBBLEMON_ITEM_SPRITES.poke,55],['Great Ball ×64',COBBLEMON_ITEM_SPRITES.great,25],['Ancient Poké Ball ×32',COBBLEMON_ITEM_SPRITES.ancient,12],['Quick Ball ×16',COBBLEMON_ITEM_SPRITES.quick,8]] },
+  evolution: { name: 'Caixa das Pedras', price: 480, accent: 'rare', cover: COBBLEMON_ITEM_SPRITES.stone, rewards: [['Pedra evolutiva sortida ×4',COBBLEMON_ITEM_SPRITES.stone,52],['Rare Candy ×16',COBBLEMON_ITEM_SPRITES.candy,25],['Ultra Ball ×32',COBBLEMON_ITEM_SPRITES.ultra,15],['Ability Capsule',COBBLEMON_ITEM_SPRITES.capsule,8]] },
+  professor: { name: 'Relíquia do Professor', price: 1200, accent: 'legendary', cover: COBBLEMON_ITEM_SPRITES.master, rewards: [['Kit Ultra Ball ×64',COBBLEMON_ITEM_SPRITES.ultra,66],['Ability Capsule',COBBLEMON_ITEM_SPRITES.capsule,26],['Voucher Shiny definido',COBBLEMON_ITEM_SPRITES.cherish,7],['Voucher lendário definido',COBBLEMON_ITEM_SPRITES.master,1]] },
+};
+const COBBLEMON_ROULETTE_REWARDS = [['Poké Ball ×32',COBBLEMON_ITEM_SPRITES.poke,38],['Great Ball ×24',COBBLEMON_ITEM_SPRITES.great,27],['Quick Ball ×16',COBBLEMON_ITEM_SPRITES.quick,16],['Pedra evolutiva sortida ×2',COBBLEMON_ITEM_SPRITES.stone,10],['Ultra Ball ×16',COBBLEMON_ITEM_SPRITES.ultra,6],['Ability Capsule',COBBLEMON_ITEM_SPRITES.capsule,2],['Voucher Shiny definido',COBBLEMON_ITEM_SPRITES.cherish,.8],['Voucher lendário definido',COBBLEMON_ITEM_SPRITES.master,.2]];
+
+function cobblemonOddsCards(rewards) {
+  return rewards.map(([name,sprite,chance]) => `<article class="mystery-odds-card cobblemon-odds-card"><span><img src="${sprite}" alt=""></span><div><small>ITEM COBBLEMON</small><strong>${escapeHtml(name)}</strong><em>${Number(chance).toLocaleString('pt-BR',{maximumFractionDigits:1})}% de chance</em></div></article>`).join('');
+}
+
+function showCobblemonOdds(title, rewards, note) {
+  $('#cobblemonOddsContent').innerHTML = `<header><img src="${rewards[0][1]}" alt=""><div><small>CHANCES CONTROLADAS NO SERVIDOR</small><h3>${escapeHtml(title)}</h3></div></header><p>${escapeHtml(note)}</p><section class="mystery-odds-carousel" aria-label="Prêmios possíveis"><button type="button" class="mystery-odds-nav" data-box-carousel="prev" aria-label="Prêmio anterior">‹</button><div class="mystery-odds-viewport"><div class="mystery-odds-track">${cobblemonOddsCards(rewards)}</div></div><button type="button" class="mystery-odds-nav" data-box-carousel="next" aria-label="Próximo prêmio">›</button></section><footer>Os sprites dos itens vêm da Wiki Cobblemon. O resultado é definido no servidor e não pode ser alterado pelo navegador.</footer>`;
+  $('#cobblemonOddsDialog').showModal();
+}
+
+async function showCobblemonOpening(title, reward) {
+  const dialog = $('#cobblemonOpeningDialog'), track = $('#cobblemonCarouselTrack'), result = $('#cobblemonOpeningResult'), decision = $('#cobblemonOpeningDecision');
+  const pool = Object.values(COBBLEMON_BOX_CATALOG).flatMap((box) => box.rewards);
+  const selected = [reward.name, reward.sprite || COBBLEMON_ITEM_SPRITES.poke, 0]; const winningIndex = 27;
+  const entries = Array.from({length:32},(_,index) => index === winningIndex ? selected : pool[Math.floor(Math.random()*pool.length)]);
+  $('#cobblemonOpeningTitle').textContent = title; $('#cobblemonOpeningIcon').src = reward.sprite || COBBLEMON_ITEM_SPRITES.poke; $('#keepCobblemonReward').disabled = false; $('#sellCobblemonReward').disabled = false;
+  result.classList.remove('revealed'); result.innerHTML = '<span>◉</span><strong>Aguarde a roleta parar</strong>'; decision.classList.add('hidden');
+  track.innerHTML = entries.map(([name,sprite]) => `<article><span><img src="${sprite}" alt=""></span><strong>${escapeHtml(name)}</strong></article>`).join('');
+  track.style.transition = 'none'; track.style.transform = 'translateX(0)'; dialog.showModal(); await new Promise((resolve)=>setTimeout(resolve,80));
+  const itemWidth = 124, target = $('#cobblemonCarouselViewport').clientWidth/2-(winningIndex*itemWidth+itemWidth/2);
+  track.style.transition = 'transform 5.4s cubic-bezier(.04,.78,.04,1)'; track.style.transform = `translateX(${target}px)`; await new Promise((resolve)=>setTimeout(resolve,5500));
+  track.children[winningIndex]?.classList.add('winner'); result.innerHTML = `<span><img src="${reward.sprite || COBBLEMON_ITEM_SPRITES.poke}" alt=""></span><strong>Você recebeu ${escapeHtml(reward.name)}!</strong>`; result.classList.add('revealed');
+  $('#sellCobblemonReward').textContent = `Vender agora por ${Number(reward.sellPrice||0).toLocaleString('pt-BR')} créditos`; decision.classList.remove('hidden');
+  return await new Promise((resolve) => {
+    const decide = async (action, button) => { button.disabled = true; try { const data = await api('/api/cobblemon/reward/decision',{method:'POST',body:{id:reward.id,action}}); if(action==='sell') showToast(`${reward.name} vendido por ${Number(reward.sellPrice||0).toLocaleString('pt-BR')} créditos.`); else showToast('Prêmio enviado para a fila de entrega do Davi.'); dialog.close(); decision.classList.add('hidden'); resolve(data); } catch(error){showToast(error.message,'error');button.disabled=false;} };
+    $('#keepCobblemonReward').onclick = (event) => decide('keep',event.currentTarget);
+    $('#sellCobblemonReward').onclick = (event) => decide('sell',event.currentTarget);
+  });
+}
+
 function renderCobblemonDex(profile = {}) {
   const card = $('#cobblemonDexCard'); if (!card) return;
   const catalog = Array.isArray(window.AREA51_COBBLEMON_CATALOG) ? window.AREA51_COBBLEMON_CATALOG : [];
@@ -2644,7 +2683,11 @@ function renderCobblemonDex(profile = {}) {
   const caught = new Map(entries.map((entry) => [Number(entry.id), entry]));
   const deliveries = Array.isArray(profile.cobblemon?.deliveries) ? profile.cobblemon.deliveries : [];
   const canDeliverCobblemon = appState.me.role === 'admin' || /^davi\b/i.test(String(appState.me.displayName || ''));
-  $('#cobblemonRewards').innerHTML = deliveries.filter((entry) => entry.status !== 'sold').map((entry) => `<article class="cobblemon-reward-row"><p><strong>${escapeHtml(entry.userName || appState.me.displayName)} · ${escapeHtml(entry.name)}</strong><small>${entry.status === 'decision-pending' ? 'Escolha antes de enviar ao Davi' : entry.status === 'awaiting-delivery' ? 'Aguardando entrega do Davi' : 'Entregue'}</small></p>${entry.status === 'decision-pending' ? `<button data-cobblemon-decision="keep" data-id="${escapeHtml(entry.id)}">Ficar</button><button data-cobblemon-decision="sell" data-id="${escapeHtml(entry.id)}">Vender por ${Number(entry.sellPrice)}</button>` : canDeliverCobblemon && entry.status === 'awaiting-delivery' ? `<button data-cobblemon-delivered="${escapeHtml(entry.id)}">Marcar entregue</button>` : ''}</article>`).join('');
+  $('#cobblemonBoxShop').innerHTML = Object.entries(COBBLEMON_BOX_CATALOG).map(([id,box]) => `<article class="cobblemon-box-card ${box.accent}"><span><img src="${box.cover}" alt=""></span><p><small>${box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em><b>${Number(box.price).toLocaleString('pt-BR')}</b> Créditos 51</em></p><div><button data-cobblemon-box-odds="${id}">Ver prêmios</button><button data-cobblemon-box="${id}">Abrir agora</button></div></article>`).join('');
+  $('#cobblemonRewards').innerHTML = deliveries.filter((entry) => entry.status !== 'sold').map((entry) => `<article class="cobblemon-reward-row">${entry.sprite ? `<img src="${escapeHtml(entry.sprite)}" alt="">` : ''}<p><strong>${escapeHtml(entry.userName || appState.me.displayName)} · ${escapeHtml(entry.name)}</strong><small>${entry.status === 'decision-pending' ? 'Escolha antes de enviar ao Davi' : entry.status === 'awaiting-delivery' ? 'Aguardando entrega do Davi' : 'Entregue'}</small></p>${entry.status === 'decision-pending' ? `<button data-cobblemon-decision="keep" data-id="${escapeHtml(entry.id)}">Ficar</button><button data-cobblemon-decision="sell" data-id="${escapeHtml(entry.id)}">Vender por ${Number(entry.sellPrice)}</button>` : canDeliverCobblemon && entry.status === 'awaiting-delivery' ? `<button data-cobblemon-delivered="${escapeHtml(entry.id)}">Marcar entregue</button>` : ''}</article>`).join('');
+  const roulette = profile.cobblemon?.roulette || {}; const rouletteButton = $('#cobblemonRouletteSpin');
+  rouletteButton.disabled = !roulette.canSpin; rouletteButton.textContent = roulette.canSpin ? `Girar por ${Number(roulette.price||260).toLocaleString('pt-BR')}` : 'Roleta em recarga';
+  $('#cobblemonRouletteStatus').textContent = roulette.canSpin ? '✓ Disponível agora' : `Próximo giro: ${new Date(roulette.nextSpinAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
   const search = ($('#cobblemonDexSearch')?.value || '').trim().toLowerCase();
   const visible = catalog.filter((mon) => !search || mon.n.toLowerCase().includes(search) || String(mon.i) === search || mon.t.toLowerCase().includes(search));
   const pageSize = 24, pages = Math.max(1, Math.ceil(visible.length / pageSize)); cobblemonDexPage = Math.min(cobblemonDexPage, pages - 1);
@@ -4793,10 +4836,21 @@ document.addEventListener('keydown', notePortalActivity, { passive: true });
 window.addEventListener('online', () => { if (appState?.realtimeTransport === 'adaptive-poll') schedulePortalSync(0); });
 
 document.addEventListener('input', (event) => { if (event.target?.id === 'cobblemonDexSearch' && appState?.profile) { cobblemonDexPage = 0; renderCobblemonDex(appState.profile); } });
+$('#closeCobblemonOddsDialog')?.addEventListener('click', () => $('#cobblemonOddsDialog').close());
+$('#cobblemonOpeningDialog')?.addEventListener('cancel', (event) => event.preventDefault());
 document.addEventListener('click', async (event) => {
   if (event.target?.id === 'cobblemonDexPrev' || event.target?.id === 'cobblemonDexNext') { cobblemonDexPage += event.target.id.endsWith('Next') ? 1 : -1; renderCobblemonDex(appState.profile); return; }
+  const oddsButton = event.target?.closest?.('[data-cobblemon-box-odds]');
+  if (oddsButton) { const box = COBBLEMON_BOX_CATALOG[oddsButton.dataset.cobblemonBoxOdds]; if (box) showCobblemonOdds(box.name,box.rewards,'Veja todos os itens e a chance individual antes de abrir.'); return; }
+  if (event.target?.id === 'cobblemonRouletteOdds') { showCobblemonOdds('Roleta Cobblemon',COBBLEMON_ROULETTE_REWARDS,'Um giro por pessoa a cada 72 horas. Itens Shiny e lendários são deliberadamente excepcionais.'); return; }
+  if (event.target?.id === 'cobblemonRouletteSpin') {
+    const button = event.target; if (!confirm('Girar a Roleta Cobblemon por 260 Créditos 51? O próximo giro será liberado em 72 horas.')) return; button.disabled = true;
+    try { const data = await api('/api/cobblemon/roulette/spin',{method:'POST'}); const wheel = $('#cobblemonRouletteWheel'); wheel.classList.add('spinning'); await new Promise((resolve)=>setTimeout(resolve,3200)); wheel.classList.remove('spinning'); const decided = await showCobblemonOpening('Roleta Cobblemon',data.reward); appState.profile = decided.profile; renderProfileEconomy(appState.profile); }
+    catch(error){ showToast(error.message,'error'); renderCobblemonDex(appState.profile); }
+    return;
+  }
   const boxButton = event.target?.closest?.('[data-cobblemon-box]');
-  if (boxButton) { if (!confirm('Abrir este baú Cobblemon usando Créditos 51?')) return; boxButton.disabled = true; try { const data = await api('/api/cobblemon/box/open', { method: 'POST', body: JSON.stringify({ boxId: boxButton.dataset.cobblemonBox }) }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast('Baú revelou: ' + data.reward.name); } catch (error) { showToast(error.message); } finally { boxButton.disabled = false; } return; }
+  if (boxButton) { const box = COBBLEMON_BOX_CATALOG[boxButton.dataset.cobblemonBox]; if (!confirm(`Abrir “${box?.name || 'este baú'}” por ${Number(box?.price||0).toLocaleString('pt-BR')} Créditos 51?`)) return; boxButton.disabled = true; try { const data = await api('/api/cobblemon/box/open', { method: 'POST', body: { boxId: boxButton.dataset.cobblemonBox } }); const decided = await showCobblemonOpening(box?.name || 'Baú Cobblemon',data.reward); appState.profile = decided.profile; renderProfileEconomy(appState.profile); } catch (error) { showToast(error.message,'error'); } finally { boxButton.disabled = false; } return; }
   const decision = event.target?.closest?.('[data-cobblemon-decision]');
   if (decision) { try { const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: JSON.stringify({ id: decision.dataset.id, action: decision.dataset.cobblemonDecision }) }); appState.profile = data.profile; renderProfileEconomy(appState.profile); } catch (error) { showToast(error.message); } return; }
   const delivered = event.target?.closest?.('[data-cobblemon-delivered]');
