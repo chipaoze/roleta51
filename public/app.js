@@ -43,6 +43,7 @@ let adminFeedbackFilter = 'pending';
 let knownReleaseVersion = null;
 let updatePromptOpen = false;
 let navigationFrame = null;
+let visiblePortalPage = null;
 let shopPreviewItemId = null;
 let shopPreviewTimer = null;
 let shopPreviewInterval = null;
@@ -1357,14 +1358,17 @@ function showPortalPage(page, pushState = false, resetScroll = true) {
   });
   if (pushState) history.pushState({ page }, '', '?pagina=' + encodeURIComponent(page));
   else if (currentPortalPage() !== page) history.replaceState({ page }, '', '?pagina=' + encodeURIComponent(page));
+  visiblePortalPage = page;
   if (resetScroll) window.scrollTo({ top: 0, behavior: pushState ? 'smooth' : 'auto' });
   updateCobblemonHuntSector(page);
-  if (appState && !renderingActivePortalPage) renderActivePortalPage(appState);
+  if (appState && !renderingActivePortalPage && renderedPortalPage !== page) renderActivePortalPage(appState);
 }
 
 function updateActiveNavigation() {
   navigationFrame = null;
   if (!appState) return;
+  const page = currentPortalPage();
+  if (visiblePortalPage === page) return;
   showPortalPage(currentPortalPage(), false, false);
 }
 
@@ -3172,6 +3176,7 @@ function renderAnnouncement(announcement) {
 }
 
 let renderingActivePortalPage = false;
+let renderedPortalPage = null;
 function optimizeRenderedImages() {
   $$('img').forEach((image) => {
     if (!image.closest('header, nav, .topbar')) image.loading = 'lazy';
@@ -3201,7 +3206,10 @@ function renderActivePortalPage(data = appState) {
     else if (page === 'jogos') renderCasino(data.casino);
     else if (page === 'admin') renderAdmin();
     optimizeRenderedImages();
-  } finally { renderingActivePortalPage = false; }
+  } finally {
+    renderedPortalPage = currentPortalPage();
+    renderingActivePortalPage = false;
+  }
 }
 
 async function acknowledgeAnnouncement() {
