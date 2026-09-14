@@ -2661,8 +2661,9 @@ function showCobblemonOdds(title, rewards, note) {
   $('#cobblemonOddsDialog').showModal();
 }
 
-async function showCobblemonOpening(title, reward) {
-  const dialog = $('#cobblemonOpeningDialog'), track = $('#cobblemonCarouselTrack'), result = $('#cobblemonOpeningResult'), decision = $('#cobblemonOpeningDecision');
+async function showCobblemonOpening(title, reward, options = {}) {
+  const dialog = $('#cobblemonOpeningDialog'), viewport = $('#cobblemonCarouselViewport'), track = $('#cobblemonCarouselTrack'), result = $('#cobblemonOpeningResult'), decision = $('#cobblemonOpeningDecision');
+  const skipCarousel = Boolean(options.skipCarousel);
   cobblemonOpeningLocked = true;
   const pokemonOnly = Boolean(reward.pokemonId) || reward.boxId === 'pokemon';
   const pokemonCatalog = Array.isArray(window.AREA51_COBBLEMON_CATALOG) ? window.AREA51_COBBLEMON_CATALOG : [];
@@ -2671,14 +2672,19 @@ async function showCobblemonOpening(title, reward) {
   const pool = pokemonOnly && pokemonPool.length ? pokemonPool : itemPool;
   const selected = [reward.name, reward.noPrize ? '' : (reward.sprite || COBBLEMON_ITEM_SPRITES.poke), 0]; const winningIndex = 27;
   const entries = Array.from({length:32},(_,index) => index === winningIndex ? selected : pool[Math.floor(Math.random()*pool.length)]);
-  $('#cobblemonOpeningTitle').textContent = title; $('#cobblemonOpeningIcon').src = '/capture-ball-cobblemon.png'; $('#keepCobblemonReward').disabled = false; $('#sellCobblemonReward').disabled = false;
+  viewport.classList.toggle('hidden', skipCarousel);
+  $('#cobblemonOpeningTitle').textContent = title; $('#cobblemonOpeningIcon').src = skipCarousel ? (reward.sprite || COBBLEMON_ITEM_SPRITES.poke) : '/capture-ball-cobblemon.png'; $('#keepCobblemonReward').disabled = false; $('#sellCobblemonReward').disabled = false;
   result.classList.remove('revealed'); result.innerHTML = '<span>◉</span><strong>Aguarde a roleta parar</strong>'; decision.classList.add('hidden');
   track.innerHTML = entries.map(([name,sprite]) => `<article><span>${sprite ? `<img src="${sprite}" alt="">` : '<b class="roulette-loss">×</b>'}</span><strong>${escapeHtml(name)}</strong></article>`).join('');
-  track.style.transition = 'none'; track.style.transform = 'translateX(0)'; dialog.showModal(); await new Promise((resolve)=>setTimeout(resolve,80));
-  const itemWidth = 124, target = $('#cobblemonCarouselViewport').clientWidth/2-(winningIndex*itemWidth+itemWidth/2);
-  track.style.transition = 'transform 5.4s cubic-bezier(.04,.78,.04,1)'; track.style.transform = `translateX(${target}px)`; await new Promise((resolve)=>setTimeout(resolve,5500));
-  $('#cobblemonOpeningIcon').src = reward.sprite || COBBLEMON_ITEM_SPRITES.poke;
-  track.children[winningIndex]?.classList.add('winner'); result.innerHTML = `<span>${reward.noPrize ? '<b class="roulette-loss">×</b>' : `<img src="${reward.sprite || COBBLEMON_ITEM_SPRITES.poke}" alt="">`}</span><strong>${reward.noPrize ? 'Não foi desta vez!' : 'Você recebeu ' + escapeHtml(reward.name) + '!'}</strong>`; result.classList.add('revealed');
+  track.style.transition = 'none'; track.style.transform = 'translateX(0)'; dialog.showModal();
+  if (!skipCarousel) {
+    await new Promise((resolve)=>setTimeout(resolve,80));
+    const itemWidth = 124, target = viewport.clientWidth/2-(winningIndex*itemWidth+itemWidth/2);
+    track.style.transition = 'transform 5.4s cubic-bezier(.04,.78,.04,1)'; track.style.transform = `translateX(${target}px)`; await new Promise((resolve)=>setTimeout(resolve,5500));
+    $('#cobblemonOpeningIcon').src = reward.sprite || COBBLEMON_ITEM_SPRITES.poke;
+    track.children[winningIndex]?.classList.add('winner');
+  }
+  result.innerHTML = `<span>${reward.noPrize ? '<b class="roulette-loss">×</b>' : `<img src="${reward.sprite || COBBLEMON_ITEM_SPRITES.poke}" alt="">`}</span><strong>${reward.noPrize ? 'Não foi desta vez!' : 'Você recebeu ' + escapeHtml(reward.name) + '!'}</strong>`; result.classList.add('revealed');
   const keepButton = $('#keepCobblemonReward'), sellButton = $('#sellCobblemonReward');
   keepButton.textContent = reward.noPrize ? 'Fechar' : reward.forceDelivery ? 'Entendi · aguardar entrega' : 'Ficar com o prêmio'; sellButton.classList.toggle('hidden', Boolean(reward.noPrize || reward.forceDelivery));
   decision.querySelector('p').textContent = reward.noPrize ? 'A casa de perda foi sorteada. O giro foi consumido e nenhum item entrou na fila de entrega.' : reward.forceDelivery ? 'Este Pokémon já entrou na fila de entrega do Davi e não pode ser vendido por créditos.' : 'Escolha agora: manter envia para a fila de entrega; vender devolve parte dos Créditos 51.';
@@ -5098,7 +5104,7 @@ document.addEventListener('click', async (event) => {
   }
   if (event.target?.id === 'cobblemonRouletteSpin') {
     const button = event.target; if (!confirm('Girar a Roleta Cobblemon por 260 Créditos 51? O próximo giro será liberado amanhã.')) return; button.disabled = true;
-    try { const data = await api('/api/cobblemon/roulette/spin',{method:'POST'}); const wheel = $('#cobblemonRouletteWheel'); const rewardIndex = Math.max(0, COBBLEMON_ROULETTE_REWARDS.findIndex(([name]) => name === data.reward.name)); wheel.classList.remove('spinning'); wheel.style.setProperty('--roulette-stop-angle', `${rewardIndex * (360 / COBBLEMON_ROULETTE_REWARDS.length)}deg`); void wheel.offsetWidth; wheel.classList.add('spinning'); await new Promise((resolve)=>setTimeout(resolve,3200)); const decided = await showCobblemonOpening('Roleta Cobblemon',{...data.reward,profile:data.profile}); wheel.classList.remove('spinning'); appState.profile = decided.profile; renderProfileEconomy(appState.profile); }
+    try { const data = await api('/api/cobblemon/roulette/spin',{method:'POST'}); const wheel = $('#cobblemonRouletteWheel'); const rewardIndex = Math.max(0, COBBLEMON_ROULETTE_REWARDS.findIndex(([name]) => name === data.reward.name)); wheel.classList.remove('spinning'); wheel.style.setProperty('--roulette-stop-angle', `${rewardIndex * (360 / COBBLEMON_ROULETTE_REWARDS.length)}deg`); void wheel.offsetWidth; wheel.classList.add('spinning'); await new Promise((resolve)=>setTimeout(resolve,3200)); const decided = await showCobblemonOpening('Resultado da Roleta Cobblemon',{...data.reward,profile:data.profile},{skipCarousel:true}); wheel.classList.remove('spinning'); appState.profile = decided.profile; renderProfileEconomy(appState.profile); }
     catch(error){ showToast(error.message,'error'); renderCobblemonDex(appState.profile); }
     return;
   }
