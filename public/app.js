@@ -2705,18 +2705,21 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonCaptureButton').classList.toggle('hidden', !viewingMine);
   const deliveries = Array.isArray(profile.cobblemon?.deliveries) ? profile.cobblemon.deliveries : [];
   const canDeliverCobblemon = appState.me.role === 'admin' || /^davi\b/i.test(String(appState.me.displayName || ''));
-  const monthlyBox = profile.cobblemon?.monthlyPokemonBox || { canOpen: true, price: 900 };
+  const monthlyBox = profile.cobblemon?.monthlyPokemonBox || { canPurchase: true, canOpen: false, price: 900 };
   $('#cobblemonBoxShop').innerHTML = Object.entries(COBBLEMON_BOX_CATALOG).map(([id,box]) => {
-    const locked = box.monthly && !monthlyBox.canOpen;
-    const actionLabel = locked ? `Disponível em ${new Date(monthlyBox.nextOpenAt).toLocaleDateString('pt-BR',{month:'long'})}` : box.monthly ? 'Abrir baú mensal' : 'Abrir agora';
-    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? '1 VEZ POR MÊS · ENTREGA DIRETA' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em><b>${Number(box.price).toLocaleString('pt-BR')}</b> Créditos 51</em></p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}"${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button></div></article>`;
+    const readyToOpen = box.monthly && monthlyBox.canOpen;
+    const locked = box.monthly && !monthlyBox.canPurchase && !readyToOpen;
+    const actionLabel = readyToOpen ? 'Abrir baú' : locked ? `Disponível em ${new Date(monthlyBox.nextOpenAt).toLocaleDateString('pt-BR',{month:'long'})}` : box.monthly ? 'Comprar baú' : 'Abrir agora';
+    const priceLabel = readyToOpen ? '<b>COMPRADO</b> · pronto para abrir' : `<b>${Number(box.price).toLocaleString('pt-BR')}</b> Créditos 51`;
+    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? '1 VEZ POR MÊS · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em>${priceLabel}</em></p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button></div></article>`;
   }).join('');
-  $('#cobblemonRewards').innerHTML = deliveries.filter((entry) => entry.status !== 'sold').map((entry) => `<article class="cobblemon-reward-row">${entry.sprite ? `<img src="${escapeHtml(entry.sprite)}" alt="">` : ''}<p><strong>${escapeHtml(entry.userName || appState.me.displayName)} · ${escapeHtml(entry.name)}</strong><small>${entry.status === 'decision-pending' ? 'Escolha antes de enviar ao Davi' : entry.status === 'awaiting-delivery' ? 'Aguardando entrega do Davi' : 'Entregue'}</small></p>${entry.status === 'decision-pending' ? `<button data-cobblemon-decision="keep" data-id="${escapeHtml(entry.id)}">Ficar</button><button data-cobblemon-decision="sell" data-id="${escapeHtml(entry.id)}">Vender por ${Number(entry.sellPrice)}</button>` : canDeliverCobblemon && entry.status === 'awaiting-delivery' ? `<button data-cobblemon-delivered="${escapeHtml(entry.id)}">Marcar entregue</button>` : ''}</article>`).join('');
+  const visibleDeliveries = deliveries.filter((entry) => entry.status !== 'sold' && entry.status !== 'box-closed');
+  $('#cobblemonRewards').innerHTML = visibleDeliveries.map((entry) => `<article class="cobblemon-reward-row">${entry.sprite ? `<img src="${escapeHtml(entry.sprite)}" alt="">` : ''}<p><strong>${escapeHtml(entry.userName || appState.me.displayName)} · ${escapeHtml(entry.name)}</strong><small>${entry.status === 'decision-pending' ? 'Escolha: vender ou receber no servidor' : entry.status === 'awaiting-delivery' ? 'Aguardando entrega do Davi' : 'Entregue'}</small></p>${entry.status === 'decision-pending' ? `<button data-cobblemon-decision="keep" data-id="${escapeHtml(entry.id)}">Receber no servidor</button><button data-cobblemon-decision="sell" data-id="${escapeHtml(entry.id)}">Vender por ${Number(entry.sellPrice)}</button>` : canDeliverCobblemon && entry.status === 'awaiting-delivery' ? `<button data-cobblemon-delivered="${escapeHtml(entry.id)}">Marcar entregue</button>` : ''}</article>`).join('');
   const pendingDeliveries = deliveries.filter((entry) => entry.status === 'awaiting-delivery');
   $('#cobblemonDeliveryKicker').textContent = canDeliverCobblemon ? 'PAINEL DE ENTREGA · TODA A EQUIPE' : 'MEUS PEDIDOS';
   $('#cobblemonDeliveryHelp').textContent = canDeliverCobblemon ? 'Davi e administradores podem confirmar aqui a entrega dos itens mantidos por qualquer participante.' : 'Acompanhe aqui os itens que você decidiu manter e aguarde a confirmação do Davi.';
   $('#cobblemonDeliveryCount').textContent = pendingDeliveries.length + (pendingDeliveries.length === 1 ? ' pendente' : ' pendentes');
-  if (!deliveries.filter((entry) => entry.status !== 'sold').length) $('#cobblemonRewards').innerHTML = '<p class="cobblemon-delivery-empty">Nenhuma recompensa aguardando decisão ou entrega.</p>';
+  if (!visibleDeliveries.length) $('#cobblemonRewards').innerHTML = '<p class="cobblemon-delivery-empty">Nenhuma recompensa aguardando decisão ou entrega.</p>';
   const roulette = profile.cobblemon?.roulette || {}; const rouletteButton = $('#cobblemonRouletteSpin');
   $('#cobblemonRouletteCard .cobblemon-roulette-copy>small').textContent = 'RODADA ESPECIAL · 1 VEZ POR DIA';
   const rouletteWheel = $('#cobblemonRouletteWheel');
@@ -5095,7 +5098,25 @@ document.addEventListener('click', async (event) => {
     return;
   }
   const boxButton = event.target?.closest?.('[data-cobblemon-box]');
-  if (boxButton) { const box = COBBLEMON_BOX_CATALOG[boxButton.dataset.cobblemonBox]; if (!confirm(`Abrir “${box?.name || 'este baú'}” por ${Number(box?.price||0).toLocaleString('pt-BR')} Créditos 51?`)) return; boxButton.disabled = true; try { const data = await api('/api/cobblemon/box/open', { method: 'POST', body: { boxId: boxButton.dataset.cobblemonBox } }); const decided = await showCobblemonOpening(box?.name || 'Baú Cobblemon',data.reward); appState.profile = decided.profile; renderProfileEconomy(appState.profile); } catch (error) { showToast(error.message,'error'); } finally { boxButton.disabled = false; } return; }
+  if (boxButton) {
+    const boxId = boxButton.dataset.cobblemonBox, box = COBBLEMON_BOX_CATALOG[boxId], mode = boxButton.dataset.cobblemonBoxMode || 'open';
+    const prompt = mode === 'purchase' ? `Comprar “${box?.name || 'este baú'}” fechado por ${Number(box?.price||0).toLocaleString('pt-BR')} Créditos 51? Você poderá abri-lo depois.` : box?.monthly ? `Abrir “${box.name}” agora? O prêmio será exclusivamente um Pokémon.` : `Abrir “${box?.name || 'este baú'}” por ${Number(box?.price||0).toLocaleString('pt-BR')} Créditos 51?`;
+    if (!confirm(prompt)) return;
+    boxButton.disabled = true;
+    try {
+      if (mode === 'purchase') {
+        const data = await api('/api/cobblemon/box/purchase', { method: 'POST', body: { boxId } });
+        appState.profile = data.profile; renderProfileEconomy(appState.profile);
+        showToast('Cápsula comprada! Ela continua fechada até você clicar em “Abrir baú”.');
+      } else {
+        const data = await api('/api/cobblemon/box/open', { method: 'POST', body: { boxId, inventoryId: boxButton.dataset.cobblemonBoxInventory || null } });
+        const decided = await showCobblemonOpening(box?.name || 'Baú Cobblemon', data.reward);
+        appState.profile = decided.profile; renderProfileEconomy(appState.profile);
+      }
+    } catch (error) { showToast(error.message,'error'); renderCobblemonDex(appState.profile); }
+    finally { boxButton.disabled = false; }
+    return;
+  }
   const decision = event.target?.closest?.('[data-cobblemon-decision]');
   if (decision) { try { const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: JSON.stringify({ id: decision.dataset.id, action: decision.dataset.cobblemonDecision }) }); appState.profile = data.profile; renderProfileEconomy(appState.profile); } catch (error) { showToast(error.message); } return; }
   const delivered = event.target?.closest?.('[data-cobblemon-delivered]');
