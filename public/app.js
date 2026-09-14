@@ -44,6 +44,7 @@ let knownReleaseVersion = null;
 let updatePromptOpen = false;
 let navigationFrame = null;
 let visiblePortalPage = null;
+let portalRenderRequest = 0;
 let shopPreviewItemId = null;
 let shopPreviewTimer = null;
 let shopPreviewInterval = null;
@@ -1359,9 +1360,17 @@ function showPortalPage(page, pushState = false, resetScroll = true) {
   if (pushState) history.pushState({ page }, '', '?pagina=' + encodeURIComponent(page));
   else if (currentPortalPage() !== page) history.replaceState({ page }, '', '?pagina=' + encodeURIComponent(page));
   visiblePortalPage = page;
-  if (resetScroll) window.scrollTo({ top: 0, behavior: pushState ? 'smooth' : 'auto' });
+  // Trocas de aba devem ser imediatas; animação suave aqui prendia a navegação
+  // no scroll da página anterior por vários segundos.
+  if (resetScroll) window.scrollTo({ top: 0, behavior: 'auto' });
   updateCobblemonHuntSector(page);
-  if (appState && !renderingActivePortalPage && renderedPortalPage !== page) renderActivePortalPage(appState);
+  if (appState && !renderingActivePortalPage && renderedPortalPage !== page) {
+    const requestId = ++portalRenderRequest;
+    setTimeout(() => {
+      if (requestId !== portalRenderRequest || currentPortalPage() !== page || renderedPortalPage === page) return;
+      renderActivePortalPage(appState);
+    }, 0);
+  }
 }
 
 function updateActiveNavigation() {
