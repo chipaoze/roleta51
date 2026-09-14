@@ -766,7 +766,13 @@ function startCobblemonCaptureThrow() {
   let generation = 0;
   let wildTarget = null;
   // Todas as criaturas da captura usam versões com margem transparente para nunca recortar no efeito.
-  const creatures = ['/cobble-creature-electric-v2.png', '/cobble-creature-fire-v2.png', '/cobble-creature-water-v2.png', '/cobble-creature-leaf-complete.png'];
+  const creatures = [
+    'https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp',
+    'https://cobbledex.b-cdn.net/3dmons/previews/large/4.webp',
+    'https://cobbledex.b-cdn.net/3dmons/previews/large/7.webp',
+    'https://cobbledex.b-cdn.net/3dmons/previews/large/133.webp',
+    'https://cobbledex.b-cdn.net/3dmons/previews/large/403.webp',
+  ];
   const isActive = () => document.documentElement.dataset.activeCursor === 'cobblemon';
   const place = (point, scale = 1) => `translate3d(${point.x - 32}px,${point.y - 32}px,0) scale(${scale})`;
   const effectHost = () => document.querySelector('dialog[open]') || document.body;
@@ -2630,7 +2636,26 @@ function startShopPreview(itemId) {
   showToast('Teste iniciado por 20 segundos. Nenhum crédito foi cobrado.');
 }
 
+let cobblemonDexPage = 0;
+function renderCobblemonDex(profile = {}) {
+  const card = $('#cobblemonDexCard'); if (!card) return;
+  const catalog = Array.isArray(window.AREA51_COBBLEMON_CATALOG) ? window.AREA51_COBBLEMON_CATALOG : [];
+  const entries = Array.isArray(profile.cobblemon?.caught) ? profile.cobblemon.caught : [];
+  const caught = new Map(entries.map((entry) => [Number(entry.id), entry]));
+  const deliveries = Array.isArray(profile.cobblemon?.deliveries) ? profile.cobblemon.deliveries : [];
+  const canDeliverCobblemon = appState.me.role === 'admin' || /^davi\b/i.test(String(appState.me.displayName || ''));
+  $('#cobblemonRewards').innerHTML = deliveries.filter((entry) => entry.status !== 'sold').map((entry) => `<article class="cobblemon-reward-row"><p><strong>${escapeHtml(entry.userName || appState.me.displayName)} · ${escapeHtml(entry.name)}</strong><small>${entry.status === 'decision-pending' ? 'Escolha antes de enviar ao Davi' : entry.status === 'awaiting-delivery' ? 'Aguardando entrega do Davi' : 'Entregue'}</small></p>${entry.status === 'decision-pending' ? `<button data-cobblemon-decision="keep" data-id="${escapeHtml(entry.id)}">Ficar</button><button data-cobblemon-decision="sell" data-id="${escapeHtml(entry.id)}">Vender por ${Number(entry.sellPrice)}</button>` : canDeliverCobblemon && entry.status === 'awaiting-delivery' ? `<button data-cobblemon-delivered="${escapeHtml(entry.id)}">Marcar entregue</button>` : ''}</article>`).join('');
+  const search = ($('#cobblemonDexSearch')?.value || '').trim().toLowerCase();
+  const visible = catalog.filter((mon) => !search || mon.n.toLowerCase().includes(search) || String(mon.i) === search || mon.t.toLowerCase().includes(search));
+  const pageSize = 24, pages = Math.max(1, Math.ceil(visible.length / pageSize)); cobblemonDexPage = Math.min(cobblemonDexPage, pages - 1);
+  $('#cobblemonDexProgress').textContent = caught.size + ' / ' + (profile.cobblemon?.total || catalog.length);
+  $('#cobblemonDexPage').textContent = 'Página ' + (cobblemonDexPage + 1) + ' de ' + pages;
+  $('#cobblemonDexPrev').disabled = cobblemonDexPage === 0; $('#cobblemonDexNext').disabled = cobblemonDexPage >= pages - 1;
+  $('#cobblemonDexGrid').innerHTML = visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}"><img loading="lazy" src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.i)}.webp" alt="${owned ? escapeHtml(mon.n) : 'Silhueta'}"><p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? 'força ' + Number(owned.tier || 1) : '?'}</em></article>`; }).join('');
+}
+
 function renderProfileEconomy(profile = {}) {
+  renderCobblemonDex(profile);
   renderVisualTrading(appState.trading || {});
   renderCardAlbum(appState.cardAlbum);
   const albumBadge=appState.cardAlbum?.collections?.find(c=>c.id===appState.cardAlbum.equipped && c.craftedAt);
@@ -4766,3 +4791,23 @@ document.addEventListener('pointermove', notePortalActivity, { passive: true });
 document.addEventListener('pointerdown', notePortalActivity, { passive: true });
 document.addEventListener('keydown', notePortalActivity, { passive: true });
 window.addEventListener('online', () => { if (appState?.realtimeTransport === 'adaptive-poll') schedulePortalSync(0); });
+
+document.addEventListener('input', (event) => { if (event.target?.id === 'cobblemonDexSearch' && appState?.profile) { cobblemonDexPage = 0; renderCobblemonDex(appState.profile); } });
+document.addEventListener('click', async (event) => {
+  if (event.target?.id === 'cobblemonDexPrev' || event.target?.id === 'cobblemonDexNext') { cobblemonDexPage += event.target.id.endsWith('Next') ? 1 : -1; renderCobblemonDex(appState.profile); return; }
+  const boxButton = event.target?.closest?.('[data-cobblemon-box]');
+  if (boxButton) { if (!confirm('Abrir este baú Cobblemon usando Créditos 51?')) return; boxButton.disabled = true; try { const data = await api('/api/cobblemon/box/open', { method: 'POST', body: JSON.stringify({ boxId: boxButton.dataset.cobblemonBox }) }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast('Baú revelou: ' + data.reward.name); } catch (error) { showToast(error.message); } finally { boxButton.disabled = false; } return; }
+  const decision = event.target?.closest?.('[data-cobblemon-decision]');
+  if (decision) { try { const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: JSON.stringify({ id: decision.dataset.id, action: decision.dataset.cobblemonDecision }) }); appState.profile = data.profile; renderProfileEconomy(appState.profile); } catch (error) { showToast(error.message); } return; }
+  const delivered = event.target?.closest?.('[data-cobblemon-delivered]');
+  if (delivered) { try { applyState(await api('/api/admin/cobblemon/delivered', { method: 'POST', body: JSON.stringify({ id: delivered.dataset.cobblemonDelivered }) })); } catch (error) { showToast(error.message); } return; }
+  if (event.target?.id !== 'cobblemonCaptureButton') return;
+  const button = event.target; button.disabled = true; $('#cobblemonCaptureResult').textContent = 'Uma Poké Ball foi lançada…';
+  try {
+    const data = await api('/api/cobblemon/capture', { method: 'POST' });
+    appState.profile = data.profile;
+    const mon = data.pokemon;
+    $('#cobblemonCaptureResult').innerHTML = `<span><img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.id)}.webp" alt="" style="width:42px;height:42px;object-fit:contain;vertical-align:middle"> ${data.captured ? '✓ ' + escapeHtml(mon.name) + ' foi capturado!' : escapeHtml(mon.name) + ' escapou da Poké Ball.'}</span>`;
+    renderCobblemonDex(appState.profile);
+  } catch (error) { showToast(error.message); $('#cobblemonCaptureResult').textContent = error.message; } finally { button.disabled = false; }
+});

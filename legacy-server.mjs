@@ -2,6 +2,7 @@ import path from 'node:path';
 import { FLIGHT_STEP_MS, flightStepMs, flightMultiplier, settleFlight } from './lib/flight-engine.mjs';
 import { CARD_COLLECTIONS, CARD_PACK_RULES, albumFor, updateAlbum, awardEngagementCard, updateCardTrade, openCardPack } from './lib/card-album.mjs';
 import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
+import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
 const SESSION_TTL = 12 * 60 * 60 * 1000;
@@ -318,6 +319,8 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.casinoPlays)) { db.economy.casinoPlays = []; changed = true; }
   if (!db.economy.casinoAccounts || typeof db.economy.casinoAccounts !== 'object') { db.economy.casinoAccounts = {}; changed = true; }
   if (!Array.isArray(db.economy.mysteryBoxes)) { db.economy.mysteryBoxes = []; changed = true; }
+  if (!db.economy.cobblemonDex || typeof db.economy.cobblemonDex !== 'object') { db.economy.cobblemonDex = {}; changed = true; }
+  if (!Array.isArray(db.economy.cobblemonDeliveries)) { db.economy.cobblemonDeliveries = []; changed = true; }
   if (!Array.isArray(db.economy.scoreTrades)) { db.economy.scoreTrades = []; changed = true; }
   if (!Array.isArray(db.economy.loans)) { db.economy.loans = []; changed = true; }
   if (!Array.isArray(db.economy.flights)) { db.economy.flights = []; changed = true; }
@@ -576,6 +579,17 @@ const CASINO_WHEEL_OUTCOMES = [
   0, .5, 1, 1.5, 'box-sonda', .5, 1, 2, 1.5, .5, 0, 1, 3, 1.5, 'box-cosmic', 0, 1, 2, 1.5, 1,
   0, .5, 'box-sonda', 1.5, 0, .5, 1, 'box-area51', 1.5, .5, 0, 1, 3, 'box-cosmic', .5, 0, 1, 2, 'box-sonda', 1,
 ];
+
+const COBBLEMON_BOXES = {
+  trainer: { name: 'Carga de Treinador', price: 180, rewards: [{ name: 'Poké Ball ×64', sellPrice: 55, weight: 55 }, { name: 'Great Ball ×64', sellPrice: 80, weight: 25 }, { name: 'Ancient Poké Ball ×32', sellPrice: 95, weight: 12 }, { name: 'Item de invocação comum', sellPrice: 120, weight: 8 }] },
+  evolution: { name: 'Caixa das Pedras', price: 480, rewards: [{ name: 'Pedra evolutiva ×4', sellPrice: 140, weight: 52 }, { name: 'Rare Candy ×16', sellPrice: 180, weight: 25 }, { name: 'Ultra Ball ×32', sellPrice: 210, weight: 15 }, { name: 'Item de invocação de bioma', sellPrice: 260, weight: 8 }] },
+  professor: { name: 'Relíquia do Professor', price: 1200, rewards: [{ name: 'Kit Ultra Ball ×64', sellPrice: 330, weight: 55 }, { name: 'Ability Capsule', sellPrice: 420, weight: 27 }, { name: 'Voucher Shiny definido', sellPrice: 620, weight: 15 }, { name: 'Voucher lendário definido', sellPrice: 850, weight: 3 }] },
+};
+
+function weightedCobblemonReward(box) {
+  let roll = Math.random() * box.rewards.reduce((sum, entry) => sum + entry.weight, 0);
+  return box.rewards.find((entry) => ((roll -= entry.weight) <= 0)) || box.rewards[0];
+}
 
 const WEEKLY_MISSIONS = [
   { type: 'hydration_goal', title: 'Hidratação orbital', description: 'Alcance a meta de 2,5 L em 1 dia desta semana.', target: 1, reward: 60, icon: '💧' },
@@ -1421,6 +1435,11 @@ function profileFor(user, computed = {}) {
   const showcaseSelected = savedShowcase.map((id) => showcaseOptions.find((item) => item.id === id)).filter(Boolean);
   return {
     wallet: walletFor(user.id), equipped,
+    cobblemon: {
+      caught: Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : [],
+      total: COBBLEMON_CATALOG.length,
+      deliveries: db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id || user.role === 'admin' || /^davi\b/i.test(String(user.displayName || ''))).slice(-30).reverse(),
+    },
     cardPacks: db.economy.purchases.filter(p=>p.userId===user.id && CARD_PACK_RULES[p.itemId] && !p.cardPackOpenedAt).map(p=>{const item=SHOP_CATALOG.find(entry=>entry.id===p.itemId);return {id:p.id,itemId:p.itemId,name:item?.name || 'Pacotinho',icon:item?.icon || '🎴',rareChance:Math.round(CARD_PACK_RULES[p.itemId].rareChance*100),value:item?.value || 'cosmic'};}),
     openedCardPacks: db.economy.purchases.filter(p=>p.userId===user.id && p.cardPackOpenedAt).slice(-3).reverse().map(p=>({id:p.id,cards:p.cardPackRewards,openedAt:p.cardPackOpenedAt})),
     physicalPrizes: physicalKitClaim() && (physicalKitClaim().userId === user.id || user.role === 'admin') ? [{ ...physicalKitClaim(), winnerName: db.users.find(entry => entry.id === physicalKitClaim().userId)?.displayName || 'Participante' }] : [],
@@ -2769,6 +2788,46 @@ async function handleApi(req, res, route) {
     settleSeasonalChallenges();
     if (db.waterEntries.length > 10000) db.waterEntries = db.waterEntries.slice(-10000);
     await persist(); broadcastRefresh('hydration'); json(res, 201, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/cobblemon/box/open') {
+    const { user } = requireAuth(req); const body = await readJson(req); const box = COBBLEMON_BOXES[body.boxId];
+    if (!box) throw new HttpError(404, 'Baú Cobblemon não encontrado.');
+    if (walletFor(user.id) < box.price) throw new HttpError(409, 'Créditos 51 insuficientes.');
+    const before = walletFor(user.id), reward = weightedCobblemonReward(box), createdAt = new Date().toISOString(); addCredits(user.id, -box.price);
+    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, name: reward.name, sellPrice: reward.sellPrice, status: 'decision-pending', createdAt };
+    db.economy.cobblemonDeliveries.push(delivery); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box', amount: -box.price, before, after: before - box.price, reason: box.name, createdAt });
+    await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
+  }
+  if (req.method === 'POST' && route === '/api/cobblemon/reward/decision') {
+    const { user } = requireAuth(req); const body = await readJson(req); const reward = db.economy.cobblemonDeliveries.find((entry) => entry.id === body.id && entry.userId === user.id && entry.status === 'decision-pending');
+    if (!reward) throw new HttpError(404, 'Este prêmio já teve sua decisão concluída.');
+    if (body.action === 'sell') { const before = walletFor(user.id); addCredits(user.id, reward.sellPrice); reward.status = 'sold'; reward.decidedAt = new Date().toISOString(); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-sale', amount: reward.sellPrice, before, after: before + reward.sellPrice, reason: 'Venda de ' + reward.name, createdAt: reward.decidedAt }); }
+    else { reward.status = 'awaiting-delivery'; reward.decidedAt = new Date().toISOString(); }
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
+  }
+  if (req.method === 'POST' && route === '/api/admin/cobblemon/delivered') {
+    const { user } = requireAuth(req); if (user.role !== 'admin' && !/^davi\b/i.test(String(user.displayName || ''))) throw new HttpError(403, 'Apenas Davi ou administradores.'); const body = await readJson(req); const reward = db.economy.cobblemonDeliveries.find((entry) => entry.id === body.id && entry.status === 'awaiting-delivery');
+    if (!reward) throw new HttpError(404, 'Entrega pendente não encontrada.'); reward.status = 'delivered'; reward.deliveredAt = new Date().toISOString(); reward.deliveredBy = user.displayName; await persist(); broadcastRefresh('economy'); json(res, 200, stateFor(user)); return;
+  }
+  if (req.method === 'POST' && route === '/api/cobblemon/capture') {
+    const { user } = requireAuth(req);
+    const owned = new Set(Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id].map((entry) => Number(entry.id)) : []);
+    const available = COBBLEMON_CATALOG.filter((entry) => !owned.has(Number(entry.i)));
+    if (!available.length) throw new HttpError(409, 'Você já completou a Pokédex Cobblemon disponível.');
+    const roll = Math.random();
+    let tier = roll < .001 ? 4 : roll < .01 ? 3 : roll < .13 ? 2 : 1;
+    let pool = tier === 4 ? available.filter((entry) => /legendary|mythical/.test(String(entry.l))) : available;
+    if (!pool.length) { tier = 1; pool = available; }
+    const pokemon = pool[Math.floor(Math.random() * pool.length)];
+    const chance = tier === 4 ? .18 : tier === 3 ? .46 : tier === 2 ? .68 : .88;
+    const captured = Math.random() < chance;
+    if (captured) {
+      db.economy.cobblemonDex[user.id] ||= [];
+      db.economy.cobblemonDex[user.id].push({ id: Number(pokemon.i), tier, caughtAt: new Date().toISOString() });
+      await persist(); broadcastRefresh('economy');
+    }
+    json(res, 200, { captured, pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier }, profile: profileFor(user) }); return;
   }
 
   if (req.method === 'POST' && route === '/api/loans/borrow') {
