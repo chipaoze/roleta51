@@ -8,7 +8,7 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260911-224">
+  <link rel="stylesheet" href="/styles.css?v=20260914-225">
   <link rel="stylesheet" href="/improvements.css?v=20260902-118">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260910-210">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
@@ -148,6 +148,7 @@
         <a href="?pagina=misterio" data-page="misterio"><span>🕯️</span><p><strong>Mistério 51</strong><small>Perguntas, pistas e dedução</small></p></a>
         <a href="?pagina=impostor" data-page="impostor"><span>🕵️</span><p><strong>Impostor 51</strong><small>Dicas, blefe e votação</small></p></a>
         <a href="?pagina=perfil" data-page="perfil"><span>👤</span><p><strong>Meu Perfil</strong><small>Baús, coleção e conquistas</small></p></a>
+        <a href="?pagina=cobblemon" data-page="cobblemon"><span>🔴</span><p><strong>Pokédex 51</strong><small>Capturas, baús e entregas</small></p></a>
         <a href="?pagina=album" data-page="album"><span>🎴</span><p><strong>Álbum de cartas</strong><small>Coleções e insígnias</small></p></a>
         <a href="?pagina=loja" data-page="loja"><span>🛍️</span><p><strong>Loja 51</strong><small>Visuais, poderes e presentes</small></p></a>
         <a href="?pagina=jogos" data-page="jogos"><span>🎰</span><p><strong>Jogos 51</strong><small>Roleta e Voo do Unicórnio</small></p></a>
@@ -467,7 +468,6 @@
         <div class="profile-content-column">
           <article id="activePowersCard" class="card active-powers-card hidden"><div class="profile-block-head"><div><small>USO PRIVADO</small><h3>Meus poderes</h3></div><span>Somente você vê</span></div><div id="activePowersList" class="active-powers-list"></div></article>
           <article id="cardPackInventoryCard" class="card"><h3>Meus pacotinhos de cartas</h3><p>3 cartas por pacote: 90% básica e 10% rara por carta. Repetidas podem sair. Compre na Loja e abra aqui; as cartas vão para o Álbum.</p><div id="cardPackInventory"></div><div id="cardPackHistory"></div></article><article id="mysteryInventoryCard" class="card mystery-inventory-card hidden"><div class="profile-block-head"><div><small>COFRE DA TRIPULAÇÃO</small><h3>Baús e prêmios</h3></div><span id="mysteryInventoryCount">0 itens</span></div><p>Abra ou venda seus baús. Ao ganhar um item, decida na hora se deseja ficar com ele ou vender por um valor menor.</p><div id="mysteryInventory" class="mystery-inventory"></div><div id="mysteryRewardInventory" class="mystery-reward-inventory"></div><div id="physicalPrizeInventory" class="mystery-reward-inventory"></div></article>
-          <article id="cobblemonDexCard" class="card cobblemon-dex-card"><div class="profile-block-head"><div><small>COLEÇÃO VIRTUAL</small><h3>Pokédex 51</h3></div><span id="cobblemonDexProgress">0 / 888</span></div><p>Encontre Pokémon reais do Cobblemon. A captura virtual não cria entrega para o Davi.</p><div class="cobblemon-box-shop"><button data-cobblemon-box="trainer">🎒 Carga de Treinador <b>180</b></button><button data-cobblemon-box="evolution">💠 Caixa das Pedras <b>480</b></button><button data-cobblemon-box="professor">👑 Relíquia do Professor <b>1.200</b></button></div><div id="cobblemonRewards" class="cobblemon-rewards"></div><div class="cobblemon-dex-actions"><input id="cobblemonDexSearch" type="search" placeholder="Buscar Pokémon"><button id="cobblemonCaptureButton" class="button button-primary" type="button">Procurar Pokémon</button></div><div id="cobblemonCaptureResult" class="cobblemon-capture-result"></div><div id="cobblemonDexGrid" class="cobblemon-dex-grid"></div><div class="cobblemon-dex-pages"><button id="cobblemonDexPrev" type="button">←</button><span id="cobblemonDexPage">Página 1</span><button id="cobblemonDexNext" type="button">→</button></div></article>
           <div class="profile-block-head"><div><small>CONQUISTAS</small><h3>Minhas medalhas</h3></div><span id="medalCount">0 desbloqueadas</span></div>
           <div id="profileMedals" class="profile-medals"></div>
           <article class="card trophy-room-card"><div class="profile-block-head"><div><small>SALA DE TROFÉUS</small><h3>Minha vitrine pública</h3></div><span>Até 4 destaques</span></div><p>Escolha as medalhas e insígnias que aparecerão quando alguém abrir seu perfil.</p><div id="trophyRoomDisplay" class="trophy-room-display"></div><details><summary>Editar minha vitrine</summary><div id="trophyRoomOptions" class="trophy-room-options"></div><button id="saveTrophyRoomButton" class="button button-primary" type="button">Salvar vitrine</button></details></article>
@@ -492,6 +492,21 @@
           <article id="visualTradingCard" class="card"><h3>Trocar visuais</h3><p>Troca de um visual por outro, sem moedas. Os dois precisam concordar. Propostas valem por 24 horas.</p><form id="visualTradeForm"><label>Participante<select name="partnerId" required></select></label><label>Meu visual<select name="offeredId" required></select></label><label>Visual que quero receber<select name="wantedId" required></select></label><button class="button button-primary" type="submit">Propor troca</button></form><div id="visualTradeList"></div></article>
           <div id="collectionCatalog" class="shop-catalog collection-catalog"></div>
         </div>
+      </div>
+    </section>
+
+    <section id="cobblemon" class="section cobblemon-page portal-page-hidden">
+      <header class="cobblemon-page-hero">
+        <div><span class="eyebrow">CENTRAL COBBLEMON · ÁREA 51</span><h2>Pokédex <em>51</em></h2><p>Encontre Pokémon, acompanhe sua coleção e gerencie recompensas físicas em um só lugar.</p></div>
+        <div class="cobblemon-page-guide"><span><b>1</b> Procure</span><i></i><span><b>2</b> Capture</span><i></i><span><b>3</b> Colecione</span></div>
+      </header>
+      <div class="cobblemon-page-layout">
+        <aside class="cobblemon-page-side">
+          <article class="card cobblemon-info-card"><span>🎯</span><div><small>CAPTURA VIRTUAL</small><h3>Complete sua Pokédex</h3><p>As aparições são balanceadas pelo servidor. Capturas virtuais entram na coleção e não geram entrega física.</p></div></article>
+          <article class="card cobblemon-info-card"><span>📦</span><div><small>RECOMPENSAS DO SERVIDOR</small><h3>Baús Cobblemon</h3><p>Abra com Créditos 51. Você pode vender o prêmio ou mantê-lo para o Davi — ou a administração — entregar.</p></div></article>
+          <article class="card cobblemon-balance-card"><small>ECONOMIA PROTEGIDA</small><strong>Sem consultas extras</strong><p>O catálogo fica no próprio site. O banco só é atualizado ao capturar, comprar, vender ou concluir uma entrega.</p></article>
+        </aside>
+        <article id="cobblemonDexCard" class="card cobblemon-dex-card"><div class="profile-block-head"><div><small>COLEÇÃO VIRTUAL</small><h3>Minha Pokédex</h3></div><span id="cobblemonDexProgress">0 / 888</span></div><p>Encontre Pokémon reais do Cobblemon. A captura virtual não cria entrega para o Davi.</p><div class="cobblemon-box-shop"><button data-cobblemon-box="trainer">🎒 Carga de Treinador <b>180</b></button><button data-cobblemon-box="evolution">💠 Caixa das Pedras <b>480</b></button><button data-cobblemon-box="professor">👑 Relíquia do Professor <b>1.200</b></button></div><div id="cobblemonRewards" class="cobblemon-rewards"></div><div class="cobblemon-dex-actions"><label class="sr-only" for="cobblemonDexSearch">Buscar Pokémon</label><input id="cobblemonDexSearch" type="search" placeholder="Buscar por nome ou número"><button id="cobblemonCaptureButton" class="button button-primary" type="button">Procurar Pokémon</button></div><div id="cobblemonCaptureResult" class="cobblemon-capture-result" aria-live="polite"></div><div id="cobblemonDexGrid" class="cobblemon-dex-grid"></div><div class="cobblemon-dex-pages"><button id="cobblemonDexPrev" type="button" aria-label="Página anterior">←</button><span id="cobblemonDexPage">Página 1</span><button id="cobblemonDexNext" type="button" aria-label="Próxima página">→</button></div></article>
       </div>
     </section>
 
@@ -777,6 +792,6 @@
   <script src="/card-album.js?v=20260911-222"></script>
   <script src="/weather.js?v=20260909-177"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-  <script src="/app.js?v=20260911-222"></script>
+  <script src="/app.js?v=20260914-223"></script>
 </body>
 </html>

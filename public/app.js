@@ -1297,7 +1297,7 @@ function openFeedbackPanel() {
   $('#feedbackMessage').focus();
 }
 
-const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','album','loja','jogos','classificacao','admin'];
+const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','cobblemon','album','loja','jogos','classificacao','admin'];
 const portalSections = ['inicio', ...portalPages];
 const featurePageMap = { jogos: 'casino', impostor: 'impostor', misterio: 'mystery', loja: 'shop', inscricoes: 'uploads' };
 
