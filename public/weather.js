@@ -15,7 +15,12 @@
     return values[Number(code)] || ['🌡️', 'Condições locais'];
   };
   const dayName = (iso, index) => index === 0 ? 'Hoje' : new Intl.DateTimeFormat('pt-BR', { weekday: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(iso + 'T12:00:00'));
+  const validWeather = (data) => Number.isFinite(Number(data?.current?.temperature_2m))
+    && Number.isFinite(Number(data?.current?.apparent_temperature))
+    && Array.isArray(data?.daily?.time)
+    && data.daily.time.length > 0;
   const setPanel = (data) => {
+    if (!validWeather(data)) return false;
     const current = data.current || {};
     const daily = data.daily || {};
     const [icon, label] = weatherInfo(current.weather_code);
@@ -27,6 +32,7 @@
       const rain = Number(daily.precipitation_probability_max?.[index] || 0);
       return '<article><strong>' + dayName(date, index) + '</strong><span>' + dayIcon + '</span><b>' + Math.round(Number(daily.temperature_2m_max?.[index])) + '° <small>' + Math.round(Number(daily.temperature_2m_min?.[index])) + '°</small></b><em>' + rain + '% chuva</em></article>';
     }).join('');
+    return true;
   };
   const positionPanel = () => {
     if (panel.classList.contains('hidden')) return;
@@ -39,17 +45,29 @@
   };
   const setOpen = (open) => { panel.classList.toggle('hidden', !open); button.setAttribute('aria-expanded', String(open)); if (open) requestAnimationFrame(positionPanel); };
   const loadWeather = async () => {
+    let saved = null;
     try {
-      const saved = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-      if (saved?.data && Date.now() - saved.savedAt < cacheDuration) { setPanel(saved.data); return; }
-      const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-22.7392&longitude=-47.3314&current=temperature_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FSao_Paulo&forecast_days=3');
+      try { saved = JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch { localStorage.removeItem(cacheKey); }
+      if (saved?.data && validWeather(saved.data) && Date.now() - Number(saved.savedAt || 0) < cacheDuration) { setPanel(saved.data); return; }
+      if (saved && !validWeather(saved.data)) { localStorage.removeItem(cacheKey); saved = null; }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-22.7392&longitude=-47.3314&current=temperature_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FSao_Paulo&forecast_days=3', { signal: controller.signal });
+      clearTimeout(timeout);
       if (!response.ok) throw new Error('weather unavailable');
       const data = await response.json();
+      if (!validWeather(data)) throw new Error('invalid weather');
       localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), data }));
       setPanel(data);
     } catch {
-      document.querySelector('#weatherNow').textContent = 'Não foi possível atualizar agora.';
-      document.querySelector('#weatherDays').innerHTML = '';
+      if (saved?.data && validWeather(saved.data)) {
+        setPanel(saved.data);
+        document.querySelector('#weatherNow').textContent += ' · última previsão disponível';
+      } else {
+        document.querySelector('#weatherTemperature').textContent = '--°';
+        document.querySelector('#weatherNow').textContent = 'Não foi possível atualizar agora.';
+        document.querySelector('#weatherDays').innerHTML = '';
+      }
     }
   };
   button.addEventListener('click', () => setOpen(panel.classList.contains('hidden')));
