@@ -2664,15 +2664,20 @@ function showCobblemonOdds(title, rewards, note) {
 async function showCobblemonOpening(title, reward) {
   const dialog = $('#cobblemonOpeningDialog'), track = $('#cobblemonCarouselTrack'), result = $('#cobblemonOpeningResult'), decision = $('#cobblemonOpeningDecision');
   cobblemonOpeningLocked = true;
-  const pool = Object.values(COBBLEMON_BOX_CATALOG).flatMap((box) => box.rewards);
+  const pokemonOnly = Boolean(reward.pokemonId) || reward.boxId === 'pokemon';
+  const pokemonCatalog = Array.isArray(window.AREA51_COBBLEMON_CATALOG) ? window.AREA51_COBBLEMON_CATALOG : [];
+  const pokemonPool = pokemonCatalog.map((pokemon) => [pokemon.n || pokemon.name, `https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(pokemon.i || pokemon.id)}.webp`, 0]);
+  const itemPool = Object.entries(COBBLEMON_BOX_CATALOG).filter(([id]) => id !== 'pokemon').flatMap(([,box]) => box.rewards);
+  const pool = pokemonOnly && pokemonPool.length ? pokemonPool : itemPool;
   const selected = [reward.name, reward.noPrize ? '' : (reward.sprite || COBBLEMON_ITEM_SPRITES.poke), 0]; const winningIndex = 27;
   const entries = Array.from({length:32},(_,index) => index === winningIndex ? selected : pool[Math.floor(Math.random()*pool.length)]);
-  $('#cobblemonOpeningTitle').textContent = title; $('#cobblemonOpeningIcon').src = reward.sprite || COBBLEMON_ITEM_SPRITES.poke; $('#keepCobblemonReward').disabled = false; $('#sellCobblemonReward').disabled = false;
+  $('#cobblemonOpeningTitle').textContent = title; $('#cobblemonOpeningIcon').src = '/capture-ball-cobblemon.png'; $('#keepCobblemonReward').disabled = false; $('#sellCobblemonReward').disabled = false;
   result.classList.remove('revealed'); result.innerHTML = '<span>◉</span><strong>Aguarde a roleta parar</strong>'; decision.classList.add('hidden');
   track.innerHTML = entries.map(([name,sprite]) => `<article><span>${sprite ? `<img src="${sprite}" alt="">` : '<b class="roulette-loss">×</b>'}</span><strong>${escapeHtml(name)}</strong></article>`).join('');
   track.style.transition = 'none'; track.style.transform = 'translateX(0)'; dialog.showModal(); await new Promise((resolve)=>setTimeout(resolve,80));
   const itemWidth = 124, target = $('#cobblemonCarouselViewport').clientWidth/2-(winningIndex*itemWidth+itemWidth/2);
   track.style.transition = 'transform 5.4s cubic-bezier(.04,.78,.04,1)'; track.style.transform = `translateX(${target}px)`; await new Promise((resolve)=>setTimeout(resolve,5500));
+  $('#cobblemonOpeningIcon').src = reward.sprite || COBBLEMON_ITEM_SPRITES.poke;
   track.children[winningIndex]?.classList.add('winner'); result.innerHTML = `<span>${reward.noPrize ? '<b class="roulette-loss">×</b>' : `<img src="${reward.sprite || COBBLEMON_ITEM_SPRITES.poke}" alt="">`}</span><strong>${reward.noPrize ? 'Não foi desta vez!' : 'Você recebeu ' + escapeHtml(reward.name) + '!'}</strong>`; result.classList.add('revealed');
   const keepButton = $('#keepCobblemonReward'), sellButton = $('#sellCobblemonReward');
   keepButton.textContent = reward.noPrize ? 'Fechar' : reward.forceDelivery ? 'Entendi · aguardar entrega' : 'Ficar com o prêmio'; sellButton.classList.toggle('hidden', Boolean(reward.noPrize || reward.forceDelivery));
