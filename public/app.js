@@ -1122,7 +1122,26 @@ function visualName(person, fallbackName = '') {
   return `<span class="participant-identity${style}"${badge}>${escapeHtml(formatDisplayName(name))}</span>`;
 }
 
-async function api(url, options = {}, retry = true) {
+const inFlightGetRequests = new Map();
+
+function api(url, options = {}, retry = true) {
+  const method = String(options.method || 'GET').toUpperCase();
+  const canShare = method === 'GET' && !options.signal;
+  if (!canShare) return requestApi(url, options, retry);
+  const key = String(url);
+  const existing = inFlightGetRequests.get(key);
+  if (existing) return existing;
+  const request = requestApi(url, options, retry);
+  inFlightGetRequests.set(key, request);
+  request.then(() => {
+    if (inFlightGetRequests.get(key) === request) inFlightGetRequests.delete(key);
+  }, () => {
+    if (inFlightGetRequests.get(key) === request) inFlightGetRequests.delete(key);
+  });
+  return request;
+}
+
+async function requestApi(url, options = {}, retry = true) {
   const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 25000);
   const config = { ...options, signal: options.signal || controller.signal, headers: { ...(options.headers || {}) } };
   if (config.body && typeof config.body !== 'string') {
