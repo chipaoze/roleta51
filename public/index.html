@@ -16,6 +16,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
+  <a class="skip-link" href="#appView">Pular para o conteúdo principal</a>
   <div class="ambient ambient-a"></div>
   <div class="ambient ambient-b"></div>
 
@@ -66,8 +67,8 @@
           </div>
         </div>
         <div class="auth-tabs" role="tablist" aria-label="Acesso">
-          <button class="auth-tab active" data-auth-tab="login" role="tab">Entrar</button>
-          <button class="auth-tab" data-auth-tab="register" role="tab">Criar acesso</button>
+          <button class="auth-tab active" data-auth-tab="login" role="tab" aria-selected="true" aria-controls="loginForm">Entrar</button>
+          <button class="auth-tab" data-auth-tab="register" role="tab" aria-selected="false" aria-controls="registerForm">Criar acesso</button>
         </div>
 
         <form id="loginForm" class="auth-form">
@@ -111,7 +112,7 @@
     </section>
   </main>
 
-  <div id="appView" class="app hidden">
+  <div id="appView" class="app hidden" role="main" tabindex="-1">
     <header class="topbar">
       <a class="brand" href="?pagina=memes" data-page="memes"><span class="brand-mark" aria-hidden="true"><img src="/area51-mark-v2.png" alt=""></span><span class="brand-word"><strong>ÁREA <b>51</b></strong></span></a>
       <button id="menuButton" class="menu-button" type="button" aria-label="Abrir menu principal" aria-controls="siteMenu" aria-expanded="false"><i></i><i></i><i></i><span>Menu</span></button>
@@ -201,10 +202,10 @@
       </div>
       <div class="draw-layout">
         <div class="wheel-panel card">
-          <div class="mode-switch" role="tablist">
-            <button class="mode-button active" data-mode="theme"><span>✦</span> Tema da rodada</button>
-            <button class="mode-button" data-mode="wallpaper"><span>▣</span> Distribuir wallpapers</button>
-            <button class="mode-button rainbow-button" data-mode="gay"><span>★</span> Gay da Rodada</button>
+          <div class="mode-switch" role="tablist" aria-label="Modo da roleta">
+            <button class="mode-button active" data-mode="theme" role="tab" aria-selected="true"><span aria-hidden="true">✦</span> Tema da rodada</button>
+            <button class="mode-button" data-mode="wallpaper" role="tab" aria-selected="false"><span aria-hidden="true">▣</span> Distribuir wallpapers</button>
+            <button class="mode-button rainbow-button" data-mode="gay" role="tab" aria-selected="false"><span aria-hidden="true">★</span> Gay da Rodada</button>
           </div>
           <div class="wheel-stage">
             <div class="wheel-pointer"><span></span></div>
@@ -218,7 +219,7 @@
           <div class="card status-card">
             <span class="status-icon">◉</span>
             <div><small>RODADA ATUAL</small><strong id="sideRoundName">Rodada semanal</strong></div>
-            <span class="live-dot" id="liveStatus" aria-live="polite">CONECTANDO</span>
+            <span class="live-dot" id="liveStatus" role="status" aria-live="polite">CONECTANDO</span>
           </div>
           <div class="card mini-stats">
             <div><span class="mini-icon orange">▣</span><p><strong id="wallpaperCount">0</strong><small>Wallpapers</small></p></div>

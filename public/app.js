@@ -1390,7 +1390,11 @@ function setBusy(form, busy) {
 }
 
 function setAuthTab(name) {
-  $$('.auth-tab').forEach((button) => button.classList.toggle('active', button.dataset.authTab === name));
+  $$('.auth-tab').forEach((button) => {
+    const active = button.dataset.authTab === name;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
   $('#loginForm').classList.toggle('hidden', name !== 'login');
   $('#registerForm').classList.toggle('hidden', name !== 'register');
 }
@@ -1754,7 +1758,11 @@ function suggestedMode() {
 
 function setMode(mode) {
   activeMode = mode;
-  $$('.mode-button').forEach((button) => button.classList.toggle('active', button.dataset.mode === mode));
+  $$('.mode-button').forEach((button) => {
+    const active = button.dataset.mode === mode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
 }
 
 function drawWheel() {
