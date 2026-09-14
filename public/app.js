@@ -4935,6 +4935,8 @@ async function runPortalSync() {
   if (document.hidden || portalSyncInProgress || !navigator.onLine) { schedulePortalSync(); return; }
   const editingMystery = currentPortalPage() === 'misterio' && $('#misterio')?.contains(document.activeElement) && document.activeElement?.matches('input,textarea,select');
   portalSyncInProgress = true;
+  const syncStartedAt = performance.now();
+  if ($('#liveStatus')) $('#liveStatus').textContent = 'ATUALIZANDO';
   try {
     const sync = await api('/api/sync', {}, false);
     if (!appState) return;
@@ -4943,7 +4945,13 @@ async function runPortalSync() {
     if (sync.liveDraw) receiveLiveDraw(sync.liveDraw);
     const changed = Number(sync.revision) !== Number(appState.serverRevision) || Boolean(sync.loanOverdue) !== Boolean(appState.profile?.loan?.overdue);
     if (changed && !editingMystery && !spinning && !casinoSpinInProgress && !mysteryOpeningInProgress) applyState(await api('/api/state', {}, false));
-  } catch {} finally { portalSyncInProgress = false; schedulePortalSync(); }
+    if ($('#liveStatus')) {
+      $('#liveStatus').textContent = 'SINCRONIZADO';
+      $('#liveStatus').title = 'Atualizado em ' + Math.round(performance.now() - syncStartedAt) + ' ms';
+    }
+  } catch {
+    if ($('#liveStatus')) { $('#liveStatus').textContent = 'RECONEXÃO'; $('#liveStatus').title = 'Tentando reconectar automaticamente'; }
+  } finally { portalSyncInProgress = false; schedulePortalSync(); }
 }
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && appState?.realtimeTransport === 'adaptive-poll') { lastPortalActivityAt = Date.now(); schedulePortalSync(0); }
@@ -4957,6 +4965,9 @@ document.addEventListener('pointermove', notePortalActivity, { passive: true });
 document.addEventListener('pointerdown', notePortalActivity, { passive: true });
 document.addEventListener('keydown', notePortalActivity, { passive: true });
 window.addEventListener('online', () => { if (appState?.realtimeTransport === 'adaptive-poll') schedulePortalSync(0); });
+window.addEventListener('offline', () => {
+  if ($('#liveStatus')) { $('#liveStatus').textContent = 'OFFLINE'; $('#liveStatus').title = 'Aguardando a conexão voltar'; }
+});
 
 document.addEventListener('input', (event) => { if (event.target?.id === 'cobblemonDexSearch' && appState?.profile) { cobblemonDexPage = 0; renderCobblemonDex(appState.profile); } });
 $('#closeCobblemonOddsDialog')?.addEventListener('click', () => $('#cobblemonOddsDialog').close());
