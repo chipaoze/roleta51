@@ -14,7 +14,7 @@ assert.equal(db.economy.wallets.a,880);
 assert.equal(Object.values(db.economy.cardAlbums.a.cards).reduce((a,b)=>a+b,0),3);
 assert.equal(pickAlbumCard(()=>0).rarity,'rare');
 assert.equal(pickAlbumCard(()=>.1).rarity,'basic');
-assert.equal(albumFor(db,'a').collections.flatMap(c=>c.cards).filter(c=>c.rarity==='rare').length,5);
+assert.equal(albumFor(db,'a').collections.flatMap(c=>c.cards).filter(c=>c.rarity==='rare').length,CARD_COLLECTIONS.length);
 for(const c of CARD_COLLECTIONS)assert.equal(c.cards.length,5);
 let rare=0;for(let i=0;i<10000;i++){let first=true;const card=pickAlbumCard(()=>{if(first){first=false;return i/10000;}return .3;});if(card.rarity==='rare')rare++;}
 assert.equal(rare,1000);

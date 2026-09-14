@@ -1144,8 +1144,9 @@ function api(url, options = {}, retry = true) {
 }
 
 async function requestApi(url, options = {}, retry = true) {
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 25000);
-  const config = { ...options, signal: options.signal || controller.signal, headers: { ...(options.headers || {}) } };
+  const { timeoutMs = 25000, ...requestOptions } = options;
+  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 25000));
+  const config = { ...requestOptions, signal: options.signal || controller.signal, headers: { ...(options.headers || {}) } };
   if (config.body && typeof config.body !== 'string') {
     config.headers['Content-Type'] = 'application/json';
     config.body = JSON.stringify(config.body);
@@ -3206,7 +3207,8 @@ function renderActivePortalPage(data = appState) {
       renderWorkflow(); renderRoundSummary(); renderAssignments(); renderDraws(); renderVoting(); drawWheel();
     } else if (page === 'inscricoes') {
       renderWorkflow(); renderGallery();
-    } else if (page === 'agua') renderHydration(data.hydration);
+    } else if (page === 'anonimos') renderAnonymousWall(data.anonymousWall);
+    else if (page === 'agua') renderHydration(data.hydration);
     else if (page === 'mentirometro') renderLieMeter(data.lieMeter);
     else if (page === 'misterio') renderMystery(data.mystery);
     else if (page === 'impostor') renderImpostor(data.impostor);
@@ -3814,6 +3816,31 @@ function clearMemeSelection() {
   $('#memeFileName').textContent = 'Escolher meme';
 }
 
+async function normalizeMemeDataUrl(file) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = objectUrl;
+    await image.decode();
+    const maxSide = 1920;
+    const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+    const output = document.createElement('canvas');
+    output.width = Math.max(1, Math.round(image.naturalWidth * ratio));
+    output.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+    const context = output.getContext('2d', { alpha: false });
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, output.width, output.height);
+    context.drawImage(image, 0, 0, output.width, output.height);
+    for (const quality of [.86, .76, .66, .56]) {
+      const blob = await new Promise((resolve) => output.toBlob(resolve, 'image/jpeg', quality));
+      if (blob && blob.size <= 1.8 * 1024 * 1024) return fileToDataUrl(blob);
+    }
+    throw new Error('Não foi possível reduzir a imagem para publicação.');
+  } catch (error) {
+    throw new Error(error.message || 'Não foi possível preparar esta imagem para o feed.');
+  } finally { URL.revokeObjectURL(objectUrl); }
+}
+
 function chooseMemeFile(file) {
   $('#memeUploadError').textContent = '';
   if (!file) return;
@@ -3870,10 +3897,11 @@ $('#memeUploadForm').addEventListener('submit', async (event) => {
       applyState(await api('/api/daily-wall/phrases', { method: 'POST', body: { phrase: caption, anonymous } }));
       form.reset(); clearMemeSelection(); showToast(anonymous ? 'Frase anônima publicada no feed!' : 'Frase publicada no feed!'); return;
     }
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(selectedMemeFile);
-    });
-    applyState(await api('/api/memes', { method: 'POST', body: { dataUrl, caption, anonymous } }));
+    const submitButton = $('button[type="submit"]', form);
+    if (submitButton) submitButton.textContent = 'Preparando imagem…';
+    const dataUrl = await normalizeMemeDataUrl(selectedMemeFile);
+    if (submitButton) submitButton.textContent = 'Publicando…';
+    applyState(await api('/api/memes', { method: 'POST', timeoutMs: 60000, body: { dataUrl, caption, anonymous } }));
     form.reset(); clearMemeSelection(); showToast(anonymous ? 'Publicação anônima enviada ao feed!' : 'Publicação enviada ao feed!');
   } catch (error) { $('#memeUploadError').textContent = error.message; }
   finally { setBusy(form, false); }

@@ -10,6 +10,7 @@ let user=db.users[0],body={},writes=0,response;
 const ctx=vm.createContext({db,SHOP_CATALOG,HttpError,Date,Map,randomUUID:()=>crypto.randomUUID(),requireAuth:()=>({user}),readJson:async()=>body,persist:async()=>writes++,broadcastRefresh(){},json:(_,s,data)=>response=data,stateFor:()=>({ok:true}),activeLieReasons:()=>db.lieAccusations});
 vm.runInContext(src.slice(src.indexOf('function isTradableVisual'),src.indexOf('function profileFor')),ctx);
 const call=route=>ctx.handleCommunityExtras({method:'POST'},{},route);
+assert.equal(await ctx.handleCommunityExtras({method:'GET'},{},'/api/lie-meter/report'),false);
 assert.deepEqual(Array.from(ctx.tradingFor(user).participants[0].items,i=>i.id),['pa']);
 body={partnerId:'b',offeredId:'power',wantedId:'pb'};await assert.rejects(call('/api/trades/create'));
 body={partnerId:'b',offeredId:'pa',wantedId:'pb'};await call('/api/trades/create');
@@ -25,7 +26,7 @@ const saved=JSON.stringify(db.economy.purchases),count=writes;await call('/api/t
 user=db.users[0];body={partnerId:'b',offeredId:'pb',wantedId:'pa'};await call('/api/trades/create');
 const second=db.economy.trades[1];second.expiresAt='2000-01-01';user=db.users[1];body={id:second.id,action:'accept'};await assert.rejects(call('/api/trades/respond'),e=>e.status===409);
 body={lieId:'lie',reason:'A informação precisa ser revisada.'};await call('/api/lie-meter/report');
-assert.equal(db.feedbackMessages.length,1);assert.equal(db.feedbackMessages[0].lieId,'lie');assert.equal(db.feedbackMessages[0].status,'pending');assert.equal(db.lieAccusations[0].status,'confirmed');
+assert.equal(db.lieDisputes.length,1);assert.equal(db.lieDisputes[0].lieId,'lie');assert.equal(db.lieDisputes[0].status,'open');assert.deepEqual(Array.from(db.lieDisputes[0].participantIds),['b','a','c']);assert.equal(db.lieAccusations[0].status,'confirmed');
 await assert.rejects(call('/api/lie-meter/report'),e=>e.status===409);
 body={lieId:'missing',reason:'Exemplo válido'};await assert.rejects(call('/api/lie-meter/report'),e=>e.status===404);
 // Scroll/navigation must not stop a preview; its dedicated 20s timer still does.

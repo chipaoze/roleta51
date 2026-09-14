@@ -1424,7 +1424,7 @@ function tradingFor(user) {
   return {participants,trades};
 }
 async function handleCommunityExtras(req,res,route) {
-  if (!['/api/trades/create','/api/trades/respond'].includes(route) || req.method!=='POST') return false;
+  if (!['/api/lie-meter/report','/api/trades/create','/api/trades/respond'].includes(route) || req.method!=='POST') return false;
   const {user}=requireAuth(req); const body=await readJson(req); const now=new Date().toISOString();
   if (route==='/api/lie-meter/report') {
     const lie=db.lieAccusations.find(l=>l.id===body.lieId && l.status==='confirmed' && l.delta>0);

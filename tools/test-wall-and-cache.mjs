@@ -26,6 +26,6 @@ const effectCode = app.slice(app.indexOf('  const personalCursor ='),app.indexOf
 for(const forced of [false,true]) {
   const document={body:{dataset:{}}};
   vm.runInNewContext(effectCode,{document,forcedGayCursor:false,forcedGiantCursor:forced,cursorItem:{value:'galinha-preta'},trailItem:null,$$:()=>[]});
-  assert.equal(document.body.dataset.cursorEffect,forced?'':'galinha-preta');
+  assert.equal(document.body.dataset.cursorEffect,forced?'giant-slow':'galinha-preta');
 }
-console.log('PASS: giant suspends hen text; ordinary cursor restores its effect.');
+console.log('PASS: giant penalty replaces the personal cursor effect; ordinary cursor restores its effect.');

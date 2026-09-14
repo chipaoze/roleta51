@@ -28,7 +28,7 @@ assert.equal(active({ style: 'gay', roundId: 'a' }, 'a', start), true);
 console.log('PASS: giant expires after 24h independently of round; old records supported.');
 
 const container = { innerHTML: '', contains: () => false, addEventListener() {} };
-const context = vm.createContext({ document: { querySelector: () => container, activeElement: null }, escapeHtml: (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'), formatDisplayName: (s) => s, formatDate: (s) => s, appState: { me: { role: 'user' } } });
+const context = vm.createContext({ document: { querySelector: () => container, activeElement: null }, escapeHtml: (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'), formatDisplayName: (s) => s, formatDate: (s) => s, visualName: (person) => String(person.displayName || ''), appState: { me: { role: 'user' } } });
 vm.runInContext(feed, context);
 context.wall = { phrases: [{ id:'old', phrase:'old post', authorName:'A', createdAt:'2026-09-01', comments:[{authorName:'B', message:'<script>bad</script>'}] }], memes: [{id:'new',caption:'new caption',authorName:'B',createdAt:'2026-09-02',imageUrl:'/memes/test.png'}] };
 vm.runInContext('renderCommunityFeed(wall)', context);
