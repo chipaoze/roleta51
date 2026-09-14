@@ -83,6 +83,10 @@ let runtimeEnv = null;
 let stateRevision = 0;
 let databaseReady = false;
 let databaseBytes = 0;
+// A montagem do payload público percorre várias coleções do estado. Como a
+// revisão só muda após uma gravação, reaproveitamos respostas idênticas por
+// um instante quando várias abas fazem a mesma leitura em sequência.
+const stateResponseCache = new Map();
 const DEFAULT_FEATURE_FLAGS = Object.freeze({ casino: true, impostor: true, mystery: true, shop: true, uploads: true });
 
 function featureFlags() {
@@ -1763,7 +1767,7 @@ function roundRecapFor(voting) {
   };
 }
 
-function stateFor(user) {
+function buildStateFor(user) {
   const roundId = db.settings.currentRoundId;
   const activeItems = db.submissions.filter((item) => item.active && item.roundId === roundId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -2042,6 +2046,20 @@ function stateFor(user) {
       checkedAt: new Date().toISOString(),
     } : undefined,
   };
+}
+
+function stateFor(user) {
+  const key = stateRevision + ':' + user.id;
+  const cached = stateResponseCache.get(key);
+  const now = Date.now();
+  if (cached && now - cached.createdAt < 1500) return cached.value;
+  const value = buildStateFor(user);
+  stateResponseCache.set(key, { createdAt: now, value });
+  if (stateResponseCache.size > 32) {
+    const oldestKey = stateResponseCache.keys().next().value;
+    if (oldestKey) stateResponseCache.delete(oldestKey);
+  }
+  return value;
 }
 
 function shuffled(items) {

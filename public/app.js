@@ -4871,7 +4871,7 @@ function portalSyncDelay() {
   const recentlyActive = Date.now() - lastPortalActivityAt < 5 * 60 * 1000;
   if (!recentlyActive) return 60000;
   if (drawActive) return 1800;
-  return impostorActive || mysteryActive ? 2500 : 15000;
+  return impostorActive || mysteryActive ? 2500 : 25000;
 }
 function schedulePortalSync(delay = portalSyncDelay()) {
   clearTimeout(portalSyncTimer);
