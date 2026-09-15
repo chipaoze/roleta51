@@ -2783,7 +2783,7 @@ function renderCobblemonDex(profile = {}) {
   if (!cobblemonDexOwnerId || !allowedOwnerIds.has(cobblemonDexOwnerId)) cobblemonDexOwnerId = appState.me.id;
   const selectedOwner = collections.find((entry) => entry.id === cobblemonDexOwnerId);
   const viewingMine = cobblemonDexOwnerId === appState.me.id;
-  const entries = viewingMine ? ownEntries : (selectedOwner?.caught || []).map((id) => ({ id }));
+  const entries = viewingMine ? ownEntries : (selectedOwner?.caught || []).map((entry) => typeof entry === 'object' ? entry : ({ id: entry }));
   const caught = new Map(entries.map((entry) => [Number(entry.id), entry]));
   ownerSelect.innerHTML = [{ id: appState.me.id, displayName: 'Minha Pokédex' }, ...collections.filter((entry) => entry.id !== appState.me.id)].map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === cobblemonDexOwnerId ? ' selected' : ''}>${escapeHtml(entry.displayName)}</option>`).join('');
   $('#cobblemonDexTitle').textContent = viewingMine ? 'Minha Pokédex' : `Pokédex de ${selectedOwner?.displayName || 'participante'}`;
@@ -2838,12 +2838,12 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonBallCount').textContent = `${Number(balls.remaining)} / ${Number(balls.total)} Poké Balls`;
   const buyBallsButton = $('#cobblemonBuyBalls');
   buyBallsButton.disabled = !balls.canBuy;
-  buyBallsButton.textContent = balls.canBuy ? `Comprar +10 por ${Number(balls.buyPrice || 90)}` : 'Pacote extra comprado hoje';
+  buyBallsButton.textContent = balls.canBuy ? `Comprar +${Number(balls.buyQuantity || 10)} por ${Number(balls.buyPrice || 90)}` : 'Pacote extra comprado hoje';
   if (!cobblemonPageEncounter) $('#cobblemonCaptureButton').disabled = !viewingMine || Number(balls.remaining) < 1;
   $('#cobblemonDexPage').textContent = 'Página ' + (cobblemonDexPage + 1) + ' de ' + pages;
   $('#cobblemonDexPrev').disabled = cobblemonDexPage === 0; $('#cobblemonDexNext').disabled = cobblemonDexPage >= pages - 1;
   $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.classList.toggle('active', button.dataset.cobblemonFilter === cobblemonDexFilter));
-  $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}"><img loading="lazy" src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.i)}.webp" alt="${owned ? escapeHtml(mon.n) : 'Silhueta'}"><p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (viewingMine && level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
+  $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}"><img loading="lazy" src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.i)}.webp" alt="${owned ? escapeHtml(mon.n) : 'Silhueta'}"><p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
 }
 
 function renderProfileEconomy(profile = {}, globalOnly = false) {
@@ -5119,7 +5119,17 @@ function updateCobblemonHuntSector(page = currentPortalPage()) {
   if (!target || !cobblemonPageEncounter) return;
   const visible = !cobblemonPageEncounter.huntPage || cobblemonPageEncounter.huntPage === page;
   target.classList.toggle('sector-hidden', !visible);
-  if (visible) placeCobblemonEncounter();
+  if (visible) {
+    placeCobblemonEncounter();
+    if (cobblemonPageEncounter.alreadyOwned && !cobblemonPageEncounter.duplicateNoticeShown) {
+      cobblemonPageEncounter.duplicateNoticeShown = true;
+      const wildLevel = Number(cobblemonPageEncounter.pokemon?.level || 0);
+      const ownedLevel = Number(cobblemonPageEncounter.ownedLevel || 0);
+      const comparison = wildLevel > ownedLevel ? 'é mais forte e pode substituir o seu se você capturar.' : 'não é mais forte; você pode deixar o tempo acabar sem gastar Poké Ball.';
+      $('#cobblemonCaptureHint').textContent = `Você já possui ${cobblemonPageEncounter.pokemon.name} nível ${ownedLevel}. Este é nível ${wildLevel} e ${comparison}`;
+      showToast(`Você já tem ${cobblemonPageEncounter.pokemon.name} (nível ${ownedLevel}).`);
+    }
+  }
 }
 
 function showCobblemonCaptureFx(point, captured) {
@@ -5145,7 +5155,8 @@ function showCobblemonCaptureOutcome(pokemon, data) {
   const outcome = document.createElement('aside');
   outcome.className = `cobblemon-global-outcome ${data.captured ? 'captured' : 'escaped'}`;
   outcome.setAttribute('role', 'status');
-  outcome.innerHTML = `<img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(pokemon.id)}.webp" alt="${escapeHtml(pokemon.name)}"><p><small>${data.captured ? 'CAPTURA CONFIRMADA' : data.missed ? 'ARREMESSO PERDIDO' : 'A POKÉ BALL ABRIU'}</small><strong>${data.captured ? 'CAPTURADO!' : 'FUGIU!'}</strong><span>${escapeHtml(pokemon.name)}${data.captured ? ' entrou na sua Pokédex.' : data.missed ? ' escapou porque a Poké Ball errou.' : ' conseguiu escapar da Poké Ball.'}</span></p>`;
+  const captureText = data.replaced ? `${pokemon.name} nível ${pokemon.level} substituiu o nível ${data.ownedLevel}.` : data.keptExisting ? `${pokemon.name} foi capturado, mas seu nível ${data.ownedLevel} já é melhor.` : `${pokemon.name} entrou na sua Pokédex.`;
+  outcome.innerHTML = `<img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(pokemon.id)}.webp" alt="${escapeHtml(pokemon.name)}"><p><small>${data.captured ? 'CAPTURA CONFIRMADA' : data.missed ? 'ARREMESSO PERDIDO' : 'A POKÉ BALL ABRIU'}</small><strong>${data.captured ? 'CAPTURADO!' : 'FUGIU!'}</strong><span>${data.captured ? escapeHtml(captureText) : escapeHtml(pokemon.name) + (data.missed ? ' escapou porque a Poké Ball errou.' : ' conseguiu escapar da Poké Ball.')}</span></p>`;
   document.body.appendChild(outcome);
   requestAnimationFrame(() => outcome.classList.add('show'));
   setTimeout(() => { outcome.classList.remove('show'); setTimeout(() => outcome.remove(), 320); }, 3200);
@@ -5247,7 +5258,7 @@ async function finishCobblemonPageThrow(event) {
     ball.className = `cobblemon-page-ball hunting ${data.captured ? 'caught' : data.missed ? 'lost' : 'failed'}`;
     showCobblemonCaptureFx({ x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 }, data.captured);
     showCobblemonCaptureOutcome(mon, data);
-    const outcome = data.captured ? `✓ ${escapeHtml(mon.name)} foi capturado!` : data.missed ? `Você errou ${escapeHtml(mon.name)} e gastou 1 Poké Ball.` : `${escapeHtml(mon.name)} escapou. Chance desta tentativa: ${Number(data.chance)}%.`;
+    const outcome = data.captured ? (data.replaced ? `✓ ${escapeHtml(mon.name)} nível ${Number(mon.level)} substituiu seu nível ${Number(data.ownedLevel)}.` : data.keptExisting ? `✓ ${escapeHtml(mon.name)} foi capturado, mas seu nível ${Number(data.ownedLevel)} já era melhor.` : `✓ ${escapeHtml(mon.name)} foi capturado!`) : data.missed ? `Você errou ${escapeHtml(mon.name)} e gastou 1 Poké Ball.` : `${escapeHtml(mon.name)} escapou. Chance desta tentativa: ${Number(data.chance)}%.`;
     const resultBox = $('#cobblemonCaptureResult');
     resultBox.className = 'cobblemon-capture-result ' + (data.captured ? 'capture-success' : 'capture-failed');
     resultBox.innerHTML = `<span><img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.id)}.webp" alt="" style="width:48px;height:48px;object-fit:contain;vertical-align:middle"> ${outcome}</span>`;

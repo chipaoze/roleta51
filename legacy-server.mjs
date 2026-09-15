@@ -359,6 +359,18 @@ async function ensureDatabase(seedDatabase) {
     db.economy.cobblemonDexRecoveryV2 = new Date().toISOString();
     changed = true;
   }
+  if (!db.economy.cobblemonDexLevelsV1) {
+    Object.values(db.economy.cobblemonDex).forEach((entries) => {
+      if (!Array.isArray(entries)) return;
+      entries.forEach((entry) => {
+        const tier = Math.max(1, Math.min(4, Number(entry.tier) || 1));
+        entry.tier = tier;
+        if (Number(entry.level) < 1) entry.level = normalizedCobblemonLevel(entry.id, tier);
+      });
+    });
+    db.economy.cobblemonDexLevelsV1 = new Date().toISOString();
+    changed = true;
+  }
   // Marcador legado mantido sem alterar inventário. Inicializar ou publicar o
   // site nunca deve apagar a Pokédex nem devolver Poké Balls já consumidas.
   if (!db.economy.cobblemonCaptureResetV2) { db.economy.cobblemonCaptureResetV2 = new Date().toISOString(); changed = true; }
@@ -482,7 +494,7 @@ function saoPauloDayKey(date = new Date()) {
 }
 
 const SHOP_CATALOG = [
-  { id: 'service-cobblemon-balls', name: 'Pacote diário de Poké Balls', description: 'Adiciona 3 arremessos à caça da Pokédex 51. Disponível uma vez por dia; as 5 Poké Balls básicas voltam automaticamente no dia seguinte.', price: 90, type: 'cobblemonBall', value: 'dailyBallPack', icon: '🔴', service: true },
+  { id: 'service-cobblemon-balls', name: 'Pacote diário de Poké Balls', description: 'Adiciona até 10 arremessos à caça da Pokédex 51. As 5 Poké Balls básicas voltam automaticamente no dia seguinte.', price: 90, type: 'cobblemonBall', value: 'dailyBallPack', icon: '🔴', service: true },
   { id: 'card-pack-cosmic', name: 'Pacotinho Cósmico', icon: '🎴', type: 'cardPack', value: 'cosmic', consumable: true, cardPack: true, price: 120, description: 'Guarde no Perfil e rasgue para revelar 3 cartas. Cada carta: 90% básica e 10% rara. Pode haver repetidas. Cada insígnia exige 4 básicas diferentes e 1 rara da coleção. Sem revenda por créditos.' },
   { id: 'card-pack-stellar', name: 'Pacotinho Estelar', icon: '🌠', type: 'cardPack', value: 'stellar', consumable: true, cardPack: true, price: 260, cardPackDailyLimit: 3, description: '3 cartas: 82% básica e 18% rara por carta. Chance de ao menos uma rara: cerca de 45%. Limite de 3 por dia; sem garantia de rara e sem revenda.' },
   { id: 'card-pack-legendary', name: 'Pacotinho Lendário', icon: '💎', type: 'cardPack', value: 'legendary', consumable: true, cardPack: true, price: 520, cardPackDailyLimit: 1, description: '3 cartas: 72% básica e 28% rara por carta. Chance de ao menos uma rara: cerca de 63%. Limite de 1 por dia; sem garantia de rara e sem revenda.' },
@@ -667,6 +679,13 @@ function monthlyCobblemonPokemonReward() {
   const suffix = rarity === 'legendary' ? ' · LENDÁRIO' : rarity === 'shiny' ? ' · SHINY' : rarity === 'rare' ? ' · RARO' : '';
   const sellPrices = { common: 180, rare: 320, shiny: 600, legendary: 800 };
   return { id: `monthly-pokemon-${pokemon.i}-${rarity}`, name: `${pokemon.n}${suffix}`, sprite: `https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(pokemon.i)}.webp`, sellPrice: sellPrices[rarity], pokemonId: Number(pokemon.i), rarity, isShiny: rarity === 'shiny' };
+}
+
+function normalizedCobblemonLevel(id, tier = 1) {
+  const safeTier = Math.max(1, Math.min(4, Number(tier) || 1));
+  const floor = [0, 5, 25, 50, 70][safeTier];
+  const ceiling = [0, 30, 50, 75, 100][safeTier];
+  return floor + ((Math.abs(Number(id) || 1) * 17) % (ceiling - floor + 1));
 }
 
 function createCobblemonEncounter(auth, pokemon, tier, level) {
@@ -1542,7 +1561,7 @@ function profileFor(user, computed = {}) {
       collections: db.users.filter((person) => person.active && person.approved !== false).map((person) => ({
         id: person.id,
         displayName: person.displayName,
-        caught: (Array.isArray(db.economy.cobblemonDex[person.id]) ? db.economy.cobblemonDex[person.id] : []).map((entry) => Number(entry.id)),
+        caught: (Array.isArray(db.economy.cobblemonDex[person.id]) ? db.economy.cobblemonDex[person.id] : []).map((entry) => ({ id: Number(entry.id), tier: Number(entry.tier || 1), level: Number(entry.level) > 0 ? Number(entry.level) : normalizedCobblemonLevel(entry.id, entry.tier) })),
       })),
       monthlyPokemonBox: (() => {
         const purchased = [...db.economy.cobblemonDeliveries].reverse().find((entry) => entry.userId === user.id && entry.boxId === 'pokemon' && entry.status !== 'reset-refunded');
@@ -3029,14 +3048,18 @@ async function handleApi(req, res, route) {
     const levelFloor = [0, 5, 25, 50, 70][tier];
     const levelCeiling = [0, 30, 50, 75, 100][tier];
     const level = levelFloor + Math.floor(Math.random() * (levelCeiling - levelFloor + 1));
-    json(res, 200, { encounterToken: createCobblemonEncounter(auth, pokemon, tier, level), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, expiresIn: 60 }); return;
+    const ownedEntry = (Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : []).find((entry) => Number(entry.id) === Number(pokemon.i));
+    const ownedLevel = ownedEntry ? (Number(ownedEntry.level) > 0 ? Number(ownedEntry.level) : normalizedCobblemonLevel(ownedEntry.id, ownedEntry.tier)) : null;
+    json(res, 200, { encounterToken: createCobblemonEncounter(auth, pokemon, tier, level), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, alreadyOwned: Boolean(ownedEntry), ownedLevel, expiresIn: 60 }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/capture') {
     const auth = requireAuth(req); const { user } = auth; const body = await readJson(req); const verified = verifyCobblemonEncounter(auth, body.encounterToken);
     const pokemon = COBBLEMON_CATALOG.find((entry) => Number(entry.i) === Number(verified.encounter.pokemonId));
     if (!pokemon) throw new HttpError(404, 'Este Pokémon não está disponível.');
-    const owned = new Set(Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id].map((entry) => Number(entry.id)) : []);
-    const alreadyOwned = new Set(Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id].map((entry) => Number(entry.id)) : []).has(Number(pokemon.i));
+    db.economy.cobblemonDex[user.id] ||= [];
+    const ownedEntry = db.economy.cobblemonDex[user.id].find((entry) => Number(entry.id) === Number(pokemon.i));
+    const alreadyOwned = Boolean(ownedEntry);
+    const ownedLevel = ownedEntry ? (Number(ownedEntry.level) > 0 ? Number(ownedEntry.level) : normalizedCobblemonLevel(ownedEntry.id, ownedEntry.tier)) : null;
     const dayKey = saoPauloDayKey();
     const encounterKey = createHash('sha256').update(verified.payload).digest('hex').slice(0, 24);
     if (db.economy.cobblemonCaptureAttempts.some((entry) => entry.encounterKey === encounterKey)) throw new HttpError(409, 'Esta Poké Ball já foi arremessada. Procure outro Pokémon.');
@@ -3051,14 +3074,15 @@ async function handleApi(req, res, route) {
     const deterministicRoll = parseInt(createHash('sha256').update('capture:' + auth.token + ':' + verified.payload).digest('hex').slice(0, 8), 16) / 0xffffffff;
     const hit = body.hit !== false;
     const captured = hit && deterministicRoll < chance;
-    db.economy.cobblemonCaptureAttempts.push({ id: randomUUID(), userId: user.id, dayKey, encounterKey, pokemonId: Number(pokemon.i), hit, captured, createdAt: new Date().toISOString() });
+    db.economy.cobblemonCaptureAttempts.push({ id: randomUUID(), userId: user.id, dayKey, encounterKey, pokemonId: Number(pokemon.i), tier, level, hit, captured, createdAt: new Date().toISOString() });
     if (db.economy.cobblemonCaptureAttempts.length > 3000) db.economy.cobblemonCaptureAttempts = db.economy.cobblemonCaptureAttempts.slice(-3000);
-    if (captured && !alreadyOwned) {
-      db.economy.cobblemonDex[user.id] ||= [];
-      db.economy.cobblemonDex[user.id].push({ id: Number(pokemon.i), tier, level, caughtAt: new Date().toISOString() });
-    }
+    let replaced = false;
+    let keptExisting = false;
+    if (captured && !alreadyOwned) db.economy.cobblemonDex[user.id].push({ id: Number(pokemon.i), tier, level, caughtAt: new Date().toISOString() });
+    else if (captured && alreadyOwned && level > ownedLevel) { Object.assign(ownedEntry, { tier, level, caughtAt: new Date().toISOString(), upgradedAt: new Date().toISOString() }); replaced = true; }
+    else if (captured && alreadyOwned) keptExisting = true;
     await persist(); broadcastRefresh('economy');
-    json(res, 200, { captured, duplicate: captured && alreadyOwned, missed: !hit, chance: Math.round(chance * 100), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, profile: profileFor(user) }); return;
+    json(res, 200, { captured, duplicate: captured && alreadyOwned, alreadyOwned, ownedLevel, replaced, keptExisting, missed: !hit, chance: Math.round(chance * 100), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/balls/buy') {
     const { user } = requireAuth(req); const dayKey = saoPauloDayKey();
