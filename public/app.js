@@ -1362,6 +1362,12 @@ function showPortalPage(page, pushState = false, resetScroll = true) {
   if (pushState) history.pushState({ page }, '', '?pagina=' + encodeURIComponent(page));
   else if (currentPortalPage() !== page) history.replaceState({ page }, '', '?pagina=' + encodeURIComponent(page));
   visiblePortalPage = page;
+  if (page === 'sorteio') {
+    musicWanted = true;
+    localStorage.setItem('roundMusic', 'on');
+    startMusic();
+  }
+  updateMusicButton();
   // Trocas de aba devem ser imediatas; animação suave aqui prendia a navegação
   // no scroll da página anterior por vários segundos.
   if (resetScroll) window.scrollTo({ top: 0, behavior: 'auto' });
@@ -1514,6 +1520,10 @@ function isMusicLockedForDrawDay() {
   return drawAt === today;
 }
 
+function isMusicFixedForDrawPage() {
+  return currentPortalPage() === 'sorteio';
+}
+
 function updateMusicButton() {
   const button = $('#musicToggle');
   if (!button) return;
@@ -1523,13 +1533,14 @@ function updateMusicButton() {
   button.classList.toggle('on', active);
   button.classList.toggle('blocked', blocked);
   button.textContent = active ? '🔊' : (blocked ? '🎵' : '🔇');
-  button.disabled = !appState || (active && locked);
-  button.title = locked ? (active ? 'Música fixa no dia de sorteio' : 'Tocar música do dia de sorteio') : (active ? 'Desativar música da rodada' : 'Tocar música da rodada');
+  const fixed = isMusicFixedForDrawPage();
+  button.disabled = !appState || (active && (locked || fixed));
+  button.title = fixed ? (active ? 'Música fixa na página do sorteio' : 'Tocar música do sorteio') : locked ? (active ? 'Música fixa no dia de sorteio' : 'Tocar música do dia de sorteio') : (active ? 'Desativar música da rodada' : 'Tocar música da rodada');
   button.setAttribute('aria-label', button.title);
 }
 
 async function startMusic(force = false) {
-  if ((!musicWanted && !force) || !appState || !musicEpoch) { updateMusicButton(); return; }
+  if ((!musicWanted && !force && !isMusicFixedForDrawPage()) || !appState || !musicEpoch) { updateMusicButton(); return; }
   if (musicStartPromise) return musicStartPromise;
   musicStartPromise = (async () => {
     try {
@@ -1538,7 +1549,7 @@ async function startMusic(force = false) {
       const wasSuspended = context.state !== 'running';
       await context.resume();
       const buffer = await loadMusicBuffer();
-      if ((!musicWanted && !force) || !appState) return;
+      if ((!musicWanted && !force && !isMusicFixedForDrawPage()) || !appState) return;
       if (musicSource && !wasSuspended) return;
       stopMusicSource();
       if (fallbackAudio && !fallbackAudio.paused) fallbackAudio.pause();
@@ -3665,7 +3676,7 @@ $('#themeToggle').addEventListener('click', () => {
   if (document.body.className.includes('profile-theme-')) document.body.classList.toggle('theme-light-override', !dark);
 });
 $('#musicToggle').addEventListener('click', () => {
-  if (musicIsPlaying() && !isMusicLockedForDrawDay()) {
+  if (musicIsPlaying() && !isMusicLockedForDrawDay() && !isMusicFixedForDrawPage()) {
     musicWanted = false; localStorage.setItem('roundMusic', 'off'); pauseMusic();
     showToast('Música da rodada desativada.');
     return;
