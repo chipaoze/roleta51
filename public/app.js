@@ -2703,6 +2703,19 @@ function showCobblemonOdds(title, rewards, note) {
   $('#cobblemonOddsDialog').showModal();
 }
 
+function spinCobblemonRouletteWheel(wheel, rewardIndex) {
+  // Voltar à posição inicial com a transição ativa faria a roleta "girar de
+  // novo" até o X quando o resultado fosse fechado. O reset é instantâneo;
+  // somente o giro que revela o novo prêmio recebe animação.
+  wheel.style.transition = 'none';
+  wheel.classList.remove('spinning');
+  wheel.style.setProperty('--roulette-stop-angle', `${rewardIndex * (360 / COBBLEMON_ROULETTE_REWARDS.length)}deg`);
+  void wheel.offsetWidth;
+  wheel.style.removeProperty('transition');
+  void wheel.offsetWidth;
+  wheel.classList.add('spinning');
+}
+
 async function showCobblemonOpening(title, reward, options = {}) {
   const dialog = $('#cobblemonOpeningDialog'), viewport = $('#cobblemonCarouselViewport'), track = $('#cobblemonCarouselTrack'), result = $('#cobblemonOpeningResult'), decision = $('#cobblemonOpeningDecision');
   const skipCarousel = Boolean(options.skipCarousel);
@@ -5226,7 +5239,7 @@ document.addEventListener('click', async (event) => {
   }
   if (event.target?.id === 'cobblemonRouletteSpin') {
     const button = event.target; if (!confirm('Girar a Roleta Cobblemon por 260 Créditos 51? O próximo giro será liberado amanhã.')) return; button.disabled = true;
-    try { const data = await api('/api/cobblemon/roulette/spin',{method:'POST'}); const wheel = $('#cobblemonRouletteWheel'); const rewardIndex = Math.max(0, COBBLEMON_ROULETTE_REWARDS.findIndex(([name]) => name === data.reward.name)); wheel.classList.remove('spinning'); wheel.style.setProperty('--roulette-stop-angle', `${rewardIndex * (360 / COBBLEMON_ROULETTE_REWARDS.length)}deg`); void wheel.offsetWidth; wheel.classList.add('spinning'); await new Promise((resolve)=>setTimeout(resolve,3200)); const decided = await showCobblemonOpening('Resultado da Roleta Cobblemon',{...data.reward,profile:data.profile},{skipCarousel:true}); wheel.classList.remove('spinning'); appState.profile = decided.profile; renderProfileEconomy(appState.profile); }
+    try { const data = await api('/api/cobblemon/roulette/spin',{method:'POST'}); const wheel = $('#cobblemonRouletteWheel'); const rewardIndex = Math.max(0, COBBLEMON_ROULETTE_REWARDS.findIndex(([name]) => name === data.reward.name)); spinCobblemonRouletteWheel(wheel,rewardIndex); await new Promise((resolve)=>setTimeout(resolve,3200)); const decided = await showCobblemonOpening('Resultado da Roleta Cobblemon',{...data.reward,profile:data.profile},{skipCarousel:true}); appState.profile = decided.profile; renderProfileEconomy(appState.profile); }
     catch(error){ showToast(error.message,'error'); renderCobblemonDex(appState.profile); }
     return;
   }
