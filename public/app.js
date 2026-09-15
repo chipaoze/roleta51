@@ -3437,15 +3437,14 @@ async function createWatermarkedWallpaper(result) {
   }
   try {
     const [source, logo] = await Promise.all([loadImage(result.watermarkSourceUrl), loadImage('/gay-da-rodada.png')]);
-    const scale = Math.min(1, 3840 / Math.max(source.naturalWidth, source.naturalHeight));
     const output = document.createElement('canvas');
-    output.width = Math.round(source.naturalWidth * scale);
-    output.height = Math.round(source.naturalHeight * scale);
+    output.width = source.naturalWidth;
+    output.height = source.naturalHeight;
     const outputCtx = output.getContext('2d');
     outputCtx.imageSmoothingEnabled = true;
     outputCtx.imageSmoothingQuality = 'high';
     outputCtx.drawImage(source, 0, 0, output.width, output.height);
-    const logoWidth = Math.min(output.width * .26, 560 * scale);
+    const logoWidth = Math.min(output.width * .26, 560);
     const logoHeight = logoWidth * logo.naturalHeight / logo.naturalWidth;
     const margin = Math.max(18, output.width * .025);
     const x = output.width - logoWidth - margin;
