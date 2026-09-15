@@ -1787,6 +1787,7 @@ function buildStateFor(user) {
   const roundAssignments = db.assignments.filter((item) => item.roundId === roundId);
   const revealedAssignments = roundAssignments.filter((item) => item.revealed);
   const assignedSubmissionIds = new Set(revealedAssignments.map((item) => item.submissionId));
+  const authorRevealedForUser = db.economy.authorReveals.some((reveal) => reveal.roundId === roundId && reveal.userId === user.id);
   const readyCount = roundUsers.filter((item) => activeSubmitterIds.has(item.id)).length;
   const uploadsReady = roundUsers.length > 0 && readyCount === roundUsers.length && activeItems.length === roundUsers.length;
   const missingParticipants = roundUsers.filter((item) => !activeSubmitterIds.has(item.id));
@@ -1900,8 +1901,8 @@ function buildStateFor(user) {
       size: item.size, createdAt: item.createdAt, isMine: item.userId === user.id,
       canDelete: roundAssignments.length === 0 && (item.userId === user.id || user.role === 'admin'),
       assigned: assignedSubmissionIds.has(item.id),
-      revealed: revealedIds.has(item.id) || db.economy.authorReveals.some((reveal) => reveal.roundId === roundId && reveal.userId === user.id && reveal.submissionId === item.id),
-      uploader: revealedIds.has(item.id) || db.economy.authorReveals.some((reveal) => reveal.roundId === roundId && reveal.userId === user.id && reveal.submissionId === item.id) ? item.uploader : null,
+      revealed: revealedIds.has(item.id) || authorRevealedForUser,
+      uploader: revealedIds.has(item.id) || authorRevealedForUser ? item.uploader : null,
       assistedUpload: user.role === 'admin' && item.uploadedByAdminId ? { by: item.uploadedByAdminName || 'Administrador', for: item.uploader } : null,
     })),
     assignments: revealedAssignments.map((assignment) => {
@@ -1910,8 +1911,8 @@ function buildStateFor(user) {
       return submission && recipient ? {
         id: assignment.id, assignedTo: recipient.displayName, submissionId: submission.id,
         title: submission.title, imageUrl: assignment.userId === user.id ? '/uploads/' + submission.filename : null,
-        uploader: revealedIds.has(submission.id) ? submission.uploader : null,
-        revealed: revealedIds.has(submission.id), isMine: assignment.userId === user.id,
+        uploader: revealedIds.has(submission.id) || authorRevealedForUser ? submission.uploader : null,
+        revealed: revealedIds.has(submission.id) || authorRevealedForUser, isMine: assignment.userId === user.id,
         deliveredAt: assignment.revealedAt || assignment.createdAt,
         seenAt: assignment.seenAt || null, seen: Boolean(assignment.seenAt),
         isNew: assignment.userId === user.id && !assignment.seenAt,
@@ -3280,12 +3281,13 @@ async function handleApi(req, res, route) {
       db.economy.shields.push({ roundId, userId: user.id, createdAt: new Date().toISOString() });
     } else if (item.value === 'revealAuthor') {
       if (!roundId) throw new HttpError(409, 'Não há uma rodada ativa.');
-      const alreadyRevealed = new Set(db.economy.authorReveals.filter((reveal) => reveal.roundId === roundId && reveal.userId === user.id).map((reveal) => reveal.submissionId));
-      const submissions = db.submissions.filter((entry) => entry.roundId === roundId && entry.active && entry.userId !== user.id && !alreadyRevealed.has(entry.id));
+      const alreadyRevealed = db.economy.authorReveals.some((reveal) => reveal.roundId === roundId && reveal.userId === user.id);
+      const submissions = db.submissions.filter((entry) => entry.roundId === roundId && entry.active && entry.userId !== user.id);
+      if (alreadyRevealed) throw new HttpError(409, 'Você já tem a autoria completa desta rodada visível.');
       if (!submissions.length) throw new HttpError(409, 'Todas as autorias desta rodada já estão visíveis para você.');
       consumePower(user.id, item.id, { roundId, revealCount: submissions.length });
       const createdAt = new Date().toISOString();
-      submissions.forEach((submission) => db.economy.authorReveals.push({ roundId, userId: user.id, submissionId: submission.id, createdAt }));
+      db.economy.authorReveals.push({ roundId, userId: user.id, createdAt, fullRound: true });
     } else if (item.value === 'chooseWallpaper' || item.value === 'assignWallpaper') {
       if (!roundId) throw new HttpError(409, 'Não há uma rodada ativa.');
       const participants = eligibleUsers();

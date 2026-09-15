@@ -50,4 +50,7 @@ assert.ok(app.includes("event.target.closest('#notificationPanel, #notificationB
 assert.ok(!app.includes("method: 'POST' })); setNotificationPanel(true)"));
 assert.ok(server.includes("phase:'crashed',crashed:true,crashAt:f.crashAt"));
 assert.ok(app.includes("api('/api/state',{},false)"));
+assert.ok(server.includes('fullRound: true'));
+assert.ok(server.includes('const authorRevealedForUser'));
+assert.ok(!server.includes('reveal.submissionId === item.id'));
 console.log('PASS: notification and flight regressions guarded.');
