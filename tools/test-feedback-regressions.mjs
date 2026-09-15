@@ -54,5 +54,5 @@ assert.ok(server.includes('fullRound: true'));
 assert.ok(server.includes('const authorRevealedForUser'));
 assert.ok(!server.includes('reveal.submissionId === item.id'));
 assert.ok(server.includes("title: announcement.itemName + ' ativado na rodada'"));
-assert.ok(server.includes('announcement.activatedByUserId !== user.id'));
+assert.ok(server.includes('item.activatedByUserId !== user.id'));
 console.log('PASS: notification and flight regressions guarded.');
