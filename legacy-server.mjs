@@ -385,6 +385,7 @@ async function ensureDatabase(seedDatabase) {
   if (validRememberTokens.length !== db.rememberTokens.length) { db.rememberTokens = validRememberTokens; changed = true; }
   if (!Array.isArray(db.settings.themes)) { db.settings.themes = []; changed = true; }
   if (!Array.isArray(db.settings.themeFinalists)) { db.settings.themeFinalists = []; changed = true; }
+  if (!Object.hasOwn(db.settings, 'lastWinningTheme')) { db.settings.lastWinningTheme = null; changed = true; }
   if (!Object.hasOwn(db.settings, 'visualThemeClearedAt')) { db.settings.visualThemeClearedAt = null; changed = true; }
   if (!Array.isArray(db.settings.currentParticipantIds)) { db.settings.currentParticipantIds = []; changed = true; }
   if (typeof db.settings.currentParticipantsLocked !== 'boolean') { db.settings.currentParticipantsLocked = false; changed = true; }
@@ -3564,8 +3565,8 @@ async function handleApi(req, res, route) {
       const allThemes = db.settings.themes.map((item) => String(item).trim()).filter(Boolean);
       const finalists = db.settings.themeFinalists || [];
       if (allThemes.length < 3) throw new HttpError(400, 'Cadastre ao menos 3 temas para formar os finalistas.');
-      candidates = finalists.length >= 3 ? finalists : allThemes.filter((item) => !finalists.includes(item));
-      if (!candidates.length) throw new HttpError(400, 'Não há mais temas disponíveis para este sorteio.');
+      candidates = finalists.length >= 3 ? finalists : allThemes.filter((item) => !finalists.includes(item) && item !== db.settings.lastWinningTheme);
+      if (finalists.length < 3 && candidates.length < 3) throw new HttpError(400, 'Cadastre pelo menos 4 temas para não repetir o tema vencedor da semana anterior.');
       const winner = candidates[randomInt(candidates.length)];
       if (finalists.length < 3) {
         db.settings.themeFinalists = [...finalists, winner];
@@ -3581,6 +3582,7 @@ async function handleApi(req, res, route) {
         db.settings.currentParticipantIds = roundParticipants.map((item) => item.id);
         db.settings.currentParticipantsLocked = false;
         db.settings.currentRoundRecoveredAt = null;
+        db.settings.lastWinningTheme = winner;
         db.settings.themeFinalists = [];
         result = { id: randomUUID(), type: 'theme', winnerId: winner, winner,
           detail: 'Tema vencedor da rodada', imageUrl: '/gay-da-rodada.png', roundId,
@@ -3735,6 +3737,7 @@ async function handleApi(req, res, route) {
         seen.add(key); return true;
       }).slice(0, 30);
       db.settings.themeFinalists = [];
+      db.settings.lastWinningTheme = null;
     }
     if (body.roundSchedule && typeof body.roundSchedule === 'object') {
       const cleanDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : '';
