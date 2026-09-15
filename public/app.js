@@ -4581,8 +4581,8 @@ $('#settingsForm').addEventListener('submit', async (event) => {
   finally { setBusy(form, false); }
 });
 $('#clearVisualThemesButton')?.addEventListener('click', async () => {
-  if (!confirm('Encerrar agora os temas especiais de quem perdeu ou foi sorteado? O histórico continua salvo.')) return;
-  try { applyState(await api('/api/admin/visual-theme/clear', { method: 'POST' })); showToast('Temas especiais encerrados. Cada pessoa voltou ao seu tema normal.'); }
+  if (!confirm('Encerrar agora os temas e cursores de punição de quem perdeu ou foi sorteado? O histórico continua salvo.')) return;
+  try { applyState(await api('/api/admin/visual-theme/clear', { method: 'POST' })); showToast('Punições visuais encerradas. Temas e cursores voltaram ao normal.'); }
   catch (error) { showToast(error.message, 'error'); }
 });
 $('#scheduleForm').addEventListener('submit', async (event) => {

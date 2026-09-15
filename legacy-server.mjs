@@ -1374,6 +1374,12 @@ function liveTitleAssignments() {
   return titles;
 }
 
+function isVisualPunishmentCleared(createdAt, clearedAt) {
+  const punishmentStartedAt = Date.parse(createdAt || '');
+  const punishmentClearedAt = Date.parse(clearedAt || '');
+  return Number.isFinite(punishmentStartedAt) && Number.isFinite(punishmentClearedAt) && punishmentStartedAt <= punishmentClearedAt;
+}
+
 function isForcedCursorActive(item, roundId, now = Date.now()) {
   if (item.style === 'giant-slow') return now < (item.expiresAt ? Date.parse(item.expiresAt) : Date.parse(item.createdAt) + 86400000);
   return Boolean(roundId && item.roundId === roundId);
@@ -1491,7 +1497,7 @@ function profileFor(user, computed = {}) {
   const phrases = Number(activityTotals.phrase || db.dailyPhrases.filter((item) => item.userId === user.id).length);
   const forcedCursor = [...db.economy.forcedCursors].reverse().find((item) => item.targetUserId === user.id && isForcedCursorActive(item, db.settings.currentRoundId));
   const latestGayWinnerDraw = [...db.draws].reverse().find((item) => item.type === 'gay');
-  const gayWinnerDraw = latestGayWinnerDraw?.winnerId === user.id ? latestGayWinnerDraw : null;
+  const gayWinnerDraw = latestGayWinnerDraw?.winnerId === user.id && !isVisualPunishmentCleared(latestGayWinnerDraw.createdAt, db.settings.visualThemeClearedAt) ? latestGayWinnerDraw : null;
   const previousSeason = computed.previousSeason || seasonSummary(previousMonthKey());
   const medals = [
     { id: 'first-step', icon: '🚀', name: 'Primeiro contato', description: 'Entrou para a tripulação.', unlocked: true },
@@ -3214,7 +3220,7 @@ async function handleApi(req, res, route) {
     const { user } = requireAuth(req);
     const body = await readJson(req);
     if (!['title', 'badge', 'nameStyle', 'frame', 'siteTheme', 'trailStyle', 'cursorStyle'].includes(body.type)) throw new HttpError(400, 'Tipo de personalização inválido.');
-    const currentGayWinner = [...db.draws].reverse().find((item) => item.type === 'gay');
+    const currentGayWinner = [...db.draws].reverse().find((item) => item.type === 'gay' && !isVisualPunishmentCleared(item.createdAt, db.settings.visualThemeClearedAt));
     if (body.type === 'cursorStyle' && currentGayWinner?.winnerId === user.id) throw new HttpError(409, 'Enquanto você for o Gay da Rodada, a seta especial fica obrigatória. Seu cursor comprado continua guardado para usar depois.');
     if (body.itemId === null || body.itemId === '') {
       db.economy.equipped[user.id] = { ...cosmeticsFor(user.id), [body.type]: null };
@@ -3235,7 +3241,7 @@ async function handleApi(req, res, route) {
     if (!item) throw new HttpError(404, 'Poder não encontrado.');
     const roundId = db.settings.currentRoundId;
     if (item.value === 'cleanseCursor') {
-      if ([...db.draws].reverse().find((draw) => draw.type === 'gay')?.winnerId === user.id) throw new HttpError(409, 'O cursor do sorteado é obrigatório. Seu poder não foi consumido.');
+      if ([...db.draws].reverse().find((draw) => draw.type === 'gay' && !isVisualPunishmentCleared(draw.createdAt, db.settings.visualThemeClearedAt))?.winnerId === user.id) throw new HttpError(409, 'O cursor do sorteado é obrigatório. Seu poder não foi consumido.');
       if (overdueLoanFor(user.id)) throw new HttpError(409, 'Quite a dívida para remover a cobrança do Agiota. Seu poder não foi consumido.');
       const curse = db.economy.forcedCursors.find((entry) => entry.targetUserId === user.id && isForcedCursorActive(entry, roundId));
       if (!curse) throw new HttpError(409, 'Você não tem uma maldição comprada ativa. O cursor do sorteado não pode ser removido.');
@@ -3301,7 +3307,7 @@ async function handleApi(req, res, route) {
       if (!giant && !roundId) throw new HttpError(409, 'Use este poder durante uma rodada ativa.');
       const target = (giant ? db.users.filter((person) => person.active && person.approved !== false) : eligibleUsers()).find((person) => person.id === body.targetId);
       if (!target) throw new HttpError(404, 'Participante escolhido não encontrado nesta rodada.');
-      if (giant && [...db.draws].reverse().find((draw) => draw.type === 'gay')?.winnerId === target.id) throw new HttpError(409, 'O sorteado está com cursor obrigatório. Escolha outro participante; seu poder não foi consumido.');
+      if (giant && [...db.draws].reverse().find((draw) => draw.type === 'gay' && !isVisualPunishmentCleared(draw.createdAt, db.settings.visualThemeClearedAt))?.winnerId === target.id) throw new HttpError(409, 'O sorteado está com cursor obrigatório. Escolha outro participante; seu poder não foi consumido.');
       if (db.economy.forcedCursors.some((entry) => entry.targetUserId === target.id && isForcedCursorActive(entry, roundId))) {
         throw new HttpError(409, 'Essa pessoa já tem um cursor obrigatório ativo. Seu poder não foi consumido.');
       }
