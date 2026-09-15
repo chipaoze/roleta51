@@ -316,6 +316,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.gifts)) { db.economy.gifts = []; changed = true; }
   if (!db.economy.activityTotals || typeof db.economy.activityTotals !== 'object') { db.economy.activityTotals = {}; changed = true; }
   if (!Array.isArray(db.economy.powerUses)) { db.economy.powerUses = []; changed = true; }
+  if (!Array.isArray(db.economy.powerAnnouncements)) { db.economy.powerAnnouncements = []; changed = true; }
   if (!Array.isArray(db.economy.shields)) { db.economy.shields = []; changed = true; }
   if (!Array.isArray(db.economy.authorReveals)) { db.economy.authorReveals = []; changed = true; }
   if (!Array.isArray(db.economy.creditAdjustments)) { db.economy.creditAdjustments = []; changed = true; }
@@ -1684,6 +1685,9 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   }
   for (const trade of (db.economy.trades || []).filter(t => (t.toId===user.id || t.fromId===user.id) && (t.status!=='pending' || Date.parse(t.expiresAt)>Date.now())).slice(-4)) {
     items.push({id:'trade:'+trade.id,icon:'🔄',title:trade.status==='pending'?'Proposta de troca de visuais':'Proposta de troca atualizada',detail:trade.offeredName+' ↔ '+trade.wantedName,page:'perfil',createdAt:trade.updatedAt});
+  }
+  for (const announcement of (db.economy.powerAnnouncements || []).filter((item) => item.activatedByUserId !== user.id).slice(-8)) {
+    items.push({ id: 'power-activation:' + announcement.id, icon: '⚡', title: announcement.itemName + ' ativado na rodada', detail: 'Um poder da Loja 51 foi ativado. Confira a rodada.', page: 'sorteio', targetId: 'sorteio', createdAt: announcement.createdAt });
   }
   for (const drop of (db.economy.cardAlbums?.[user.id]?.drops || []).slice(-2)) {
     const collection = CARD_COLLECTIONS.find((item) => drop.id?.startsWith(item.id + ':'));
@@ -3329,6 +3333,11 @@ async function handleApi(req, res, route) {
       if (db.economy.shields.some((shield) => shield.roundId === roundId && shield.userId === target.id)) throw new HttpError(409, 'Essa pessoa está protegida por um Escudo da Rodada.');
       consumePower(user.id, item.id, { roundId, targetId: target.id });
       db.economy.forcedGay = { roundId, userId: user.id, userName: user.displayName, targetId: target.id, targetName: target.displayName, createdAt: new Date().toISOString() };
+    }
+    const announcementRoundId = db.settings.currentRoundId || roundId;
+    if (announcementRoundId && item.value !== 'loanExtension') {
+      db.economy.powerAnnouncements.push({ id: randomUUID(), roundId: announcementRoundId, itemId: item.id, itemName: item.name, activatedByUserId: user.id, createdAt: new Date().toISOString() });
+      db.economy.powerAnnouncements = db.economy.powerAnnouncements.slice(-100);
     }
     await persist(); broadcastRefresh('economy'); json(res, 200, stateFor(user)); return;
   }
