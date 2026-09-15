@@ -3465,6 +3465,7 @@ function showWinner(result) {
   const isThemeFinalist = isTheme && result.themeStage === 'finalist';
   const isGay = result.type === 'gay';
   $('#winnerDialog').classList.toggle('is-gay-winner', isGay);
+  $('#winnerDialog').classList.toggle('is-theme-winner', isTheme);
   $('#winnerKicker').textContent = isThemeFinalist ? 'FINALISTA DEFINIDO…' : isTheme ? 'O TEMA SORTEADO É…' : isGay ? 'O ÍCONE DA VEZ É…' : 'WALLPAPER ENTREGUE';
   $('#winnerLabel').textContent = isThemeFinalist ? 'Tema finalista' : isTheme ? 'Tema da rodada' : isGay ? 'Gay da Rodada' : 'Quem recebeu';
   $('#winnerName').textContent = result.winner;
