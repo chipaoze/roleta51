@@ -362,21 +362,9 @@ async function ensureDatabase(seedDatabase) {
   // Marcador legado mantido sem alterar inventário. Inicializar ou publicar o
   // site nunca deve apagar a Pokédex nem devolver Poké Balls já consumidas.
   if (!db.economy.cobblemonCaptureResetV2) { db.economy.cobblemonCaptureResetV2 = new Date().toISOString(); changed = true; }
-  if (!db.economy.cobblemonCapsuleResetV4) {
-    const resetAt = new Date().toISOString();
-    const refunds = {};
-    db.economy.cobblemonDeliveries.forEach((entry) => {
-      if (entry.boxId === 'pokemon' && entry.status !== 'reset-refunded') refunds[entry.userId] = Number(refunds[entry.userId] || 0) + COBBLEMON_BOXES.pokemon.price;
-    });
-    Object.entries(refunds).forEach(([userId, amount]) => {
-      const before = Number(db.economy.wallets[userId] || 0);
-      db.economy.wallets[userId] = before + amount;
-      db.economy.creditAdjustments.push({ id: randomUUID(), userId, mode: 'cobblemon-capsule-reset-refund', amount, before, after: before + amount, reason: 'Estorno das Cápsulas Pokémon para o novo formato', createdAt: resetAt });
-    });
-    db.economy.cobblemonDeliveries.forEach((entry) => { if (entry.boxId === 'pokemon') { entry.status = 'reset-refunded'; entry.refundedAt = resetAt; } });
-    db.economy.cobblemonCapsuleResetV4 = { resetAt, refunds };
-    changed = true;
-  }
+  // A cápsula já foi corrigida e o fluxo atual deve permanecer intacto.
+  // Não executar estorno, limpeza ou alteração de entregas durante a inicialização.
+  if (!db.economy.cobblemonCapsuleResetV4) { db.economy.cobblemonCapsuleResetV4 = { disabledAt: new Date().toISOString(), action: 'none' }; changed = true; }
   if (!Array.isArray(db.economy.scoreTrades)) { db.economy.scoreTrades = []; changed = true; }
   if (!Array.isArray(db.economy.loans)) { db.economy.loans = []; changed = true; }
   if (!Array.isArray(db.economy.flights)) { db.economy.flights = []; changed = true; }
@@ -1570,9 +1558,11 @@ function profileFor(user, computed = {}) {
       balls: (() => {
         const dayKey = saoPauloDayKey();
         const used = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
-        const bought = db.economy.cobblemonBallPurchases.some((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-        const total = 5 + (bought ? 10 : 0);
-        return { remaining: Math.max(0, total - used), total, used, daily: 5, extra: bought ? 10 : 0, canBuy: !bought, buyPrice: 90 };
+      const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
+      const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
+      const total = 5 + extra;
+        const buyQuantity = Math.max(0, 10 - extra);
+        return { remaining: Math.max(0, total - used), total, used, daily: 5, extra, buyQuantity, canBuy: buyQuantity > 0, buyPrice: buyQuantity ? Math.ceil(90 * buyQuantity / 10) : 0 };
       })(),
       roulette: (() => {
         const last = [...db.economy.cobblemonRouletteSpins].reverse().find((entry) => entry.userId === user.id);
@@ -3022,8 +3012,9 @@ async function handleApi(req, res, route) {
     const auth = requireAuth(req); const { user } = auth;
     const dayKey = saoPauloDayKey();
     const attempts = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
-    const bought = db.economy.cobblemonBallPurchases.some((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-    if (attempts >= 5 + (bought ? 10 : 0)) throw new HttpError(409, 'Suas Poké Balls acabaram. Elas voltam amanhã ou você pode comprar o pacote extra diário.');
+    const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
+    const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
+    if (attempts >= 5 + extra) throw new HttpError(409, 'Suas Poké Balls acabaram. Elas voltam amanhã ou você pode comprar o pacote extra diário.');
     const available = COBBLEMON_CATALOG;
     if (!available.length) throw new HttpError(409, 'Nenhum Pokémon disponível para encontrar.');
     const roll = Math.random();
@@ -3050,8 +3041,9 @@ async function handleApi(req, res, route) {
     const encounterKey = createHash('sha256').update(verified.payload).digest('hex').slice(0, 24);
     if (db.economy.cobblemonCaptureAttempts.some((entry) => entry.encounterKey === encounterKey)) throw new HttpError(409, 'Esta Poké Ball já foi arremessada. Procure outro Pokémon.');
     const attempts = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
-    const bought = db.economy.cobblemonBallPurchases.some((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-    if (attempts >= 5 + (bought ? 10 : 0)) throw new HttpError(409, 'Suas Poké Balls acabaram por hoje.');
+    const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
+    const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
+    if (attempts >= 5 + extra) throw new HttpError(409, 'Suas Poké Balls acabaram por hoje.');
     const tier = Math.max(1, Math.min(4, Number(verified.encounter.tier) || 1));
     const level = Math.max(1, Math.min(100, Number(verified.encounter.level) || tier * 20));
     const baseChance = tier === 4 ? .26 : tier === 3 ? .55 : tier === 2 ? .76 : .94;
@@ -3070,13 +3062,17 @@ async function handleApi(req, res, route) {
   }
   if (req.method === 'POST' && route === '/api/cobblemon/balls/buy') {
     const { user } = requireAuth(req); const dayKey = saoPauloDayKey();
-    if (db.economy.cobblemonBallPurchases.some((entry) => entry.userId === user.id && entry.dayKey === dayKey)) throw new HttpError(409, 'O pacote extra de hoje já foi comprado.');
-    const price = 90, before = walletFor(user.id);
+    const existing = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
+    const already = Math.min(10, Math.max(0, Number(existing?.quantity || 0)));
+    const quantity = 10 - already;
+    if (quantity <= 0) throw new HttpError(409, 'O pacote extra de hoje já foi comprado.');
+    const price = Math.ceil(90 * quantity / 10), before = walletFor(user.id);
     if (before < price) throw new HttpError(409, 'Créditos 51 insuficientes para comprar as Poké Balls.');
     addCredits(user.id, -price); const createdAt = new Date().toISOString();
-    db.economy.cobblemonBallPurchases.push({ id: randomUUID(), userId: user.id, dayKey, quantity: 10, price, createdAt });
+    if (existing) { existing.quantity = already + quantity; existing.price = Number(existing.price || 0) + price; existing.updatedAt = createdAt; }
+    else db.economy.cobblemonBallPurchases.push({ id: randomUUID(), userId: user.id, dayKey, quantity, price, createdAt });
     if (db.economy.cobblemonBallPurchases.length > 1500) db.economy.cobblemonBallPurchases = db.economy.cobblemonBallPurchases.slice(-1500);
-    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-balls', amount: -price, before, after: before - price, reason: 'Pacote extra diário de 10 Poké Balls', createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-balls', amount: -price, before, after: before - price, reason: 'Complemento diário de ' + quantity + ' Poké Balls', createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
   }
 
