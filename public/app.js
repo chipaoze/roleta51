@@ -5163,7 +5163,7 @@ function resetCobblemonPageCapture(clearResult = false) {
   $('#cobblemonCaptureButton').disabled = Number(appState.profile?.cobblemon?.balls?.remaining || 0) < 1;
   $('#cobblemonCaptureButton').textContent = 'Iniciar caçada';
   $('#cobblemonCaptureHint').textContent = 'Clique em “Iniciar caçada” para procurar um Pokémon selvagem.';
-  if (clearResult) $('#cobblemonCaptureResult').textContent = '';
+  if (clearResult) { $('#cobblemonCaptureResult').textContent = ''; $('#cobblemonCaptureResult').className = 'cobblemon-capture-result'; }
 }
 
 function placeCobblemonEncounter() {
@@ -5240,7 +5240,9 @@ async function finishCobblemonPageThrow(event) {
     showCobblemonCaptureFx({ x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 }, data.captured);
     showCobblemonCaptureOutcome(mon, data);
     const outcome = data.captured ? `✓ ${escapeHtml(mon.name)} foi capturado!` : data.missed ? `Você errou ${escapeHtml(mon.name)} e gastou 1 Poké Ball.` : `${escapeHtml(mon.name)} escapou. Chance desta tentativa: ${Number(data.chance)}%.`;
-    $('#cobblemonCaptureResult').innerHTML = `<span><img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.id)}.webp" alt="" style="width:48px;height:48px;object-fit:contain;vertical-align:middle"> ${outcome}</span>`;
+    const resultBox = $('#cobblemonCaptureResult');
+    resultBox.className = 'cobblemon-capture-result ' + (data.captured ? 'capture-success' : 'capture-failed');
+    resultBox.innerHTML = `<span><img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.id)}.webp" alt="" style="width:48px;height:48px;object-fit:contain;vertical-align:middle"> ${outcome}</span>`;
     $('#cobblemonCaptureHint').textContent = data.captured ? 'Captura confirmada pelo servidor!' : data.missed ? 'O Pokémon fugiu após o arremesso.' : 'A bola abriu e o Pokémon escapou.';
     renderCobblemonDex(appState.profile);
     setTimeout(() => resetCobblemonPageCapture(false), 1700);
