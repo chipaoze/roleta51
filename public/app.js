@@ -50,6 +50,7 @@ let shopPreviewTimer = null;
 let shopPreviewInterval = null;
 let shopFilter = 'all';
 let hideOwnedVisuals = localStorage.getItem('area51-hide-owned-visuals') === 'true';
+let shopCatalogRenderSignature = '';
 let deferredInstallPrompt = null;
 let votingDraft = { votingId: null, bestId: null, worstId: null };
 let notificationsReadAtLocal = null;
@@ -2815,10 +2816,11 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}"><img loading="lazy" src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.i)}.webp" alt="${owned ? escapeHtml(mon.n) : 'Silhueta'}"><p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (viewingMine && level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
 }
 
-function renderProfileEconomy(profile = {}) {
-  renderCobblemonDex(profile);
-  renderVisualTrading(appState.trading || {});
-  renderCardAlbum(appState.cardAlbum);
+function renderProfileEconomy(profile = {}, globalOnly = false) {
+  const profilePage = currentPortalPage();
+  if (profilePage === 'cobblemon') renderCobblemonDex(profile);
+  if (profilePage === 'perfil') renderVisualTrading(appState.trading || {});
+  if (profilePage === 'album') renderCardAlbum(appState.cardAlbum);
   const albumBadge=appState.cardAlbum?.collections?.find(c=>c.id===appState.cardAlbum.equipped && c.craftedAt);
   const shop = Array.isArray(profile.shop) ? profile.shop : [];
   const equipped = profile.equipped || {};
@@ -2875,13 +2877,27 @@ function renderProfileEconomy(profile = {}) {
     cursorVisual.dataset.skin = cursorSkin;
     cursorVisual.innerHTML = forcedGiantCursor ? '<b class="giant-slow-pointer">☝️</b>' : '<img src="/unicorn-cursor-full-v2.png" alt="">';
   }
+  // Tema, cursor, moldura e nome são globais e precisam ser reaplicados em
+  // qualquer página. O modo global evita montar Perfil/Loja fora de tela.
+  ['userName','menuUserName'].forEach((id) => {
+    const element = $('#' + id);
+    if (element) {
+      element.className = nameItem ? 'name-style-' + nameItem.value : '';
+      element.dataset.badge = badgeItem?.value || '';
+    }
+  });
+  $('#topProfileButton').className = 'top-profile-button' + (frameItem ? ' frame-' + frameItem.value : '');
+  $('.site-menu-user').className = 'site-menu-user' + (frameItem ? ' frame-' + frameItem.value : '');
+  // Álbum e Cobblemon já tiveram sua área específica atualizada acima. Não
+  // reconstruímos Perfil e Loja enquanto essas páginas permanecem ocultas.
+  if (globalOnly || profilePage === 'album' || profilePage === 'cobblemon') return;
   $('#profileWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
   $('#shopPageWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
   renderAvatar($('#profileAvatar'), appState.me.avatarDataUrl, initials(appState.me.displayName));
   $('#profileDisplayName').textContent = formatDisplayName(appState.me.displayName);
   // A insígnia do álbum é uma conquista, não deve substituir um emblema comprado.
   // O emblema continua no nome; a insígnia aparece junto dele na lista de visuais.
-  ['profileDisplayName','userName','menuUserName'].forEach((id) => { const element = $('#' + id); if (element) element.dataset.badge = badgeItem?.value || ''; });
+  $('#profileDisplayName').dataset.badge = badgeItem?.value || '';
   $('#profileEquippedTitle').textContent = liveTitles.length ? liveTitles.map((item) => item.icon + ' ' + item.name).join(' · ') : titleItem ? titleItem.value : 'Tripulante da Área 51';
   $('#profileDisplayName').className = nameItem ? 'name-style-' + nameItem.value : '';
   $('#profileIdentityCard').className = 'card profile-identity-card' + (frameItem ? ' frame-' + frameItem.value : '');
@@ -2986,6 +3002,8 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   $('#stellarLoanActions').innerHTML = loan ? `<input id="stellarRepayAmount" type="number" min="1" max="${Number(loan.remainingDue)}" step="1" value="${Math.min(Number(profile.wallet || 0), Number(loan.remainingDue)) || 1}" aria-label="Valor do pagamento"><button type="button" data-loan-repay>Pagar</button><button type="button" data-loan-repay-all>Quitar ${Number(loan.remainingDue).toLocaleString('pt-BR')}</button>` : [100,200,300].map((amount) => `<button type="button" data-loan-borrow="${amount}">Receber ${amount}<small>Devolver ${Math.round(amount * 1.2)}</small></button>`).join('');
   const shopPriority = (item) => item.service ? -2 : item.id === 'power-force-gay-cursor' ? -1 : 0;
   const orderedShop = [...shop].sort((a, b) => shopPriority(a) - shopPriority(b));
+  const nextShopCatalogSignature = JSON.stringify([shop, profile.cardPacks || [], mysteryBoxes, freeShopAvailable, profile.cobblemon?.balls || {}, shopFilter, hideOwnedVisuals]);
+  if (shopCatalogRenderSignature !== nextShopCatalogSignature) {
   $('#shopCatalog').innerHTML = orderedShop.map((item) => {
     const isCobblemonBalls = item.id === 'service-cobblemon-balls';
     const balls = profile.cobblemon?.balls || {};
@@ -3022,6 +3040,8 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   $('#collectionEmpty').classList.toggle('hidden', collectionCatalog.children.length > 0);
   $('#hideOwnedVisuals').checked = hideOwnedVisuals;
   if (shopPreviewItemId) applyShopPreviewVisual(shop.find((item) => item.id === shopPreviewItemId));
+  shopCatalogRenderSignature = nextShopCatalogSignature;
+  }
 }
 
 function renderAdmin() {
@@ -3277,6 +3297,7 @@ function applyState(data) {
   if ($('#releaseVersionLabel')) $('#releaseVersionLabel').textContent = 'Versão ' + incomingReleaseVersion;
   $('#sideRoundName').textContent = data.settings.roundName;
   $('#currentThemeLabel').textContent = data.workflow.currentTheme ? data.workflow.currentTheme.toUpperCase() : 'AGUARDANDO SORTEIO';
+  renderProfileEconomy(data.profile, true);
   const schedule = data.settings.roundSchedule || {};
   const scheduleItems = [['📤', 'Envios', schedule.submissionsAt], ['🎡', 'Sorteio', schedule.drawAt], ['🗳️', 'Votação', schedule.voteAt]].filter((item) => item[2]);
   $('#roundScheduleBanner').classList.toggle('hidden', !scheduleItems.length);
@@ -5106,7 +5127,8 @@ function resetCobblemonPageCapture(clearResult = false) {
   target.removeAttribute('style');
   timer.classList.add('hidden');
   $('#cobblemonCaptureButton').disabled = Number(appState.profile?.cobblemon?.balls?.remaining || 0) < 1;
-  $('#cobblemonCaptureHint').textContent = 'Clique em “Procurar Pokémon” para iniciar.';
+  $('#cobblemonCaptureButton').textContent = 'Iniciar caçada';
+  $('#cobblemonCaptureHint').textContent = 'Clique em “Iniciar caçada” para procurar um Pokémon selvagem.';
   if (clearResult) $('#cobblemonCaptureResult').textContent = '';
 }
 
@@ -5124,6 +5146,7 @@ async function startCobblemonPageEncounter() {
   const button = $('#cobblemonCaptureButton');
   resetCobblemonPageCapture(true);
   button.disabled = true;
+  button.textContent = 'Procurando…';
   $('#cobblemonCaptureHint').textContent = 'Procurando no bioma…';
   try {
     const data = await api('/api/cobblemon/encounter', { method: 'POST' });
@@ -5141,6 +5164,7 @@ async function startCobblemonPageEncounter() {
     placeCobblemonEncounter();
     target.className = `cobblemon-encounter-target hunting tier-${Number(data.pokemon.tier)}`;
     ball.className = 'cobblemon-page-ball hunting ready';
+    button.textContent = 'Caçada em andamento';
     $('#cobblemonHuntTimer').classList.remove('hidden');
     updateCobblemonHuntSector(currentPortalPage());
     $('#cobblemonCaptureHint').textContent = 'Ele se escondeu em algum setor do site. Você tem 1 minuto para encontrá-lo e arremessar!';

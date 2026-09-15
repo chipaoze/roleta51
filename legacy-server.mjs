@@ -1774,7 +1774,9 @@ function buildStateFor(user) {
   const roundUsers = eligibleUsers();
   const activeSubmitterIds = new Set(activeItems.map((item) => item.userId));
   const voting = currentVoting();
-  const recapVoting = voting?.status === 'closed' ? voting : [...db.votings].reverse().find((item) => item.status === 'closed') || null;
+  // O cartão da página inicial resume somente a rodada atual. Rodadas antigas
+  // continuam no histórico, mas não podem parecer o resultado vigente.
+  const recapVoting = voting?.status === 'closed' && voting.roundId === roundId ? voting : null;
   const revealedIds = new Set(voting && voting.status === 'closed' ? voting.submissionIds : []);
   const roundAssignments = db.assignments.filter((item) => item.roundId === roundId);
   const revealedAssignments = roundAssignments.filter((item) => item.revealed);
