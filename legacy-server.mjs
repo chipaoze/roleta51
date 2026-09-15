@@ -344,6 +344,21 @@ async function ensureDatabase(seedDatabase) {
     db.economy.cobblemonDexRecoveryV1 = new Date().toISOString();
     changed = true;
   }
+  if (!db.economy.cobblemonDexRecoveryV2) {
+    const recovered = {};
+    db.economy.cobblemonCaptureAttempts.filter((entry) => entry.captured).forEach((entry) => {
+      recovered[entry.userId] ||= [];
+      if (!recovered[entry.userId].some((item) => Number(item.id) === Number(entry.pokemonId))) recovered[entry.userId].push({ id: Number(entry.pokemonId), tier: Number(entry.tier || 1), level: Number(entry.level || 0), caughtAt: entry.createdAt });
+    });
+    Object.entries(recovered).forEach(([userId, entries]) => {
+      const existing = Array.isArray(db.economy.cobblemonDex[userId]) ? db.economy.cobblemonDex[userId] : [];
+      const byId = new Map(existing.map((item) => [Number(item.id), item]));
+      entries.forEach((item) => { if (!byId.has(item.id)) byId.set(item.id, item); });
+      db.economy.cobblemonDex[userId] = [...byId.values()];
+    });
+    db.economy.cobblemonDexRecoveryV2 = new Date().toISOString();
+    changed = true;
+  }
   // Marcador legado mantido sem alterar inventário. Inicializar ou publicar o
   // site nunca deve apagar a Pokédex nem devolver Poké Balls já consumidas.
   if (!db.economy.cobblemonCaptureResetV2) { db.economy.cobblemonCaptureResetV2 = new Date().toISOString(); changed = true; }
