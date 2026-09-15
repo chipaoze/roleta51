@@ -1148,6 +1148,7 @@ async function requestApi(url, options = {}, retry = true) {
   const { timeoutMs = 25000, ...requestOptions } = options;
   const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 25000));
   const config = { ...requestOptions, signal: options.signal || controller.signal, headers: { ...(options.headers || {}) } };
+  if ((!config.method || String(config.method).toUpperCase() === 'GET') && !config.cache) config.cache = 'no-store';
   if (config.body && typeof config.body !== 'string') {
     config.headers['Content-Type'] = 'application/json';
     config.body = JSON.stringify(config.body);
