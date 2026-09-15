@@ -24,5 +24,8 @@ assert.ok(html.includes('>🔎 Buscar na coleção</label>'));
 assert.ok(!html.includes('>Procurar Pokémon</button>'));
 assert.ok(html.includes('RODADA ESPECIAL · 1 VEZ POR DIA'));
 assert.ok(!html.includes('1 VEZ A CADA 72 HORAS'));
+assert.ok(app.includes('const deliveryGroups = new Map()'));
+assert.ok(app.includes('class="cobblemon-delivery-group"'));
+assert.ok(app.includes('group.entries.length === 1'));
 
 console.log('PASS: profile renderer preserves global visuals, skips hidden page work, hides stale recaps, caches shop markup, and separates hunting from collection search.');
