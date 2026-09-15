@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
 const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 const server = await readFile(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+const styles = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8');
 const profileRendererStart = app.indexOf('function renderProfileEconomy');
 const profileRenderer = app.slice(profileRendererStart, app.indexOf('function renderAdmin', profileRendererStart));
 
@@ -27,5 +28,8 @@ assert.ok(!html.includes('1 VEZ A CADA 72 HORAS'));
 assert.ok(app.includes('const deliveryGroups = new Map()'));
 assert.ok(app.includes('class="cobblemon-delivery-group"'));
 assert.ok(app.includes('group.entries.length === 1'));
+assert.ok(html.includes('admin-participants-card admin-wide'));
+assert.ok(styles.includes('.admin-participants-card .admin-users{grid-template-columns:repeat(2,minmax(0,1fr))'));
+assert.ok(styles.includes('@media(max-width:980px){.admin-participants-card .admin-users{grid-template-columns:1fr}}'));
 
 console.log('PASS: profile renderer preserves global visuals, skips hidden page work, hides stale recaps, caches shop markup, and separates hunting from collection search.');
