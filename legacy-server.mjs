@@ -1888,8 +1888,10 @@ function buildStateFor(user) {
     readiness: {
       ready: readyCount, total: roundUsers.length,
       missing: missingParticipants.map(({ id, displayName }) => ({ id, displayName })),
+      participants: user.role === 'admin' ? db.users.filter((person) => person.active && person.approved !== false).map((person) => ({ id: person.id, displayName: person.displayName, included: roundUsers.some((entry) => entry.id === person.id), hasSubmission: activeSubmitterIds.has(person.id) })) : undefined,
       acceptsNewParticipants: roundAcceptsNewParticipants(),
       canStartWithReady: phase === 'uploads' && readyCount >= 2 && readyCount < roundUsers.length && roundAssignments.length === 0,
+      canManageParticipants: user.role === 'admin' && Boolean(roundId && db.settings.currentTheme && !db.settings.currentParticipantsLocked && !db.assignments.some((item) => item.roundId === roundId) && !db.votings.some((item) => item.roundId === roundId)),
     },
     gayParticipants: phase === 'gay' ? roundUsers.map(({ id, displayName }) => ({ id, displayName })) : [],
     submissions: activeItems.map((item) => ({
@@ -3682,6 +3684,24 @@ async function handleApi(req, res, route) {
     db.settings.currentParticipantIds = readyIds;
     db.settings.currentParticipantsLocked = true;
     await persist(); broadcastRefresh('participants-finalized'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'PATCH' && route === '/api/admin/round/participants') {
+    const { user } = requireAdmin(req);
+    const body = await readJson(req);
+    const roundId = db.settings.currentRoundId;
+    if (!roundId || !db.settings.currentTheme) throw new HttpError(409, 'Sorteie o tema antes de ajustar os participantes.');
+    if (db.settings.currentParticipantsLocked || db.assignments.some((item) => item.roundId === roundId) || db.votings.some((item) => item.roundId === roundId)) throw new HttpError(409, 'A lista já foi fechada porque a distribuição ou votação começou.');
+    const target = db.users.find((item) => item.id === body.userId && item.active && item.approved !== false);
+    if (!target) throw new HttpError(404, 'Participante ativo não encontrado.');
+    const submitted = db.submissions.some((item) => item.active && item.roundId === roundId && item.userId === target.id);
+    if (submitted) throw new HttpError(409, 'Essa pessoa já enviou wallpaper e não pode ser removida ou alterada agora.');
+    if (typeof body.included !== 'boolean') throw new HttpError(400, 'Informe included como true ou false.');
+    const participantIds = new Set(db.settings.currentParticipantIds || []);
+    if (body.included) participantIds.add(target.id); else participantIds.delete(target.id);
+    if (!participantIds.size) throw new HttpError(409, 'Mantenha pelo menos uma pessoa na rodada.');
+    db.settings.currentParticipantIds = [...participantIds];
+    await persist(); broadcastRefresh('participants-updated'); json(res, 200, stateFor(user)); return;
   }
 
   if (req.method === 'PATCH' && route === '/api/admin/settings') {

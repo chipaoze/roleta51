@@ -3096,6 +3096,9 @@ function renderAdmin() {
       ? 'O envio já confirma a participação. Uma nova conta criada agora entra automaticamente nesta rodada.'
       : 'A lista desta rodada já está fechada. Novas contas entram na próxima.';
     $('#useReadyParticipantsButton').classList.toggle('hidden', !readiness.canStartWithReady);
+    const participantManager = $('#roundParticipantManager');
+    participantManager.classList.toggle('hidden', !readiness.canManageParticipants);
+    if (readiness.canManageParticipants) $('#roundParticipantList').innerHTML = (readiness.participants || []).map((person) => '<div class="round-participant-row"><span>' + escapeHtml(formatDisplayName(person.displayName)) + (person.hasSubmission ? ' <small>já enviou</small>' : '') + '</span><button type="button" class="tiny-toggle ' + (person.included ? 'on' : 'off') + '" data-round-participant="' + escapeHtml(person.id) + '" data-round-included="' + (!person.included) + '" ' + (person.hasSubmission ? 'disabled' : '') + '>' + (person.included ? 'Participa' : 'Adicionar') + '</button></div>').join('');
   }
   const assistedCard = $('#adminAssistedUploadForm');
   const uploadOptions = appState.adminUploadOptions || [];
@@ -4634,6 +4637,15 @@ $('#adminUsers').addEventListener('click', async (event) => {
   try {
     const body = {}; body[button.dataset.userAction] = button.dataset.value === 'true';
     applyState(await api('/api/admin/users/' + button.dataset.userId, { method: 'PATCH', body }));
+  } catch (error) { showToast(error.message, 'error'); }
+});
+
+$('#roundParticipantList')?.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-round-participant]');
+  if (!button || button.disabled) return;
+  try {
+    applyState(await api('/api/admin/round/participants', { method: 'PATCH', body: { userId: button.dataset.roundParticipant, included: button.dataset.roundIncluded === 'true' } }));
+    showToast(button.dataset.roundIncluded === 'true' ? 'Participante incluído na rodada.' : 'Participante removido da rodada.');
   } catch (error) { showToast(error.message, 'error'); }
 });
 
