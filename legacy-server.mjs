@@ -1266,6 +1266,17 @@ function applyLoanPayment(userId, requested, reason) {
   return amount;
 }
 
+function stellarItemOffers(userId) {
+  const owned = db.economy.purchases.filter((purchase) => purchase.userId === userId && !purchase.mysteryDecisionPending);
+  return owned.map((purchase) => {
+    const item = SHOP_CATALOG.find((entry) => entry.id === purchase.itemId);
+    if (!item || item.consumable || item.mysteryBox || item.service || item.adminOnly) return null;
+    const base = Number(item.price || purchase.originalPrice || 0);
+    const value = Math.max(25, Math.floor((base * .6) / 5) * 5);
+    return { purchaseId: purchase.id, itemId: item.id, name: item.name, icon: item.icon || '🎁', value };
+  }).filter(Boolean).sort((a, b) => b.value - a.value).slice(0, 12);
+}
+
 function eligibleUsers() {
   const snapshot = db.settings.currentRoundId ? new Set(db.settings.currentParticipantIds || []) : null;
   return db.users.filter((item) => item.active && (snapshot ? snapshot.has(item.id) : item.eligible && !overdueLoanFor(item.id)));
@@ -1598,6 +1609,11 @@ function profileFor(user, computed = {}) {
     loan: (() => {
       const active = [...db.economy.loans].reverse().find((item) => item.userId === user.id && item.status === 'active');
       return active ? { id: active.id, principal: active.principal, totalDue: active.totalDue, remainingDue: active.remainingDue, createdAt: active.createdAt, dueAt: active.dueAt || null, overdue: Boolean(overdueLoanFor(user.id)), extended: Boolean(active.extendedAt) } : null;
+    })(),
+    stellarLender: (() => {
+      const loan = activeLoanFor(user.id); const overdue = Boolean(overdueLoanFor(user.id));
+      const visible = Number(walletFor(user.id)) < 500 || overdue;
+      return visible ? { visible: true, reason: overdue ? 'overdue' : 'low-balance', offers: stellarItemOffers(user.id) } : { visible: false, offers: [] };
     })(),
     mysteryBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).map((entry) => {
       const box = SHOP_CATALOG.find((item) => item.id === entry.boxId && item.mysteryBox);
@@ -2254,7 +2270,7 @@ async function handleApi(req, res, route) {
     if (route.startsWith('/api/impostor/')) { requireAuth(req); requireFeature('impostor'); }
     if (route === '/api/mystery' || route.startsWith('/api/mystery/')) { requireAuth(req); requireFeature('mystery'); }
     if (route === '/api/casino/play' || route === '/api/casino/flight/start') { requireAuth(req); requireFeature('casino'); }
-    if (route === '/api/shop/purchase' || route === '/api/shop/free-purchase' || route === '/api/gifts/item' || route === '/api/loans/borrow') { requireAuth(req); requireFeature('shop'); }
+    if (route === '/api/shop/purchase' || route === '/api/shop/free-purchase' || route === '/api/gifts/item' || route === '/api/loans/borrow' || route === '/api/loans/offer-item') { requireAuth(req); requireFeature('shop'); }
     if (route === '/api/uploads' || route === '/api/admin/uploads') { requireAuth(req); requireFeature('uploads'); }
   }
 
@@ -3098,6 +3114,18 @@ async function handleApi(req, res, route) {
     if (db.economy.cobblemonBallPurchases.length > 1500) db.economy.cobblemonBallPurchases = db.economy.cobblemonBallPurchases.slice(-1500);
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-balls', amount: -price, before, after: before - price, reason: 'Complemento diário de ' + quantity + ' Poké Balls', createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/loans/offer-item') {
+    const body = await readJson(req); const purchase = db.economy.purchases.find((entry) => entry.id === body.purchaseId && entry.userId === user.id && !entry.mysteryDecisionPending);
+    const allowed = stellarItemOffers(user.id).find((entry) => entry.purchaseId === body.purchaseId);
+    if (!purchase || !allowed) throw new HttpError(404, 'Esse item não está disponível para a oferta do Agiota.');
+    const loan = activeLoanFor(user.id); const before = walletFor(user.id); const now = new Date().toISOString();
+    db.economy.purchases = db.economy.purchases.filter((entry) => entry.id !== purchase.id);
+    if (db.economy.equipped[user.id]?.[allowed.type] === allowed.itemId) db.economy.equipped[user.id][allowed.type] = null;
+    if (loan) { const paid = Math.min(Number(allowed.value), Number(loan.remainingDue)); loan.remainingDue -= paid; loan.payments ||= []; loan.payments.push({ amount: paid, method: 'item', itemId: purchase.itemId, createdAt: now }); if (loan.remainingDue <= 0) { loan.remainingDue = 0; loan.status = 'paid'; loan.paidAt = now; } db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-loan-item-payment', amount: 0, before, after: before, reason: `Item entregue ao Agiota: ${allowed.name} (${paid} créditos abatidos)`, createdAt: now }); }
+    else { addCredits(user.id, allowed.value); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-item-sale', amount: allowed.value, before, after: before + allowed.value, reason: `Item vendido ao Agiota: ${allowed.name}`, createdAt: now }); }
+    await persist(); broadcastRefresh(); json(res, 200, stateFor(user)); return;
   }
 
   if (req.method === 'POST' && route === '/api/loans/borrow') {

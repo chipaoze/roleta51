@@ -3030,6 +3030,11 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   $('#stellarLoanTitle').textContent = loan ? `Dívida atual: ${Number(loan.remainingDue).toLocaleString('pt-BR')} créditos` : 'Créditos rápidos para a sua coleção';
   $('#stellarLoanText').textContent = loan ? `Você recebeu ${loan.principal} e deve ${loan.totalDue} com juros. ${loan.dueAt ? `Vencimento: ${formatDate(loan.dueAt)}. ${loan.overdue ? 'ATRASADO: tema de cobrança e cursor lento ativos; quite para entrar na próxima rodada.' : 'Resgates promocionais abatem primeiro a dívida.'}` : 'Contrato anterior: sem prazo ou novas penalidades.'}` : 'Receba 100, 200 ou 300 créditos. Juros fixos de 20%; prazo de 48 horas. Atrasos ativam cobrança visual e impedem entrada em novas rodadas. Resgates promocionais abatem a dívida. Apenas um empréstimo por vez.';
   $('#stellarLoanActions').innerHTML = loan ? `<input id="stellarRepayAmount" type="number" min="1" max="${Number(loan.remainingDue)}" step="1" value="${Math.min(Number(profile.wallet || 0), Number(loan.remainingDue)) || 1}" aria-label="Valor do pagamento"><button type="button" data-loan-repay>Pagar</button><button type="button" data-loan-repay-all>Quitar ${Number(loan.remainingDue).toLocaleString('pt-BR')}</button>` : [100,200,300].map((amount) => `<button type="button" data-loan-borrow="${amount}">Receber ${amount}<small>Devolver ${Math.round(amount * 1.2)}</small></button>`).join('');
+  let lenderOffers = $('#stellarLenderOffers');
+  if (!lenderOffers) { lenderOffers = document.createElement('section'); lenderOffers.id = 'stellarLenderOffers'; lenderOffers.className = 'stellar-lender-offers'; $('#stellarLoanCard').append(lenderOffers); }
+  const lender = profile.stellarLender;
+  lenderOffers.classList.toggle('hidden', !lender?.visible || !(lender.offers || []).length);
+  lenderOffers.innerHTML = lender?.visible ? `<strong>💼 Venda um item ao Agiota</strong><small>${lender.reason === 'overdue' ? 'Sua dívida está vencida: o valor será abatido dela.' : 'Saldo abaixo de 500: troque um item do inventário por créditos.'}</small><div class="stellar-item-offer-list">${(lender.offers || []).map((item) => `<button type="button" data-loan-item="${escapeHtml(item.purchaseId)}"><span>${escapeHtml(item.icon)}</span><b>${escapeHtml(item.name)}</b><em>+${Number(item.value).toLocaleString('pt-BR')} créditos</em></button>`).join('')}</div>` : '';
   const shopPriority = (item) => item.service ? -2 : item.id === 'power-force-gay-cursor' ? -1 : 0;
   const orderedShop = [...shop].sort((a, b) => shopPriority(a) - shopPriority(b));
   const nextShopCatalogSignature = JSON.stringify([shop, profile.cardPacks || [], mysteryBoxes, freeShopAvailable, profile.cobblemon?.balls || {}, shopFilter, hideOwnedVisuals]);
@@ -4190,7 +4195,8 @@ $('#flightCashoutButton').addEventListener('click', async () => {
 });
 
 $('#stellarLoanCard').addEventListener('click', async (event) => {
-  const borrow = event.target.closest('[data-loan-borrow]'); const repay = event.target.closest('[data-loan-repay],[data-loan-repay-all]');
+  const itemOffer = event.target.closest('[data-loan-item]'); const borrow = event.target.closest('[data-loan-borrow]'); const repay = event.target.closest('[data-loan-repay],[data-loan-repay-all]');
+  if (itemOffer) { const offer = appState?.profile?.stellarLender?.offers?.find((entry) => entry.purchaseId === itemOffer.dataset.loanItem); if (!offer) return; if (!confirm(`Entregar ${offer.name} ao Agiota por ${offer.value} créditos?\n\nO item será removido definitivamente do seu inventário.`)) return; itemOffer.disabled = true; try { applyState(await api('/api/loans/offer-item', { method: 'POST', body: { purchaseId: offer.purchaseId } })); showToast('Item entregue ao Agiota e saldo atualizado.'); } catch (error) { showToast(error.message, 'error'); itemOffer.disabled = false; } return; }
   if (!borrow && !repay) return;
   const button = borrow || repay; button.disabled = true;
   try {
