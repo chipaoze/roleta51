@@ -1638,6 +1638,9 @@ function unlockRoundMusicFromAnyGesture() {
   if (appState && musicEpoch && !musicIsPlaying()) startMusic();
 }
 ['pointerdown', 'keydown', 'touchstart'].forEach((eventName) => document.addEventListener(eventName, unlockRoundMusicFromAnyGesture, { passive: true }));
+document.addEventListener('click', () => {
+  if (appState && musicWanted && !musicIsPlaying()) unlockRoundMusicFromAnyGesture();
+}, { passive: true });
 
 function showAuth() {
   $('#sessionBoot')?.classList.add('hidden');
