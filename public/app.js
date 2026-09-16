@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-adhd',
+  version: '20260916-capsule-v2',
   title: 'Atualização da Área 51',
-  notes: 'Nova Maldição TDAH, melhorias nas trocas diretas e ajustes de estabilidade e visual.'
+  notes: 'Cápsula Pokémon diária, três aberturas, troca da escolha pendente e bloqueio de novas entregas após um Pokémon já entregue.'
 };
 let appState = null;
 let activeMode = 'theme';
