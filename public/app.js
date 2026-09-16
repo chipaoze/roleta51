@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-native-pokedex-v3',
+  version: '20260916-native-pokedex-v4',
   title: 'Pokédex nativa e cabeçalho ajustado',
-  notes: 'Corrigimos o saldo de Créditos 51 no tema Gay da Rodada: o valor e o texto ficam inteiros no cabeçalho. A Pokédex agora mantém seu cenário Cobblemon com sprites próprios, cores e leitura nos modos claro e escuro, sem ser afetada por temas ou punições.'
+  notes: 'Corrigimos o saldo de Créditos 51 no tema Gay da Rodada: o valor e o texto ficam inteiros no cabeçalho. A Pokédex agora mantém seu cenário Cobblemon com sprites próprios e miniaturas leves, cores e leitura nos modos claro e escuro, sem ser afetada por temas ou punições.'
 };
 let appState = null;
 let activeMode = 'theme';
@@ -2913,7 +2913,7 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonDexPage').textContent = 'Página ' + (cobblemonDexPage + 1) + ' de ' + pages;
   $('#cobblemonDexPrev').disabled = cobblemonDexPage === 0; $('#cobblemonDexNext').disabled = cobblemonDexPage >= pages - 1;
   $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.classList.toggle('active', button.dataset.cobblemonFilter === cobblemonDexFilter));
-  $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}"><img loading="lazy" src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.i)}.webp" alt="${owned ? escapeHtml(mon.n) : 'Silhueta'}"><p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
+  $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}"><img loading="lazy" decoding="async" src="https://cobbledex.b-cdn.net/3dmons/previews/small/${Number(mon.i)}.webp" alt="${owned ? escapeHtml(mon.n) : 'Silhueta'}"><p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
 }
 
 function renderProfileEconomy(profile = {}, globalOnly = false) {
