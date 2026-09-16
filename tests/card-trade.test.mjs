@@ -58,3 +58,10 @@ test('áudio nativo é priorizado após gesto do usuário', () => {
   assert.match(appJs, /Após um gesto, o áudio HTML nativo/);
   assert.match(appJs, /await nativeAudio\.play\(\)/);
 });
+
+test('cápsula Pokémon é diária e bloqueia nova entrega após entrega concluída', () => {
+  assert.match(serverJs, /\+ 86400000/);
+  assert.match(serverJs, /deliveryLocked: deliveredBefore/);
+  assert.match(serverJs, /claimed-no-delivery/);
+  assert.match(appJs, /Pokémon já entregue: esta cápsula gera apenas a roleta/);
+});

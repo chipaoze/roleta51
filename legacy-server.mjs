@@ -1582,10 +1582,10 @@ function profileFor(user, computed = {}) {
         const openCount = Number(purchased?.openCount || purchased?.rolls?.length || 0);
         const choicePending = purchased?.status === 'choice-pending';
         const canOpen = Boolean(purchased && !choicePending && openCount < 3 && ['box-closed', 'box-open'].includes(purchased.status));
-        const nextOpenAt = purchased?.createdAt ? new Date(Date.parse(purchased.createdAt) + 5 * 86400000).toISOString() : null;
+        const nextOpenAt = purchased?.createdAt ? new Date(Date.parse(purchased.createdAt) + 86400000).toISOString() : null;
         const cooldownDone = !nextOpenAt || Date.now() >= Date.parse(nextOpenAt);
         const canPurchase = !purchased || (cooldownDone && !canOpen && !choicePending);
-        return { price: COBBLEMON_BOXES.pokemon.price, canPurchase, canOpen, choicePending, openCount, rollsRemaining: Math.max(0, 3 - openCount), boxId: purchased?.id || null, purchasedAt: purchased?.createdAt || null, openedAt: purchased?.openedAt || null, nextOpenAt };
+        return { price: COBBLEMON_BOXES.pokemon.price, canPurchase, canOpen, choicePending, openCount, rollsRemaining: Math.max(0, 3 - openCount), boxId: purchased?.id || null, purchasedAt: purchased?.createdAt || null, openedAt: purchased?.openedAt || null, nextOpenAt, deliveryLocked: Boolean(purchased?.deliveryLocked) };
       })(),
       deliveries: db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id || user.role === 'admin' || /^davi\b/i.test(String(user.displayName || ''))).slice(-30).reverse(),
       balls: (() => {
@@ -2987,10 +2987,11 @@ async function handleApi(req, res, route) {
     if (!box?.monthlyPokemon) throw new HttpError(404, 'Cápsula Pokémon não encontrada.');
     const lastPurchase = [...db.economy.cobblemonDeliveries].reverse().find((entry) => entry.userId === user.id && entry.boxId === body.boxId && entry.status !== 'reset-refunded');
     if (lastPurchase && ['box-closed', 'box-open', 'choice-pending'].includes(lastPurchase.status)) throw new HttpError(409, 'Conclua as três aberturas e escolha um Pokémon antes de comprar outra cápsula.');
-    if (lastPurchase && Date.now() < Date.parse(lastPurchase.createdAt) + 5 * 86400000) throw new HttpError(409, 'Sua Cápsula Pokémon estará disponível novamente em 5 dias.');
+    if (lastPurchase && Date.now() < Date.parse(lastPurchase.createdAt) + 86400000) throw new HttpError(409, 'Sua Cápsula Pokémon estará disponível novamente amanhã.');
     if (walletFor(user.id) < box.price) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const before = walletFor(user.id), createdAt = new Date().toISOString(); addCredits(user.id, -box.price);
-    db.economy.cobblemonDeliveries.push({ id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, name: box.name, sprite: 'https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp', sellPrice: 0, status: 'box-closed', openCount: 0, rolls: [], createdAt });
+    const deliveredBefore = db.economy.cobblemonDeliveries.some((entry) => entry.userId === user.id && entry.boxId === 'pokemon' && entry.status === 'delivered');
+    db.economy.cobblemonDeliveries.push({ id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, name: box.name, sprite: 'https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp', sellPrice: 0, status: 'box-closed', openCount: 0, rolls: [], deliveryLocked: deliveredBefore, createdAt });
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box-purchase', amount: -box.price, before, after: before - box.price, reason: box.name, createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
   }
@@ -3038,7 +3039,13 @@ async function handleApi(req, res, route) {
       if (!choice) throw new HttpError(400, 'Escolha um Pokémon válido.');
       Object.assign(reward, { rewardId: choice.id, name: choice.name, sprite: choice.sprite, sellPrice: choice.sellPrice, pokemonId: choice.pokemonId, rarity: choice.rarity, isShiny: Boolean(choice.isShiny), status: 'awaiting-delivery', decidedAt: new Date().toISOString(), chosenAt: new Date().toISOString() });
     } else if (body.action === 'sell') { if (reward.status !== 'decision-pending') throw new HttpError(409, 'A cápsula só pode ser escolhida após as três aberturas.'); const before = walletFor(user.id); addCredits(user.id, reward.sellPrice); reward.status = 'sold'; reward.decidedAt = new Date().toISOString(); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-sale', amount: reward.sellPrice, before, after: before + reward.sellPrice, reason: 'Venda de ' + reward.name, createdAt: reward.decidedAt }); }
-    else { reward.status = 'awaiting-delivery'; reward.decidedAt = new Date().toISOString(); }
+    else {
+      if (reward.deliveryLocked) { reward.status = 'claimed-no-delivery'; reward.decidedAt = new Date().toISOString(); }
+      else {
+        db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.boxId === 'pokemon' && entry.status === 'awaiting-delivery' && entry.id !== reward.id).forEach((entry) => { entry.status = 'replaced'; entry.replacedAt = new Date().toISOString(); });
+        reward.status = 'awaiting-delivery'; reward.decidedAt = new Date().toISOString();
+      }
+    }
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/admin/cobblemon/delivered') {
