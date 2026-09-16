@@ -61,10 +61,10 @@ test('áudio nativo é priorizado após gesto do usuário', () => {
 });
 
 test('cápsula Pokémon é diária e bloqueia nova entrega após entrega concluída', () => {
-  assert.match(serverJs, /saoPauloDayKey\(new Date\(purchased\.createdAt\)\)/);
-  assert.match(serverJs, /deliveryLocked: deliveredBefore/);
-  assert.match(serverJs, /claimed-no-delivery/);
-  assert.match(appJs, /Pokémon já entregue: esta cápsula gera apenas a roleta/);
+  assert.match(serverJs, /pokemonCapsuleCycleKey/);
+  assert.match(serverJs, /pokemonCapsuleIsFriday/);
+  assert.match(serverJs, /openCount >= 7/);
+  assert.match(appJs, /Abrir Pokémon .*\/7/);
 });
 
 test('punições do Gay e do Pior têm duração e temas adaptados', () => {

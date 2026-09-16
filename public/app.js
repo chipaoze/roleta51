@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-capsule-v2',
+  version: '20260916-capsule-weekly',
   title: 'Atualização da Área 51',
-  notes: 'Cápsula Pokémon diária, três aberturas, troca da escolha pendente e bloqueio de novas entregas após um Pokémon já entregue.'
+  notes: 'Cápsula Pokémon com ciclo semanal de sábado a sexta: uma compra por dia, até sete opções e escolha final para entrega do Davi na sexta.'
 };
 let appState = null;
 let activeMode = 'theme';
@@ -2800,7 +2800,7 @@ async function showCobblemonOpening(title, reward, options = {}) {
   const rollOnly = Boolean(reward.rollOnly);
   const finalChoices = Array.isArray(reward.choices) && reward.choices.length > 0;
   keepButton.textContent = reward.noPrize ? 'Fechar' : reward.forceDelivery ? 'Entendi · aguardar entrega' : rollOnly ? 'Fechar' : 'Ficar com o prêmio'; sellButton.classList.toggle('hidden', Boolean(reward.noPrize || reward.forceDelivery || rollOnly || finalChoices));
-  decision.querySelector('p').textContent = reward.noPrize ? 'A casa de perda foi sorteada. O giro foi consumido e nenhum item entrou na fila de entrega.' : reward.forceDelivery ? 'Este Pokémon já entrou na fila de entrega do Davi e não pode ser vendido por créditos.' : finalChoices ? 'A cápsula abriu três vezes. Escolha apenas um Pokémon para enviar à fila do Davi.' : rollOnly ? `Abertura ${reward.rollNumber} de 3 concluída. Ainda faltam ${reward.rollsRemaining} abertura(s).` : 'Escolha agora: manter envia para a fila de entrega; vender devolve parte dos Créditos 51.';
+  decision.querySelector('p').textContent = reward.noPrize ? 'A casa de perda foi sorteada. O giro foi consumido e nenhum item entrou na fila de entrega.' : reward.forceDelivery ? 'Este Pokémon já entrou na fila de entrega do Davi e não pode ser vendido por créditos.' : finalChoices ? 'A semana terminou. Escolha apenas um Pokémon entre as opções para enviar ao Davi na entrega de sexta.' : rollOnly ? `Abertura ${reward.rollNumber} de 7 concluída. Ainda faltam ${reward.rollsRemaining} abertura(s); a escolha final acontece na sexta.` : 'Escolha agora: manter envia para a fila de entrega; vender devolve parte dos Créditos 51.';
   if (finalChoices && choicesBox) { choicesBox.innerHTML = reward.choices.map((choice) => `<button type="button" data-cobblemon-choice="${escapeHtml(choice.id)}" aria-pressed="false"><img src="${escapeHtml(choice.sprite || COBBLEMON_ITEM_SPRITES.poke)}" alt=""><strong>${escapeHtml(choice.name)}</strong><small>${escapeHtml(choice.rarity || 'Pokémon')}</small><b class="cobblemon-choice-selected">Selecionado</b></button>`).join(''); choicesBox.classList.remove('hidden'); keepButton.classList.remove('hidden'); keepButton.textContent = 'Selecionar Pokémon'; keepButton.disabled = true; }
   sellButton.textContent = `Vender agora por ${Number(reward.sellPrice||0).toLocaleString('pt-BR')} créditos`; decision.classList.remove('hidden');
   return await new Promise((resolve) => {
@@ -2833,15 +2833,15 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonCaptureButton').classList.toggle('hidden', !viewingMine);
   const deliveries = Array.isArray(profile.cobblemon?.deliveries) ? profile.cobblemon.deliveries : [];
   const canDeliverCobblemon = appState.me.role === 'admin' || /^davi\b/i.test(String(appState.me.displayName || ''));
-  const monthlyBox = profile.cobblemon?.monthlyPokemonBox || { canPurchase: true, canOpen: false, openCount: 0, rollsRemaining: 3, price: 900, deliveryLocked: false };
+  const monthlyBox = profile.cobblemon?.monthlyPokemonBox || { canPurchase: true, canOpen: false, openCount: 0, rollsRemaining: 7, price: 900 };
   $('#cobblemonBoxShop').innerHTML = Object.entries(COBBLEMON_BOX_CATALOG).map(([id,box]) => {
     const readyToOpen = box.monthly && monthlyBox.canOpen;
     const choicePending = box.monthly && monthlyBox.choicePending;
     const locked = box.monthly && !monthlyBox.canPurchase && !readyToOpen && !choicePending;
-    const actionLabel = readyToOpen ? `Abrir Pokémon ${Number(monthlyBox.openCount || 0) + 1}/3` : choicePending ? 'Escolha o Pokémon na abertura' : locked ? `Disponível em ${new Date(monthlyBox.nextOpenAt).toLocaleDateString('pt-BR',{day:'2-digit',month:'long'})}` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
+    const actionLabel = readyToOpen ? `Abrir Pokémon ${Number(monthlyBox.openCount || 0) + 1}/7` : choicePending ? 'Escolha o Pokémon da semana' : locked ? `Disponível em ${new Date(monthlyBox.nextOpenAt).toLocaleDateString('pt-BR',{day:'2-digit',month:'long'})}` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
     const priceLabel = readyToOpen || choicePending ? `<b>${Number(monthlyBox.rollsRemaining || 0)} abertura(s)</b> restantes` : `<b>${Number(box.price).toLocaleString('pt-BR')}</b> Créditos 51`;
-    const deliveryNote = box.monthly && monthlyBox.deliveryLocked && !readyToOpen && !choicePending ? '<small class="cobblemon-delivery-lock">Pokémon já entregue: esta cápsula gera apenas a roleta.</small>' : '';
-    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? 'DIÁRIA · 3 ABERTURAS · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em>${priceLabel}</em>${deliveryNote}</p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : ''}${locked || choicePending ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button></div></article>`;
+    const deliveryNote = box.monthly ? '<small class="cobblemon-delivery-lock">Compras de sábado a sexta · escolha final na sexta para entrega do Davi.</small>' : '';
+    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em>${priceLabel}</em>${deliveryNote}</p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : ''}${locked || choicePending ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button></div></article>`;
   }).join('');
   const visibleDeliveries = deliveries.filter((entry) => !['sold', 'box-closed', 'box-open', 'choice-pending', 'reset-refunded'].includes(entry.status));
   const deliveryGroups = new Map();
