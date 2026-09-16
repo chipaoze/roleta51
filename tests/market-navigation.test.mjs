@@ -7,5 +7,6 @@ test('Mercado 51 possui rota própria e navegação direta no menu', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(html, /href="\?pagina=mercado" data-page="mercado"/);
   assert.match(html, /<section id="mercado"/);
-  assert.match(app, /a\[data-page="mercado"\][\s\S]*window\.location\.assign\('\?pagina=mercado'\)/);
+  assert.match(app, /const portalPages = \[[^\]]*'mercado'/);
+  assert.doesNotMatch(app, /window\.location\.assign\('\?pagina=mercado'\)/);
 });

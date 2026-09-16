@@ -5117,12 +5117,6 @@ document.addEventListener('click', (event) => {
 $('#menuButton').addEventListener('click', () => setMenuOpen(!$('#siteMenu').classList.contains('open')));
 $('#closeMenuButton').addEventListener('click', () => setMenuOpen(false));
 $('#menuBackdrop').addEventListener('click', () => setMenuOpen(false));
-// O Mercado mantém uma entrada própria e deve abrir diretamente mesmo se a
-// SPA estiver com uma página antiga em memória após uma publicação.
-$('#siteMenu a[data-page="mercado"]')?.addEventListener('click', (event) => {
-  event.preventDefault(); event.stopPropagation();
-  window.location.assign('?pagina=mercado');
-});
 $('#mercado').addEventListener('submit', async (event) => {
   const form = event.target.closest('[data-market-action]'); if (!form) return;
   event.preventDefault(); const button = form.querySelector('button'); button.disabled = true;

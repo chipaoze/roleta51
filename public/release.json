@@ -1,5 +1,5 @@
 {
-  "version": "20260916-market-51-v4",
-  "title": "Mercado 51 abre corretamente",
-  "notes": "Publicamos uma nova versão do aplicativo com o cache renovado. Ao atualizar, o botão Mercado 51 passa a abrir diretamente a tela de investimentos."
+  "version": "20260916-market-51-v5",
+  "title": "Mercado 51 sem recarregar a sessão",
+  "notes": "A navegação do Mercado 51 voltou a ser interna, sem recarregar a página inteira. Assim, não aparece mais a verificação de sessão nem o aviso de atualização a cada entrada."
 }
