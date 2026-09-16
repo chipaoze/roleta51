@@ -1655,6 +1655,60 @@ body.theme-light-override[class*="profile-theme-"] :is(input,textarea,select){ba
 .cobblemon-pokemon-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}.cobblemon-pokemon-choices button{display:grid;gap:4px;place-items:center;padding:10px 7px;border:1px solid #d4aa42;border-radius:12px;background:#122840;color:#eefaff;cursor:pointer}.cobblemon-pokemon-choices button:hover{background:#1b3b5a;transform:translateY(-2px)}.cobblemon-pokemon-choices img{width:62px;height:62px;object-fit:contain;image-rendering:pixelated}.cobblemon-pokemon-choices strong{font-size:11px;text-align:center}.cobblemon-pokemon-choices small{color:#f2ca63;font-size:9px}@media(max-width:520px){.cobblemon-pokemon-choices{grid-template-columns:1fr}}
 .cobblemon-pokemon-choices .cobblemon-choice-selected{display:none;color:#091827;font-size:9px;text-transform:uppercase}.cobblemon-pokemon-choices button.selected{border-color:#62edaa;background:linear-gradient(145deg,#1f684f,#163c3d);box-shadow:0 0 0 3px #62edaa55,0 8px 22px #0006}.cobblemon-pokemon-choices button.selected .cobblemon-choice-selected{display:block;padding:3px 7px;border-radius:999px;background:#72f2b1}
 
+/* Cápsulas: contraste legível e ações com o mesmo tamanho em todos os baús. */
+body.admin-command-mode .cobblemon-page .cobblemon-store-card,
+body.admin-command-mode .cobblemon-page .cobblemon-capsule-result-card,
+body.admin-command-mode .cobblemon-page .cobblemon-delivery-card,
+body.admin-command-mode .cobblemon-page .cobblemon-dex-card{color:#eef8ff!important}
+.cobblemon-page .cobblemon-store-card h3,
+.cobblemon-page .cobblemon-capsule-result-card h3,
+.cobblemon-page .cobblemon-delivery-card h3,
+.cobblemon-page .cobblemon-dex-card h3{color:#f7fbff!important;text-shadow:0 1px 8px #020a1680}
+.cobblemon-page .cobblemon-store-card>p,
+.cobblemon-page .cobblemon-capsule-result-card>p,
+.cobblemon-page .cobblemon-delivery-card>p,
+.cobblemon-page .cobblemon-dex-card>p{color:#c9dce9!important;font-size:13px;line-height:1.5}
+.cobblemon-page .cobblemon-capsule-result-card .cobblemon-delivery-empty,
+.cobblemon-page .cobblemon-delivery-card .cobblemon-delivery-empty{color:#c5d9e7!important;background:#0d2236;border-color:#54809a}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{min-height:205px;grid-template-rows:auto 1fr auto}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div{align-self:end;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-height:42px}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div button{box-sizing:border-box;width:100%;height:42px;min-height:42px;display:inline-flex;align-items:center;justify-content:center;margin:0;padding:8px 10px;line-height:1.15;white-space:nowrap;font-size:11px}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div button:last-child{height:42px;min-height:42px}
+.cobblemon-page .cobblemon-capsule-result{background:linear-gradient(145deg,#132840,#0b1b2d);border-color:#6d9fbb}
+.cobblemon-page .cobblemon-capsule-result strong{color:#f5fbff;font-size:15px}
+.cobblemon-page .cobblemon-capsule-result small{color:#c6dce9;font-size:11px}
+.cobblemon-page .cobblemon-capsule-result-note{color:#d7e7f0!important}
+.cobblemon-page .cobblemon-opening-dialog #continueCobblemonRoll{display:none!important;margin-inline:auto}
+@media(max-width:1050px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{min-height:190px}}
+@media(max-width:430px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div{grid-template-columns:1fr}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div button,.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div button:last-child{height:40px;min-height:40px}}
+
+/* Modo claro sem tema comprado: a Pokédex acompanha o restante do portal. */
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page{background:linear-gradient(145deg,#f5fbff,#e7f4fa)!important;border-color:#6aa6bd!important;color:#20354a!important;box-shadow:inset 0 1px #fff,0 18px 42px #426c7d24}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page:before{background:radial-gradient(circle at 82% 8%,#65d8ff22,transparent 27%),linear-gradient(90deg,transparent 49.5%,#1a6c8420 50%,transparent 50.5%);opacity:.7}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page-hero{background:linear-gradient(100deg,#eaf9ffdd,#c8edf5bb),url('/theme-cobblemon-ocean-v1.png') center 58%/cover!important;border-color:#6aa6bd;color:#12334b;box-shadow:0 12px 28px #426c7d24}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page-hero h2{color:#12334b!important;text-shadow:none}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page-hero p{color:#31586c}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page-guide{background:#ffffffcc;border-color:#6aa6bd;color:#20415a}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page :is(.cobblemon-info-card,.cobblemon-balance-card,.cobblemon-store-card,.cobblemon-roulette-card,.cobblemon-capsule-result-card,.cobblemon-dex-card,.cobblemon-delivery-card){background:rgba(255,255,255,.84)!important;border-color:#83b4c8!important;color:#20354a!important;box-shadow:0 10px 25px #426c7d18}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page :is(.cobblemon-info-card,.cobblemon-balance-card,.cobblemon-store-card,.cobblemon-roulette-card,.cobblemon-capsule-result-card,.cobblemon-dex-card,.cobblemon-delivery-card) h2,
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page :is(.cobblemon-info-card,.cobblemon-balance-card,.cobblemon-store-card,.cobblemon-roulette-card,.cobblemon-capsule-result-card,.cobblemon-dex-card,.cobblemon-delivery-card) h3{color:#173a55!important;text-shadow:none}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page :is(.cobblemon-info-card,.cobblemon-balance-card,.cobblemon-store-card,.cobblemon-roulette-card,.cobblemon-capsule-result-card,.cobblemon-dex-card,.cobblemon-delivery-card)>p{color:#426276!important}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page .cobblemon-box-card{background:linear-gradient(145deg,#fff,#edf8fc);border-color:#83b4c8}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page .cobblemon-box-card strong{color:#173a55}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page .cobblemon-box-card em{color:#557184}
+body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page .cobblemon-capsule-result{background:#eef8fc;border-color:#73a7bd}
+
+/* Temas pessoais: a hero e a textura da Pokédex usam a mesma atmosfera do tema ativo. */
+body:is(.profile-theme-galaxy,.profile-theme-sunset,.profile-theme-ocean,.profile-theme-retro,.profile-theme-matrix,.profile-theme-eclipse,.profile-theme-aurora,.profile-theme-mars,.profile-theme-nebula,.profile-theme-hyperdrive,.profile-theme-lunar-tide,.profile-theme-coral-signal,.profile-theme-prism) .cobblemon-page-hero{background:linear-gradient(100deg,var(--classic-theme-wash),rgba(10,14,39,.30)),var(--classic-theme-art) center/cover!important;border-color:color-mix(in srgb,var(--classic-theme-accent) 55%,#384a68)!important}
+body:is(.profile-theme-galaxy,.profile-theme-sunset,.profile-theme-ocean,.profile-theme-retro,.profile-theme-matrix,.profile-theme-eclipse,.profile-theme-aurora,.profile-theme-mars,.profile-theme-nebula,.profile-theme-hyperdrive,.profile-theme-lunar-tide,.profile-theme-coral-signal,.profile-theme-prism) .cobblemon-page:before{background:radial-gradient(circle at 82% 8%,color-mix(in srgb,var(--classic-theme-accent) 28%,transparent),transparent 30%),linear-gradient(90deg,transparent 49.5%,#ffffff08 50%,transparent 50.5%);opacity:.55}
+body.profile-theme-cobblemon .cobblemon-page-hero{background:linear-gradient(100deg,#071b36e8,#0e6883b8),url('/theme-cobblemon-v3.webp') center/cover!important;border-color:#74dff5!important}
+body.profile-theme-cobblemon .cobblemon-page:before{content:none!important}
+body.profile-theme-gta-neon .cobblemon-page-hero{background:linear-gradient(100deg,#100b2cdd,#ff5cad55),url('/theme-gta-neon-v2.webp') center/cover!important;border-color:#f263b1!important}
+body.profile-theme-wolverine .cobblemon-page-hero{background:linear-gradient(100deg,#111722dd,#ffce2955),url('/theme-wolverine-comic-v1.png') center/cover!important;border-color:#d8ad29!important}
+body.profile-theme-samurai .cobblemon-page-hero{background:linear-gradient(100deg,#190f1bdd,#9f354d55),url('/theme-yotei-landscape-v1.png') center/cover!important;border-color:#a86d88!important}
+body.profile-theme-god-war .cobblemon-page-hero{background:linear-gradient(100deg,#07131fee,#7bdcff55),url('/theme-olympus-v1.png') center/cover!important;border-color:#69c7ea!important}
+body.profile-theme-sovereign .cobblemon-page-hero{background:linear-gradient(100deg,#090719ee,#5b2e9255),url('/theme-sovereign-command-v1.png') center/cover!important;border-color:#8e68c7!important}
+
 /* Propostas em andamento: duas cartas claras, ações compactas e sem espaço morto. */
 #cardTradeList .trade-summary-card{display:grid!important;gap:9px;margin-top:10px;padding:11px!important;border:1px solid #456887!important;border-radius:13px!important;background:linear-gradient(135deg,#0c1b2e,#11263c)!important}#cardTradeList .trade-summary-card>header{display:flex!important;align-items:center;justify-content:space-between;gap:8px;background:transparent!important}#cardTradeList .trade-summary-card>header strong{color:#f5f9ff;font-size:14px}#cardTradeList .trade-summary-card>header small{padding:4px 7px;border-radius:999px;background:#273d5b;color:#dce9f7;font-size:9px;font-weight:900}.trade-summary-pair{display:grid!important;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);align-items:center;gap:7px;margin:0!important;background:transparent!important}.trade-summary-pair>i{color:#f3d06b;font-size:18px;font-style:normal;text-align:center}.trade-summary-item{display:grid;grid-template-columns:37px minmax(0,1fr);column-gap:7px;align-items:center;padding:8px;border:1px solid #3a6081;border-radius:10px;background:#0a1728}.trade-summary-item.already-owned{border-color:#866237;background:#241c14}.trade-summary-item>b{grid-column:1/-1;margin-bottom:4px;color:#91bfdf;font-size:8px;letter-spacing:.09em}.trade-summary-item.already-owned>b{color:#f0cd6c}.trade-summary-item>span{display:grid;place-items:center;width:36px;height:36px;border-radius:9px;background:#203c5b;font-size:22px}.trade-summary-item p{display:grid;gap:2px;min-width:0;margin:0}.trade-summary-item p strong{overflow:hidden;color:#fff;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.trade-summary-item p small{color:#b4cce1;font-size:9px;line-height:1.2}.trade-summary-item.already-owned p small{color:#f0cd6c}#cardTradeList .trade-summary-card>footer{display:flex!important;gap:7px;margin:0!important;padding:0!important;background:transparent!important}#cardTradeList .trade-summary-card>footer button{min-height:34px!important;padding:7px 10px!important;border:1px solid #668eb5!important;border-radius:8px!important;background:#1b4269!important;color:#fff!important;font-size:11px!important;font-weight:900}#cardTradeList .trade-summary-card>footer button[data-card-trade="reject"]{border-color:#964f62!important;background:#3b1d29!important}@media(max-width:560px){.trade-summary-pair{grid-template-columns:1fr}.trade-summary-pair>i{transform:rotate(90deg)}#cardTradeList .trade-summary-card>footer button{flex:1}}
 #cardTradeList .trade-summary-card>footer{min-height:0!important;width:auto!important;justify-content:flex-start!important;align-items:center!important}#cardTradeList .trade-summary-card>footer:empty{display:none!important}
@@ -1691,3 +1745,27 @@ body.theme-light-override:is(.profile-theme-galaxy,.profile-theme-sunset,.profil
 
 .release-notice-dialog{width:min(430px,calc(100vw - 32px));padding:28px 30px;border:1px solid #7c59c8;border-radius:18px;background:linear-gradient(145deg,#111b36,#21183d);color:#f5f7ff;text-align:center;box-shadow:0 24px 80px #000b;}.release-notice-dialog::backdrop{background:#050914b8;backdrop-filter:blur(5px)}.release-notice-dialog .release-notice-icon{display:grid;place-items:center;width:58px;height:58px;margin:0 auto 12px;border-radius:18px;background:linear-gradient(145deg,#7d4fc4,#ec9b45);font-size:30px}.release-notice-dialog small{color:#d7bbff;font-size:10px;font-weight:1000;letter-spacing:.14em}.release-notice-dialog h2{margin:9px 0 8px;font-size:23px}.release-notice-dialog p{margin:0 0 22px;color:#c9d4e9;line-height:1.55;font-size:14px}.release-notice-dialog .button{min-width:180px}
 body.theme-light-override .release-notice-dialog{background:linear-gradient(145deg,#fff,#f1ecff);color:#18213b}.theme-light-override .release-notice-dialog p{color:#4a5872}
+.cobblemon-capsule-result-card{padding:18px;background:linear-gradient(145deg,#1a1835,#101b31)!important;border-color:#8b65c8!important}.cobblemon-capsule-result-card .profile-block-head>span{padding:6px 10px;border-radius:999px;background:#251a42;color:#e5caff;font-size:11px;font-weight:900}.cobblemon-capsule-results{display:grid;gap:10px}.cobblemon-capsule-result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}.cobblemon-capsule-result{display:flex;align-items:center;gap:10px;min-height:68px;padding:9px 11px;border:1px solid #8662bd;border-radius:12px;background:#111d32}.cobblemon-capsule-result>img{width:52px;height:52px;object-fit:contain;image-rendering:pixelated}.cobblemon-capsule-result>div{display:grid;gap:3px;min-width:0}.cobblemon-capsule-result strong{font-size:14px;overflow-wrap:anywhere}.cobblemon-capsule-result small{color:#c8b3e7;font-size:11px}.cobblemon-capsule-result-note{margin:0;color:#d1c3e8;font-size:13px}.cobblemon-capsule-results>.button{justify-self:start}.cobblemon-capsule-result-card .cobblemon-delivery-empty{margin:0;padding:14px;border:1px dashed #705494;border-radius:12px;color:#b9a9d0;text-align:center}@media(max-width:520px){.cobblemon-capsule-result-grid{grid-template-columns:1fr}}
+
+/* Último ajuste da página Cobblemon: vence temas administrativos e mantém os botões uniformes. */
+body.admin-command-mode .cobblemon-page :is(.cobblemon-store-card,.cobblemon-capsule-result-card,.cobblemon-delivery-card,.cobblemon-dex-card){color:#eef8ff!important}
+body.admin-command-mode .cobblemon-page :is(.cobblemon-store-card,.cobblemon-capsule-result-card,.cobblemon-delivery-card,.cobblemon-dex-card) h2,
+body.admin-command-mode .cobblemon-page :is(.cobblemon-store-card,.cobblemon-capsule-result-card,.cobblemon-delivery-card,.cobblemon-dex-card) h3{color:#f7fbff!important}
+body.admin-command-mode .cobblemon-page :is(.cobblemon-store-card,.cobblemon-capsule-result-card,.cobblemon-delivery-card,.cobblemon-dex-card)>p{color:#c9dce9!important;font-size:13px;line-height:1.5}
+body.admin-command-mode .cobblemon-page .cobblemon-roulette-card{color:#eef8ff!important}
+body.admin-command-mode .cobblemon-page .cobblemon-roulette-card h3{color:#f7fbff!important}
+body.admin-command-mode .cobblemon-page .cobblemon-roulette-card p{color:#c9dce9!important}
+body.admin-command-mode .cobblemon-page .cobblemon-info-card,
+body.admin-command-mode .cobblemon-page .cobblemon-balance-card{color:#eef8ff!important}
+body.admin-command-mode .cobblemon-page .cobblemon-info-card h3,
+body.admin-command-mode .cobblemon-page .cobblemon-balance-card h3{color:#f7fbff!important}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{min-height:205px;grid-template-rows:auto 1fr auto}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div{align-self:end;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-height:42px}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div button,.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div button:last-child{box-sizing:border-box;width:100%;height:42px;min-height:42px;display:inline-flex;align-items:center;justify-content:center;margin:0;padding:8px 10px;line-height:1.15;white-space:nowrap;font-size:11px}
+.cobblemon-page .cobblemon-capsule-result{background:linear-gradient(145deg,#132840,#0b1b2d);border-color:#6d9fbb}
+.cobblemon-page .cobblemon-capsule-result strong{color:#f5fbff;font-size:15px}
+.cobblemon-page .cobblemon-capsule-result small{color:#c6dce9;font-size:11px}
+.cobblemon-page .cobblemon-capsule-result-note{color:#d7e7f0!important}
+.cobblemon-page .cobblemon-opening-dialog #continueCobblemonRoll{display:none!important;margin-inline:auto}
+@media(max-width:1050px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{min-height:190px}}
+@media(max-width:430px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div{grid-template-columns:1fr}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div button,.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>div button:last-child{height:40px;min-height:40px}}

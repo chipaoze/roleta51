@@ -29,7 +29,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260916-257/);
+  assert.match(html, /styles\.css\?v=20260916-260/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -69,7 +69,38 @@ test('cápsula Pokémon faz três sorteios por compra e escolha semanal', () => 
   assert.match(serverJs, /cycleEntries.length >= 7/);
   assert.doesNotMatch(serverJs, /já comprou a Cápsula Pokémon hoje/);
   assert.match(appJs, /Sorteio .*\/3/);
-  assert.match(appJs, /Escolher 1 dos 7/);
+  assert.match(appJs, /Escolher entrega da semana/);
+});
+
+test('cápsula separa limite semanal, sorteios por baú e entrega antecipada após a escolha', () => {
+  assert.match(serverJs, /weeklyPurchasesRemaining/);
+  assert.match(serverJs, /weeklyOpeningsUsed/);
+  assert.match(serverJs, /canChooseNow: false/);
+  assert.match(serverJs, /Faça os três sorteios antes de escolher/);
+  assert.match(serverJs, /Escolha antecipada para entrega do Davi/);
+  assert.doesNotMatch(appJs, /Escolher este Pokémon agora/);
+  assert.match(appJs, /somente depois dos três/);
+  assert.match(appJs, /autoNextRoll/);
+  assert.match(appJs, /do \{/);
+  assert.match(styles, /cobblemon-box-card>div button.*height:42px/);
+  assert.match(html, /Continuar sorteios/);
+});
+
+test('resultado semanal não vaza candidatos para a fila de entregas', () => {
+  assert.match(serverJs, /weeklyCandidates/);
+  assert.match(serverJs, /choose-weekly-now/);
+  assert.match(appJs, /cobblemonCapsuleResults/);
+  assert.match(appJs, /Escolher para entrega/);
+  assert.match(appJs, /cycle-candidate.*weekly-choice-pending/);
+  assert.match(appJs, /cycle-expired/);
+  assert.match(appJs, /Aguardando entrega do Davi/);
+});
+
+test('reset da cápsula é idempotente e devolve o preço de cada compra antiga', () => {
+  assert.match(serverJs, /cobblemonCapsuleResetV5/);
+  assert.match(serverJs, /cobblemon-capsule-reset-refund/);
+  assert.match(serverJs, /entry.status !== 'reset-refunded'/);
+  assert.match(serverJs, /resetReason = 'Reinício do ciclo semanal/);
 });
 
 test('punições do Gay e do Pior têm duração e temas adaptados', () => {

@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-capsule-three-rolls-v4',
+  version: '20260916-capsule-weekly-cycle-v7',
   title: 'Atualização da Área 51',
-  notes: 'Cápsula Pokémon restaurada: até 7 compras por semana (inclusive no mesmo dia), 3 sorteios por cápsula, escolha diária e escolha final de 1 Pokémon para entrega do Davi na sexta.'
+  notes: 'Cápsula Pokémon com ciclo semanal: até 7 compras de sábado a sexta, 3 sorteios automáticos por cápsula, resultado separado da fila de entregas, escolha somente após os 3 resultados e entrega antecipada a partir da lista semanal. A escolha agora permanece correta na lista semanal, sem trocar pelo último resultado bruto da roleta. A página de cápsulas, a roleta e os cartões laterais agora têm contraste maior, textos legíveis e botões padronizados. O reset antigo será estornado antes da publicação.'
 };
 let appState = null;
 let activeMode = 'theme';
@@ -2773,7 +2773,7 @@ function spinCobblemonRouletteWheel(wheel, rewardIndex) {
 }
 
 async function showCobblemonOpening(title, reward, options = {}) {
-  const dialog = $('#cobblemonOpeningDialog'), viewport = $('#cobblemonCarouselViewport'), track = $('#cobblemonCarouselTrack'), result = $('#cobblemonOpeningResult'), decision = $('#cobblemonOpeningDecision'), choicesBox = $('#cobblemonPokemonChoices');
+  const dialog = $('#cobblemonOpeningDialog'), viewport = $('#cobblemonCarouselViewport'), track = $('#cobblemonCarouselTrack'), result = $('#cobblemonOpeningResult'), decision = $('#cobblemonOpeningDecision'), choicesBox = $('#cobblemonPokemonChoices'), continueButton = $('#continueCobblemonRoll');
   const skipCarousel = Boolean(options.skipCarousel);
   cobblemonOpeningLocked = true;
   const pokemonOnly = Boolean(reward.pokemonId) || reward.boxId === 'pokemon';
@@ -2785,7 +2785,7 @@ async function showCobblemonOpening(title, reward, options = {}) {
   const entries = Array.from({length:32},(_,index) => index === winningIndex ? selected : pool[Math.floor(Math.random()*pool.length)]);
   viewport.classList.toggle('hidden', skipCarousel);
   $('#cobblemonOpeningTitle').textContent = title; $('#cobblemonOpeningIcon').src = skipCarousel ? (reward.sprite || COBBLEMON_ITEM_SPRITES.poke) : '/capture-ball-cobblemon.png'; $('#keepCobblemonReward').disabled = false; $('#sellCobblemonReward').disabled = false;
-  result.classList.remove('revealed'); result.innerHTML = '<span>◉</span><strong>Aguarde a roleta parar</strong>'; decision.classList.add('hidden'); choicesBox?.classList.add('hidden'); if (choicesBox) choicesBox.innerHTML = '';
+  result.classList.remove('revealed'); result.innerHTML = '<span>◉</span><strong>Aguarde a roleta parar</strong>'; decision.classList.add('hidden'); choicesBox?.classList.add('hidden'); continueButton?.classList.add('hidden'); if (choicesBox) choicesBox.innerHTML = '';
   track.innerHTML = entries.map(([name,sprite]) => `<article><span>${sprite ? `<img src="${sprite}" alt="">` : '<b class="roulette-loss">×</b>'}</span><strong>${escapeHtml(name)}</strong></article>`).join('');
   track.style.transition = 'none'; track.style.transform = 'translateX(0)'; dialog.showModal();
   if (!skipCarousel) {
@@ -2801,15 +2801,31 @@ async function showCobblemonOpening(title, reward, options = {}) {
   const rollOnly = Boolean(reward.rollOnly);
   const finalChoices = Array.isArray(reward.choices) && reward.choices.length > 0;
   const weeklyChoice = reward.choiceStage === 'weekly';
-  keepButton.textContent = reward.noPrize ? 'Fechar' : reward.forceDelivery ? 'Entendi · aguardar entrega' : rollOnly ? 'Fechar' : 'Ficar com o prêmio'; sellButton.classList.toggle('hidden', Boolean(reward.noPrize || reward.forceDelivery || rollOnly || finalChoices));
-  decision.querySelector('p').textContent = reward.noPrize ? 'A casa de perda foi sorteada. O giro foi consumido e nenhum item entrou na fila de entrega.' : reward.forceDelivery ? 'Este Pokémon já entrou na fila de entrega do Davi e não pode ser vendido por créditos.' : finalChoices ? (weeklyChoice ? 'Escolha um dos Pokémon selecionados nesta semana para o Davi entregar na sexta.' : 'Você fez os três sorteios. Escolha um Pokémon para guardar como sua opção do dia.') : rollOnly ? `Sorteio ${reward.rollNumber} de 3 concluído. Ainda faltam ${reward.rollsRemaining} sorteio(s) para liberar sua escolha.` : 'Escolha agora: manter envia para a fila de entrega; vender devolve parte dos Créditos 51.';
+  keepButton.textContent = reward.noPrize ? 'Fechar' : reward.forceDelivery ? 'Entendi · aguardar entrega' : 'Ficar com o prêmio';
+  // During the first two rolls there is no decision yet: the player must see
+  // all three results before choosing one for that capsule.
+  keepButton.classList.toggle('hidden', Boolean(rollOnly && !finalChoices));
+  sellButton.classList.toggle('hidden', Boolean(reward.noPrize || reward.forceDelivery || rollOnly || finalChoices));
+  // Os três resultados da cápsula são encadeados automaticamente. O botão
+  // antigo continua no HTML como fallback visual, mas não interrompe mais o
+  // fluxo entre o primeiro, segundo e terceiro sorteio.
+  if (rollOnly) continueButton?.classList.add('hidden');
+  decision.querySelector('p').textContent = reward.noPrize ? 'A casa de perda foi sorteada. O giro foi consumido e nenhum item entrou na fila de entrega.' : reward.forceDelivery ? 'Este Pokémon já entrou na fila de entrega do Davi e não pode ser vendido por créditos.' : finalChoices ? (weeklyChoice ? 'Escolha um dos Pokémon selecionados nesta semana para o Davi entregar na sexta.' : 'Você fez os três sorteios. Escolha um Pokémon para guardar como sua opção do dia.') : rollOnly ? `Sorteio ${reward.rollNumber} de 3 concluído. Continue para ver os próximos resultados; a escolha acontece somente depois dos três.` : 'Escolha agora: manter envia para a fila de entrega; vender devolve parte dos Créditos 51.';
   if (finalChoices && choicesBox) { choicesBox.innerHTML = reward.choices.map((choice) => `<button type="button" data-cobblemon-choice="${escapeHtml(choice.entryId || choice.choiceKey || choice.id)}" aria-pressed="false"><img src="${escapeHtml(choice.sprite || COBBLEMON_ITEM_SPRITES.poke)}" alt=""><strong>${escapeHtml(choice.name)}</strong><small>${escapeHtml(choice.rarity || 'Pokémon')}</small><b class="cobblemon-choice-selected">Selecionado</b></button>`).join(''); choicesBox.classList.remove('hidden'); keepButton.classList.remove('hidden'); keepButton.textContent = weeklyChoice ? 'Enviar escolhido ao Davi' : 'Escolher Pokémon do dia'; keepButton.disabled = true; }
   sellButton.textContent = `Vender agora por ${Number(reward.sellPrice||0).toLocaleString('pt-BR')} créditos`; decision.classList.remove('hidden');
   return await new Promise((resolve) => {
-    if (reward.forceDelivery) { keepButton.onclick = () => { cobblemonOpeningLocked = false; dialog.close(); decision.classList.add('hidden'); resolve({ profile: reward.profile }); }; return; }
-    if (reward.noPrize) { keepButton.onclick = () => { cobblemonOpeningLocked = false; dialog.close(); decision.classList.add('hidden'); resolve({ profile: reward.profile }); }; return; }
-    if (rollOnly) { keepButton.onclick = () => { cobblemonOpeningLocked = false; dialog.close(); decision.classList.add('hidden'); resolve({ profile: reward.profile }); }; return; }
     const decide = async (action, button, choiceId) => { button.disabled = true; try { const data = await api('/api/cobblemon/reward/decision',{method:'POST',body:{id:reward.id,action, ...(choiceId ? { choiceId } : {})}}); if(action==='sell') showToast(`${reward.name} vendido por ${Number(reward.sellPrice||0).toLocaleString('pt-BR')} créditos.`); else showToast(data.nextChoice ? 'Escolha diária salva. Agora selecione o Pokémon da semana.' : weeklyChoice ? 'Pokémon enviado para a fila de entrega do Davi.' : 'Pokémon do dia salvo para a escolha de sexta.'); cobblemonOpeningLocked = false; dialog.close(); decision.classList.add('hidden'); resolve(data); if (data.nextChoice) { const weekly = await showCobblemonOpening('Escolha o Pokémon da semana', {...data.nextChoice, profile: data.profile}, {skipCarousel:true}); appState.profile = weekly.profile; renderProfileEconomy(appState.profile); } } catch(error){showToast(error.message,'error');button.disabled=false;} };
+    if (reward.forceDelivery || reward.noPrize) { keepButton.onclick = () => { cobblemonOpeningLocked = false; dialog.close(); decision.classList.add('hidden'); resolve({ profile: reward.profile }); }; return; }
+    if (rollOnly) {
+      const nextRoll = Number(reward.rollNumber || 0) < 3;
+      window.setTimeout(() => {
+        cobblemonOpeningLocked = false;
+        dialog.close();
+        decision.classList.add('hidden');
+        resolve({ profile: reward.profile, autoNextRoll: nextRoll, capsuleId: reward.id });
+      }, 900);
+      return;
+    }
     let selectedChoiceId = null;
     $('#keepCobblemonReward').onclick = (event) => finalChoices ? decide('choose', event.currentTarget, selectedChoiceId) : decide('keep',event.currentTarget);
     $('#sellCobblemonReward').onclick = (event) => decide('sell',event.currentTarget);
@@ -2835,19 +2851,25 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonCaptureButton').classList.toggle('hidden', !viewingMine);
   const deliveries = Array.isArray(profile.cobblemon?.deliveries) ? profile.cobblemon.deliveries : [];
   const canDeliverCobblemon = appState.me.role === 'admin' || /^davi\b/i.test(String(appState.me.displayName || ''));
-  const monthlyBox = profile.cobblemon?.monthlyPokemonBox || { canPurchase: true, canOpen: false, openCount: 0, openRollCount: 0, rollsRemaining: 7, dailyRollsRemaining: 3, price: 900 };
+  const monthlyBox = profile.cobblemon?.monthlyPokemonBox || { canPurchase: true, canOpen: false, openCount: 0, openRollCount: 0, rollsRemaining: 7, dailyRollsRemaining: 3, weeklyPurchaseCount: 0, weeklyPurchasesRemaining: 7, price: 900 };
   $('#cobblemonBoxShop').innerHTML = Object.entries(COBBLEMON_BOX_CATALOG).map(([id,box]) => {
     const readyToOpen = box.monthly && monthlyBox.canOpen;
     const choicePending = box.monthly && monthlyBox.choicePending;
     const locked = box.monthly && !monthlyBox.canPurchase && !readyToOpen && !choicePending;
     const choiceMode = choicePending && monthlyBox.choice;
-    const actionLabel = readyToOpen ? `Sorteio ${Number(monthlyBox.openRollCount || 0) + 1}/3` : choiceMode ? (monthlyBox.choiceStage === 'weekly' ? 'Escolher 1 dos 7' : 'Escolher 1 dos 3') : locked ? `Disponível em ${new Date(monthlyBox.nextOpenAt).toLocaleDateString('pt-BR',{day:'2-digit',month:'long'})}` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
-    const priceLabel = readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes` : choiceMode ? `<b>${monthlyBox.choiceStage === 'weekly' ? 7 : 3} opções</b> para escolher` : `<b>${Number(box.price).toLocaleString('pt-BR')}</b> Créditos 51`;
-    const deliveryNote = box.monthly ? '<small class="cobblemon-delivery-lock">Até 7 compras de sábado a sexta · cada cápsula faz 3 sorteios e uma escolha diária · escolha final na sexta · sábado reinicia.</small>' : '';
+    const actionLabel = readyToOpen ? `Sorteio ${Number(monthlyBox.openRollCount || 0) + 1}/3` : choiceMode ? (monthlyBox.choiceStage === 'weekly' ? 'Escolher entrega da semana' : 'Escolher 1 dos 3') : locked ? `Novo ciclo no sábado` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
+    const priceLabel = readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes nesta cápsula` : choiceMode ? `<b>${monthlyBox.choice?.choices?.length || (monthlyBox.choiceStage === 'weekly' ? monthlyBox.weeklyCandidates?.length || 7 : 3)} opções</b> para escolher` : `<b>${Number(box.price).toLocaleString('pt-BR')}</b> Créditos 51`;
+    const deliveryNote = box.monthly ? `<small class="cobblemon-delivery-lock"><b>${Number(monthlyBox.weeklyPurchasesRemaining ?? 7)} de 7</b> cápsulas disponíveis nesta semana · 3 sorteios por cápsula · escolha da entrega na sexta · ciclo reinicia no sábado.</small>` : '';
     const purchaseMore = box.monthly && monthlyBox.canPurchase && (readyToOpen || choiceMode) ? `<button data-cobblemon-box="${id}" data-cobblemon-box-mode="purchase">Comprar outra cápsula</button>` : '';
     return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}${choiceMode ? ' choice-ready' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em>${priceLabel}</em>${deliveryNote}</p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${choiceMode ? 'choice' : readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : choiceMode ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button>${purchaseMore}</div></article>`;
   }).join('');
-  const visibleDeliveries = deliveries.filter((entry) => !['sold', 'box-closed', 'box-open', 'choice-pending', 'reset-refunded'].includes(entry.status));
+  const weeklyCandidates = Array.isArray(monthlyBox.weeklyCandidates) ? monthlyBox.weeklyCandidates : [];
+  const resultCards = weeklyCandidates.map((entry) => `<article class="cobblemon-capsule-result"><img src="${escapeHtml(entry.sprite || COBBLEMON_ITEM_SPRITES.poke)}" alt=""><div><strong>${escapeHtml(entry.name || 'Pokémon')}</strong><small>${escapeHtml(entry.rarity || 'Pokémon')} · aguardando escolha da semana</small><button type="button" class="button button-dark cobblemon-weekly-choice" data-cobblemon-weekly-choice="${escapeHtml(entry.entryId || entry.id)}">Escolher para entrega</button></div></article>`).join('');
+  const resultAction = monthlyBox.weeklyChoicePending && monthlyBox.choice ? `<button class="button button-primary" data-cobblemon-box="pokemon" data-cobblemon-box-mode="choice" data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}">Escolher Pokémon para o Davi</button>` : '';
+  $('#cobblemonCapsuleResults').innerHTML = resultCards ? `<div class="cobblemon-capsule-result-grid">${resultCards}</div><p class="cobblemon-capsule-result-note">${monthlyBox.weeklyChoicePending ? 'A semana terminou: escolha um deles para a entrega de sexta.' : 'Gostou de um Pokémon? Escolha agora e ele será enviado pelo Davi. Isso encerra o ciclo até sábado.'}</p>${resultAction}` : '<p class="cobblemon-delivery-empty">Nenhum Pokémon escolhido neste ciclo. Abra uma cápsula para começar.</p>';
+  $('#cobblemonCapsuleResultCount').textContent = `${weeklyCandidates.length} selecionado${weeklyCandidates.length === 1 ? '' : 's'}`;
+  $('#cobblemonCapsuleResultHelp').textContent = monthlyBox.weeklyChoicePending ? 'Escolha um Pokémon desta lista para ficar aguardando o envio do Davi na sexta.' : 'A cada cápsula, faça os 3 sorteios e escolha 1 Pokémon. Eles ficam nesta lista até você pedir a entrega ou o fechamento da semana.';
+  const visibleDeliveries = deliveries.filter((entry) => !['sold', 'box-closed', 'box-open', 'choice-pending', 'cycle-candidate', 'weekly-choice-pending', 'cycle-discarded', 'cycle-expired', 'reset-refunded'].includes(entry.status));
   const deliveryGroups = new Map();
   visibleDeliveries.forEach((entry) => {
     const playerName = entry.userName || appState.me.displayName;
@@ -5447,12 +5469,36 @@ document.addEventListener('click', async (event) => {
         const decided = await showCobblemonOpening(pending.choiceStage === 'weekly' ? 'Escolha o Pokémon da semana' : 'Escolha o Pokémon do dia', {...pending, boxId: 'pokemon', profile: appState.profile}, {skipCarousel:true});
         appState.profile = decided.profile; renderProfileEconomy(appState.profile);
       } else {
-        const data = await api('/api/cobblemon/box/open', { method: 'POST', body: { boxId, inventoryId: boxButton.dataset.cobblemonBoxInventory || null } });
-        const decided = await showCobblemonOpening(box?.name || 'Baú Cobblemon', data.reward);
+        const inventoryId = boxButton.dataset.cobblemonBoxInventory || null;
+        let data = await api('/api/cobblemon/box/open', { method: 'POST', body: { boxId, inventoryId } });
+        let decided;
+        do {
+          decided = await showCobblemonOpening(box?.name || 'Baú Cobblemon', data.reward);
+          if (!decided.autoNextRoll) break;
+          data = await api('/api/cobblemon/box/open', { method: 'POST', body: { boxId, inventoryId: decided.capsuleId || inventoryId } });
+        } while (true);
         appState.profile = decided.profile; renderProfileEconomy(appState.profile);
       }
-    } catch (error) { showToast(error.message,'error'); renderCobblemonDex(appState.profile); }
+    } catch (error) {
+      showToast(error.message, 'error');
+      // A stale card can keep an old capsule id after another tab or session
+      // changes the weekly cycle. Refresh the profile so the controls recover
+      // without requiring a full page reload.
+      try { const fresh = await api('/api/state'); appState.profile = fresh.profile; renderProfileEconomy(appState.profile); } catch { renderCobblemonDex(appState.profile); }
+    }
     finally { boxButton.disabled = false; }
+    return;
+  }
+  const weeklyChoiceButton = event.target?.closest?.('[data-cobblemon-weekly-choice]');
+  if (weeklyChoiceButton) {
+    weeklyChoiceButton.disabled = true;
+    try {
+      const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: JSON.stringify({ id: weeklyChoiceButton.dataset.cobblemonWeeklyChoice, action: 'choose-weekly-now' }) });
+      appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast('Pokémon escolhido para a entrega do Davi. O ciclo fica fechado até sábado.');
+    } catch (error) {
+      showToast(error.message, 'error');
+      try { const fresh = await api('/api/state'); appState.profile = fresh.profile; renderProfileEconomy(appState.profile); } catch { renderCobblemonDex(appState.profile); }
+    } finally { weeklyChoiceButton.disabled = false; }
     return;
   }
   const decision = event.target?.closest?.('[data-cobblemon-decision]');
