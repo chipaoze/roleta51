@@ -19,7 +19,10 @@ test('cotação só avança uma vez por janela e carteira compra/vende por preç
   assert.equal(buy.total, buy.price * 2);
   const sell = transactMarket(economy, 'user', 'nebula', 1, 'sell');
   assert.equal(sell.total, sell.price);
-  assert.equal(marketForUser(economy, 'user').portfolio.nebula, 1);
+  const snapshot = marketForUser(economy, 'user');
+  assert.equal(snapshot.portfolio.nebula, 1);
+  assert.ok(['up', 'down', 'flat'].includes(snapshot.assets.find((asset) => asset.id === 'nebula').direction));
+  assert.equal(snapshot.assets.find((asset) => asset.id === 'nebula').positionValue, snapshot.assets.find((asset) => asset.id === 'nebula').price);
 });
 
 test('venda não permite quantidade maior que a carteira', () => {

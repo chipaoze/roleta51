@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-cobblemon-sale-v3',
-  title: 'Pokédex nativa e cabeçalho ajustado',
-  notes: 'Corrigimos a exibição e a contagem da venda de Pokémon: o valor aparece por raridade, o Pokémon vendido some da lista e a compra continua contando no limite semanal, sem liberar novas aberturas indevidas.'
+  version: '20260916-market-51-v7',
+  title: 'Mercado 51 com carteira e cotações visíveis',
+  notes: 'A carteira agora mostra o saldo investido, as moedas que você possui, o valor total atualizado e setas verdes ou vermelhas para indicar cada variação. Também corrigimos a duplicidade do aviso de atualização e a atualização automática das cotações.'
 };
 let appState = null;
 let activeMode = 'theme';
@@ -50,6 +50,7 @@ let adminFeedbackFilter = 'pending';
 let knownReleaseVersion = null;
 let updatePromptOpen = false;
 let releaseNoticeChecked = false;
+let releaseNoticeLoaded = false;
 let navigationFrame = null;
 let visiblePortalPage = null;
 let portalRenderRequest = 0;
@@ -3335,7 +3336,9 @@ function renderAdminHealth(health = {}) {
 
 function renderAnnouncement(announcement) {
   const dialog = $('#announcementDialog');
-  if (!announcement || !announcement.unread || dialog.dataset.announcementId === announcement.id) return;
+  // Publicações de versão já possuem um fluxo próprio (atualizar → notas da
+  // versão). Não abrir também o anúncio genérico para a mesma publicação.
+  if (!announcement || String(announcement.id || '').startsWith('release-') || !announcement.unread || dialog.dataset.announcementId === announcement.id) return;
   dialog.dataset.announcementId = announcement.id;
   $('#announcementDialogTitle').textContent = announcement.title;
   $('#announcementDialogMessage').textContent = announcement.message;
@@ -3347,8 +3350,9 @@ let renderedPortalPage = null;
 function renderInvestmentMarket(profile = {}) {
   const market = profile.investmentMarket || {}; const assets = Array.isArray(market.assets) ? market.assets : [];
   const wallet = Number(profile.wallet || 0); const walletEl = $('#marketWallet'); if (walletEl) walletEl.textContent = wallet.toLocaleString('pt-BR');
+  const portfolioValueEl = $('#marketPortfolioValue'); if (portfolioValueEl) portfolioValueEl.textContent = Number(market.holdingsValue || 0).toLocaleString('pt-BR');
   const root = $('#marketAssets'); if (!root) return;
-  root.innerHTML = assets.map((asset) => `<article class="card market-asset-card"><header><span>${asset.icon}</span><div><h3>${escapeHtml(asset.name)}</h3><strong>${Number(asset.price).toLocaleString('pt-BR')} Créditos 51</strong></div><small>${Number(asset.quantity || 0)} em carteira</small></header><form data-market-action="buy" data-market-asset="${escapeHtml(asset.id)}"><label>Comprar <input name="quantity" type="number" min="1" max="100000" value="1" required></label><button class="button button-primary" type="submit">Comprar</button></form><form data-market-action="sell" data-market-asset="${escapeHtml(asset.id)}"><label>Vender <input name="quantity" type="number" min="1" max="${Math.max(1, Number(asset.quantity || 0))}" value="1" required></label><button class="button button-dark" type="submit"${Number(asset.quantity || 0) < 1 ? ' disabled' : ''}>Vender</button></form></article>`).join('') || '<p class="market-empty">Carregando cotações…</p>';
+  root.innerHTML = assets.map((asset) => { const arrow = asset.direction === 'up' ? '<b class="market-change up">↑</b>' : asset.direction === 'down' ? '<b class="market-change down">↓</b>' : '<b class="market-change flat">→</b>'; const changeText = `${asset.change > 0 ? '+' : ''}${Number(asset.change || 0).toLocaleString('pt-BR')} (${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2)}%)`; return `<article class="card market-asset-card"><header><span>${asset.icon}</span><div><h3>${escapeHtml(asset.name)}</h3><strong>${Number(asset.price).toLocaleString('pt-BR')} Créditos 51 ${arrow}</strong><small class="market-change-label ${asset.direction}">${changeText}</small></div><small>${Number(asset.quantity || 0)} em carteira<br><b>${Number(asset.positionValue || 0).toLocaleString('pt-BR')} total</b></small></header><form data-market-action="buy" data-market-asset="${escapeHtml(asset.id)}"><label>Comprar <input name="quantity" type="number" min="1" max="100000" value="1" required></label><button class="button button-primary" type="submit">Comprar</button></form><form data-market-action="sell" data-market-asset="${escapeHtml(asset.id)}"><label>Vender <input name="quantity" type="number" min="1" max="${Math.max(1, Number(asset.quantity || 0))}" value="1" required></label><button class="button button-dark" type="submit"${Number(asset.quantity || 0) < 1 ? ' disabled' : ''}>Vender</button></form></article>`; }).join('') || '<p class="market-empty">Carregando cotações…</p>';
   const history = Array.isArray(market.history) ? market.history : [];
   $('#marketHistory').innerHTML = history.length ? history.map((row) => `<div class="market-history-row"><time>${new Date(row.createdAt).toLocaleString('pt-BR')}</time><span>${assets.map((asset) => `${escapeHtml(asset.name)}: ${Number(row.prices?.[asset.id] || 0).toLocaleString('pt-BR')}`).join(' · ')}</span></div>`).join('') : '<p class="market-empty">Ainda não há histórico.</p>';
 }
@@ -3398,7 +3402,7 @@ async function acknowledgeAnnouncement() {
 }
 
 function showReleaseNotice() {
-  if (releaseNoticeChecked || !appState?.me) return;
+  if (!releaseNoticeLoaded || releaseNoticeChecked || !appState?.me) return;
   releaseNoticeChecked = true;
   const storage = window.localStorage;
   const version = RELEASE_NOTICE.version;
@@ -3435,13 +3439,19 @@ async function checkPublishedRelease() {
     const response = await fetch('/release.json?ts=' + Date.now(), { cache: 'no-store' });
     if (!response.ok) return;
     const remote = await response.json();
-    if (!remote?.version || remote.version === RELEASE_NOTICE.version) return;
-    RELEASE_NOTICE.version = String(remote.version);
-    RELEASE_NOTICE.title = String(remote.title || 'Atualização da Área 51');
-    RELEASE_NOTICE.notes = String(remote.notes || 'Correções e melhorias na Área 51.');
-    releaseNoticeChecked = false;
-    showReleaseNotice();
+    if (remote?.version && remote.version !== RELEASE_NOTICE.version) {
+      RELEASE_NOTICE.version = String(remote.version);
+      RELEASE_NOTICE.title = String(remote.title || 'Atualização da Área 51');
+      RELEASE_NOTICE.notes = String(remote.notes || 'Correções e melhorias na Área 51.');
+      releaseNoticeChecked = false;
+    }
   } catch {}
+  finally {
+    // Só exibimos depois de conhecer a versão publicada. Isso evita abrir o
+    // aviso embutido e, logo em seguida, reabri-lo com o release.json.
+    releaseNoticeLoaded = true;
+    showReleaseNotice();
+  }
 }
 
 function applyState(data) {

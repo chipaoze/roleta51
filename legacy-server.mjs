@@ -2569,6 +2569,18 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'GET' && route === '/api/sync') {
     const auth = requireAuth(req); const { user } = auth;
+    // As cotações avançam no servidor, o polling normal também precisa
+    // perceber a virada da janela sem exigir que o usuário recarregue a tela.
+    // A função só altera o estado duas vezes por dia; portanto, não cria
+    // gravações extras durante os demais ciclos de presença.
+    try {
+      const marketAdvanced = advanceMarket(db.economy);
+      if (marketAdvanced) await persist();
+    } catch {
+      // Se outra instância do Worker ganhar a mesma virada, recarregamos o
+      // estado vencedor e mantemos o polling de presença funcionando.
+      try { await refreshOnlineState(); } catch {}
+    }
     // A atualização de presença não pode impedir a sincronização do sorteio.
     let onlinePeople = sharedOnlinePeople.length ? sharedOnlinePeople : [{ id: user.id, displayName: user.displayName }];
     try { onlinePeople = await heartbeatPresence(auth); } catch {}

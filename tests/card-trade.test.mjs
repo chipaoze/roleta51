@@ -30,7 +30,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260916-269/);
-  assert.match(html, /app\.js\?v=20260916-276/);
+  assert.match(html, /app\.js\?v=20260916-277/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -39,6 +39,9 @@ test('aviso de versão pede atualização e exibe notas uma vez por versão', ()
   assert.match(appJs, /area51-release-seen/);
   assert.match(appJs, /Atualizar agora/);
   assert.match(html, /id="releaseNoticeDialog"/);
+  assert.match(appJs, /startsWith\('release-'\)/);
+  assert.match(appJs, /releaseNoticeLoaded/);
+  assert.match(appJs, /finally \{\n    \/\/ Só exibimos depois de conhecer a versão publicada/);
 });
 
 test('cabeçalho exibe e atualiza o saldo de Créditos 51 em qualquer página', () => {

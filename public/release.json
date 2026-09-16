@@ -1,5 +1,5 @@
 {
-  "version": "20260916-market-51-v6",
-  "title": "Compra e venda do Mercado corrigidas",
-  "notes": "Corrigimos o erro que aparecia ao comprar ou vender no Mercado 51. A carteira agora atualiza somente a área do mercado, sem quebrar o estado global da aplicação."
+  "version": "20260916-market-51-v7",
+  "title": "Mercado 51 com carteira e cotações visíveis",
+  "notes": "A carteira agora mostra o saldo investido, as moedas que você possui, o valor total atualizado e setas verdes ou vermelhas para indicar cada variação. Também corrigimos a duplicidade do aviso de atualização e a atualização automática das cotações."
 }
