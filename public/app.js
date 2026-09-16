@@ -2250,6 +2250,7 @@ function renderVoting() {
   const canChoose = !closed && voting.userCanVote && !voting.userHasVoted;
   if (votingDraft.votingId !== voting.id) votingDraft = { votingId: voting.id, bestId: null, worstId: null };
   $('#voteGrid').innerHTML = voting.entries.map((item) => {
+    if (item.isMine && canChoose) return '<article class="vote-card vote-card-own"><div class="vote-card-image">🛸</div><strong>Seu wallpaper</strong><small>Você não pode votar na própria imagem.</small></article>';
     const author = closed ? '<span class="vote-author">Por ' + escapeHtml(formatDisplayName(item.uploader)) + '</span>' :
       '<span class="vote-author secret-author">🔒 Autoria secreta</span>';
     const choices = canChoose ? '<div class="vote-options">' +

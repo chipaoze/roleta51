@@ -1368,6 +1368,7 @@ function votingForClient(voting, user) {
     const worstVotes = votes.filter((vote) => vote.worstId === id).length;
     return {
       id: item.id, title: item.title, imageUrl: canViewEntries ? '/uploads/' + item.filename : null,
+      isMine: item.userId === user.id,
       revealed: closed, uploader: closed ? item.uploader : null,
       bestVotes: closed ? bestVotes : null, worstVotes: closed ? worstVotes : null,
       isBestWinner: closed && voting.bestWinnerId === item.id,
@@ -3751,6 +3752,8 @@ async function handleApi(req, res, route) {
     if (!voting.submissionIds.includes(bestId) || !voting.submissionIds.includes(worstId)) {
       throw new HttpError(400, 'Escolha duas opções válidas desta votação.');
     }
+    const ownSubmissionIds = new Set(db.submissions.filter((submission) => submission.roundId === voting.roundId && submission.userId === user.id).map((submission) => submission.id));
+    if (ownSubmissionIds.has(bestId) || ownSubmissionIds.has(worstId)) throw new HttpError(400, 'Você não pode votar no próprio wallpaper.');
     voting.votes.push({ userId: user.id, bestId, worstId, createdAt: new Date().toISOString() });
     awardEngagementCard(db,user.id,'vote',saoPauloDayKey());
     settleSeasonalChallenges();
