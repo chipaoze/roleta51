@@ -42,3 +42,9 @@ test('aviso de versão pede atualização e exibe notas uma vez por versão', ()
 test('poder consumível usado não fica marcado como item da coleção', () => {
   assert.match(serverJs, /item\.consumable \? quantity > 0/);
 });
+
+test('Agiota oferece empréstimos maiores e aceita item para abater dívida', () => {
+  assert.match(serverJs, /\[300, 600, 900\]\.includes\(principal\)/);
+  assert.match(serverJs, /method: 'item'/);
+  assert.match(serverJs, /stellar-loan-item-payment/);
+});

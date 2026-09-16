@@ -3134,7 +3134,7 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'POST' && route === '/api/loans/borrow') {
     const { user } = requireAuth(req); const { amount } = await readJson(req); const principal = Number(amount);
-    if (![100, 200, 300].includes(principal)) throw new HttpError(400, 'Escolha um empréstimo de 100, 200 ou 300 créditos.');
+    if (![300, 600, 900].includes(principal)) throw new HttpError(400, 'Escolha um empréstimo de 300, 600 ou 900 créditos.');
     if (db.economy.loans.some((item) => item.userId === user.id && item.status === 'active')) throw new HttpError(409, 'Quite seu empréstimo atual antes de pedir outro.');
     const before = walletFor(user.id); const totalDue = Math.round(principal * 1.2); const createdAt = new Date().toISOString();
     addCredits(user.id, principal);
