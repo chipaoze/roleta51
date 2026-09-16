@@ -66,6 +66,8 @@ test('cápsula Pokémon faz três sorteios por compra e escolha semanal', () => 
   assert.match(serverJs, /dailyRollCount >= 3/);
   assert.match(serverJs, /status = finalDailyRound \? 'choice-pending' : 'box-open'/);
   assert.match(serverJs, /weekly-choice-pending/);
+  assert.match(serverJs, /cycleEntries.length >= 7/);
+  assert.doesNotMatch(serverJs, /já comprou a Cápsula Pokémon hoje/);
   assert.match(appJs, /Sorteio .*\/3/);
   assert.match(appJs, /Escolher 1 dos 7/);
 });

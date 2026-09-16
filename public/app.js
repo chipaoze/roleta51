@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-capsule-three-rolls',
+  version: '20260916-capsule-three-rolls-v2',
   title: 'Atualização da Área 51',
-  notes: 'Cápsula Pokémon restaurada: cada compra permite 3 sorteios, você escolhe 1 Pokémon do dia e, na sexta, escolhe 1 entre até 7 opções para o Davi entregar.'
+  notes: 'Cápsula Pokémon restaurada: até 7 compras por semana (inclusive no mesmo dia), 3 sorteios por cápsula, escolha diária e escolha final de 1 Pokémon para entrega do Davi na sexta.'
 };
 let appState = null;
 let activeMode = 'theme';
@@ -2842,8 +2842,9 @@ function renderCobblemonDex(profile = {}) {
     const choiceMode = choicePending && monthlyBox.choice;
     const actionLabel = readyToOpen ? `Sorteio ${Number(monthlyBox.openRollCount || 0) + 1}/3` : choiceMode ? (monthlyBox.choiceStage === 'weekly' ? 'Escolher 1 dos 7' : 'Escolher 1 dos 3') : locked ? `Disponível em ${new Date(monthlyBox.nextOpenAt).toLocaleDateString('pt-BR',{day:'2-digit',month:'long'})}` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
     const priceLabel = readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes` : choiceMode ? `<b>${monthlyBox.choiceStage === 'weekly' ? 7 : 3} opções</b> para escolher` : `<b>${Number(box.price).toLocaleString('pt-BR')}</b> Créditos 51`;
-    const deliveryNote = box.monthly ? '<small class="cobblemon-delivery-lock">Uma compra por dia · 3 sorteios e escolha diária · sexta escolha final entre até 7 Pokémon · sábado reinicia.</small>' : '';
-    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}${choiceMode ? ' choice-ready' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em>${priceLabel}</em>${deliveryNote}</p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${choiceMode ? 'choice' : readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : choiceMode ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button></div></article>`;
+    const deliveryNote = box.monthly ? '<small class="cobblemon-delivery-lock">Até 7 compras de sábado a sexta · cada cápsula faz 3 sorteios e uma escolha diária · escolha final na sexta · sábado reinicia.</small>' : '';
+    const purchaseMore = box.monthly && monthlyBox.canPurchase && (readyToOpen || choiceMode) ? `<button data-cobblemon-box="${id}" data-cobblemon-box-mode="purchase">Comprar outra cápsula</button>` : '';
+    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}${choiceMode ? ' choice-ready' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em>${priceLabel}</em>${deliveryNote}</p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${choiceMode ? 'choice' : readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : choiceMode ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button>${purchaseMore}</div></article>`;
   }).join('');
   const visibleDeliveries = deliveries.filter((entry) => !['sold', 'box-closed', 'box-open', 'choice-pending', 'reset-refunded'].includes(entry.status));
   const deliveryGroups = new Map();

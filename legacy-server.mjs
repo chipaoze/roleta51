@@ -519,6 +519,41 @@ function pokemonCapsuleIsFriday(date = new Date()) {
   return new Date(day + 'T12:00:00Z').getUTCDay() === 5;
 }
 
+function finalizePokemonCapsuleCycle(entries, chosenEntry, reason) {
+  const now = new Date().toISOString();
+  entries.filter((entry) => ['cycle-candidate', 'weekly-choice-pending'].includes(entry.status)).forEach((entry) => {
+    entry.status = entry.id === chosenEntry.id ? 'awaiting-delivery' : 'cycle-discarded';
+    if (entry.id === chosenEntry.id) { entry.lockedAt = now; entry.lockReason = reason; }
+  });
+}
+
+// Sexta abre a escolha final; se ela ficar pendente até o sábado, o sistema
+// escolhe uma opção automaticamente e bloqueia a entrega para o Davi.
+function settlePokemonCapsules() {
+  const currentCycleId = pokemonCapsuleCycleKey();
+  let changed = false;
+  const cycleIds = new Set(db.economy.cobblemonDeliveries.filter((entry) => entry.boxId === 'pokemon' && entry.cycleId).map((entry) => entry.cycleId));
+  for (const cycleId of cycleIds) {
+    const entries = db.economy.cobblemonDeliveries.filter((entry) => entry.boxId === 'pokemon' && entry.cycleId === cycleId);
+    const active = entries.filter((entry) => ['cycle-candidate', 'weekly-choice-pending'].includes(entry.status));
+    if (!active.length || entries.some((entry) => ['awaiting-delivery', 'delivered'].includes(entry.status))) continue;
+    if (cycleId !== currentCycleId) {
+      finalizePokemonCapsuleCycle(entries, active[Math.floor(Math.random() * active.length)], 'Escolha automática após o fim da sexta-feira');
+      changed = true;
+      continue;
+    }
+    if (!pokemonCapsuleIsFriday() || entries.some((entry) => entry.status === 'weekly-choice-pending')) continue;
+    if (active.length === 1) finalizePokemonCapsuleCycle(entries, active[0], 'Única opção da semana');
+    else {
+      const anchor = active[0];
+      anchor.status = 'weekly-choice-pending';
+      anchor.choices = active.map((entry) => ({ ...(entry.roll || { id: entry.rewardId || entry.pokemonId, name: entry.name, sprite: entry.sprite, sellPrice: entry.sellPrice, pokemonId: entry.pokemonId, rarity: entry.rarity, isShiny: entry.isShiny }), entryId: entry.id }));
+    }
+    changed = true;
+  }
+  return changed;
+}
+
 const SHOP_CATALOG = [
   { id: 'service-cobblemon-balls', name: 'Pacote diário de Poké Balls', description: 'Adiciona até 10 arremessos à caça da Pokédex 51. As 5 Poké Balls básicas voltam automaticamente no dia seguinte.', price: 90, type: 'cobblemonBall', value: 'dailyBallPack', icon: '🔴', service: true },
   { id: 'card-pack-cosmic', name: 'Pacotinho Cósmico', icon: '🎴', type: 'cardPack', value: 'cosmic', consumable: true, cardPack: true, price: 120, description: 'Guarde no Perfil e rasgue para revelar 3 cartas. Cada carta: 90% básica e 10% rara. Pode haver repetidas. Cada insígnia exige 4 básicas diferentes e 1 rara da coleção. Sem revenda por créditos.' },
@@ -2297,7 +2332,8 @@ async function handleApi(req, res, route) {
     try { await heartbeatPresence(auth); } catch {}
     const settledCleanName = settleCleanNameRewards();
     const settledSeasonChallenges = settleSeasonalChallenges();
-    if (settledCleanName || settledSeasonChallenges) await persist();
+    const settledPokemonCapsules = settlePokemonCapsules();
+    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules) await persist();
     json(res, 200, stateFor(user)); return;
   }
 
@@ -3019,12 +3055,12 @@ async function handleApi(req, res, route) {
     const { user } = requireAuth(req); const body = await readJson(req); const box = COBBLEMON_BOXES[body.boxId];
     if (!box?.monthlyPokemon) throw new HttpError(404, 'Cápsula Pokémon não encontrada.');
     const cycleId = pokemonCapsuleCycleKey();
-    const lastPurchase = [...db.economy.cobblemonDeliveries].reverse().find((entry) => entry.userId === user.id && entry.boxId === body.boxId && entry.cycleId === cycleId && entry.status !== 'reset-refunded');
-    if (lastPurchase && ['box-closed', 'box-open'].includes(lastPurchase.status)) throw new HttpError(409, 'Abra o Pokémon de hoje antes de comprar outra cápsula.');
-    if (lastPurchase && saoPauloDayKey(new Date(lastPurchase.createdAt)) === saoPauloDayKey()) throw new HttpError(409, 'Você já comprou a Cápsula Pokémon hoje. Ela libera novamente amanhã.');
+    const cycleEntries = db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.boxId === body.boxId && entry.cycleId === cycleId && !['cycle-discarded', 'replaced', 'reset-refunded', 'sold'].includes(entry.status));
+    if (cycleEntries.some((entry) => entry.status === 'weekly-choice-pending')) throw new HttpError(409, 'A escolha semanal já está aberta. Escolha um Pokémon antes de comprar novamente.');
+    if (cycleEntries.length >= 7) throw new HttpError(409, 'Você já atingiu os sete Pokémon desta semana. Escolha um deles para a entrega de sexta.');
     if (walletFor(user.id) < box.price) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const before = walletFor(user.id), createdAt = new Date().toISOString(); addCredits(user.id, -box.price);
-    db.economy.cobblemonDeliveries.push({ id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, name: box.name, sprite: 'https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp', status: 'box-closed', openCount: 0, cycleId, cycleDay: db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === cycleId).length + 1, rolls: [], createdAt });
+    db.economy.cobblemonDeliveries.push({ id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, name: box.name, sprite: 'https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp', status: 'box-closed', openCount: 0, cycleId, cycleDay: cycleEntries.length + 1, rolls: [], createdAt });
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box-purchase', amount: -box.price, before, after: before - box.price, reason: box.name, createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
   }
