@@ -60,11 +60,14 @@ test('áudio nativo é priorizado após gesto do usuário', () => {
   assert.match(appJs, /await nativeAudio\.play\(\)/);
 });
 
-test('cápsula Pokémon é diária e bloqueia nova entrega após entrega concluída', () => {
+test('cápsula Pokémon faz três sorteios por compra e escolha semanal', () => {
   assert.match(serverJs, /pokemonCapsuleCycleKey/);
   assert.match(serverJs, /pokemonCapsuleIsFriday/);
-  assert.match(serverJs, /openCount >= 7/);
-  assert.match(appJs, /Abrir Pokémon .*\/7/);
+  assert.match(serverJs, /dailyRollCount >= 3/);
+  assert.match(serverJs, /status = finalDailyRound \? 'choice-pending' : 'box-open'/);
+  assert.match(serverJs, /weekly-choice-pending/);
+  assert.match(appJs, /Sorteio .*\/3/);
+  assert.match(appJs, /Escolher 1 dos 7/);
 });
 
 test('punições do Gay e do Pior têm duração e temas adaptados', () => {
