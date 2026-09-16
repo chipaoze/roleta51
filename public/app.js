@@ -207,7 +207,7 @@ function startRainbowMouseTrail() {
       const movingRight = deltaX >= 0;
       const slope = Math.atan2(deltaY, Math.abs(deltaX)) * 180 / Math.PI;
       cursorAngle = Math.max(-32, Math.min(32, movingRight ? slope : -slope));
-      if (unicornActive || adhdActive) {
+      if (unicornActive) {
         unicornCursor.style.setProperty('--cursor-angle', cursorAngle + 'deg');
         unicornCursor.style.setProperty('--cursor-facing', movingRight ? '-1' : '1');
         unicornCursor.style.setProperty('--cursor-body-shift', movingRight ? '-25px' : '25px');
@@ -287,7 +287,7 @@ let adhdCurseTimer = null;
 function syncAdhdCurse(active) {
   clearTimeout(adhdCurseTimer); document.querySelector('#adhdCurseLabel')?.remove(); document.querySelector('#adhdCurseBlocker')?.remove(); document.documentElement.classList.remove('adhd-interference');
   if (!active) return;
-  const trigger = () => { if (!document.documentElement.classList.contains('adhd-cursor-active')) return; const label = document.createElement('div'); label.id = 'adhdCurseLabel'; label.textContent = 'TDAH ATIVADO'; const blocker = document.createElement('div'); blocker.id = 'adhdCurseBlocker'; blocker.setAttribute('aria-hidden','true'); document.body.append(label, blocker); document.documentElement.classList.add('adhd-interference'); const end = Date.now() + 30000; const move = () => { if (Date.now() >= end || !document.documentElement.classList.contains('adhd-cursor-active')) { label.remove(); blocker.remove(); document.documentElement.classList.remove('adhd-interference'); adhdCurseTimer = setTimeout(trigger, 45000 + Math.random() * 45000); return; } const x = 20 + Math.random() * Math.max(20, innerWidth - 60), y = 20 + Math.random() * Math.max(20, innerHeight - 60); label.style.left = x + 'px'; label.style.top = y + 'px'; const cursor = document.querySelector('.unicorn-mouse-cursor'); if (cursor) { cursor.style.setProperty('--cursor-x', x + 'px'); cursor.style.setProperty('--cursor-y', y + 'px'); cursor.classList.add('is-visible'); } setTimeout(move, 650); }; move(); }; adhdCurseTimer = setTimeout(trigger, 45000 + Math.random() * 45000);
+  const trigger = () => { if (!document.documentElement.classList.contains('adhd-cursor-active')) return; const label = document.createElement('div'); label.id = 'adhdCurseLabel'; label.textContent = 'TDAH ATIVADO'; document.body.append(label); const end = Date.now() + 30000; const move = () => { if (Date.now() >= end || !document.documentElement.classList.contains('adhd-cursor-active')) { label.remove(); adhdCurseTimer = setTimeout(trigger, 45000 + Math.random() * 45000); return; } const x = 20 + Math.random() * Math.max(20, innerWidth - 60), y = 20 + Math.random() * Math.max(20, innerHeight - 60); label.style.left = x + 'px'; label.style.top = y + 'px'; const cursor = document.querySelector('.unicorn-mouse-cursor'); if (cursor) { cursor.style.setProperty('--cursor-x', x + 'px'); cursor.style.setProperty('--cursor-y', y + 'px'); cursor.classList.add('is-visible'); } setTimeout(move, 650); }; move(); }; adhdCurseTimer = setTimeout(trigger, 45000 + Math.random() * 45000);
 }
 
 startRainbowMouseTrail();
@@ -2881,7 +2881,8 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   const badgeItem = findEquipped('badge');
   const forcedGayCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'gay');
   const forcedGiantCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'giant-slow');
-  const forcedAdhdCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'adhd');
+  if (new URLSearchParams(location.search).get('tdah') === '1') sessionStorage.setItem('tdahPreview','1');
+  const forcedAdhdCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'adhd') || sessionStorage.getItem('tdahPreview') === '1';
   clearTimeout(forcedCursorExpiryTimer);
   if (forcedGiantCursor && profile.forcedCursor?.expiresAt) {
     const delay = Date.parse(profile.forcedCursor.expiresAt) - Date.now();
@@ -2919,13 +2920,14 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   document.documentElement.classList.toggle('giant-slow-cursor-active', forcedGiantCursor);
   document.documentElement.classList.toggle('adhd-cursor-active', forcedAdhdCursor);
   syncAdhdCurse(forcedAdhdCursor);
-  setPreviewCursor(forcedGayCursor ? 'gay' : forcedGiantCursor ? 'giant-slow' : (cursorItem?.value || null));
+  setPreviewCursor(forcedGayCursor ? 'gay' : forcedGiantCursor ? 'giant-slow' : forcedAdhdCursor ? 'adhd' : (cursorItem?.value || null));
   document.body.classList.toggle('forced-gay-cursor-mode', forcedGayCursor);
   const cursorVisual = $('.unicorn-mouse-cursor>span');
-  const cursorSkin = forcedGiantCursor ? 'giant-slow' : (cursorItem?.value || 'windows');
+  $('.unicorn-mouse-cursor')?.classList.toggle('adhd-mode', forcedAdhdCursor);
+  const cursorSkin = forcedGiantCursor ? 'giant-slow' : forcedAdhdCursor ? 'adhd' : (cursorItem?.value || 'windows');
   if (cursorVisual && cursorVisual.dataset.skin !== cursorSkin) {
     cursorVisual.dataset.skin = cursorSkin;
-    cursorVisual.innerHTML = forcedGiantCursor ? '<b class="giant-slow-pointer">☝️</b>' : '<img src="/unicorn-cursor-full-v2.png" alt="">';
+    cursorVisual.innerHTML = forcedGiantCursor ? '<b class="giant-slow-pointer">☝️</b>' : forcedAdhdCursor ? '<img src="/cursor-adhd.svg" alt="Cursor Venvanse">' : '<img src="/unicorn-cursor-full-v2.png" alt="">';
   }
   // Tema, cursor, moldura e nome são globais e precisam ser reaplicados em
   // qualquer página. O modo global evita montar Perfil/Loja fora de tela.

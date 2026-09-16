@@ -626,6 +626,7 @@ const SHOP_CATALOG = [
   { id: 'power-choose-wallpaper', name: 'Escolha Meu Wallpaper', description: 'Depois de todos enviarem, veja os wallpapers sem autoria e reserve um deles para você.', price: 580, type: 'power', value: 'chooseWallpaper', icon: '🖼️', consumable: true },
   { id: 'power-assign-wallpaper', name: 'Definir Wallpaper de Outro Player', description: 'Depois de todos enviarem, escolha anonimamente qual wallpaper outro participante receberá.', price: 680, type: 'power', value: 'assignWallpaper', icon: '🎯', consumable: true },
   { id: 'power-giant-slow-cursor', name: 'Maldição do Mouse Gigante', description: 'Ative a qualquer momento: um participante usa mouse gigante por 24 horas. Não depende de rodada aberta.', price: 430, type: 'power', value: 'forceGiantCursor', icon: '🐌', consumable: true },
+  { id: 'power-adhd-cursor', name: 'Maldição TDAH', description: 'Envie a um participante: aleatoriamente o cursor mostra TDAH ATIVADO e se move sozinho por cerca de 30 segundos.', price: 460, type: 'power', value: 'forceAdhdCursor', icon: '⚡', consumable: true },
   { id: 'box-sonda', name: 'Caixa Sonda Surpresa', description: 'Vai fechada para o perfil. Abra quando quiser ou venda por créditos.', price: 140, sellPrice: 80, type: 'mysteryBox', value: 'sonda', icon: '📦', mysteryBox: true, tier: 'sonda', creditChance: .42, powerChance: .12, minRewardPrice: 120, maxRewardPrice: 300, creditMin: 110, creditMax: 180 },
   { id: 'box-cosmic', name: 'Caixa Cósmica', description: 'Vai fechada para o perfil. Pode revelar um visual especial, créditos ou um poder.', price: 300, sellPrice: 180, type: 'mysteryBox', value: 'cosmic', icon: '🎁', mysteryBox: true, tier: 'cosmic', creditChance: .32, powerChance: .24, minRewardPrice: 240, maxRewardPrice: 520, creditMin: 240, creditMax: 380 },
   { id: 'box-area51', name: 'Cofre Secreto Área 51', description: 'O baú premium mais raro. Guarde, abra com a roleta de prêmios ou venda por créditos.', price: 520, sellPrice: 330, type: 'mysteryBox', value: 'area51', icon: '🛸', mysteryBox: true, tier: 'area51', creditChance: .22, powerChance: .36, minRewardPrice: 330, maxRewardPrice: 650, creditMin: 430, creditMax: 650 },
@@ -1428,6 +1429,7 @@ function isVisualPunishmentCleared(createdAt, clearedAt) {
 
 function isForcedCursorActive(item, roundId, now = Date.now()) {
   if (item.style === 'giant-slow') return now < (item.expiresAt ? Date.parse(item.expiresAt) : Date.parse(item.createdAt) + 86400000);
+  if (item.style === 'adhd') return now < (item.expiresAt ? Date.parse(item.expiresAt) : Date.parse(item.createdAt) + 86400000);
   return Boolean(roundId && item.roundId === roundId);
 }
 
@@ -1785,7 +1787,7 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     }));
   }
   const forcedCursor = [...db.economy.forcedCursors].reverse().find((item) => item.targetUserId === user.id && isForcedCursorActive(item, roundId));
-  if (forcedCursor) items.push({ id: 'forced-cursor:' + forcedCursor.id, icon: forcedCursor.style === 'giant-slow' ? '🐌' : '🌈', title: forcedCursor.style === 'giant-slow' ? 'Maldição do Mouse Gigante ativada' : 'Seta Gay Compulsória ativada', detail: forcedCursor.style === 'giant-slow' ? 'Duração de 24 horas a partir da ativação.' : 'Seu cursor especial ficará ativo durante esta rodada.', page: 'perfil', createdAt: forcedCursor.createdAt });
+  if (forcedCursor) items.push({ id: 'forced-cursor:' + forcedCursor.id, icon: forcedCursor.style === 'giant-slow' ? '🐌' : forcedCursor.style === 'adhd' ? '⚡' : '🌈', title: forcedCursor.style === 'giant-slow' ? 'Maldição do Mouse Gigante ativada' : forcedCursor.style === 'adhd' ? 'Maldição TDAH ativada' : 'Seta Gay Compulsória ativada', detail: forcedCursor.style === 'giant-slow' ? 'Duração de 24 horas a partir da ativação.' : forcedCursor.style === 'adhd' ? 'O cursor pode assumir o controle por cerca de 30 segundos, sem revelar quem enviou.' : 'Seu cursor especial ficará ativo durante esta rodada.', page: 'perfil', createdAt: forcedCursor.createdAt });
   const assignment = db.assignments.find((item) => item.roundId === roundId && item.userId === user.id && item.revealed);
   if (assignment) items.push({ id: 'assignment:' + assignment.id, icon: '🖼️', title: 'Seu wallpaper chegou', detail: assignment.seenAt ? 'Wallpaper visualizado.' : 'Abra o Sorteio para visualizar.', page: 'sorteio', createdAt: assignment.revealedAt || assignment.createdAt });
   const voting = openVoting();
@@ -3398,9 +3400,10 @@ async function handleApi(req, res, route) {
       const prospective = [...reservations, { targetId: target.id, submissionId: submission.id, allowSelf: item.value === 'chooseWallpaper' }];
       if (!buildAssignmentMap(participants, submissions, prospective)) throw new HttpError(409, 'Esta escolha impediria uma distribuição válida para o restante da equipe. Escolha outro wallpaper.');
       consumePower(user.id, item.id, { roundId, targetId: target.id, submissionId: submission.id });
-    } else if (item.value === 'forceGayCursor' || item.value === 'forceGiantCursor') {
+    } else if (item.value === 'forceGayCursor' || item.value === 'forceGiantCursor' || item.value === 'forceAdhdCursor') {
       const giant = item.value === 'forceGiantCursor';
-      if (!giant && !roundId) throw new HttpError(409, 'Use este poder durante uma rodada ativa.');
+      const adhd = item.value === 'forceAdhdCursor';
+      if (!giant && !adhd && !roundId) throw new HttpError(409, 'Use este poder durante uma rodada ativa.');
       const target = (giant ? db.users.filter((person) => person.active && person.approved !== false) : eligibleUsers()).find((person) => person.id === body.targetId);
       if (!target) throw new HttpError(404, 'Participante escolhido não encontrado nesta rodada.');
       if (giant && [...db.draws].reverse().find((draw) => draw.type === 'gay' && !isVisualPunishmentCleared(draw.createdAt, db.settings.visualThemeClearedAt))?.winnerId === target.id) throw new HttpError(409, 'O sorteado está com cursor obrigatório. Escolha outro participante; seu poder não foi consumido.');
@@ -3409,8 +3412,8 @@ async function handleApi(req, res, route) {
       }
       consumePower(user.id, item.id, { roundId, targetId: target.id });
       db.economy.forcedCursors.push({
-        id: randomUUID(), roundId: giant ? null : roundId, expiresAt: giant ? new Date(Date.now() + 86400000).toISOString() : null, targetUserId: target.id, targetName: target.displayName,
-        style: item.value === 'forceGiantCursor' ? 'giant-slow' : 'gay', usedByUserId: user.id, usedByName: user.displayName, createdAt: new Date().toISOString(),
+        id: randomUUID(), roundId: giant || adhd ? null : roundId, expiresAt: giant || adhd ? new Date(Date.now() + 86400000).toISOString() : null, targetUserId: target.id, targetName: target.displayName,
+        style: giant ? 'giant-slow' : adhd ? 'adhd' : 'gay', usedByUserId: user.id, usedByName: user.displayName, createdAt: new Date().toISOString(),
       });
     } else if (item.value === 'chooseGay') {
       if (!roundId) throw new HttpError(409, 'Não há uma rodada ativa.');
@@ -3423,7 +3426,7 @@ async function handleApi(req, res, route) {
       db.economy.forcedGay = { roundId, userId: user.id, userName: user.displayName, targetId: target.id, targetName: target.displayName, createdAt: new Date().toISOString() };
     }
     const announcementRoundId = db.settings.currentRoundId || roundId;
-    if (announcementRoundId && item.value !== 'loanExtension') {
+    if ((announcementRoundId || item.value === 'forceAdhdCursor') && item.value !== 'loanExtension') {
       db.economy.powerAnnouncements.push({ id: randomUUID(), roundId: announcementRoundId, itemId: item.id, itemName: item.name, activatedByUserId: user.id, createdAt: new Date().toISOString() });
       db.economy.powerAnnouncements = db.economy.powerAnnouncements.slice(-100);
     }
