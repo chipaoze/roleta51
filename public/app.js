@@ -3341,6 +3341,11 @@ function showReleaseNotice() {
   if (seen === version) return;
   const dialog = $('#releaseNoticeDialog');
   if (!dialog) return;
+  if (!dialog.dataset.locked) {
+    dialog.addEventListener('cancel', (event) => event.preventDefault());
+    dialog.addEventListener('click', (event) => { if (event.target === dialog && pending !== version) event.preventDefault(); });
+    dialog.dataset.locked = 'true';
+  }
   const notesMode = pending === version;
   dialog.innerHTML = notesMode
     ? '<span class="release-notice-icon" aria-hidden="true">✨</span><small>ATUALIZAÇÃO CONCLUÍDA</small><h2>' + escapeHtml(RELEASE_NOTICE.title) + '</h2><p>' + escapeHtml(RELEASE_NOTICE.notes) + '</p><button class="button button-primary" data-release-ack type="button">Entendi</button>'
