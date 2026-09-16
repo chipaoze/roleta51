@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-header-wallet-v8',
-  title: 'Saldo sempre à vista',
-  notes: 'O cabeçalho agora mostra seus Créditos 51 em todas as páginas. O valor é atualizado automaticamente após compras, vendas, recompensas e estornos — sem precisar abrir o Perfil.'
+  version: '20260916-native-pokedex-v3',
+  title: 'Pokédex nativa e cabeçalho ajustado',
+  notes: 'Corrigimos o saldo de Créditos 51 no tema Gay da Rodada: o valor e o texto ficam inteiros no cabeçalho. A Pokédex agora mantém seu cenário Cobblemon com sprites próprios, cores e leitura nos modos claro e escuro, sem ser afetada por temas ou punições.'
 };
 let appState = null;
 let activeMode = 'theme';

@@ -29,8 +29,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260916-261/);
-  assert.match(html, /app\.js\?v=20260916-265/);
+  assert.match(html, /styles\.css\?v=20260916-264/);
+  assert.match(html, /app\.js\?v=20260916-268/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -46,7 +46,22 @@ test('cabeçalho exibe e atualiza o saldo de Créditos 51 em qualquer página', 
   assert.match(html, /id="topWalletValue"/);
   assert.match(appJs, /const topWalletValue = Number\(profile\.wallet \|\| 0\)\.toLocaleString\('pt-BR'\)/);
   assert.match(appJs, /topWallet\.setAttribute\('aria-label', 'Saldo: ' \+ topWalletValue \+ ' Créditos 51'\)/);
-  assert.match(styles, /\.top-wallet\{display:inline-flex/);
+  assert.match(styles, /\.top-wallet\{display:inline-flex;flex:0 0 auto/);
+  assert.match(styles, /body\.theme-rainbow \.top-wallet\{border-color:#fff1a3/);
+});
+
+test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
+  assert.match(styles, /body:is\(\.theme-rainbow,\.theme-punishment,\.theme-dark,\[class\*="profile-theme-"\]\) \.cobblemon-page/);
+  assert.match(styles, /theme-cobblemon-v3\.webp/);
+  assert.match(styles, /\.cobblemon-page-hero\{background:linear-gradient\(100deg,#061b36ed/);
+  assert.match(styles, /body\.theme-light-override \.cobblemon-page\{background:linear-gradient\(100deg,rgba\(240,252,255/);
+});
+
+test('Pokédex espalha sprites Cobblemon decorativos sem bloquear a interface', () => {
+  assert.match(html, /class="cobblemon-scene-sprites"/);
+  assert.match(html, /class="cobblemon-scene-mon mon-pikachu"/);
+  assert.match(styles, /\.cobblemon-scene-sprites\{position:absolute;inset:0;z-index:0;pointer-events:none/);
+  assert.match(styles, /@keyframes cobblemon-scene-float/);
 });
 
 test('poder consumível usado não fica marcado como item da coleção', () => {
