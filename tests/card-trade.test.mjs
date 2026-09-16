@@ -48,3 +48,8 @@ test('Agiota oferece empréstimos maiores e aceita item para abater dívida', ()
   assert.match(serverJs, /method: 'item'/);
   assert.match(serverJs, /stellar-loan-item-payment/);
 });
+
+test('áudio tenta desbloquear novamente após a sessão carregar', () => {
+  assert.match(appJs, /if \(appState && musicEpoch && !musicIsPlaying\(\)\) startMusic\(\)/);
+  assert.doesNotMatch(appJs, /unlockRoundMusicFromAnyGesture, \{ passive: true, once: true \}/);
+});

@@ -1619,12 +1619,15 @@ function primeMusicFromGesture() {
 // Navegadores só liberam áudio após um gesto. Uma única interação prepara a
 // trilha para que qualquer roleta iniciada depois toque para toda a pessoa.
 function unlockRoundMusicFromAnyGesture() {
-  if (musicPrimedByGesture) return;
-  musicPrimedByGesture = true;
-  primeMusicFromGesture();
-  if (appState && musicEpoch) startMusic();
+  if (!musicPrimedByGesture) {
+    musicPrimedByGesture = true;
+    primeMusicFromGesture();
+  }
+  // O primeiro gesto pode ocorrer antes de a sessão terminar de carregar;
+  // tente novamente em cada gesto até o áudio realmente iniciar.
+  if (appState && musicEpoch && !musicIsPlaying()) startMusic();
 }
-['pointerdown', 'keydown', 'touchstart'].forEach((eventName) => document.addEventListener(eventName, unlockRoundMusicFromAnyGesture, { passive: true, once: true }));
+['pointerdown', 'keydown', 'touchstart'].forEach((eventName) => document.addEventListener(eventName, unlockRoundMusicFromAnyGesture, { passive: true }));
 
 function showAuth() {
   $('#sessionBoot')?.classList.add('hidden');
