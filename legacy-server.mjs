@@ -2,6 +2,7 @@ import path from 'node:path';
 import { FLIGHT_STEP_MS, flightStepMs, flightMultiplier, settleFlight } from './lib/flight-engine.mjs';
 import { CARD_COLLECTIONS, CARD_PACK_RULES, albumFor, updateAlbum, awardEngagementCard, updateCardTrade, openCardPack } from './lib/card-album.mjs';
 import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
+import { MARKET_ASSETS, ensureMarketState, advanceMarket, marketForUser, transactMarket } from './lib/investment-market.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
@@ -320,6 +321,8 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.shields)) { db.economy.shields = []; changed = true; }
   if (!Array.isArray(db.economy.authorReveals)) { db.economy.authorReveals = []; changed = true; }
   if (!Array.isArray(db.economy.creditAdjustments)) { db.economy.creditAdjustments = []; changed = true; }
+  if (!db.economy.investmentMarket || typeof db.economy.investmentMarket !== 'object') { ensureMarketState(db.economy); changed = true; }
+  ensureMarketState(db.economy);
   if (!Array.isArray(db.economy.forcedCursors)) { db.economy.forcedCursors = []; changed = true; }
   if (!Array.isArray(db.economy.casinoPlays)) { db.economy.casinoPlays = []; changed = true; }
   if (!db.economy.casinoAccounts || typeof db.economy.casinoAccounts !== 'object') { db.economy.casinoAccounts = {}; changed = true; }
@@ -1672,6 +1675,7 @@ function profileFor(user, computed = {}) {
   const showcaseSelected = savedShowcase.map((id) => showcaseOptions.find((item) => item.id === id)).filter(Boolean);
   return {
     wallet: walletFor(user.id), equipped,
+    investmentMarket: marketForUser(db.economy, user.id),
     cobblemon: {
       caught: Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : [],
       total: COBBLEMON_CATALOG.length,
@@ -2394,7 +2398,8 @@ async function handleApi(req, res, route) {
     const settledCleanName = settleCleanNameRewards();
     const settledSeasonChallenges = settleSeasonalChallenges();
     const settledPokemonCapsules = settlePokemonCapsules();
-    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules) await persist();
+    const marketAdvanced = advanceMarket(db.economy);
+    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules || marketAdvanced) await persist();
     json(res, 200, stateFor(user)); return;
   }
 
@@ -3112,6 +3117,19 @@ async function handleApi(req, res, route) {
     await persist(); broadcastRefresh('hydration'); json(res, 201, stateFor(user)); return;
   }
 
+  if (req.method === 'POST' && (route === '/api/market/buy' || route === '/api/market/sell')) {
+    const { user } = requireAuth(req); const body = await readJson(req); const side = route.endsWith('/buy') ? 'buy' : 'sell';
+    advanceMarket(db.economy); const assetId = String(body.assetId || ''); const quantity = Number(body.quantity);
+    const asset = MARKET_ASSETS.find((item) => item.id === assetId); if (!asset) throw new HttpError(400, 'Ativo não encontrado.');
+    const market = ensureMarketState(db.economy); const price = Number(market.prices[asset.id] || asset.initialPrice); const total = price * quantity;
+    if (side === 'buy' && (!Number.isInteger(quantity) || quantity < 1 || walletFor(user.id) < total)) throw new HttpError(409, 'Quantidade inválida ou Créditos 51 insuficientes.');
+    let operation; try { operation = transactMarket(db.economy, user.id, assetId, quantity, side); } catch (error) { throw new HttpError(400, error.message); }
+    const before = walletFor(user.id); if (side === 'buy') addCredits(user.id, -operation.total); else addCredits(user.id, operation.total);
+    const after = walletFor(user.id); operation.userId = user.id; operation.before = before; operation.after = after;
+    market.ledger.push({ ...operation }); if (market.ledger.length > 5000) market.ledger = market.ledger.slice(-5000);
+    db.economy.creditAdjustments.push({ id: operation.id, userId: user.id, mode: 'investment-market-' + side, amount: side === 'buy' ? -operation.total : operation.total, before, after, reason: `${side === 'buy' ? 'Compra' : 'Venda'} de ${asset.name}`, createdAt: operation.createdAt });
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), operation }); return;
+  }
   if (req.method === 'POST' && route === '/api/cobblemon/box/purchase') {
     const { user } = requireAuth(req); const body = await readJson(req); const box = COBBLEMON_BOXES[body.boxId];
     if (!box?.monthlyPokemon) throw new HttpError(404, 'Cápsula Pokémon não encontrada.');

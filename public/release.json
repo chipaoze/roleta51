@@ -1,5 +1,5 @@
 {
-  "version": "20260916-delivery-history-v1",
-  "title": "Entregas completas no painel Cobblemon",
-  "notes": "Corrigimos o painel de entregas para exibir todo o histórico relevante, sem ocultar itens antigos como Poké Balls, Great Balls, Quick Balls, pedras evolutivas e cápsulas. Nenhum item ou saldo foi alterado; apenas a visualização foi ampliada."
+  "version": "20260916-market-51-v1",
+  "title": "Mercado 51 de investimentos simulados",
+  "notes": "Nova aba Mercado 51 com seis ativos virtuais. Compre e venda usando Créditos 51; as cotações são calculadas pelo servidor duas vezes ao dia, com carteira e histórico protegidos. Não há API externa nem valores reais."
 }

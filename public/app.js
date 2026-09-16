@@ -1337,7 +1337,7 @@ function openFeedbackPanel() {
   $('#feedbackMessage').focus();
 }
 
-const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','cobblemon','album','loja','jogos','classificacao','admin'];
+const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','cobblemon','album','loja','jogos','mercado','classificacao','admin'];
 const portalSections = ['inicio', ...portalPages];
 const featurePageMap = { jogos: 'casino', impostor: 'impostor', misterio: 'mystery', loja: 'shop', inscricoes: 'uploads' };
 
@@ -3344,6 +3344,14 @@ function renderAnnouncement(announcement) {
 
 let renderingActivePortalPage = false;
 let renderedPortalPage = null;
+function renderInvestmentMarket(profile = {}) {
+  const market = profile.investmentMarket || {}; const assets = Array.isArray(market.assets) ? market.assets : [];
+  const wallet = Number(profile.wallet || 0); const walletEl = $('#marketWallet'); if (walletEl) walletEl.textContent = wallet.toLocaleString('pt-BR');
+  const root = $('#marketAssets'); if (!root) return;
+  root.innerHTML = assets.map((asset) => `<article class="card market-asset-card"><header><span>${asset.icon}</span><div><h3>${escapeHtml(asset.name)}</h3><strong>${Number(asset.price).toLocaleString('pt-BR')} Créditos 51</strong></div><small>${Number(asset.quantity || 0)} em carteira</small></header><form data-market-action="buy" data-market-asset="${escapeHtml(asset.id)}"><label>Comprar <input name="quantity" type="number" min="1" max="100000" value="1" required></label><button class="button button-primary" type="submit">Comprar</button></form><form data-market-action="sell" data-market-asset="${escapeHtml(asset.id)}"><label>Vender <input name="quantity" type="number" min="1" max="${Math.max(1, Number(asset.quantity || 0))}" value="1" required></label><button class="button button-dark" type="submit"${Number(asset.quantity || 0) < 1 ? ' disabled' : ''}>Vender</button></form></article>`).join('') || '<p class="market-empty">Carregando cotações…</p>';
+  const history = Array.isArray(market.history) ? market.history : [];
+  $('#marketHistory').innerHTML = history.length ? history.map((row) => `<div class="market-history-row"><time>${new Date(row.createdAt).toLocaleString('pt-BR')}</time><span>${assets.map((asset) => `${escapeHtml(asset.name)}: ${Number(row.prices?.[asset.id] || 0).toLocaleString('pt-BR')}`).join(' · ')}</span></div>`).join('') : '<p class="market-empty">Ainda não há histórico.</p>';
+}
 function optimizeRenderedImages() {
   $$('img').forEach((image) => {
     if (!image.closest('header, nav, .topbar')) image.loading = 'lazy';
@@ -3372,6 +3380,7 @@ function renderActivePortalPage(data = appState) {
     else if (['perfil', 'cobblemon', 'album', 'loja'].includes(page)) renderProfileEconomy(data.profile);
     else if (page === 'classificacao') { renderRankings(); renderSeason(data.season); }
     else if (page === 'jogos') renderCasino(data.casino);
+    else if (page === 'mercado') renderInvestmentMarket(data.profile);
     else if (page === 'admin') renderAdmin();
     optimizeRenderedImages();
   } finally {
@@ -5108,6 +5117,13 @@ document.addEventListener('click', (event) => {
 $('#menuButton').addEventListener('click', () => setMenuOpen(!$('#siteMenu').classList.contains('open')));
 $('#closeMenuButton').addEventListener('click', () => setMenuOpen(false));
 $('#menuBackdrop').addEventListener('click', () => setMenuOpen(false));
+$('#mercado').addEventListener('submit', async (event) => {
+  const form = event.target.closest('[data-market-action]'); if (!form) return;
+  event.preventDefault(); const button = form.querySelector('button'); button.disabled = true;
+  try { applyState(await api('/api/market/' + form.dataset.marketAction, { method: 'POST', body: { assetId: form.dataset.marketAsset, quantity: Number(new FormData(form).get('quantity')) } })); showToast(form.dataset.marketAction === 'buy' ? 'Ativo comprado.' : 'Ativo vendido.'); }
+  catch (error) { showToast(error.message, 'error'); }
+  finally { if (button.isConnected) button.disabled = false; }
+});
 $('#topProfileButton').addEventListener('click', () => showPortalPage('perfil', true));
 $('#profileAvatarInput').addEventListener('change', async (event) => {
   const input = event.currentTarget;

@@ -156,6 +156,7 @@
         <a href="?pagina=album" data-page="album"><span>🎴</span><p><strong>Álbum de cartas</strong><small>Coleções e insígnias</small></p></a>
         <a href="?pagina=loja" data-page="loja"><span>🛍️</span><p><strong>Loja 51</strong><small>Visuais, poderes e presentes</small></p></a>
         <a href="?pagina=jogos" data-page="jogos"><span>🎰</span><p><strong>Jogos 51</strong><small>Roleta e Voo do Unicórnio</small></p></a>
+        <a href="?pagina=mercado" data-page="mercado"><span>📈</span><p><strong>Mercado 51</strong><small>Investimentos simulados</small></p></a>
         <a href="?pagina=classificacao" data-page="classificacao"><span>📊</span><p><strong>Classificação</strong><small>Placares da equipe</small></p></a>
         <a href="?pagina=admin" data-page="admin" id="adminNav" class="hidden"><span>⚙️</span><p><strong>Administração</strong><small>Controle do site e usuários</small></p></a>
         <button id="installAppButton" class="menu-install-button" type="button"><span>📲</span><p><strong>Instalar aplicativo</strong><small>Adicionar à tela inicial</small></p></button>
@@ -499,6 +500,11 @@
       </div>
     </section>
 
+    <section id="mercado" class="section market-page portal-page-hidden">
+      <header class="market-hero"><small>MERCADO INTERNO · COTAÇÕES SIMULADAS</small><h2>Mercado 51</h2><p>Compre e venda ativos virtuais usando Créditos 51. As cotações são calculadas pelo servidor e atualizadas duas vezes por dia — não representam valores reais.</p><strong>Seu saldo: <span id="marketWallet">0</span> Créditos 51</strong></header>
+      <div id="marketAssets" class="market-assets"></div>
+      <article class="card market-history-card"><h3>Histórico de cotações</h3><p>Variações geradas pelo Worker, sem API externa.</p><div id="marketHistory"></div></article>
+    </section>
     <section id="cobblemon" class="section cobblemon-page portal-page-hidden">
       <div class="cobblemon-scene-sprites" aria-hidden="true">
         <img class="cobblemon-scene-mon mon-bulbasaur" loading="lazy" decoding="async" src="https://cobbledex.b-cdn.net/3dmons/previews/large/1.webp" alt="">
