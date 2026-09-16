@@ -6,6 +6,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const js = fs.readFileSync(path.join(root, 'public', 'card-album.js'), 'utf8');
 const appJs = fs.readFileSync(path.join(root, 'public', 'app.js'), 'utf8');
+const serverJs = fs.readFileSync(path.join(root, 'legacy-server.mjs'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
 
@@ -36,4 +37,8 @@ test('aviso de versão pede atualização e exibe notas uma vez por versão', ()
   assert.match(appJs, /area51-release-seen/);
   assert.match(appJs, /Atualizar agora/);
   assert.match(html, /id="releaseNoticeDialog"/);
+});
+
+test('poder consumível usado não fica marcado como item da coleção', () => {
+  assert.match(serverJs, /item\.consumable \? quantity > 0/);
 });
