@@ -1,5 +1,5 @@
 {
-  "version": "20260916-cobblemon-sale-v3",
-  "title": "Pokédex nativa e cabeçalho ajustado",
-  "notes": "Corrigimos a exibição e a contagem da venda de Pokémon: o valor aparece por raridade, o Pokémon vendido some da lista e a compra continua contando no limite semanal, sem liberar novas aberturas indevidas."
+  "version": "20260916-delivery-history-v1",
+  "title": "Entregas completas no painel Cobblemon",
+  "notes": "Corrigimos o painel de entregas para exibir todo o histórico relevante, sem ocultar itens antigos como Poké Balls, Great Balls, Quick Balls, pedras evolutivas e cápsulas. Nenhum item ou saldo foi alterado; apenas a visualização foi ampliada."
 }

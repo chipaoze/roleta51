@@ -1713,7 +1713,10 @@ function profileFor(user, computed = {}) {
         const candidateCard = pokemonCapsuleChoiceForEntry;
         return { price: COBBLEMON_BOXES.pokemon.price, canPurchase, canOpen, choicePending: Boolean(choice), choiceStage: weeklyChoice ? 'weekly' : dailyChoice ? 'daily' : null, choice: toChoice(choice), weeklyChoicePending: Boolean(weeklyChoice), weeklyCandidates: weeklyCandidates.map(candidateCard), weeklyPurchaseCount, weeklyPurchasesRemaining: Math.max(0, 7 - weeklyPurchaseCount), weeklyOpeningsUsed, selectedCount: selectedEntries.length, openCount: weeklyCandidates.length, openRollCount, rollsRemaining: Math.max(0, 7 - weeklyCandidates.length), dailyRollsRemaining: Math.max(0, 3 - openRollCount), boxId: openEntry?.id || choice?.id || latest?.id || null, purchasedAt: latest?.createdAt || null, openedAt: openEntry?.openedAt || null, nextOpenAt, cycleId, deliveryDay: 'sexta-feira', resetDay: 'sábado' };
       })(),
-      deliveries: db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id || user.role === 'admin' || /^davi\b/i.test(String(user.displayName || ''))).slice(-30).reverse(),
+      // Entregas pendentes e o histórico do próprio usuário não podem ser
+      // truncados: o limite anterior de 30 ocultava itens legítimos (como
+      // pedras, balls e cápsulas) do painel do Davi/administradores.
+      deliveries: db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id || user.role === 'admin' || /^davi\b/i.test(String(user.displayName || ''))).reverse(),
       balls: (() => {
         const dayKey = saoPauloDayKey();
         const used = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
