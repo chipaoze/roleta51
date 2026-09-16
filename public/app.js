@@ -189,7 +189,8 @@ function startRainbowMouseTrail() {
     const current = { x: event.clientX, y: event.clientY };
     const unicornActive = document.documentElement.classList.contains('unicorn-cursor-active');
     const giantSlowActive = document.documentElement.classList.contains('giant-slow-cursor-active');
-    const customCursorActive = unicornActive || giantSlowActive;
+    const adhdActive = document.documentElement.classList.contains('adhd-cursor-active');
+    const customCursorActive = unicornActive || giantSlowActive || adhdActive;
     const trailActive = (document.body.dataset.trailStyle || 'none') !== 'none';
     const cursorEffectActive = Boolean(document.body.dataset.cursorEffect);
     if (!customCursorActive && !trailActive && !cursorEffectActive) { unicornCursor.classList.remove('is-visible'); if (points.length) clearTrail(); return; }
@@ -206,7 +207,7 @@ function startRainbowMouseTrail() {
       const movingRight = deltaX >= 0;
       const slope = Math.atan2(deltaY, Math.abs(deltaX)) * 180 / Math.PI;
       cursorAngle = Math.max(-32, Math.min(32, movingRight ? slope : -slope));
-      if (unicornActive) {
+      if (unicornActive || adhdActive) {
         unicornCursor.style.setProperty('--cursor-angle', cursorAngle + 'deg');
         unicornCursor.style.setProperty('--cursor-facing', movingRight ? '-1' : '1');
         unicornCursor.style.setProperty('--cursor-body-shift', movingRight ? '-25px' : '25px');
@@ -280,6 +281,13 @@ function startRainbowMouseTrail() {
   document.addEventListener('visibilitychange', () => { if (document.hidden) clearTrail(); });
 
   resizeTrailCanvas();
+}
+
+let adhdCurseTimer = null;
+function syncAdhdCurse(active) {
+  clearTimeout(adhdCurseTimer); document.querySelector('#adhdCurseLabel')?.remove(); document.querySelector('#adhdCurseBlocker')?.remove(); document.documentElement.classList.remove('adhd-interference');
+  if (!active) return;
+  const trigger = () => { if (!document.documentElement.classList.contains('adhd-cursor-active')) return; const label = document.createElement('div'); label.id = 'adhdCurseLabel'; label.textContent = 'TDAH ATIVADO'; const blocker = document.createElement('div'); blocker.id = 'adhdCurseBlocker'; blocker.setAttribute('aria-hidden','true'); document.body.append(label, blocker); document.documentElement.classList.add('adhd-interference'); const end = Date.now() + 30000; const move = () => { if (Date.now() >= end || !document.documentElement.classList.contains('adhd-cursor-active')) { label.remove(); blocker.remove(); document.documentElement.classList.remove('adhd-interference'); adhdCurseTimer = setTimeout(trigger, 45000 + Math.random() * 45000); return; } const x = 20 + Math.random() * Math.max(20, innerWidth - 60), y = 20 + Math.random() * Math.max(20, innerHeight - 60); label.style.left = x + 'px'; label.style.top = y + 'px'; const cursor = document.querySelector('.unicorn-mouse-cursor'); if (cursor) { cursor.style.setProperty('--cursor-x', x + 'px'); cursor.style.setProperty('--cursor-y', y + 'px'); cursor.classList.add('is-visible'); } setTimeout(move, 650); }; move(); }; adhdCurseTimer = setTimeout(trigger, 45000 + Math.random() * 45000);
 }
 
 startRainbowMouseTrail();
@@ -2873,6 +2881,7 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   const badgeItem = findEquipped('badge');
   const forcedGayCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'gay');
   const forcedGiantCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'giant-slow');
+  const forcedAdhdCursor = Boolean(profile.forcedCursor && profile.forcedCursor.style === 'adhd');
   clearTimeout(forcedCursorExpiryTimer);
   if (forcedGiantCursor && profile.forcedCursor?.expiresAt) {
     const delay = Date.parse(profile.forcedCursor.expiresAt) - Date.now();
@@ -2886,7 +2895,7 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   applyPersonalTheme(allowPersonalTheme ? siteThemeItem?.value : null);
   const personalCursor = forcedGayCursor || forcedGiantCursor ? null : cursorItem;
   document.body.dataset.trailStyle = personalCursor?.value === 'maradona' ? 'white' : (trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none'));
-  document.body.dataset.cursorEffect = forcedGiantCursor ? 'giant-slow' : (forcedGayCursor || personalCursor?.value === 'gay') ? 'gay' : ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda', 'messi', 'cristiano', 'pele', 'maradona', 'neymar'].includes(personalCursor?.value) ? personalCursor.value : '';
+  document.body.dataset.cursorEffect = forcedGiantCursor ? 'giant-slow' : forcedAdhdCursor ? 'adhd' : (forcedGayCursor || personalCursor?.value === 'gay') ? 'gay' : ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda', 'messi', 'cristiano', 'pele', 'maradona', 'neymar'].includes(personalCursor?.value) ? personalCursor.value : '';
   if (forcedGayCursor || forcedGiantCursor) $$('.cursor-linked-effect').forEach((particle) => particle.remove());
   document.documentElement.classList.toggle('unicorn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'unicorn'));
   document.documentElement.classList.toggle('horn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'horn'));
@@ -2908,6 +2917,8 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   document.documentElement.classList.toggle('umbanda-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'umbanda'));
   document.documentElement.classList.toggle('gay-power-cursor-active', Boolean(forcedGayCursor || (cursorItem && cursorItem.value === 'gay')));
   document.documentElement.classList.toggle('giant-slow-cursor-active', forcedGiantCursor);
+  document.documentElement.classList.toggle('adhd-cursor-active', forcedAdhdCursor);
+  syncAdhdCurse(forcedAdhdCursor);
   setPreviewCursor(forcedGayCursor ? 'gay' : forcedGiantCursor ? 'giant-slow' : (cursorItem?.value || null));
   document.body.classList.toggle('forced-gay-cursor-mode', forcedGayCursor);
   const cursorVisual = $('.unicorn-mouse-cursor>span');
@@ -4435,18 +4446,19 @@ $('#shopCatalog').addEventListener('click', async (event) => {
         if (!target) throw new Error('Digite exatamente um dos nomes exibidos.');
         body.targetId = target.id;
         if (!confirm('Confirmar o uso deste poder?\n\n' + target.displayName + ' ficará reservado como Gay da Rodada. O poder será consumido agora.')) return;
-      } else if (button.dataset.shopValue === 'forceGayCursor' || button.dataset.shopValue === 'forceGiantCursor') {
+      } else if (button.dataset.shopValue === 'forceGayCursor' || button.dataset.shopValue === 'forceGiantCursor' || button.dataset.shopValue === 'forceAdhdCursor') {
         const giant = button.dataset.shopValue === 'forceGiantCursor';
-        const duration = giant ? 'por 24 horas' : 'até esta rodada terminar';
-        const people = (giant ? appState.powerParticipants : appState.participants) || [];
+        const adhd = button.dataset.shopValue === 'forceAdhdCursor';
+        const duration = giant || adhd ? 'por 24 horas' : 'até esta rodada terminar';
+        const people = (giant || adhd ? appState.powerParticipants : appState.participants) || [];
         if (!people.length) throw new Error('Não há participantes disponíveis nesta rodada.');
-        const powerName = button.dataset.shopValue === 'forceGiantCursor' ? 'Maldição do Mouse Gigante' : 'Seta Gay Compulsória';
-        const answer = prompt('Quem deverá usar ' + powerName + ' ' + duration + '?\n\n' + people.map((person) => '• ' + person.displayName).join('\n'));
+        const powerName = giant ? 'Maldição do Mouse Gigante' : adhd ? 'Maldição TDAH' : 'Seta Gay Compulsória';
+        const answer = adhd ? appState.me.displayName : prompt('Quem deverá usar ' + powerName + ' ' + duration + '?\n\n' + people.map((person) => '• ' + person.displayName).join('\n'));
         if (!answer) return;
-        const target = people.find((person) => person.displayName.toLowerCase() === answer.trim().toLowerCase());
+        const target = people.find((person) => person.displayName.toLowerCase() === answer.trim().toLowerCase()) || (adhd ? appState.me : null);
         if (!target) throw new Error('Digite exatamente um dos nomes exibidos.');
         body.targetId = target.id;
-        if (!confirm('Confirmar o uso deste poder?\n\n' + target.displayName + ' usará o cursor especial ' + duration + '.')) return;
+        if (!confirm('Confirmar o uso deste poder?\n\n' + target.displayName + (adhd ? ' receberá a Maldição TDAH, sem saber quem enviou.' : ' usará o cursor especial ' + duration + '.') )) return;
       } else if (button.dataset.shopValue === 'chooseWallpaper' || button.dataset.shopValue === 'assignWallpaper') {
         const wallpapers = appState.submissions || [];
         if (!wallpapers.length) throw new Error('Não há wallpapers disponíveis.');
