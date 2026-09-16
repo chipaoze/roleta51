@@ -1273,7 +1273,7 @@ function stellarItemOffers(userId) {
     if (!item || item.consumable || item.mysteryBox || item.service || item.adminOnly) return null;
     const base = Number(item.price || purchase.originalPrice || 0);
     const value = Math.max(25, Math.floor((base * .6) / 5) * 5);
-    return { purchaseId: purchase.id, itemId: item.id, name: item.name, icon: item.icon || '🎁', value };
+    return { purchaseId: purchase.id, itemId: item.id, type: item.type || '', name: item.name, icon: item.icon || '🎁', value };
   }).filter(Boolean).sort((a, b) => b.value - a.value).slice(0, 12);
 }
 
@@ -1611,9 +1611,8 @@ function profileFor(user, computed = {}) {
       return active ? { id: active.id, principal: active.principal, totalDue: active.totalDue, remainingDue: active.remainingDue, createdAt: active.createdAt, dueAt: active.dueAt || null, overdue: Boolean(overdueLoanFor(user.id)), extended: Boolean(active.extendedAt) } : null;
     })(),
     stellarLender: (() => {
-      const loan = activeLoanFor(user.id); const overdue = Boolean(overdueLoanFor(user.id));
-      const visible = Number(walletFor(user.id)) < 500 || overdue;
-      return visible ? { visible: true, reason: overdue ? 'overdue' : 'low-balance', offers: stellarItemOffers(user.id) } : { visible: false, offers: [] };
+      try { const overdue = Boolean(overdueLoanFor(user.id)); const visible = Number(walletFor(user.id)) < 500 || overdue; return visible ? { visible: true, reason: overdue ? 'overdue' : 'low-balance', offers: stellarItemOffers(user.id) } : { visible: false, offers: [] }; }
+      catch { return { visible: false, offers: [] }; }
     })(),
     mysteryBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).map((entry) => {
       const box = SHOP_CATALOG.find((item) => item.id === entry.boxId && item.mysteryBox);
