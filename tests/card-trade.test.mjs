@@ -29,8 +29,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260916-265/);
-  assert.match(html, /app\.js\?v=20260916-269/);
+  assert.match(html, /styles\.css\?v=20260916-266/);
+  assert.match(html, /app\.js\?v=20260916-270/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -63,6 +63,7 @@ test('Pokédex espalha sprites Cobblemon decorativos sem bloquear a interface', 
   assert.match(styles, /\.cobblemon-scene-sprites\{position:absolute;inset:0;z-index:0;pointer-events:none/);
   assert.match(styles, /@keyframes cobblemon-scene-float/);
   assert.match(appJs, /previews\/small\/\$\{Number\(mon\.i\)\}\.webp/);
+  assert.match(appJs, /cobblemonDexGridKey/);
 });
 
 test('poder consumível usado não fica marcado como item da coleção', () => {

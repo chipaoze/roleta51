@@ -1698,6 +1698,7 @@ body.admin-command-mode .cobblemon-page .cobblemon-dex-card{color:#eef8ff!import
 body.theme-light-override .cobblemon-scene-mon{opacity:.58;filter:drop-shadow(0 6px 4px rgba(22,73,91,.28))}
 @media(max-width:700px){.cobblemon-scene-mon.mon-eevee,.cobblemon-scene-mon.mon-dragonite{display:none}.cobblemon-scene-mon{opacity:.52}}
 @media(prefers-reduced-motion:reduce){.cobblemon-scene-mon{animation:none}}
+.cobblemon-page .cobblemon-dex-grid{content-visibility:auto;contain:layout paint style;contain-intrinsic-size:0 900px}
 
 /* Modo claro sem tema comprado: a Pokédex acompanha o restante do portal. */
 body:not(.theme-dark):not(.theme-rainbow):not(.theme-punishment):not([class*="profile-theme-"]) .cobblemon-page{background:linear-gradient(145deg,#f5fbff,#e7f4fa)!important;border-color:#6aa6bd!important;color:#20354a!important;box-shadow:inset 0 1px #fff,0 18px 42px #426c7d24}
