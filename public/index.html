@@ -8,7 +8,7 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260916-269">
+  <link rel="stylesheet" href="/styles.css?v=20260916-280">
   <link rel="stylesheet" href="/improvements.css?v=20260902-118">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260916-211">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
@@ -501,9 +501,22 @@
     </section>
 
     <section id="mercado" class="section market-page portal-page-hidden">
-      <header class="market-hero"><small>MERCADO INTERNO · COTAÇÕES SIMULADAS</small><h2>Mercado 51</h2><p>Compre e venda ativos virtuais usando Créditos 51. As cotações são calculadas pelo servidor e atualizadas duas vezes por dia — não representam valores reais.</p><div class="market-totals"><strong>Saldo disponível: <span id="marketWallet">0</span> Créditos 51</strong><strong>Valor da carteira: <span id="marketPortfolioValue">0</span> Créditos 51</strong></div></header>
+      <header class="market-hero">
+        <div class="market-hero-top"><div><small>MERCADO INTERNO · COTAÇÕES SIMULADAS</small><h2>Mercado 51</h2><p>Negocie ativos virtuais com Créditos 51. As cotações são calculadas pelo Worker e atualizadas duas vezes por dia — sem API externa e sem valores reais.</p></div><span class="market-session-status"><i></i> MERCADO ABERTO<br><small>Simulação em tempo real</small></span></div>
+        <div class="market-totals">
+          <article class="market-total-card"><small>CAIXA DISPONÍVEL</small><strong><span id="marketWallet">0,00</span></strong><span>Pronto para novas ordens</span></article>
+          <article class="market-total-card"><small>VALOR INVESTIDO</small><strong><span id="marketHoldingsValue">0,00</span></strong><span>Posições em carteira</span></article>
+          <article class="market-total-card featured"><small>PATRIMÔNIO TOTAL</small><strong><span id="marketPortfolioValue">0,00</span></strong><span>Caixa + posições</span></article>
+        </div>
+        <div id="marketLastUpdate" class="market-last-update">Aguardando a primeira atualização do servidor</div>
+      </header>
+      <div class="market-overview-grid">
+        <article class="card market-movers-card"><div class="market-panel-heading"><div><small>RADAR DO MERCADO</small><h3>Movimentos da sessão</h3></div><span>2 atualizações por dia</span></div><div id="marketMovers" class="market-movers"></div></article>
+        <article class="card market-chart-card"><div class="market-panel-heading"><div><small>PERFORMANCE</small><h3>Evolução das cotações</h3></div><span>Variação percentual</span></div><div id="marketChart" class="market-chart"></div></article>
+      </div>
+      <div class="market-section-heading"><div><small>ATIVOS NEGOCIADOS</small><h3>Escolha uma posição</h3></div><p>Informe a quantidade ou use os atalhos. O total da ordem é calculado antes da confirmação.</p></div>
       <div id="marketAssets" class="market-assets"></div>
-      <article class="card market-history-card"><h3>Histórico de cotações</h3><p>Variações geradas pelo Worker, sem API externa.</p><div id="marketHistory"></div></article>
+      <article class="card market-history-card"><div class="market-panel-heading"><div><small>HISTÓRICO DO WORKER</small><h3>Livro de cotações</h3></div><span>Sem API de terceiro</span></div><div id="marketHistory"></div></article>
     </section>
     <section id="cobblemon" class="section cobblemon-page portal-page-hidden">
       <div class="cobblemon-scene-sprites" aria-hidden="true">
@@ -820,6 +833,6 @@
   <script src="/card-album.js?v=20260916-236"></script>
   <script src="/weather.js?v=20260914-178"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-      <script src="/app.js?v=20260916-279"></script>
+      <script src="/app.js?v=20260916-280"></script>
 </body>
 </html>

@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-market-51-v9',
-  title: 'Atualização sem repetição no Ctrl+F5',
-  notes: 'A versão já carregada agora é reconhecida corretamente. O aviso só aparece para quem está em uma versão antiga; depois do recarregamento, o Ctrl+F5 não solicita a mesma atualização novamente. O Mercado 51 continua mostrando carteira, moedas e variações.'
+  version: '20260916-market-51-v10',
+  title: 'Mercado 51 com visual financeiro',
+  notes: 'O Mercado 51 ganhou patrimônio total, caixa, valor investido, gráfico de performance, maiores altas e baixas, preços com centavos, mini-gráficos por ativo e atalhos para comprar várias unidades. Tudo continua sendo calculado no Worker, sem API externa e sem novas requisições de polling.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3349,14 +3349,54 @@ function renderAnnouncement(announcement) {
 
 let renderingActivePortalPage = false;
 let renderedPortalPage = null;
+const MARKET_CHART_COLORS = ['#62e6c3', '#7f8cff', '#ffcc66', '#ff7195', '#48b8ff', '#c58cff'];
+function marketMoney(value) {
+  return Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function marketSignedMoney(value) {
+  const amount = Number(value || 0);
+  return `${amount > 0 ? '+' : ''}${marketMoney(amount)}`;
+}
+function marketChartMarkup(assets, history) {
+  const chronological = [...history].reverse();
+  const rows = chronological.length ? chronological : [{ prices: Object.fromEntries(assets.map((asset) => [asset.id, asset.price])) }];
+  const series = assets.map((asset, index) => {
+    const values = rows.map((row) => Number(row.prices?.[asset.id] || asset.price));
+    values.push(Number(asset.price));
+    if (values.length === 1) values.unshift(values[0]);
+    const base = values[0] || Number(asset.price) || 1;
+    return { asset, color: MARKET_CHART_COLORS[index % MARKET_CHART_COLORS.length], points: values.map((value) => ((value / base) - 1) * 100) };
+  });
+  const allPoints = series.flatMap((item) => item.points);
+  let min = Math.min(0, ...allPoints); let max = Math.max(0, ...allPoints);
+  if (min === max) { min -= 1; max += 1; }
+  const width = 940; const height = 250; const left = 48; const right = 18; const top = 18; const bottom = 30;
+  const plotWidth = width - left - right; const plotHeight = height - top - bottom;
+  const pointFor = (value, index, total) => `${left + (total <= 1 ? plotWidth / 2 : (index / (total - 1)) * plotWidth)},${top + ((max - value) / (max - min)) * plotHeight}`;
+  const grid = [0, 1, 2, 3].map((index) => { const value = max - ((max - min) * index / 3); const y = top + (plotHeight * index / 3); return `<line x1="${left}" y1="${y.toFixed(1)}" x2="${width - right}" y2="${y.toFixed(1)}"/><text x="4" y="${(y + 4).toFixed(1)}">${value.toFixed(1)}%</text>`; }).join('');
+  const lines = series.map(({ asset, color, points }) => `<polyline class="market-chart-line" stroke="${color}" points="${points.map((value, index) => pointFor(value, index, points.length)).join(' ')}"/>`).join('');
+  const legend = series.map(({ asset, color }) => `<span><i style="background:${color}"></i>${escapeHtml(asset.name)}</span>`).join('');
+  return `<div class="market-chart-wrap"><svg class="market-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolução percentual das cotações"><g class="market-chart-grid">${grid}</g>${lines}</svg><div class="market-chart-axis"><span>Histórico</span><span>Agora</span></div></div><div class="market-chart-legend">${legend}</div>`;
+}
+function marketMoverMarkup(asset, kind) {
+  if (!asset) return `<p class="market-mover-empty">Nenhuma variação registrada nesta janela.</p>`;
+  const positive = kind === 'up'; const direction = asset.direction === 'flat' ? 'flat' : positive ? 'up' : 'down';
+  return `<div class="market-mover-row ${direction}"><span class="market-mover-icon">${positive ? '↗' : '↘'}</span><span><b>${escapeHtml(asset.name)}</b><small>${marketMoney(asset.price)} Créditos 51</small></span><strong>${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2).replace('.', ',')}%</strong></div>`;
+}
 function renderInvestmentMarket(profile = {}) {
   const market = profile.investmentMarket || {}; const assets = Array.isArray(market.assets) ? market.assets : [];
-  const wallet = Number(profile.wallet || 0); const walletEl = $('#marketWallet'); if (walletEl) walletEl.textContent = wallet.toLocaleString('pt-BR');
-  const portfolioValueEl = $('#marketPortfolioValue'); if (portfolioValueEl) portfolioValueEl.textContent = Number(market.holdingsValue || 0).toLocaleString('pt-BR');
+  const wallet = Number(profile.wallet || 0); const holdingsValue = Number(market.holdingsValue || 0); const portfolioValue = wallet + holdingsValue;
+  const walletEl = $('#marketWallet'); if (walletEl) walletEl.textContent = marketMoney(wallet);
+  const holdingsEl = $('#marketHoldingsValue'); if (holdingsEl) holdingsEl.textContent = marketMoney(holdingsValue);
+  const portfolioValueEl = $('#marketPortfolioValue'); if (portfolioValueEl) portfolioValueEl.textContent = marketMoney(portfolioValue);
+  const lastUpdateEl = $('#marketLastUpdate'); if (lastUpdateEl) lastUpdateEl.textContent = market.updatedAt ? `Última atualização: ${new Date(market.updatedAt).toLocaleString('pt-BR')}` : 'Aguardando a primeira atualização do servidor';
   const root = $('#marketAssets'); if (!root) return;
-  root.innerHTML = assets.map((asset) => { const arrow = asset.direction === 'up' ? '<b class="market-change up">↑</b>' : asset.direction === 'down' ? '<b class="market-change down">↓</b>' : '<b class="market-change flat">→</b>'; const changeText = `${asset.change > 0 ? '+' : ''}${Number(asset.change || 0).toLocaleString('pt-BR')} (${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2)}%)`; return `<article class="card market-asset-card"><header><span>${asset.icon}</span><div><h3>${escapeHtml(asset.name)}</h3><strong>${Number(asset.price).toLocaleString('pt-BR')} Créditos 51 ${arrow}</strong><small class="market-change-label ${asset.direction}">${changeText}</small></div><small>${Number(asset.quantity || 0)} em carteira<br><b>${Number(asset.positionValue || 0).toLocaleString('pt-BR')} total</b></small></header><form data-market-action="buy" data-market-asset="${escapeHtml(asset.id)}"><label>Comprar <input name="quantity" type="number" min="1" max="100000" value="1" required></label><button class="button button-primary" type="submit">Comprar</button></form><form data-market-action="sell" data-market-asset="${escapeHtml(asset.id)}"><label>Vender <input name="quantity" type="number" min="1" max="${Math.max(1, Number(asset.quantity || 0))}" value="1" required></label><button class="button button-dark" type="submit"${Number(asset.quantity || 0) < 1 ? ' disabled' : ''}>Vender</button></form></article>`; }).join('') || '<p class="market-empty">Carregando cotações…</p>';
   const history = Array.isArray(market.history) ? market.history : [];
-  $('#marketHistory').innerHTML = history.length ? history.map((row) => `<div class="market-history-row"><time>${new Date(row.createdAt).toLocaleString('pt-BR')}</time><span>${assets.map((asset) => `${escapeHtml(asset.name)}: ${Number(row.prices?.[asset.id] || 0).toLocaleString('pt-BR')}`).join(' · ')}</span></div>`).join('') : '<p class="market-empty">Ainda não há histórico.</p>';
+  const sortedByChange = [...assets].sort((a, b) => Number(b.changePercent || 0) - Number(a.changePercent || 0));
+  const movers = $('#marketMovers'); if (movers) movers.innerHTML = `<div class="market-mover-column"><small class="market-mover-heading up">MAIORES ALTAS</small>${marketMoverMarkup(sortedByChange.find((asset) => Number(asset.changePercent || 0) > 0), 'up')}</div><div class="market-mover-column"><small class="market-mover-heading down">MAIORES BAIXAS</small>${marketMoverMarkup([...sortedByChange].reverse().find((asset) => Number(asset.changePercent || 0) < 0), 'down')}</div>`;
+  const chart = $('#marketChart'); if (chart) chart.innerHTML = marketChartMarkup(assets, history);
+  root.innerHTML = assets.map((asset) => { const arrow = asset.direction === 'up' ? '<b class="market-change up">↑</b>' : asset.direction === 'down' ? '<b class="market-change down">↓</b>' : '<b class="market-change flat">→</b>'; const changeText = `${marketSignedMoney(asset.change)} (${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2).replace('.', ',')}%)`; const quantity = Number(asset.quantity || 0); const price = Number(asset.price || 0); const order = (side, label, buttonClass, max) => `<form class="market-order" data-market-action="${side}" data-market-asset="${escapeHtml(asset.id)}" data-market-price="${price}"><div class="market-order-head"><b>${label}</b><output data-market-total>Total: ${marketMoney(price)} Créditos 51</output></div><div class="market-order-fields"><label>Quantidade<input name="quantity" type="number" min="1" max="${max}" step="1" value="1" required></label><button class="button ${buttonClass}" type="submit">${label}</button></div><div class="market-quick-qty" aria-label="Quantidades rápidas">${[1, 5, 10, 25].map((amount) => `<button type="button" data-market-quick="${amount}">${amount}</button>`).join('')}</div></form>`; return `<article class="card market-asset-card"><header><span class="market-asset-icon">${asset.icon}</span><div><h3>${escapeHtml(asset.name)}</h3><strong class="market-price">${marketMoney(asset.price)} <small>Créditos 51</small> ${arrow}</strong><small class="market-change-label ${asset.direction}">${changeText}</small></div><small class="market-position">${quantity} em carteira<br><b>${marketMoney(asset.positionValue)} total</b></small></header><div class="market-card-chart">${marketChartMarkup([asset], history)}</div>${order('buy', 'Comprar', 'button-primary', 100000)}${order('sell', 'Vender', 'button-dark', Math.max(1, quantity))}</article>`; }).join('') || '<p class="market-empty">Carregando cotações…</p>';
+  $('#marketHistory').innerHTML = history.length ? history.map((row) => `<div class="market-history-row"><time>${new Date(row.createdAt).toLocaleString('pt-BR')}</time><span>${assets.map((asset) => `${escapeHtml(asset.name)}: ${marketMoney(row.prices?.[asset.id])}`).join(' · ')}</span></div>`).join('') : '<p class="market-empty">O histórico será formado na próxima atualização do servidor.</p>';
 }
 function optimizeRenderedImages() {
   $$('img').forEach((image) => {
@@ -5132,10 +5172,29 @@ document.addEventListener('click', (event) => {
 $('#menuButton').addEventListener('click', () => setMenuOpen(!$('#siteMenu').classList.contains('open')));
 $('#closeMenuButton').addEventListener('click', () => setMenuOpen(false));
 $('#menuBackdrop').addEventListener('click', () => setMenuOpen(false));
+function updateMarketOrderTotal(form) {
+  if (!form) return;
+  const quantity = Math.max(0, Number(form.querySelector('input[name="quantity"]')?.value || 0));
+  const price = Number(form.dataset.marketPrice || 0);
+  const output = form.querySelector('[data-market-total]');
+  if (output) output.textContent = `Total: ${marketMoney(price * quantity)} Créditos 51`;
+}
+$('#mercado').addEventListener('input', (event) => {
+  const input = event.target.closest('[data-market-action] input[name="quantity"]');
+  if (input) updateMarketOrderTotal(input.form);
+});
+$('#mercado').addEventListener('click', (event) => {
+  const quick = event.target.closest('[data-market-quick]');
+  if (!quick) return;
+  const form = quick.closest('[data-market-action]'); const input = form?.querySelector('input[name="quantity"]');
+  if (!input) return;
+  input.value = quick.dataset.marketQuick;
+  updateMarketOrderTotal(form);
+});
 $('#mercado').addEventListener('submit', async (event) => {
   const form = event.target.closest('[data-market-action]'); if (!form) return;
-  event.preventDefault(); const button = form.querySelector('button'); button.disabled = true;
-  try { const data = await api('/api/market/' + form.dataset.marketAction, { method: 'POST', body: { assetId: form.dataset.marketAsset, quantity: Number(new FormData(form).get('quantity')) } }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast(form.dataset.marketAction === 'buy' ? 'Ativo comprado.' : 'Ativo vendido.'); }
+  event.preventDefault(); const button = form.querySelector('button[type="submit"]'); button.disabled = true;
+  try { const data = await api('/api/market/' + form.dataset.marketAction, { method: 'POST', body: { assetId: form.dataset.marketAsset, quantity: Number(new FormData(form).get('quantity')) } }); appState.profile = data.profile; renderProfileEconomy(appState.profile); if (currentPortalPage() === 'mercado') renderInvestmentMarket(appState.profile); showToast(form.dataset.marketAction === 'buy' ? 'Ativo comprado.' : 'Ativo vendido.'); }
   catch (error) { showToast(error.message, 'error'); }
   finally { if (button.isConnected) button.disabled = false; }
 });

@@ -3136,8 +3136,11 @@ async function handleApi(req, res, route) {
     const market = ensureMarketState(db.economy); const price = Number(market.prices[asset.id] || asset.initialPrice); const total = price * quantity;
     if (side === 'buy' && (!Number.isInteger(quantity) || quantity < 1 || walletFor(user.id) < total)) throw new HttpError(409, 'Quantidade inválida ou Créditos 51 insuficientes.');
     let operation; try { operation = transactMarket(db.economy, user.id, assetId, quantity, side); } catch (error) { throw new HttpError(400, error.message); }
-    const before = walletFor(user.id); if (side === 'buy') addCredits(user.id, -operation.total); else addCredits(user.id, operation.total);
-    const after = walletFor(user.id); operation.userId = user.id; operation.before = before; operation.after = after;
+    const before = walletFor(user.id);
+    const signedTotal = side === 'buy' ? -operation.total : operation.total;
+    const after = Math.round((before + signedTotal) * 100) / 100;
+    db.economy.wallets[user.id] = after;
+    operation.userId = user.id; operation.before = before; operation.after = after;
     market.ledger.push({ ...operation }); if (market.ledger.length > 5000) market.ledger = market.ledger.slice(-5000);
     db.economy.creditAdjustments.push({ id: operation.id, userId: user.id, mode: 'investment-market-' + side, amount: side === 'buy' ? -operation.total : operation.total, before, after, reason: `${side === 'buy' ? 'Compra' : 'Venda'} de ${asset.name}`, createdAt: operation.createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), operation }); return;
