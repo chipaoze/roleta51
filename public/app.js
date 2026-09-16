@@ -1,5 +1,11 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+// Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
+const RELEASE_NOTICE = {
+  version: '20260916-adhd',
+  title: 'Atualização da Área 51',
+  notes: 'Nova Maldição TDAH, melhorias nas trocas diretas e ajustes de estabilidade e visual.'
+};
 let appState = null;
 let activeMode = 'theme';
 let selectedFile = null;
@@ -43,6 +49,7 @@ let feedbackPanelOpen = false;
 let adminFeedbackFilter = 'pending';
 let knownReleaseVersion = null;
 let updatePromptOpen = false;
+let releaseNoticeChecked = false;
 let navigationFrame = null;
 let visiblePortalPage = null;
 let portalRenderRequest = 0;
@@ -3324,6 +3331,33 @@ async function acknowledgeAnnouncement() {
   catch (error) { showToast(error.message, 'error'); }
 }
 
+function showReleaseNotice() {
+  if (releaseNoticeChecked || !appState?.me) return;
+  releaseNoticeChecked = true;
+  const storage = window.localStorage;
+  const version = RELEASE_NOTICE.version;
+  const pending = storage.getItem('area51-release-pending');
+  const seen = storage.getItem('area51-release-seen');
+  if (seen === version) return;
+  const dialog = $('#releaseNoticeDialog');
+  if (!dialog) return;
+  const notesMode = pending === version;
+  dialog.innerHTML = notesMode
+    ? '<span class="release-notice-icon" aria-hidden="true">✨</span><small>ATUALIZAÇÃO CONCLUÍDA</small><h2>' + escapeHtml(RELEASE_NOTICE.title) + '</h2><p>' + escapeHtml(RELEASE_NOTICE.notes) + '</p><button class="button button-primary" data-release-ack type="button">Entendi</button>'
+    : '<span class="release-notice-icon" aria-hidden="true">🚀</span><small>NOVA VERSÃO DISPONÍVEL</small><h2>Atualize a Área 51</h2><p>Uma melhoria acabou de ser publicada. Atualize agora para continuar com a versão mais recente.</p><button class="button button-primary" data-release-update type="button">Atualizar agora</button>';
+  if (dialog.open) dialog.close();
+  dialog.showModal();
+  dialog.querySelector('[data-release-update]')?.addEventListener('click', () => {
+    storage.setItem('area51-release-pending', version);
+    location.reload();
+  });
+  dialog.querySelector('[data-release-ack]')?.addEventListener('click', () => {
+    storage.removeItem('area51-release-pending');
+    storage.setItem('area51-release-seen', version);
+    dialog.close();
+  });
+}
+
 function applyState(data) {
   const previousPhase = appState && appState.workflow ? appState.workflow.phase : null;
   const incomingReleaseVersion = Math.max(0, Number(data.settings?.releaseVersion || 0));
@@ -3387,6 +3421,7 @@ function applyState(data) {
   $('#admin').classList.toggle('hidden', !isAdmin);
   $('#adminLiveChecklist').classList.toggle('hidden', !isAdmin);
   renderFeatureAvailability(data.settings?.featureFlags); renderTodayHub(data); renderNotifications(); renderAnnouncement(data.announcement); renderActivePortalPage(data);
+  setTimeout(showReleaseNotice, 0);
   const canUpload = Boolean(data.meCanUpload && data.settings?.featureFlags?.uploads !== false);
   $$('input,button', $('#uploadForm')).forEach((control) => { control.disabled = !canUpload; });
   const uploadLock = $('#uploadLock');

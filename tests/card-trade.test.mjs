@@ -5,6 +5,7 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
 const js = fs.readFileSync(path.join(root, 'public', 'card-album.js'), 'utf8');
+const appJs = fs.readFileSync(path.join(root, 'public', 'app.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
 
@@ -27,4 +28,12 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260916-256/);
+});
+
+test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
+  assert.match(appJs, /RELEASE_NOTICE/);
+  assert.match(appJs, /area51-release-pending/);
+  assert.match(appJs, /area51-release-seen/);
+  assert.match(appJs, /Atualizar agora/);
+  assert.match(html, /id="releaseNoticeDialog"/);
 });
