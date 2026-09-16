@@ -1,5 +1,5 @@
 {
-  "version": "20260916-market-51-v10",
-  "title": "Mercado 51 com visual financeiro",
-  "notes": "O Mercado 51 ganhou patrimônio total, caixa, valor investido, gráfico de performance, maiores altas e baixas, preços com centavos, mini-gráficos por ativo e atalhos para comprar várias unidades. Tudo continua sendo calculado no Worker, sem API externa e sem novas requisições de polling."
+  "version": "20260916-market-51-v11",
+  "title": "Mercado 51 mais claro e legível",
+  "notes": "Os valores agora aparecem maiores, com contraste reforçado e a unidade Créditos 51 sempre visível. Caixa, valor investido, patrimônio, preço por unidade e total da ordem ficaram mais fáceis de identificar."
 }

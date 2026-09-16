@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-market-51-v10',
-  title: 'Mercado 51 com visual financeiro',
-  notes: 'O Mercado 51 ganhou patrimônio total, caixa, valor investido, gráfico de performance, maiores altas e baixas, preços com centavos, mini-gráficos por ativo e atalhos para comprar várias unidades. Tudo continua sendo calculado no Worker, sem API externa e sem novas requisições de polling.'
+  version: '20260916-market-51-v11',
+  title: 'Mercado 51 mais claro e legível',
+  notes: 'Os valores agora aparecem maiores, com contraste reforçado e a unidade Créditos 51 sempre visível. Caixa, valor investido, patrimônio, preço por unidade e total da ordem ficaram mais fáceis de identificar.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3386,16 +3386,16 @@ function marketMoverMarkup(asset, kind) {
 function renderInvestmentMarket(profile = {}) {
   const market = profile.investmentMarket || {}; const assets = Array.isArray(market.assets) ? market.assets : [];
   const wallet = Number(profile.wallet || 0); const holdingsValue = Number(market.holdingsValue || 0); const portfolioValue = wallet + holdingsValue;
-  const walletEl = $('#marketWallet'); if (walletEl) walletEl.textContent = marketMoney(wallet);
-  const holdingsEl = $('#marketHoldingsValue'); if (holdingsEl) holdingsEl.textContent = marketMoney(holdingsValue);
-  const portfolioValueEl = $('#marketPortfolioValue'); if (portfolioValueEl) portfolioValueEl.textContent = marketMoney(portfolioValue);
+  const walletEl = $('#marketWallet'); if (walletEl) { walletEl.textContent = marketMoney(wallet); walletEl.parentElement?.setAttribute('aria-label', `${marketMoney(wallet)} Créditos 51`); }
+  const holdingsEl = $('#marketHoldingsValue'); if (holdingsEl) { holdingsEl.textContent = marketMoney(holdingsValue); holdingsEl.parentElement?.setAttribute('aria-label', `${marketMoney(holdingsValue)} Créditos 51`); }
+  const portfolioValueEl = $('#marketPortfolioValue'); if (portfolioValueEl) { portfolioValueEl.textContent = marketMoney(portfolioValue); portfolioValueEl.parentElement?.setAttribute('aria-label', `${marketMoney(portfolioValue)} Créditos 51`); }
   const lastUpdateEl = $('#marketLastUpdate'); if (lastUpdateEl) lastUpdateEl.textContent = market.updatedAt ? `Última atualização: ${new Date(market.updatedAt).toLocaleString('pt-BR')}` : 'Aguardando a primeira atualização do servidor';
   const root = $('#marketAssets'); if (!root) return;
   const history = Array.isArray(market.history) ? market.history : [];
   const sortedByChange = [...assets].sort((a, b) => Number(b.changePercent || 0) - Number(a.changePercent || 0));
   const movers = $('#marketMovers'); if (movers) movers.innerHTML = `<div class="market-mover-column"><small class="market-mover-heading up">MAIORES ALTAS</small>${marketMoverMarkup(sortedByChange.find((asset) => Number(asset.changePercent || 0) > 0), 'up')}</div><div class="market-mover-column"><small class="market-mover-heading down">MAIORES BAIXAS</small>${marketMoverMarkup([...sortedByChange].reverse().find((asset) => Number(asset.changePercent || 0) < 0), 'down')}</div>`;
   const chart = $('#marketChart'); if (chart) chart.innerHTML = marketChartMarkup(assets, history);
-  root.innerHTML = assets.map((asset) => { const arrow = asset.direction === 'up' ? '<b class="market-change up">↑</b>' : asset.direction === 'down' ? '<b class="market-change down">↓</b>' : '<b class="market-change flat">→</b>'; const changeText = `${marketSignedMoney(asset.change)} (${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2).replace('.', ',')}%)`; const quantity = Number(asset.quantity || 0); const price = Number(asset.price || 0); const order = (side, label, buttonClass, max) => `<form class="market-order" data-market-action="${side}" data-market-asset="${escapeHtml(asset.id)}" data-market-price="${price}"><div class="market-order-head"><b>${label}</b><output data-market-total>Total: ${marketMoney(price)} Créditos 51</output></div><div class="market-order-fields"><label>Quantidade<input name="quantity" type="number" min="1" max="${max}" step="1" value="1" required></label><button class="button ${buttonClass}" type="submit">${label}</button></div><div class="market-quick-qty" aria-label="Quantidades rápidas">${[1, 5, 10, 25].map((amount) => `<button type="button" data-market-quick="${amount}">${amount}</button>`).join('')}</div></form>`; return `<article class="card market-asset-card"><header><span class="market-asset-icon">${asset.icon}</span><div><h3>${escapeHtml(asset.name)}</h3><strong class="market-price">${marketMoney(asset.price)} <small>Créditos 51</small> ${arrow}</strong><small class="market-change-label ${asset.direction}">${changeText}</small></div><small class="market-position">${quantity} em carteira<br><b>${marketMoney(asset.positionValue)} total</b></small></header><div class="market-card-chart">${marketChartMarkup([asset], history)}</div>${order('buy', 'Comprar', 'button-primary', 100000)}${order('sell', 'Vender', 'button-dark', Math.max(1, quantity))}</article>`; }).join('') || '<p class="market-empty">Carregando cotações…</p>';
+  root.innerHTML = assets.map((asset) => { const arrow = asset.direction === 'up' ? '<b class="market-change up">↑</b>' : asset.direction === 'down' ? '<b class="market-change down">↓</b>' : '<b class="market-change flat">→</b>'; const changeText = `${marketSignedMoney(asset.change)} (${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2).replace('.', ',')}%)`; const quantity = Number(asset.quantity || 0); const price = Number(asset.price || 0); const order = (side, label, buttonClass, max) => `<form class="market-order" data-market-action="${side}" data-market-asset="${escapeHtml(asset.id)}" data-market-price="${price}"><div class="market-order-head"><b>${label}</b><output data-market-total>Total da ordem: ${marketMoney(price)} Créditos 51</output></div><div class="market-order-fields"><label>Quantidade<input name="quantity" type="number" min="1" max="${max}" step="1" value="1" required></label><button class="button ${buttonClass}" type="submit">${label}</button></div><div class="market-quick-qty" aria-label="Quantidades rápidas">${[1, 5, 10, 25].map((amount) => `<button type="button" data-market-quick="${amount}">${amount}</button>`).join('')}</div></form>`; return `<article class="card market-asset-card"><header><span class="market-asset-icon">${asset.icon}</span><div><h3>${escapeHtml(asset.name)}</h3><strong class="market-price"><span>${marketMoney(asset.price)}</span> <small>Créditos 51 / unidade</small> ${arrow}</strong><small class="market-change-label ${asset.direction}">${changeText}</small></div><small class="market-position">${quantity} em carteira<br><b>${marketMoney(asset.positionValue)} Créditos 51</b></small></header><div class="market-card-chart">${marketChartMarkup([asset], history)}</div>${order('buy', 'Comprar', 'button-primary', 100000)}${order('sell', 'Vender', 'button-dark', Math.max(1, quantity))}</article>`; }).join('') || '<p class="market-empty">Carregando cotações…</p>';
   $('#marketHistory').innerHTML = history.length ? history.map((row) => `<div class="market-history-row"><time>${new Date(row.createdAt).toLocaleString('pt-BR')}</time><span>${assets.map((asset) => `${escapeHtml(asset.name)}: ${marketMoney(row.prices?.[asset.id])}`).join(' · ')}</span></div>`).join('') : '<p class="market-empty">O histórico será formado na próxima atualização do servidor.</p>';
 }
 function optimizeRenderedImages() {
@@ -5177,7 +5177,7 @@ function updateMarketOrderTotal(form) {
   const quantity = Math.max(0, Number(form.querySelector('input[name="quantity"]')?.value || 0));
   const price = Number(form.dataset.marketPrice || 0);
   const output = form.querySelector('[data-market-total]');
-  if (output) output.textContent = `Total: ${marketMoney(price * quantity)} Créditos 51`;
+  if (output) output.textContent = `Total da ordem: ${marketMoney(price * quantity)} Créditos 51`;
 }
 $('#mercado').addEventListener('input', (event) => {
   const input = event.target.closest('[data-market-action] input[name="quantity"]');

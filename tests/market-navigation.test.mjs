@@ -21,6 +21,8 @@ test('Mercado mostra total da carteira e direção da cotação', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(html, /id="marketPortfolioValue"/);
   assert.match(html, /id="marketHoldingsValue"/);
+  assert.match(html, /market-total-amount/);
+  assert.match(html, /Créditos 51<\/small>/);
   assert.match(html, /id="marketChart"/);
   assert.match(html, /id="marketMovers"/);
   assert.match(app, /market-change up/);
@@ -28,6 +30,7 @@ test('Mercado mostra total da carteira e direção da cotação', () => {
   assert.match(app, /holdingsValue/);
   assert.match(app, /market-quick-qty/);
   assert.match(app, /marketMoney/);
+  assert.match(app, /Total da ordem/);
   assert.match(app, /releaseNoticeLoaded/);
   assert.match(fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8'), /market-change\.up/);
   assert.match(fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8'), /const marketAdvanced = advanceMarket\(db\.economy\)/);
