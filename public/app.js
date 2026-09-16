@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-capsule-weekly-cycle-v7',
-  title: 'Atualização da Área 51',
-  notes: 'Cápsula Pokémon com ciclo semanal: até 7 compras de sábado a sexta, 3 sorteios automáticos por cápsula, resultado separado da fila de entregas, escolha somente após os 3 resultados e entrega antecipada a partir da lista semanal. A escolha agora permanece correta na lista semanal, sem trocar pelo último resultado bruto da roleta. A página de cápsulas, a roleta e os cartões laterais agora têm contraste maior, textos legíveis e botões padronizados. O reset antigo será estornado antes da publicação.'
+  version: '20260916-header-wallet-v8',
+  title: 'Saldo sempre à vista',
+  notes: 'O cabeçalho agora mostra seus Créditos 51 em todas as páginas. O valor é atualizado automaticamente após compras, vendas, recompensas e estornos — sem precisar abrir o Perfil.'
 };
 let appState = null;
 let activeMode = 'theme';
@@ -2993,6 +2993,12 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   });
   $('#topProfileButton').className = 'top-profile-button' + (frameItem ? ' frame-' + frameItem.value : '');
   $('.site-menu-user').className = 'site-menu-user' + (frameItem ? ' frame-' + frameItem.value : '');
+  const topWalletValue = Number(profile.wallet || 0).toLocaleString('pt-BR');
+  const topWallet = $('#topWallet');
+  if (topWallet) {
+    $('#topWalletValue').textContent = topWalletValue;
+    topWallet.setAttribute('aria-label', 'Saldo: ' + topWalletValue + ' Créditos 51');
+  }
   // Álbum e Cobblemon já tiveram sua área específica atualizada acima. Não
   // reconstruímos Perfil e Loja enquanto essas páginas permanecem ocultas.
   if (globalOnly || profilePage === 'album' || profilePage === 'cobblemon') return;

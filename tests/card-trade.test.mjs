@@ -29,7 +29,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260916-260/);
+  assert.match(html, /styles\.css\?v=20260916-261/);
+  assert.match(html, /app\.js\?v=20260916-265/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -38,6 +39,14 @@ test('aviso de versão pede atualização e exibe notas uma vez por versão', ()
   assert.match(appJs, /area51-release-seen/);
   assert.match(appJs, /Atualizar agora/);
   assert.match(html, /id="releaseNoticeDialog"/);
+});
+
+test('cabeçalho exibe e atualiza o saldo de Créditos 51 em qualquer página', () => {
+  assert.match(html, /id="topWallet"/);
+  assert.match(html, /id="topWalletValue"/);
+  assert.match(appJs, /const topWalletValue = Number\(profile\.wallet \|\| 0\)\.toLocaleString\('pt-BR'\)/);
+  assert.match(appJs, /topWallet\.setAttribute\('aria-label', 'Saldo: ' \+ topWalletValue \+ ' Créditos 51'\)/);
+  assert.match(styles, /\.top-wallet\{display:inline-flex/);
 });
 
 test('poder consumível usado não fica marcado como item da coleção', () => {

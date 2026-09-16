@@ -1,5 +1,5 @@
 {
-  "version": "20260916-capsule-weekly-cycle-v7",
-  "title": "Atualização da Área 51",
-  "notes": "Cápsula Pokémon com ciclo semanal: até 7 compras de sábado a sexta, 3 sorteios automáticos por cápsula, resultado separado da fila de entregas, escolha somente após os 3 resultados e entrega antecipada a partir da lista semanal. A escolha agora permanece correta na lista semanal, sem trocar pelo último resultado bruto da roleta. A página de cápsulas, a roleta e os cartões laterais agora têm contraste maior, textos legíveis e botões padronizados. O reset antigo será estornado antes da publicação."
+  "version": "20260916-header-wallet-v8",
+  "title": "Saldo sempre à vista",
+  "notes": "O cabeçalho agora mostra seus Créditos 51 em todas as páginas. O valor é atualizado automaticamente após compras, vendas, recompensas e estornos — sem precisar abrir o Perfil."
 }
