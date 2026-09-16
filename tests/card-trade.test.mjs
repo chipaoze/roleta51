@@ -24,6 +24,6 @@ test('painéis ocultam combos redundantes e informam como navegar', () => {
 test('análise calcula utilidade por coleção e versão dos assets é atualizada', () => {
   assert.match(js, /utilityScore/);
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
-  assert.match(html, /card-album\.js\?v=20260916-233/);
+  assert.match(html, /card-album\.js\?v=20260916-234/);
   assert.match(html, /styles\.css\?v=20260916-255/);
 });
