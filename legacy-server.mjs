@@ -1703,7 +1703,8 @@ function profileFor(user, computed = {}) {
         const canOpen = Boolean(openEntry && !deliveryLocked && openRollCount < 3);
         const cycleStart = cycleId ? cycleId.slice('capsule-week:'.length) : null;
         const nextOpenAt = cycleStart ? new Date(Date.parse(cycleStart + 'T03:00:00Z') + 7 * 86400000).toISOString() : null;
-        const canPurchase = !deliveryLocked && !weeklyChoice && weeklyPurchaseCount < 7;
+        const weeklyChoiceClosed = cycleEntries.some((entry) => entry.soldFromWeeklyChoice);
+        const canPurchase = !deliveryLocked && !weeklyChoice && !weeklyChoiceClosed && weeklyPurchaseCount < 7;
         const toChoice = (entry) => entry ? { id: entry.id, name: entry.name, sprite: entry.sprite, choices: entry.choices || [], choiceStage: weeklyChoice ? 'weekly' : 'daily' } : null;
         // The weekly list must reflect the Pokémon selected from the three
         // rolls, not the last raw roll stored on the capsule.  `entry.roll`
@@ -3167,7 +3168,7 @@ async function handleApi(req, res, route) {
     if (!reward) throw new HttpError(404, 'Este prêmio já teve sua decisão concluída.');
     if (wantsCandidateSale) {
       if (!['cycle-candidate', 'weekly-choice-pending'].includes(reward.status) || reward.deliveryLocked) throw new HttpError(409, 'Este Pokémon já foi escolhido para entrega e não pode ser vendido.');
-      const amount = cobblemonCandidateSellPrice(reward.rarity || reward.roll?.rarity); const before = walletFor(user.id); const now = new Date().toISOString(); addCredits(user.id, amount); reward.status = 'sold'; reward.decidedAt = now; reward.soldAt = now;
+      const amount = cobblemonCandidateSellPrice(reward.rarity || reward.roll?.rarity); const before = walletFor(user.id); const now = new Date().toISOString(); addCredits(user.id, amount); reward.soldFromWeeklyChoice = reward.status === 'weekly-choice-pending'; reward.status = 'sold'; reward.decidedAt = now; reward.soldAt = now;
       db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-candidate-sale', amount, before, after: before + amount, reason: 'Venda de Pokémon não escolhido: ' + reward.name, createdAt: now });
     } else if (wantsWeeklyImmediate) {
       if (reward.status !== 'cycle-candidate') throw new HttpError(409, 'Este Pokémon já não está disponível para a entrega semanal.');

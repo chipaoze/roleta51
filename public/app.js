@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-cobblemon-sale-v2',
+  version: '20260916-cobblemon-sale-v3',
   title: 'Pokédex nativa e cabeçalho ajustado',
-  notes: 'Corrigimos a contagem após vender um Pokémon da cápsula: a venda remove o Pokémon e credita o saldo, mas a compra continua contando no limite semanal. Baús e aberturas não são alterados.'
+  notes: 'Corrigimos a exibição e a contagem da venda de Pokémon: o valor aparece por raridade, o Pokémon vendido some da lista e a compra continua contando no limite semanal, sem liberar novas aberturas indevidas.'
 };
 let appState = null;
 let activeMode = 'theme';
