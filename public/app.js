@@ -5120,7 +5120,7 @@ $('#menuBackdrop').addEventListener('click', () => setMenuOpen(false));
 $('#mercado').addEventListener('submit', async (event) => {
   const form = event.target.closest('[data-market-action]'); if (!form) return;
   event.preventDefault(); const button = form.querySelector('button'); button.disabled = true;
-  try { applyState(await api('/api/market/' + form.dataset.marketAction, { method: 'POST', body: { assetId: form.dataset.marketAsset, quantity: Number(new FormData(form).get('quantity')) } })); showToast(form.dataset.marketAction === 'buy' ? 'Ativo comprado.' : 'Ativo vendido.'); }
+  try { const data = await api('/api/market/' + form.dataset.marketAction, { method: 'POST', body: { assetId: form.dataset.marketAsset, quantity: Number(new FormData(form).get('quantity')) } }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast(form.dataset.marketAction === 'buy' ? 'Ativo comprado.' : 'Ativo vendido.'); }
   catch (error) { showToast(error.message, 'error'); }
   finally { if (button.isConnected) button.disabled = false; }
 });

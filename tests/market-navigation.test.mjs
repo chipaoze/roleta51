@@ -10,3 +10,8 @@ test('Mercado 51 possui rota própria e navegação direta no menu', () => {
   assert.match(app, /const portalPages = \[[^\]]*'mercado'/);
   assert.doesNotMatch(app, /window\.location\.assign\('\?pagina=mercado'\)/);
 });
+
+test('operações do Mercado atualizam apenas o perfil, sem tratar resposta parcial como estado global', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(app, /const data = await api\('\/api\/market\/'.*appState\.profile = data\.profile; renderProfileEconomy/);
+});
