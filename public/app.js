@@ -1533,7 +1533,10 @@ function updateMusicButton() {
   const locked = isMusicLockedForDrawDay();
   button.classList.toggle('on', active);
   button.classList.toggle('blocked', blocked);
-  button.textContent = active ? '🔊' : (blocked ? '🎵' : '🔇');
+  // O ícone representa a preferência do usuário, não o estado transitório do
+  // áudio durante a troca de página. Assim, ao desligar a música, o 🔇 fica
+  // estável mesmo enquanto o navegador recria o contexto de áudio.
+  button.textContent = musicWanted ? (active ? '🔊' : '🎵') : '🔇';
   const fixed = isMusicFixedForDrawPage();
   button.disabled = !appState || (active && (locked || fixed));
   button.title = fixed ? (active ? 'Música fixa na página do sorteio' : 'Tocar música do sorteio') : locked ? (active ? 'Música fixa no dia de sorteio' : 'Tocar música do dia de sorteio') : (active ? 'Desativar música da rodada' : 'Tocar música da rodada');
