@@ -1,5 +1,5 @@
 {
-  "version": "20260916-market-51-v8",
-  "title": "Atualização em uma única mensagem",
-  "notes": "Removemos o aviso nativo duplicado do navegador. Agora a atualização é solicitada somente pelo diálogo da Área 51 e, depois do recarregamento, as notas da versão aparecem uma única vez. O Mercado 51 continua mostrando carteira, moedas e variações."
+  "version": "20260916-market-51-v9",
+  "title": "Atualização sem repetição no Ctrl+F5",
+  "notes": "A versão já carregada agora é reconhecida corretamente. O aviso só aparece para quem está em uma versão antiga; depois do recarregamento, o Ctrl+F5 não solicita a mesma atualização novamente. O Mercado 51 continua mostrando carteira, moedas e variações."
 }

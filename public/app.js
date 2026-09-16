@@ -2,10 +2,11 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-market-51-v8',
-  title: 'Atualização em uma única mensagem',
-  notes: 'Removemos o aviso nativo duplicado do navegador. Agora a atualização é solicitada somente pelo diálogo da Área 51 e, depois do recarregamento, as notas da versão aparecem uma única vez. O Mercado 51 continua mostrando carteira, moedas e variações.'
+  version: '20260916-market-51-v9',
+  title: 'Atualização sem repetição no Ctrl+F5',
+  notes: 'A versão já carregada agora é reconhecida corretamente. O aviso só aparece para quem está em uma versão antiga; depois do recarregamento, o Ctrl+F5 não solicita a mesma atualização novamente. O Mercado 51 continua mostrando carteira, moedas e variações.'
 };
+const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
 let activeMode = 'theme';
 let selectedFile = null;
@@ -51,6 +52,7 @@ let knownReleaseVersion = null;
 let releaseNoticeChecked = false;
 let releaseNoticeLoaded = false;
 let releaseCheckPromise = null;
+let releaseNoticeRequiresUpdate = false;
 let navigationFrame = null;
 let visiblePortalPage = null;
 let portalRenderRequest = 0;
@@ -3408,7 +3410,9 @@ function showReleaseNotice() {
   const version = RELEASE_NOTICE.version;
   const pending = storage.getItem('area51-release-pending');
   const seen = storage.getItem('area51-release-seen');
-  if (seen === version) return;
+  const notesMode = pending === version;
+  if (seen === version && !notesMode) return;
+  if (!notesMode && !releaseNoticeRequiresUpdate) return;
   const dialog = $('#releaseNoticeDialog');
   if (!dialog) return;
   if (!dialog.dataset.locked) {
@@ -3416,7 +3420,6 @@ function showReleaseNotice() {
     dialog.addEventListener('click', (event) => { if (event.target === dialog && pending !== version) event.preventDefault(); });
     dialog.dataset.locked = 'true';
   }
-  const notesMode = pending === version;
   dialog.innerHTML = notesMode
     ? '<span class="release-notice-icon" aria-hidden="true">✨</span><small>ATUALIZAÇÃO CONCLUÍDA</small><h2>' + escapeHtml(RELEASE_NOTICE.title) + '</h2><p>' + escapeHtml(RELEASE_NOTICE.notes) + '</p><button class="button button-primary" data-release-ack type="button">Entendi</button>'
     : '<span class="release-notice-icon" aria-hidden="true">🚀</span><small>NOVA VERSÃO DISPONÍVEL</small><h2>Atualize a Área 51</h2><p>Uma melhoria acabou de ser publicada. Atualize agora para continuar com a versão mais recente.</p><button class="button button-primary" data-release-update type="button">Atualizar agora</button>';
@@ -3441,6 +3444,7 @@ async function checkPublishedRelease() {
       const response = await fetch('/release.json?ts=' + Date.now(), { cache: 'no-store' });
       if (!response.ok) return;
       const remote = await response.json();
+      releaseNoticeRequiresUpdate = Boolean(remote?.version && String(remote.version) !== APP_RELEASE_VERSION);
       if (remote?.version && remote.version !== RELEASE_NOTICE.version) {
         RELEASE_NOTICE.version = String(remote.version);
         RELEASE_NOTICE.title = String(remote.title || 'Atualização da Área 51');
