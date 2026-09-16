@@ -549,8 +549,13 @@ function pokemonCapsuleChoiceForEntry(entry) {
     pokemonId: entry.pokemonId || history.pokemonId,
     rarity: entry.rarity || history.rarity,
     isShiny: Boolean(entry.isShiny ?? history.isShiny),
+    deliveryLocked: Boolean(entry.deliveryLocked),
     entryId: entry.id,
   };
+}
+
+function cobblemonCandidateSellPrice(rarity) {
+  return ({ common: 300, shiny: 400, rare: 450 })[String(rarity || '').toLowerCase()] || 300;
 }
 
 function finalizePokemonCapsuleCycle(entries, chosenEntry, reason) {
@@ -3156,9 +3161,13 @@ async function handleApi(req, res, route) {
     await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/reward/decision') {
-    const { user } = requireAuth(req); const body = await readJson(req); const wantsWeeklyImmediate = body.action === 'choose-weekly-now'; const reward = db.economy.cobblemonDeliveries.find((entry) => entry.id === body.id && entry.userId === user.id && (['decision-pending', 'box-open', 'choice-pending', 'weekly-choice-pending'].includes(entry.status) || (wantsWeeklyImmediate && entry.status === 'cycle-candidate')));
+    const { user } = requireAuth(req); const body = await readJson(req); const wantsWeeklyImmediate = body.action === 'choose-weekly-now'; const wantsCandidateSale = body.action === 'sell-candidate'; const reward = db.economy.cobblemonDeliveries.find((entry) => entry.id === body.id && entry.userId === user.id && (['decision-pending', 'box-open', 'choice-pending', 'weekly-choice-pending'].includes(entry.status) || ((wantsWeeklyImmediate || wantsCandidateSale) && entry.status === 'cycle-candidate')));
     if (!reward) throw new HttpError(404, 'Este prêmio já teve sua decisão concluída.');
-    if (wantsWeeklyImmediate) {
+    if (wantsCandidateSale) {
+      if (!['cycle-candidate', 'weekly-choice-pending'].includes(reward.status) || reward.deliveryLocked) throw new HttpError(409, 'Este Pokémon já foi escolhido para entrega e não pode ser vendido.');
+      const amount = cobblemonCandidateSellPrice(reward.rarity || reward.roll?.rarity); const before = walletFor(user.id); const now = new Date().toISOString(); addCredits(user.id, amount); reward.status = 'sold'; reward.decidedAt = now; reward.soldAt = now;
+      db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-candidate-sale', amount, before, after: before + amount, reason: 'Venda de Pokémon não escolhido: ' + reward.name, createdAt: now });
+    } else if (wantsWeeklyImmediate) {
       if (reward.status !== 'cycle-candidate') throw new HttpError(409, 'Este Pokémon já não está disponível para a entrega semanal.');
       const now = new Date().toISOString();
       db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === reward.cycleId && entry.id !== reward.id && !['reset-refunded', 'delivered', 'sold'].includes(entry.status)).forEach((entry) => { entry.status = 'cycle-discarded'; entry.discardedAt = now; entry.discardReason = 'Outra opção foi escolhida para a entrega semanal'; });

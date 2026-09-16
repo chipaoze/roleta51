@@ -29,8 +29,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260916-266/);
-  assert.match(html, /app\.js\?v=20260916-270/);
+  assert.match(html, /styles\.css\?v=20260916-267/);
+  assert.match(html, /app\.js\?v=20260916-271/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -120,6 +120,14 @@ test('resultado semanal não vaza candidatos para a fila de entregas', () => {
   assert.match(appJs, /cycle-candidate.*weekly-choice-pending/);
   assert.match(appJs, /cycle-expired/);
   assert.match(appJs, /Aguardando entrega do Davi/);
+});
+
+test('Pokémon não escolhido pode ser vendido pelo valor da raridade', () => {
+  assert.match(serverJs, /cobblemonCandidateSellPrice/);
+  assert.match(serverJs, /common: 300, shiny: 400, rare: 450/);
+  assert.match(serverJs, /cobblemon-candidate-sale/);
+  assert.match(appJs, /data-cobblemon-candidate-sell/);
+  assert.match(appJs, /Vender por: \$\{sellAmount\} coins/);
 });
 
 test('reset da cápsula é idempotente e devolve o preço de cada compra antiga', () => {

@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-native-pokedex-v5',
+  version: '20260916-cobblemon-sale-v1',
   title: 'Pokédex nativa e cabeçalho ajustado',
-  notes: 'Corrigimos o saldo de Créditos 51 no tema Gay da Rodada: o valor e o texto ficam inteiros no cabeçalho. A Pokédex agora usa miniaturas leves, evita re-renderizações desnecessárias e mantém seus sprites, cores e leitura nos modos claro e escuro, sem ser afetada por temas ou punições.'
+  notes: 'Agora cada Pokémon não escolhido no Resultado Cápsula pode ser vendido por 300 coins (comum), 400 (shiny) ou 450 (raro). A venda remove somente o Pokémon e credita o saldo, sem alterar baús ou aberturas.'
 };
 let appState = null;
 let activeMode = 'theme';
@@ -2865,7 +2865,7 @@ function renderCobblemonDex(profile = {}) {
     return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}${choiceMode ? ' choice-ready' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em>${priceLabel}</em>${deliveryNote}</p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${choiceMode ? 'choice' : readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : choiceMode ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button>${purchaseMore}</div></article>`;
   }).join('');
   const weeklyCandidates = Array.isArray(monthlyBox.weeklyCandidates) ? monthlyBox.weeklyCandidates : [];
-  const resultCards = weeklyCandidates.map((entry) => `<article class="cobblemon-capsule-result"><img src="${escapeHtml(entry.sprite || COBBLEMON_ITEM_SPRITES.poke)}" alt=""><div><strong>${escapeHtml(entry.name || 'Pokémon')}</strong><small>${escapeHtml(entry.rarity || 'Pokémon')} · aguardando escolha da semana</small><button type="button" class="button button-dark cobblemon-weekly-choice" data-cobblemon-weekly-choice="${escapeHtml(entry.entryId || entry.id)}">Escolher para entrega</button></div></article>`).join('');
+  const resultCards = weeklyCandidates.map((entry) => { const rarity = String(entry.rarity || 'common').toLowerCase(); const sellAmount = rarity === 'shiny' ? 400 : rarity === 'rare' ? 450 : 300; const sellButton = entry.deliveryLocked ? '' : `<button type="button" class="button button-dark cobblemon-candidate-sell" data-cobblemon-candidate-sell="${escapeHtml(entry.entryId || entry.id)}" data-cobblemon-candidate-price="${sellAmount}">Vender por: ${sellAmount} coins</button>`; return `<article class="cobblemon-capsule-result"><img src="${escapeHtml(entry.sprite || COBBLEMON_ITEM_SPRITES.poke)}" alt=""><div><strong>${escapeHtml(entry.name || 'Pokémon')}</strong><small>${escapeHtml(entry.rarity || 'Pokémon')} · aguardando escolha da semana</small><button type="button" class="button button-dark cobblemon-weekly-choice" data-cobblemon-weekly-choice="${escapeHtml(entry.entryId || entry.id)}">Escolher para entrega</button>${sellButton}</div></article>`; }).join('');
   const resultAction = monthlyBox.weeklyChoicePending && monthlyBox.choice ? `<button class="button button-primary" data-cobblemon-box="pokemon" data-cobblemon-box-mode="choice" data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}">Escolher Pokémon para o Davi</button>` : '';
   $('#cobblemonCapsuleResults').innerHTML = resultCards ? `<div class="cobblemon-capsule-result-grid">${resultCards}</div><p class="cobblemon-capsule-result-note">${monthlyBox.weeklyChoicePending ? 'A semana terminou: escolha um deles para a entrega de sexta.' : 'Gostou de um Pokémon? Escolha agora e ele será enviado pelo Davi. Isso encerra o ciclo até sábado.'}</p>${resultAction}` : '<p class="cobblemon-delivery-empty">Nenhum Pokémon escolhido neste ciclo. Abra uma cápsula para começar.</p>';
   $('#cobblemonCapsuleResultCount').textContent = `${weeklyCandidates.length} selecionado${weeklyCandidates.length === 1 ? '' : 's'}`;
@@ -5510,6 +5510,14 @@ document.addEventListener('click', async (event) => {
       showToast(error.message, 'error');
       try { const fresh = await api('/api/state'); appState.profile = fresh.profile; renderProfileEconomy(appState.profile); } catch { renderCobblemonDex(appState.profile); }
     } finally { weeklyChoiceButton.disabled = false; }
+    return;
+  }
+  const candidateSellButton = event.target?.closest?.('[data-cobblemon-candidate-sell]');
+  if (candidateSellButton) {
+    const amount = Number(candidateSellButton.dataset.cobblemonCandidatePrice || 300);
+    if (!confirm(`Vender este Pokémon por ${amount} coins? Ele será removido da lista e não poderá ser recuperado.`)) return;
+    candidateSellButton.disabled = true;
+    try { const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: JSON.stringify({ id: candidateSellButton.dataset.cobblemonCandidateSell, action: 'sell-candidate' }) }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast(`Pokémon vendido por ${amount} coins.`); } catch (error) { showToast(error.message, 'error'); candidateSellButton.disabled = false; }
     return;
   }
   const decision = event.target?.closest?.('[data-cobblemon-decision]');

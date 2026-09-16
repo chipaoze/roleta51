@@ -1,5 +1,5 @@
 {
-  "version": "20260916-native-pokedex-v5",
+  "version": "20260916-cobblemon-sale-v1",
   "title": "Pokédex nativa e cabeçalho ajustado",
-  "notes": "Corrigimos o saldo de Créditos 51 no tema Gay da Rodada: o valor e o texto ficam inteiros no cabeçalho. A Pokédex agora usa miniaturas leves, evita re-renderizações desnecessárias e mantém seus sprites, cores e leitura nos modos claro e escuro, sem ser afetada por temas ou punições."
+  "notes": "Agora cada Pokémon não escolhido no Resultado Cápsula pode ser vendido por 300 coins (comum), 400 (shiny) ou 450 (raro). A venda remove somente o Pokémon e credita o saldo, sem alterar baús ou aberturas."
 }
