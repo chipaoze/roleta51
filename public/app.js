@@ -2,7 +2,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-capsule-three-rolls-v3',
+  version: '20260916-capsule-three-rolls-v4',
   title: 'Atualização da Área 51',
   notes: 'Cápsula Pokémon restaurada: até 7 compras por semana (inclusive no mesmo dia), 3 sorteios por cápsula, escolha diária e escolha final de 1 Pokémon para entrega do Davi na sexta.'
 };
@@ -2795,7 +2795,8 @@ async function showCobblemonOpening(title, reward, options = {}) {
     $('#cobblemonOpeningIcon').src = reward.sprite || COBBLEMON_ITEM_SPRITES.poke;
     track.children[winningIndex]?.classList.add('winner');
   }
-  result.innerHTML = `<span>${reward.noPrize ? '<b class="roulette-loss">×</b>' : `<img src="${reward.sprite || COBBLEMON_ITEM_SPRITES.poke}" alt="">`}</span><strong>${reward.noPrize ? 'Não foi desta vez!' : 'Você recebeu ' + escapeHtml(reward.name) + '!'}</strong>`; result.classList.add('revealed');
+  const hasChoices = Array.isArray(reward.choices) && reward.choices.length > 0;
+  result.innerHTML = `<span>${reward.noPrize ? '<b class="roulette-loss">×</b>' : `<img src="${reward.sprite || COBBLEMON_ITEM_SPRITES.poke}" alt="">`}</span><strong>${reward.noPrize ? 'Não foi desta vez!' : hasChoices ? 'Escolha uma opção' : 'Você recebeu ' + escapeHtml(reward.name) + '!'}</strong>`; result.classList.add('revealed');
   const keepButton = $('#keepCobblemonReward'), sellButton = $('#sellCobblemonReward');
   const rollOnly = Boolean(reward.rollOnly);
   const finalChoices = Array.isArray(reward.choices) && reward.choices.length > 0;
