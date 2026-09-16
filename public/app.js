@@ -28,6 +28,7 @@ let musicSource = null;
 let musicStartPromise = null;
 let fallbackAudio = null;
 let musicWanted = localStorage.getItem('roundMusic') !== 'off';
+let musicPreferenceBeforeDraw = null;
 let musicForcedBySpin = false;
 let musicPrimedByGesture = false;
 let toastTimer;
@@ -1364,7 +1365,13 @@ function showPortalPage(page, pushState = false, resetScroll = true) {
   else if (currentPortalPage() !== page) history.replaceState({ page }, '', '?pagina=' + encodeURIComponent(page));
   visiblePortalPage = page;
   if (page === 'sorteio') {
-    if (musicWanted) startMusic();
+    if (musicPreferenceBeforeDraw === null) musicPreferenceBeforeDraw = musicWanted;
+    musicWanted = true;
+    startMusic();
+  } else if (musicPreferenceBeforeDraw !== null) {
+    musicWanted = musicPreferenceBeforeDraw;
+    musicPreferenceBeforeDraw = null;
+    if (!musicWanted) pauseMusic();
   }
   updateMusicButton();
   // Trocas de aba devem ser imediatas; animação suave aqui prendia a navegação
