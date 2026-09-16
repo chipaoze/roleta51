@@ -1652,7 +1652,7 @@ function profileFor(user, computed = {}) {
         const unfinished = Boolean(openEntry || choice);
         const canOpen = Boolean(openEntry && openRollCount < 3);
         const nextOpenAt = latest?.createdAt ? new Date(Date.parse(latest.createdAt) + 86400000).toISOString() : null;
-        const canPurchase = !unfinished && !hasTodayPurchase && selectedEntries.length < 7;
+        const canPurchase = !unfinished && cycleEntries.length < 7;
         return { price: COBBLEMON_BOXES.pokemon.price, canPurchase, canOpen, choicePending: Boolean(choice), choiceStage: weeklyChoice ? 'weekly' : dailyChoice ? 'daily' : null, choice: choice ? { id: choice.id, name: choice.name, sprite: choice.sprite, choices: choice.choices || [], choiceStage: weeklyChoice ? 'weekly' : 'daily' } : null, openCount: selectedEntries.length, openRollCount, rollsRemaining: Math.max(0, 7 - selectedEntries.length), dailyRollsRemaining: Math.max(0, 3 - openRollCount), boxId: openEntry?.id || choice?.id || latest?.id || null, purchasedAt: latest?.createdAt || null, openedAt: openEntry?.openedAt || null, nextOpenAt, cycleId, deliveryDay: 'sexta-feira' };
       })(),
       deliveries: db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id || user.role === 'admin' || /^davi\b/i.test(String(user.displayName || ''))).slice(-30).reverse(),

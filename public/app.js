@@ -2,7 +2,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-capsule-three-rolls-v2',
+  version: '20260916-capsule-three-rolls-v3',
   title: 'Atualização da Área 51',
   notes: 'Cápsula Pokémon restaurada: até 7 compras por semana (inclusive no mesmo dia), 3 sorteios por cápsula, escolha diária e escolha final de 1 Pokémon para entrega do Davi na sexta.'
 };
