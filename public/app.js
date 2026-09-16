@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-market-51-v7',
-  title: 'Mercado 51 com carteira e cotações visíveis',
-  notes: 'A carteira agora mostra o saldo investido, as moedas que você possui, o valor total atualizado e setas verdes ou vermelhas para indicar cada variação. Também corrigimos a duplicidade do aviso de atualização e a atualização automática das cotações.'
+  version: '20260916-market-51-v8',
+  title: 'Atualização em uma única mensagem',
+  notes: 'Removemos o aviso nativo duplicado do navegador. Agora a atualização é solicitada somente pelo diálogo da Área 51 e, depois do recarregamento, as notas da versão aparecem uma única vez. O Mercado 51 continua mostrando carteira, moedas e variações.'
 };
 let appState = null;
 let activeMode = 'theme';
@@ -48,9 +48,9 @@ let feedbackMessages = [];
 let feedbackPanelOpen = false;
 let adminFeedbackFilter = 'pending';
 let knownReleaseVersion = null;
-let updatePromptOpen = false;
 let releaseNoticeChecked = false;
 let releaseNoticeLoaded = false;
+let releaseCheckPromise = null;
 let navigationFrame = null;
 let visiblePortalPage = null;
 let portalRenderRequest = 0;
@@ -3435,38 +3435,39 @@ function showReleaseNotice() {
 
 async function checkPublishedRelease() {
   if (!appState?.me) return;
-  try {
-    const response = await fetch('/release.json?ts=' + Date.now(), { cache: 'no-store' });
-    if (!response.ok) return;
-    const remote = await response.json();
-    if (remote?.version && remote.version !== RELEASE_NOTICE.version) {
-      RELEASE_NOTICE.version = String(remote.version);
-      RELEASE_NOTICE.title = String(remote.title || 'Atualização da Área 51');
-      RELEASE_NOTICE.notes = String(remote.notes || 'Correções e melhorias na Área 51.');
-      releaseNoticeChecked = false;
+  if (releaseCheckPromise) return releaseCheckPromise;
+  releaseCheckPromise = (async () => {
+    try {
+      const response = await fetch('/release.json?ts=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) return;
+      const remote = await response.json();
+      if (remote?.version && remote.version !== RELEASE_NOTICE.version) {
+        RELEASE_NOTICE.version = String(remote.version);
+        RELEASE_NOTICE.title = String(remote.title || 'Atualização da Área 51');
+        RELEASE_NOTICE.notes = String(remote.notes || 'Correções e melhorias na Área 51.');
+        releaseNoticeChecked = false;
+      }
+    } catch {}
+    finally {
+      // Só exibimos depois de conhecer a versão publicada. Isso evita abrir o
+      // aviso embutido e, logo em seguida, reabri-lo com o release.json.
+      releaseNoticeLoaded = true;
+      showReleaseNotice();
     }
-  } catch {}
-  finally {
-    // Só exibimos depois de conhecer a versão publicada. Isso evita abrir o
-    // aviso embutido e, logo em seguida, reabri-lo com o release.json.
-    releaseNoticeLoaded = true;
-    showReleaseNotice();
-  }
+  })();
+  try { await releaseCheckPromise; } finally { releaseCheckPromise = null; }
 }
 
 function applyState(data) {
   const previousPhase = appState && appState.workflow ? appState.workflow.phase : null;
   const incomingReleaseVersion = Math.max(0, Number(data.settings?.releaseVersion || 0));
+  let releaseChanged = false;
   if (knownReleaseVersion === null) knownReleaseVersion = incomingReleaseVersion;
-  else if (incomingReleaseVersion > knownReleaseVersion && !updatePromptOpen) {
+  else if (incomingReleaseVersion > knownReleaseVersion) {
     knownReleaseVersion = incomingReleaseVersion;
-    updatePromptOpen = true;
-    setTimeout(() => {
-      const canReload = !spinning && !casinoSpinInProgress && !mysteryOpeningInProgress && !selectedFile && !selectedAdminUploadFile;
-      if (canReload && confirm('Uma nova versão do Área 51 está disponível. Atualizar agora?')) location.reload();
-      else showToast('Nova versão disponível. Atualize a página quando terminar sua ação atual. 🚀');
-      updatePromptOpen = false;
-    }, 250);
+    releaseChanged = true;
+    releaseNoticeLoaded = false;
+    releaseNoticeChecked = false;
   }
   appState = data;
   serverClockOffset = Number(data.serverTime || Date.now()) - Date.now();
@@ -3517,7 +3518,7 @@ function applyState(data) {
   $('#admin').classList.toggle('hidden', !isAdmin);
   $('#adminLiveChecklist').classList.toggle('hidden', !isAdmin);
   renderFeatureAvailability(data.settings?.featureFlags); renderTodayHub(data); renderNotifications(); renderAnnouncement(data.announcement); renderActivePortalPage(data);
-  setTimeout(showReleaseNotice, 0);
+  setTimeout(() => { if (releaseChanged) checkPublishedRelease(); else showReleaseNotice(); }, 0);
   const canUpload = Boolean(data.meCanUpload && data.settings?.featureFlags?.uploads !== false);
   $$('input,button', $('#uploadForm')).forEach((control) => { control.disabled = !canUpload; });
   const uploadLock = $('#uploadLock');

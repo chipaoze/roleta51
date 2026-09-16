@@ -26,4 +26,5 @@ test('Mercado mostra total da carteira e direção da cotação', () => {
   assert.match(app, /releaseNoticeLoaded/);
   assert.match(fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8'), /market-change\.up/);
   assert.match(fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8'), /const marketAdvanced = advanceMarket\(db\.economy\)/);
+  assert.doesNotMatch(app, /confirm\('Uma nova versão do Área 51 está disponível/);
 });

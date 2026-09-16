@@ -1,5 +1,5 @@
 {
-  "version": "20260916-market-51-v7",
-  "title": "Mercado 51 com carteira e cotações visíveis",
-  "notes": "A carteira agora mostra o saldo investido, as moedas que você possui, o valor total atualizado e setas verdes ou vermelhas para indicar cada variação. Também corrigimos a duplicidade do aviso de atualização e a atualização automática das cotações."
+  "version": "20260916-market-51-v8",
+  "title": "Atualização em uma única mensagem",
+  "notes": "Removemos o aviso nativo duplicado do navegador. Agora a atualização é solicitada somente pelo diálogo da Área 51 e, depois do recarregamento, as notas da versão aparecem uma única vez. O Mercado 51 continua mostrando carteira, moedas e variações."
 }
