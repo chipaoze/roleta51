@@ -1659,6 +1659,9 @@ function showApp(data) {
   $('#feedbackTopButton').classList.remove('hidden');
   refreshFeedback(true);
   connectLive();
+  checkPublishedRelease();
+  // Frequência baixa para não consumir requisições do plano gratuito do Cloudflare.
+  if (!window.area51ReleasePoll) window.area51ReleasePoll = setInterval(checkPublishedRelease, 300000);
   scheduleActiveNavigation();
   if (data.me.mustChangePassword && !$('#passwordDialog').open) openPasswordDialog(true);
 }
@@ -3361,6 +3364,21 @@ function showReleaseNotice() {
     storage.setItem('area51-release-seen', version);
     dialog.close();
   });
+}
+
+async function checkPublishedRelease() {
+  if (!appState?.me) return;
+  try {
+    const response = await fetch('/release.json?ts=' + Date.now(), { cache: 'no-store' });
+    if (!response.ok) return;
+    const remote = await response.json();
+    if (!remote?.version || remote.version === RELEASE_NOTICE.version) return;
+    RELEASE_NOTICE.version = String(remote.version);
+    RELEASE_NOTICE.title = String(remote.title || 'Atualização da Área 51');
+    RELEASE_NOTICE.notes = String(remote.notes || 'Correções e melhorias na Área 51.');
+    releaseNoticeChecked = false;
+    showReleaseNotice();
+  } catch {}
 }
 
 function applyState(data) {
