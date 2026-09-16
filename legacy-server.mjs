@@ -3122,7 +3122,9 @@ async function handleApi(req, res, route) {
     if (!purchase || !allowed) throw new HttpError(404, 'Esse item não está disponível para a oferta do Agiota.');
     const loan = activeLoanFor(user.id); const before = walletFor(user.id); const now = new Date().toISOString();
     db.economy.purchases = db.economy.purchases.filter((entry) => entry.id !== purchase.id);
-    if (db.economy.equipped[user.id]?.[allowed.type] === allowed.itemId) db.economy.equipped[user.id][allowed.type] = null;
+    db.economy.equipped ||= {};
+    db.economy.equipped[user.id] ||= {};
+    if (allowed.type && db.economy.equipped[user.id][allowed.type] === allowed.itemId) db.economy.equipped[user.id][allowed.type] = null;
     if (loan) { const paid = Math.min(Number(allowed.value), Number(loan.remainingDue)); loan.remainingDue -= paid; loan.payments ||= []; loan.payments.push({ amount: paid, method: 'item', itemId: purchase.itemId, createdAt: now }); if (loan.remainingDue <= 0) { loan.remainingDue = 0; loan.status = 'paid'; loan.paidAt = now; } db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-loan-item-payment', amount: 0, before, after: before, reason: `Item entregue ao Agiota: ${allowed.name} (${paid} créditos abatidos)`, createdAt: now }); }
     else { addCredits(user.id, allowed.value); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-item-sale', amount: allowed.value, before, after: before + allowed.value, reason: `Item vendido ao Agiota: ${allowed.name}`, createdAt: now }); }
     await persist(); broadcastRefresh(); json(res, 200, stateFor(user)); return;
