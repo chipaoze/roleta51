@@ -1364,9 +1364,7 @@ function showPortalPage(page, pushState = false, resetScroll = true) {
   else if (currentPortalPage() !== page) history.replaceState({ page }, '', '?pagina=' + encodeURIComponent(page));
   visiblePortalPage = page;
   if (page === 'sorteio') {
-    musicWanted = true;
-    localStorage.setItem('roundMusic', 'on');
-    startMusic();
+    if (musicWanted) startMusic();
   }
   updateMusicButton();
   // Trocas de aba devem ser imediatas; animação suave aqui prendia a navegação
@@ -1536,7 +1534,7 @@ function updateMusicButton() {
   // O ícone representa a preferência do usuário, não o estado transitório do
   // áudio durante a troca de página. Assim, ao desligar a música, o 🔇 fica
   // estável mesmo enquanto o navegador recria o contexto de áudio.
-  button.textContent = musicWanted ? (active ? '🔊' : '🎵') : '🔇';
+  button.textContent = musicWanted ? '🔊' : '🔇';
   const fixed = isMusicFixedForDrawPage();
   button.disabled = !appState || (active && (locked || fixed));
   button.title = fixed ? (active ? 'Música fixa na página do sorteio' : 'Tocar música do sorteio') : locked ? (active ? 'Música fixa no dia de sorteio' : 'Tocar música do dia de sorteio') : (active ? 'Desativar música da rodada' : 'Tocar música da rodada');
