@@ -29,8 +29,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260916-267/);
-  assert.match(html, /app\.js\?v=20260916-271/);
+  assert.match(html, /styles\.css\?v=20260916-268/);
+  assert.match(html, /app\.js\?v=20260916-272/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -128,6 +128,8 @@ test('Pokémon não escolhido pode ser vendido pelo valor da raridade', () => {
   assert.match(serverJs, /cobblemon-candidate-sale/);
   assert.match(appJs, /data-cobblemon-candidate-sell/);
   assert.match(appJs, /Vender por: \$\{sellAmount\} coins/);
+  assert.match(serverJs, /Registros vendidos continuam contando como compras/);
+  assert.doesNotMatch(serverJs, /cycleEntries = cycleId \? db\.economy\.cobblemonDeliveries\.filter\([^\n]+sold/);
 });
 
 test('reset da cápsula é idempotente e devolve o preço de cada compra antiga', () => {

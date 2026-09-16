@@ -1682,7 +1682,9 @@ function profileFor(user, computed = {}) {
       })),
       monthlyPokemonBox: (() => {
         const cycleId = pokemonCapsuleCycleKey();
-        const cycleEntries = cycleId ? db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.boxId === 'pokemon' && entry.cycleId === cycleId && !['cycle-discarded', 'cycle-expired', 'replaced', 'reset-refunded', 'sold'].includes(entry.status)) : [];
+        // Registros vendidos continuam contando como compras da semana; apenas
+        // deixam de aparecer como candidatos no resultado.
+        const cycleEntries = cycleId ? db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.boxId === 'pokemon' && entry.cycleId === cycleId && !['cycle-discarded', 'cycle-expired', 'replaced', 'reset-refunded'].includes(entry.status)) : [];
         const latest = [...cycleEntries].reverse()[0] || null;
         // Finish an in-progress capsule before moving to the next unopened one.
         // This keeps every purchase addressable when several capsules are bought

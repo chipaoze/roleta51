@@ -2,9 +2,9 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-cobblemon-sale-v1',
+  version: '20260916-cobblemon-sale-v2',
   title: 'Pokédex nativa e cabeçalho ajustado',
-  notes: 'Agora cada Pokémon não escolhido no Resultado Cápsula pode ser vendido por 300 coins (comum), 400 (shiny) ou 450 (raro). A venda remove somente o Pokémon e credita o saldo, sem alterar baús ou aberturas.'
+  notes: 'Corrigimos a contagem após vender um Pokémon da cápsula: a venda remove o Pokémon e credita o saldo, mas a compra continua contando no limite semanal. Baús e aberturas não são alterados.'
 };
 let appState = null;
 let activeMode = 'theme';
