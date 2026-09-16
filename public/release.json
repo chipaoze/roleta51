@@ -1,5 +1,5 @@
 {
-  "version": "20260916-market-51-v2",
-  "title": "Acesso direto ao Mercado 51",
-  "notes": "Corrigimos o botão Mercado 51 para abrir diretamente a tela correta, mesmo quando o navegador ainda estava com uma versão antiga da aplicação em memória."
+  "version": "20260916-market-51-v3",
+  "title": "Mercado 51 abre corretamente",
+  "notes": "Atualizamos a versão do aplicativo para eliminar o cache antigo do navegador. O botão Mercado 51 agora carrega o roteamento corrigido e abre a tela de investimentos."
 }
