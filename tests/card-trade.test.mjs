@@ -7,6 +7,7 @@ const root = path.resolve(import.meta.dirname, '..');
 const js = fs.readFileSync(path.join(root, 'public', 'card-album.js'), 'utf8');
 const appJs = fs.readFileSync(path.join(root, 'public', 'app.js'), 'utf8');
 const serverJs = fs.readFileSync(path.join(root, 'legacy-server.mjs'), 'utf8');
+const styles = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
 
@@ -64,4 +65,12 @@ test('cápsula Pokémon é diária e bloqueia nova entrega após entrega conclu�
   assert.match(serverJs, /deliveryLocked: deliveredBefore/);
   assert.match(serverJs, /claimed-no-delivery/);
   assert.match(appJs, /Pokémon já entregue: esta cápsula gera apenas a roleta/);
+});
+
+test('punições do Gay e do Pior têm duração e temas adaptados', () => {
+  assert.match(serverJs, /visualPenalty\(latestGayDraw\.createdAt, 'rainbow'\)/);
+  assert.match(serverJs, /visualPenalty\(latestClosedVoting\?\.closedAt \|\| latestClosedVoting\?\.openedAt, 'punishment'\)/);
+  assert.match(styles, /body\.theme-rainbow \.app/);
+  assert.match(styles, /\.theme-punishment \.app/);
+  assert.match(styles, /\.theme-punishment \.section/);
 });
