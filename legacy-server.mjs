@@ -1583,7 +1583,7 @@ function profileFor(user, computed = {}) {
         const choicePending = purchased?.status === 'choice-pending';
         const canOpen = Boolean(purchased && !choicePending && openCount < 3 && ['box-closed', 'box-open'].includes(purchased.status));
         const nextOpenAt = purchased?.createdAt ? new Date(Date.parse(purchased.createdAt) + 86400000).toISOString() : null;
-        const cooldownDone = !nextOpenAt || Date.now() >= Date.parse(nextOpenAt);
+        const cooldownDone = !purchased || saoPauloDayKey(new Date(purchased.createdAt)) !== saoPauloDayKey();
         const canPurchase = !purchased || (cooldownDone && !canOpen && !choicePending);
         return { price: COBBLEMON_BOXES.pokemon.price, canPurchase, canOpen, choicePending, openCount, rollsRemaining: Math.max(0, 3 - openCount), boxId: purchased?.id || null, purchasedAt: purchased?.createdAt || null, openedAt: purchased?.openedAt || null, nextOpenAt, deliveryLocked: Boolean(purchased?.deliveryLocked) };
       })(),
@@ -2987,7 +2987,7 @@ async function handleApi(req, res, route) {
     if (!box?.monthlyPokemon) throw new HttpError(404, 'Cápsula Pokémon não encontrada.');
     const lastPurchase = [...db.economy.cobblemonDeliveries].reverse().find((entry) => entry.userId === user.id && entry.boxId === body.boxId && entry.status !== 'reset-refunded');
     if (lastPurchase && ['box-closed', 'box-open', 'choice-pending'].includes(lastPurchase.status)) throw new HttpError(409, 'Conclua as três aberturas e escolha um Pokémon antes de comprar outra cápsula.');
-    if (lastPurchase && Date.now() < Date.parse(lastPurchase.createdAt) + 86400000) throw new HttpError(409, 'Sua Cápsula Pokémon estará disponível novamente amanhã.');
+    if (lastPurchase && saoPauloDayKey(new Date(lastPurchase.createdAt)) === saoPauloDayKey()) throw new HttpError(409, 'Você já comprou a Cápsula Pokémon hoje. Ela libera novamente amanhã.');
     if (walletFor(user.id) < box.price) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const before = walletFor(user.id), createdAt = new Date().toISOString(); addCredits(user.id, -box.price);
     const deliveredBefore = db.economy.cobblemonDeliveries.some((entry) => entry.userId === user.id && entry.boxId === 'pokemon' && entry.status === 'delivered');
