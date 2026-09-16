@@ -53,3 +53,8 @@ test('áudio tenta desbloquear novamente após a sessão carregar', () => {
   assert.match(appJs, /if \(appState && musicEpoch && !musicIsPlaying\(\)\) startMusic\(\)/);
   assert.doesNotMatch(appJs, /unlockRoundMusicFromAnyGesture, \{ passive: true, once: true \}/);
 });
+
+test('áudio nativo é priorizado após gesto do usuário', () => {
+  assert.match(appJs, /Após um gesto, o áudio HTML nativo/);
+  assert.match(appJs, /await nativeAudio\.play\(\)/);
+});

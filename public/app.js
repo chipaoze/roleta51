@@ -1568,6 +1568,16 @@ async function startMusic(force = false) {
   if (musicStartPromise) return musicStartPromise;
   musicStartPromise = (async () => {
     try {
+      // Após um gesto, o áudio HTML nativo é a opção mais compatível (alguns
+      // navegadores deixam o AudioContext “running” mesmo sem emitir som).
+      if (musicPrimedByGesture) {
+        const nativeAudio = ensureFallbackAudio();
+        if (nativeAudio.paused) {
+          if (Number.isFinite(nativeAudio.duration) && nativeAudio.duration > 0) nativeAudio.currentTime = sharedMusicOffset(nativeAudio.duration);
+          await nativeAudio.play();
+        }
+        if (!nativeAudio.paused) { stopMusicSource(); updateMusicButton(); return; }
+      }
       const context = ensureMusicContext();
       if (!context) throw new Error('Web Audio indisponível');
       const wasSuspended = context.state !== 'running';
