@@ -287,6 +287,8 @@ async function ensureDatabase(seedDatabase) {
     '0ee51576-6d43-45d5-a861-b18fd80feb59': 'Concluído: a foto do próprio usuário agora aparece corretamente em suas publicações do mural.',
     '2d20ed5b-9e09-4402-8100-a502acd04eaa': 'Concluído: o calendário da rodada agora trabalha apenas com datas, sem exigir ou exibir horário.',
     '5be10c8a-dc45-4a66-9686-253e4f03dcd7': 'Concluído: o tema Cobblemon ganhou fundo pixelado leve, sem imagem realista, e todas as áreas de conteúdo ficaram opacas para manter a leitura.',
+    'adc4ea6e-63f0-4ab3-8f1d-b36f6049e269': 'Concluído: após 10 minutos, o voto da mentira pendente fica obrigatório; a rota de votação permanece liberada para não travar a resolução. Também corrigido o avanço entre várias pendências sem bloquear o próximo botão.',
+    '8a4eaf96-ee68-4d7f-bb07-861553e0b28e': 'Concluído: a mesma pessoa pode receber várias marcações diferentes em andamento; somente o reenvio idêntico acidental em até 30 segundos é bloqueado.',
   };
   db.feedbackMessages.forEach((item) => {
     if (completedFeedback[item.id] && (item.status !== 'done' || item.adminComment !== completedFeedback[item.id])) { item.status = 'done'; item.adminComment = completedFeedback[item.id]; item.updatedAt = new Date().toISOString(); changed = true; }
