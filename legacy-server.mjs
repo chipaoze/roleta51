@@ -1961,7 +1961,7 @@ function creditLedgerFor(userId) {
     const freeLabel = item.freePurchase ? 'Compra grátis: ' : item.sourceMysteryBoxId ? 'Prêmio recebido: ' : 'Compra: ';
     return { id: 'purchase:' + item.id, icon: item.freePurchase || item.sourceMysteryBoxId ? '🎁' : '🛍️', label: freeLabel + (catalog?.name || 'Item da Loja 51'), amount: -Number(item.price || 0), createdAt: item.createdAt };
   });
-  const adjustments = db.economy.creditAdjustments.filter((item) => item.userId === userId).map((item) => ({ id: 'adjustment:' + item.id, icon: Number(item.after) >= Number(item.before) ? '🪙' : '↘️', label: item.reason || 'Ajuste de saldo', amount: Number(item.after) - Number(item.before), createdAt: item.createdAt }));
+  const adjustments = db.economy.creditAdjustments.filter((item) => item.userId === userId).map((item) => ({ id: 'adjustment:' + item.id, icon: Number(item.after) >= Number(item.before) ? '🪙' : '↘️', label: item.reason || 'Ajuste de saldo', amount: roundMoney(Number(item.after) - Number(item.before)), createdAt: item.createdAt }));
   const hydration = db.economy.waterRewardDays.filter((key) => key.startsWith(userId + ':')).map((key) => ({ id: 'water:' + key, icon: '💧', label: 'Meta diária de hidratação', amount: 45, createdAt: key.slice(userId.length + 1) + 'T12:00:00.000Z' }));
   const missions = db.economy.missionRewards.filter((key) => key.startsWith(userId + ':')).map((key) => {
     const parts = key.split(':'); const mission = WEEKLY_MISSIONS.find((item) => item.type === parts.at(-1));
@@ -2086,8 +2086,8 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     targetId: 'my-feedback-' + item.id,
     createdAt: item.updatedAt || item.createdAt,
   }));
-  creditLedger.filter((item) => item.amount > 0 && !item.id.startsWith('gift:')).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + item.amount + ' Créditos 51', detail: item.label, page: 'perfil', createdAt: item.createdAt }));
-  db.economy.gifts.filter((item) => item.toUserId === user.id).slice(-5).forEach((item) => items.push({ id: 'gift:' + item.id, icon: '🎁', title: 'Você recebeu um presente secreto', targetId: item.type === 'credits' ? 'creditLedger' : 'collectionCatalog', detail: item.type === 'credits' ? item.amount + ' Créditos 51' : (SHOP_CATALOG.find((catalog) => catalog.id === item.itemId)?.name || 'Item da Loja 51'), page: 'perfil', createdAt: item.createdAt }));
+  creditLedger.filter((item) => item.amount > 0 && !item.id.startsWith('gift:')).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + roundMoney(item.amount) + ' Créditos 51', detail: item.label, page: 'perfil', createdAt: item.createdAt }));
+  db.economy.gifts.filter((item) => item.toUserId === user.id).slice(-5).forEach((item) => items.push({ id: 'gift:' + item.id, icon: '🎁', title: 'Você recebeu um presente secreto', targetId: item.type === 'credits' ? 'creditLedger' : 'collectionCatalog', detail: item.type === 'credits' ? roundMoney(item.amount) + ' Créditos 51' : (SHOP_CATALOG.find((catalog) => catalog.id === item.itemId)?.name || 'Item da Loja 51'), page: 'perfil', createdAt: item.createdAt }));
   const readAt = db.notificationsReadAt[user.id] || null;
   const sorted = items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 15).map((item) => ({ ...item, unread: !readAt || item.createdAt > readAt }));
   return { unreadCount: sorted.filter((item) => item.unread).length, items: sorted, readAt };

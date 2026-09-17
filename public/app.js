@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-bonus-investimento-v19',
-  title: 'Bônus coletivo para investir',
-  notes: 'O painel administrativo agora permite creditar um bônus de investimento para todas as contas ativas de uma vez. Cada lançamento fica registrado no extrato, com confirmação e proteção contra repetição acidental da mesma operação.'
+  version: '20260917-correcao-extrato-v20',
+  title: 'Correção do extrato de Créditos 51',
+  notes: 'Valores de bônus, presentes e demais ajustes agora são arredondados corretamente em centavos no extrato e nas notificações. O bônus coletivo já creditado não foi duplicado nem alterado.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
