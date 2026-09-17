@@ -30,7 +30,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260916-283/);
-  assert.match(html, /app\.js\?v=20260917-284/);
+  assert.match(html, /app\.js\?v=20260917-285/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-216/);
 });
 
@@ -73,6 +73,14 @@ test('radar do mercado lista todos os ativos e o gráfico inclui a janela anteri
   assert.match(appJs, /marketRadarMarkup\(assets\)/);
   assert.match(appJs, /const previous = Number\(asset\.previousPrice \|\| current\)/);
   assert.match(html, /5 atualizações por dia/);
+});
+
+test('Mentirometro remove contas apagadas das votações pendentes', () => {
+  assert.match(serverJs, /function sanitizePendingLieVoters\(now = new Date\(\)\.toISOString\(\)\)/);
+  assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
+  assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
+  assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
+  assert.match(appJs, /20260917-mercado-mentirometro-v15/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

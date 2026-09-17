@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-mercado-radar-v14',
-  title: 'Radar completo e gráfico do Mercado 51',
-  notes: 'O radar agora lista as seis moedas com valor anterior, valor atual, variação e seta de alta ou baixa. O gráfico passou a mostrar a evolução individual de cada ativo, incluindo a última janela. As cotações do servidor agora atualizam cinco vezes por dia, mantendo uma única gravação por janela no plano Free.'
+  version: '20260917-mercado-mentirometro-v15',
+  title: 'Mercado ajustado e Mentirometro atualizado',
+  notes: 'O radar do Mercado 51 agora se ajusta corretamente dentro do painel, sem cortar o movimento ou invadir o gráfico. No Mentirometro, contas apagadas ou desativadas saem das votações pendentes; os votos ativos permanecem e a decisão é recalculada com segurança.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;

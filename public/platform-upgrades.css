@@ -59,7 +59,7 @@ input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]{
 
 /* Radar financeiro: cada ativo mostra a comparação da janela atual. */
 .market-radar-grid{display:grid;gap:7px}
-.market-radar-head,.market-radar-row{display:grid;grid-template-columns:minmax(145px,1.35fr) repeat(2,minmax(92px,.8fr)) minmax(112px,.95fr);align-items:center;gap:10px}
+.market-radar-head,.market-radar-row{display:grid;grid-template-columns:minmax(125px,1.35fr) repeat(2,minmax(70px,.8fr)) minmax(86px,.95fr);align-items:center;gap:10px;min-width:0}
 .market-radar-head{padding:0 11px;color:#8fa9c2;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
 .market-radar-row{min-height:54px;padding:8px 11px;border:1px solid #27415e;border-radius:9px;background:#0b1d30;color:#c5d9ea;font-size:12px;font-variant-numeric:tabular-nums}
 .market-radar-row.up{border-color:color-mix(in srgb,#54e39b 48%,#27415e)}
@@ -67,7 +67,7 @@ input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]{
 .market-radar-asset{display:flex;align-items:center;gap:8px;min-width:0}
 .market-radar-asset i{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#102b45;font-size:18px;font-style:normal;flex:0 0 30px}
 .market-radar-asset b{overflow:hidden;color:#edf5ff;font-size:13px;text-overflow:ellipsis;white-space:nowrap}
-.market-radar-row>span:not(.market-radar-asset){display:grid;gap:2px}
+.market-radar-row>span:not(.market-radar-asset){display:grid;gap:2px;min-width:0;overflow-wrap:anywhere}
 .market-radar-row>span:not(.market-radar-asset)>small{color:#8fa9c2;font-size:9px}
 .market-radar-row>span:not(.market-radar-asset)>strong{color:#ffe078}
 .market-radar-change b{font-size:13px}

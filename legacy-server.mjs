@@ -294,11 +294,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.waterEntries)) { db.waterEntries = []; changed = true; }
   if (!Array.isArray(db.rememberTokens)) { db.rememberTokens = []; changed = true; }
   if (!Array.isArray(db.lieAccusations)) { db.lieAccusations = []; changed = true; }
-  db.lieAccusations.filter((item) => item.status === 'pending').forEach((item) => {
-    if (!Array.isArray(item.requiredVoterIds) || !item.requiredVoterIds.length) { item.requiredVoterIds = db.users.filter((user) => user.active && user.approved !== false).map((user) => user.id); changed = true; }
-    if (!item.votes || typeof item.votes !== 'object') { item.votes = {}; changed = true; }
-    if (resolveLieVoteIfDecided(item)) changed = true;
-  });
+  if (sanitizePendingLieVoters()) changed = true;
   if (!Array.isArray(db.lieDisputes)) { db.lieDisputes = []; changed = true; }
   if (!Array.isArray(db.mysteries)) { db.mysteries = []; changed = true; }
   if (!Array.isArray(db.gateAuthorizations)) { db.gateAuthorizations = []; changed = true; }
@@ -1159,6 +1155,34 @@ function resolveLieVoteIfDecided(item, now = new Date().toISOString()) {
   }
   item.decisionVotes = { lie: lieVotes, truth: truthVotes, remaining };
   return true;
+}
+
+// Remove deleted/deactivated accounts from open decisions before serializing
+// the Mentirometro state. Existing votes from active participants are kept and
+// the decision is recalculated with the remaining electorate.
+function sanitizePendingLieVoters(now = new Date().toISOString()) {
+  const activeVoterIds = new Set(db.users.filter((user) => user.active && user.approved !== false).map((user) => user.id));
+  let changed = false;
+  db.lieAccusations.filter((item) => item.status === 'pending').forEach((item) => {
+    const originalRequired = Array.isArray(item.requiredVoterIds) ? [...new Set(item.requiredVoterIds)] : [];
+    const required = originalRequired.length ? originalRequired : [...activeVoterIds];
+    const nextRequired = required.filter((id) => activeVoterIds.has(id));
+    if (originalRequired.length !== nextRequired.length || originalRequired.some((id, index) => id !== nextRequired[index])) changed = true;
+    item.requiredVoterIds = nextRequired;
+    if (!item.votes || typeof item.votes !== 'object' || Array.isArray(item.votes)) { item.votes = {}; changed = true; }
+    Object.keys(item.votes).forEach((voterId) => {
+      if (!nextRequired.includes(voterId)) { delete item.votes[voterId]; changed = true; }
+    });
+    if (!nextRequired.length) {
+      item.status = 'cancelled';
+      item.cancelledAt = now;
+      item.cancelReason = 'Não há participantes ativos para validar';
+      changed = true;
+    } else if (resolveLieVoteIfDecided(item, now)) {
+      changed = true;
+    }
+  });
+  return changed;
 }
 
 function cosmeticsFor(userId) {
@@ -4191,6 +4215,7 @@ async function handleApi(req, res, route) {
     await deleteStoredImages(db.submissions.filter((item) => item.userId === target.id));
     await deleteStoredImages(db.dailyMemes.filter((item) => item.userId === target.id));
     db.users.splice(targetIndex, 1);
+    sanitizePendingLieVoters();
     db.submissions = db.submissions.filter((item) => item.userId !== target.id);
     db.assignments = db.assignments.filter((item) => item.userId !== target.id && !submissionIds.has(item.submissionId));
     db.votings.forEach((voting) => {
