@@ -31,7 +31,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260917-285/);
-  assert.match(html, /app\.js\?v=20260917-295/);
+  assert.match(html, /app\.js\?v=20260917-296/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -90,7 +90,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.match(html, /id="flightBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260917-perfil-loja-fluidos-v26/);
+  assert.match(appJs, /20260917-balls-quantidade-v27/);
 });
 
 test('tabela de preços usa finais em centavos sem alterar recompensas e estornos históricos', () => {
@@ -168,7 +168,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260917-perfil-loja-fluidos-v26/);
+  assert.match(appJs, /20260917-balls-quantidade-v27/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -176,7 +176,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260917-perfil-loja-fluidos-v26/);
+  assert.match(appJs, /20260917-balls-quantidade-v27/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -196,6 +196,15 @@ test('caçada troca de setor antes da renderização pesada da página', () => {
 test('Perfil e Loja não são reconstruídos duas vezes durante a sincronização global', () => {
   const appJs = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(appJs, /if \(!globalOnly\) \{\s*if \(profilePage === 'cobblemon'\) renderCobblemonDex\(profile\);/);
+});
+
+test('compra de Poké Balls confirma e informa a quantidade realmente adicionada', () => {
+  const appJs = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const serverJs = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(appJs, /Comprar 3 Poké Balls/);
+  assert.match(appJs, /const added = Number\(data\.quantity \|\| buyQuantity\)/);
+  assert.match(appJs, /appState\.profile\?\.cobblemon\?\.balls/);
+  assert.match(serverJs, /json\(res, 200, \{ profile: profileFor\(user\), quantity, price/);
 });
 
 test('Pokédex espalha sprites Cobblemon decorativos sem bloquear a interface', () => {

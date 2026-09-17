@@ -1,5 +1,5 @@
 {
-  "version": "20260917-perfil-loja-fluidos-v26",
-  "title": "Perfil e Loja mais fluidos",
-  "notes": "A abertura do Perfil e da Loja agora pinta o layout primeiro e monta os cards pesados logo depois. Também removemos a reconstrução duplicada do Perfil durante a sincronização, reduzindo a espera sem criar novas requisições ao servidor."
+  "version": "20260917-balls-quantidade-v27",
+  "title": "Compra de Poké Balls corrigida",
+  "notes": "A confirmação e o aviso da compra de Poké Balls agora usam a quantidade realmente liberada pelo servidor. O pacote extra pode adicionar até 10 arremessos, respeitando o que já foi comprado no dia."
 }

@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-perfil-loja-fluidos-v26',
-  title: 'Perfil e Loja mais fluidos',
-  notes: 'A abertura do Perfil e da Loja agora pinta o layout primeiro e monta os cards pesados logo depois. Também removemos a reconstrução duplicada do Perfil durante a sincronização, reduzindo a espera sem criar novas requisições ao servidor.'
+  version: '20260917-balls-quantidade-v27',
+  title: 'Compra de Poké Balls corrigida',
+  notes: 'A confirmação e o aviso da compra de Poké Balls agora usam a quantidade realmente liberada pelo servidor. O pacote extra pode adicionar até 10 arremessos, respeitando o que já foi comprado no dia.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -4686,10 +4686,14 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       applyState(data);
       showToast(data.mysteryReward ? 'Caixa aberta grátis! Você recebeu ' + data.mysteryReward.icon + ' ' + data.mysteryReward.name + '.' : 'Compra Grátis 51 utilizada: ' + itemName + ' é seu! 🎁');
     } else if (button.dataset.shopAction === 'cobblemon-balls') {
-      if (!confirm('Comprar 3 Poké Balls extras para hoje por 89,90 Créditos 51?')) return;
+      const balls = appState.profile?.cobblemon?.balls || { buyQuantity: 10, buyPrice: 89.90 };
+      const buyQuantity = Math.max(0, Number(balls.buyQuantity || 0));
+      const buyPrice = Number(balls.buyPrice || 0);
+      if (!confirm(`Comprar ${buyQuantity} Poké Ball${buyQuantity === 1 ? '' : 's'} extras para hoje por ${formatCredits(buyPrice)} Créditos 51?`)) return;
       const data = await api('/api/cobblemon/balls/buy', { method: 'POST' });
       applyState(data);
-      showToast('3 Poké Balls adicionadas para a caça de hoje.');
+      const added = Number(data.quantity || buyQuantity);
+      showToast(`${added} Poké Ball${added === 1 ? '' : 's'} adicionada${added === 1 ? '' : 's'} para a caça de hoje.`);
       if (confirm('Quer ir agora para a Pokédex 51?')) showPortalPage('cobblemon', true);
     } else if (button.dataset.shopAction === 'sell-best-win') {
       if (!confirm('Vender 1 ponto de primeiro lugar por 500 Créditos 51?\n\nA vitória será removida do seu ranking e esta troca não poderá ser desfeita.')) return;
@@ -5695,13 +5699,17 @@ document.addEventListener('click', async (event) => {
   if (oddsButton) { const box = COBBLEMON_BOX_CATALOG[oddsButton.dataset.cobblemonBoxOdds]; if (box) showCobblemonOdds(box.name,box.rewards,'Veja todos os itens e a chance individual antes de abrir.'); return; }
   if (event.target?.id === 'cobblemonRouletteOdds') { showCobblemonOdds('Roleta Cobblemon',COBBLEMON_ROULETTE_REWARDS,'Um giro por pessoa por dia. Itens Shiny e lendários são deliberadamente excepcionais.'); return; }
   if (event.target?.id === 'cobblemonBuyBalls') {
-    if (!confirm('Comprar o pacote extra diário com 3 Poké Balls por 89,90 Créditos 51?')) return;
+    const balls = appState.profile?.cobblemon?.balls || { buyQuantity: 10, buyPrice: 89.90 };
+    const buyQuantity = Math.max(0, Number(balls.buyQuantity || 0));
+    const buyPrice = Number(balls.buyPrice || 0);
+    if (!confirm(`Comprar o pacote extra diário com ${buyQuantity} Poké Ball${buyQuantity === 1 ? '' : 's'} por ${formatCredits(buyPrice)} Créditos 51?`)) return;
     event.target.disabled = true;
     try {
       const data = await api('/api/cobblemon/balls/buy', { method: 'POST' });
       appState.profile = data.profile;
       renderProfileEconomy(appState.profile);
-      showToast('3 Poké Balls adicionadas para hoje.');
+      const added = Number(data.quantity || buyQuantity);
+      showToast(`${added} Poké Ball${added === 1 ? '' : 's'} adicionada${added === 1 ? '' : 's'} para hoje.`);
     } catch (error) { showToast(error.message, 'error'); renderCobblemonDex(appState.profile); }
     return;
   }

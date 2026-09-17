@@ -3418,7 +3418,7 @@ async function handleApi(req, res, route) {
     const before = walletFor(user.id), createdAt = new Date().toISOString(); addCredits(user.id, -price);
     db.economy.cobblemonDeliveries.push({ id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, name: box.name, sprite: 'https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp', status: 'box-closed', openCount: 0, cycleId, cycleDay: cycleEntries.length + 1, rolls: [], purchasePrice: price, createdAt });
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box-purchase', amount: -price, before, after: roundMoney(before - price), reason: box.name, createdAt });
-    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), quantity, price, remaining: Math.max(0, 5 + already + quantity - db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/box/open') {
     const { user } = requireAuth(req); const body = await readJson(req); const box = COBBLEMON_BOXES[body.boxId];
