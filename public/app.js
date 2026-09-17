@@ -2668,8 +2668,10 @@ function renderRequiredLieVote(required) {
   if (!required || appState?.me?.role === 'admin') {
     if (dialog.open) dialog.close();
     delete dialog.dataset.voteId;
+    delete dialog.dataset.submitting;
     return;
   }
+  const previousVoteId = dialog.dataset.voteId || null;
   const title = $('#lieVoteRequiredTitle');
   const text = $('#lieVoteRequiredText');
   if (title) title.textContent = `${formatDisplayName(required.targetName)} mentiu?`;
@@ -2677,6 +2679,13 @@ function renderRequiredLieVote(required) {
     ? `${formatDisplayName(required.creatorName)} registrou esta marcação: “${required.reason}”. Escolha uma opção para continuar.`
     : `${formatDisplayName(required.creatorName)} solicitou uma correção para ${formatDisplayName(required.targetName)}. Escolha uma opção para continuar.`;
   dialog.dataset.voteId = required.id;
+  // O mesmo diálogo é reutilizado para a próxima pendência. Reative os
+  // botões somente quando a votação mudou, preservando o bloqueio durante um
+  // envio ainda em andamento.
+  if (previousVoteId !== required.id) {
+    delete dialog.dataset.submitting;
+    $$('[data-required-lie-vote]', dialog).forEach((button) => { button.disabled = false; });
+  }
   if (!dialog.open) dialog.showModal();
 }
 
@@ -2727,14 +2736,20 @@ $('#lieVoteRequiredDialog')?.addEventListener('click', async (event) => {
   if (event.target === event.currentTarget) { event.preventDefault(); return; }
   const button = event.target.closest('[data-required-lie-vote]');
   const required = appState?.lieMeter?.requiredVote;
-  if (!button || !required) return;
-  button.disabled = true;
+  const dialog = event.currentTarget;
+  if (!button || !required || dialog.dataset.submitting === '1' || dialog.dataset.voteId !== required.id) return;
+  const controls = $$('[data-required-lie-vote]', dialog);
+  dialog.dataset.submitting = '1';
+  controls.forEach((control) => { control.disabled = true; });
   try {
     applyState(await api('/api/lie-meter/' + encodeURIComponent(required.id) + '/vote', { method: 'POST', body: { vote: button.dataset.requiredLieVote } }));
     showToast('Voto registrado. Obrigado por participar da validação.');
   } catch (error) {
     showToast(error.message, 'error');
-    button.disabled = false;
+    if (dialog.dataset.voteId === required.id) {
+      delete dialog.dataset.submitting;
+      controls.forEach((control) => { control.disabled = false; });
+    }
   }
 });
 

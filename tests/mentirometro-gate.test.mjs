@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { lieVoteDecision } from '../legacy-server.mjs';
 
 const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
 const client = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
@@ -27,4 +28,15 @@ test('interface bloqueia o portal e oferece as duas decisões', () => {
   assert.match(client, /function renderRequiredLieVote\(required\)/);
   assert.match(client, /api\('\/api\/lie-meter\/'.*\/vote/);
   assert.match(client, /requiredLieVoteChanged/);
+  assert.match(client, /previousVoteId[\s\S]*?delete dialog\.dataset\.submitting[\s\S]*?button\.disabled = false/);
+  assert.match(client, /dialog\.dataset\.submitting === '1'/);
+});
+
+test('votos de várias mentiras são independentes e a próxima decisão continua disponível', () => {
+  const first = lieVoteDecision(['criador', 'pessoa-a', 'pessoa-b'], { criador: 'lie', 'pessoa-a': 'truth' });
+  const second = lieVoteDecision(['criador', 'pessoa-a', 'pessoa-b'], { criador: 'lie' });
+  assert.equal(first.outcome, null);
+  assert.equal(first.remaining, 1);
+  assert.equal(second.outcome, null);
+  assert.equal(second.remaining, 2);
 });
