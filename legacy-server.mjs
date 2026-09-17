@@ -903,11 +903,11 @@ const LOTTERY_MAX_POOL = 1500;
 const LOTTERY_DRAW_HOUR = 16;
 const LOTTERY_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // Exceção única para a primeira transmissão do sorteio: a rodada aberta nesta
-// semana fecha às 16h20; todas as rodadas seguintes continuam às 16h.
+// semana fecha às 16h25; todas as rodadas seguintes continuam às 16h.
 const LOTTERY_ONE_OFF_ROUND_ID = 'lottery:2026-09-10T19:00:00.000Z';
 const LOTTERY_ONE_OFF_ACTIVE_ROUND_ID = 'lottery:2026-09-17T19:00:00.000Z';
-const LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T19:20:00.000Z';
-const LOTTERY_ONE_OFF_RESET_VERSION = '2026-09-17T19:20-clear-v2';
+const LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T19:25:00.000Z';
+const LOTTERY_ONE_OFF_RESET_VERSION = '2026-09-17T19:25-clear-v3';
 function casinoAccountFor(userId, create = false) {
   const dayKey = saoPauloDayKey(); const current = db.economy.casinoAccounts[userId];
   if (current?.dayKey === dayKey) return current;
@@ -1015,7 +1015,7 @@ function resetOneOffLotteryForDelayedDraw(now = new Date()) {
     }
     previous.status = 'void';
     previous.voidedAt = now.toISOString();
-    previous.voidedReason = 'Rodada de teste limpa para o novo sorteio excepcional das 16h20';
+    previous.voidedReason = 'Rodada de teste limpa para o novo sorteio excepcional das 16h25';
     previous.voidedFromDrawnAt = previous.drawnAt || null;
     previous.winningNumbers = [];
     previous.winnerIds = [];
