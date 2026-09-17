@@ -119,6 +119,10 @@ html.giant-slow-cursor-active .unicorn-mouse-cursor:after { display: none; }
 .lie-person .lie-attribution { display:flex; flex-wrap:wrap; gap:5px 16px; margin:8px 0; padding:6px 8px; border-radius:8px; background:var(--paper); font:14px/1.5 system-ui,sans-serif; color:var(--ink); font-style:normal; }
 .lie-person .lie-attribution > span { display:block; min-width:0; overflow-wrap:anywhere; }
 .lie-person .lie-attribution b { font:700 14px/1.5 system-ui,sans-serif; color:inherit; }
+.lie-approved-people { display:inline-flex!important; flex-wrap:wrap; align-items:center; gap:4px 7px; vertical-align:middle; }
+.lie-approved-people > b { display:inline-flex; align-items:center; gap:3px; }
+.lie-approved-avatar { display:inline-grid; place-items:center; width:20px; height:20px; overflow:hidden; border:1px solid currentColor; border-radius:50%; background:#72839b; color:#fff; font-size:8px; font-weight:900; vertical-align:middle; }
+.lie-approved-avatar img { width:100%; height:100%; object-fit:cover; }
 #visualTradeForm { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr)); }
 #visualTradeForm label { display:grid; gap:6px; min-width:0; font-size:15px; }
 #visualTradeForm select { width:100%; min-width:0; padding:12px; background:var(--paper); color:var(--ink); border:1px solid var(--muted); border-radius:9px; font-size:16px; }

@@ -289,6 +289,8 @@ async function ensureDatabase(seedDatabase) {
     '5be10c8a-dc45-4a66-9686-253e4f03dcd7': 'Concluído: o tema Cobblemon ganhou fundo pixelado leve, sem imagem realista, e todas as áreas de conteúdo ficaram opacas para manter a leitura.',
     'adc4ea6e-63f0-4ab3-8f1d-b36f6049e269': 'Concluído: após 10 minutos, o voto da mentira pendente fica obrigatório; a rota de votação permanece liberada para não travar a resolução. Também corrigido o avanço entre várias pendências sem bloquear o próximo botão.',
     '8a4eaf96-ee68-4d7f-bb07-861553e0b28e': 'Concluído: a mesma pessoa pode receber várias marcações diferentes em andamento; somente o reenvio idêntico acidental em até 30 segundos é bloqueado.',
+    'efd957ab-580a-47ad-8923-ebadc58ec793': 'Concluído: a maioria dos votos recebidos encerra a votação assim que mais da metade da equipe já participou; o estado é recalculado no voto, na sincronização e ao abrir o portal.',
+    'c0efa151-2f8c-4b7b-ab65-cae004ca7fd6': 'Concluído: o histórico coletivo agora lista quem aprovou a mentira, com nome e foto quando disponíveis, em vez de mostrar “Não registrado”.',
   };
   db.feedbackMessages.forEach((item) => {
     if (completedFeedback[item.id] && (item.status !== 'done' || item.adminComment !== completedFeedback[item.id])) { item.status = 'done'; item.adminComment = completedFeedback[item.id]; item.updatedAt = new Date().toISOString(); changed = true; }
@@ -1605,10 +1607,14 @@ export function lieVoteDecision(requiredVoterIds = [], votes = {}) {
   const lieVotes = voterIds.filter((id) => votes[id] === 'lie').length;
   const truthVotes = voterIds.filter((id) => votes[id] === 'truth').length;
   const remaining = Math.max(0, voterIds.length - lieVotes - truthVotes);
-  const lieCannotBeCaught = lieVotes > truthVotes + remaining;
-  const truthCannotBeCaught = truthVotes > lieVotes + remaining;
+  const received = lieVotes + truthVotes;
   const everyoneVoted = remaining === 0;
-  const outcome = lieCannotBeCaught || (everyoneVoted && lieVotes > truthVotes) ? 'lie' : truthCannotBeCaught || everyoneVoted ? 'truth' : null;
+  // Depois de mais da metade da equipe votar, a maioria dos votos recebidos
+  // decide. Antes do quórum, um placar parcial não encerra a acusação.
+  const quorumReached = received > voterIds.length / 2;
+  const outcome = quorumReached && lieVotes !== truthVotes
+    ? (lieVotes > truthVotes ? 'lie' : 'truth')
+    : everyoneVoted ? (lieVotes > truthVotes ? 'lie' : 'truth') : null;
   return { outcome, lieVotes, truthVotes, remaining };
 }
 
@@ -1634,6 +1640,29 @@ function resolveLieVoteIfDecided(item, now = new Date().toISOString()) {
   }
   item.decisionVotes = { lie: lieVotes, truth: truthVotes, remaining };
   return true;
+}
+
+function settlePendingLieVotes(now = new Date().toISOString()) {
+  let changed = false;
+  db.lieAccusations.filter((item) => item.status === 'pending').forEach((item) => {
+    if (resolveLieVoteIfDecided(item, now)) changed = true;
+  });
+  return changed;
+}
+
+function lieApprovalPeople(item) {
+  const voterIds = Array.isArray(item.requiredVoterIds)
+    ? item.requiredVoterIds.filter((id) => item.votes?.[id] === 'lie')
+    : [];
+  if (voterIds.length) return voterIds.map((id) => {
+    const person = db.users.find((entry) => entry.id === id);
+    return { id, displayName: person?.displayName || 'Conta removida' };
+  });
+  if (item.validatedByUserId) {
+    const person = db.users.find((entry) => entry.id === item.validatedByUserId);
+    return [{ id: item.validatedByUserId, displayName: person?.displayName || 'Conta removida' }];
+  }
+  return [];
 }
 
 // Remove deleted/deactivated accounts from open decisions before serializing
@@ -2740,7 +2769,7 @@ function buildStateFor(user) {
         liveTitles: liveTitleMap.get(person.id) || [],
         total: Math.max(0, db.lieAccusations.filter((item) => item.targetUserId === person.id && item.status === 'confirmed').reduce((sum, item) => sum + item.delta, 0)),
         latestReason: activeLieReasons(person.id).at(-1)?.reason || null,
-        reasons: activeLieReasons(person.id).slice(-30).reverse().map((item) => ({ id: item.id, reason: item.reason, createdAt: item.confirmedAt || item.createdAt, createdBy: db.users.find((person) => person.id === item.createdByUserId)?.displayName || (item.createdByUserId ? 'Conta removida' : 'Não registrado'), validatedBy: db.users.find((person) => person.id === item.validatedByUserId)?.displayName || (item.validatedByUserId ? 'Conta removida' : 'Não registrado') })),
+        reasons: activeLieReasons(person.id).slice(-30).reverse().map((item) => ({ id: item.id, reason: item.reason, createdAt: item.confirmedAt || item.createdAt, createdBy: db.users.find((person) => person.id === item.createdByUserId)?.displayName || (item.createdByUserId ? 'Conta removida' : 'Não registrado'), validatedBy: db.users.find((person) => person.id === item.validatedByUserId)?.displayName || (item.validatedByUserId ? 'Conta removida' : 'Não registrado'), approvedBy: lieApprovalPeople(item) })),
       })).sort((a, b) => b.total - a.total || a.displayName.localeCompare(b.displayName)),
       pending: db.lieAccusations.filter((item) => item.status === 'pending').slice(-100).reverse().map((item) => {
         const target = db.users.find((person) => person.id === item.targetUserId);
@@ -3001,8 +3030,9 @@ async function handleApi(req, res, route) {
     const settledSeasonChallenges = settleSeasonalChallenges();
     const settledPokemonCapsules = settlePokemonCapsules();
     const settledLottery = settleLotteryRounds();
+    const settledLieVotes = settlePendingLieVotes();
     const marketAdvanced = syncMarketEconomy();
-    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules || settledLottery || marketAdvanced) await persist();
+    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules || settledLottery || settledLieVotes || marketAdvanced) await persist();
     json(res, 200, stateFor(user)); return;
   }
 
@@ -3182,8 +3212,9 @@ async function handleApi(req, res, route) {
     try {
       const marketAdvanced = syncMarketEconomy();
       const lotterySettled = settleLotteryRounds();
+      const lieVotesSettled = settlePendingLieVotes();
       lotteryReminder = lotteryReminderForUser(user);
-      if (marketAdvanced || lotterySettled) {
+      if (marketAdvanced || lotterySettled || lieVotesSettled) {
         await persist();
         if (lotterySettled) broadcastRefresh('lottery');
       }

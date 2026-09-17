@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-mentirometro-v35',
-  title: 'Mentirômetro: sequência de votos corrigida',
-  notes: 'O voto obrigatório continua após 10 minutos, mas cada nova mentira recebe controles próprios: votar em uma pendência não desabilita a próxima e erros de rede liberam os botões novamente.'
+  version: '20260917-mentirometro-v36',
+  title: 'Mentirômetro: maioria e aprovadores visíveis',
+  notes: 'Depois do quórum, a maioria dos votos recebidos encerra a pendência. O histórico também mostra os nomes e fotos de quem aprovou cada mentira.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2659,7 +2659,11 @@ function renderMystery(mystery = {}) {
 }
 
 function lieAttribution(entry) {
-  return '<span class="lie-attribution"><span>Registrada por <b>' + escapeHtml(entry.createdBy || 'Não registrado') + '</b></span><span>Aprovada por <b>' + escapeHtml(entry.validatedBy || 'Não registrado') + '</b></span></span>';
+  const approvers = Array.isArray(entry.approvedBy) ? entry.approvedBy.filter((person) => person?.id) : [];
+  const approvalMarkup = approvers.length
+    ? '<span class="lie-approved-people">' + approvers.map((person) => personAvatar(person, 'lie-approved-avatar') + '<b>' + escapeHtml(formatDisplayName(person.displayName)) + '</b>').join('') + '</span>'
+    : '<b>' + escapeHtml(entry.validatedBy || 'Não registrado') + '</b>';
+  return '<span class="lie-attribution"><span>Registrada por <b>' + escapeHtml(entry.createdBy || 'Não registrado') + '</b></span><span>Aprovada por ' + approvalMarkup + '</span></span>';
 }
 
 function renderRequiredLieVote(required) {
