@@ -40,3 +40,13 @@ test('Mercado mostra total da carteira e direção da cotação', () => {
   assert.match(fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8'), /const marketAdvanced = syncMarketEconomy\(\)/);
   assert.doesNotMatch(app, /confirm\('Uma nova versão do Área 51 está disponível/);
 });
+
+test('Mercado informa as oito janelas de atualização no horário de Brasília', () => {
+  const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const marketLib = fs.readFileSync(new URL('../lib/investment-market.mjs', import.meta.url), 'utf8');
+  assert.match(html, /id="marketUpdateSchedule"/);
+  assert.match(app, /A primeira sincronização após cada horário consolida a nova cotação/);
+  assert.match(marketLib, /MARKET_UPDATE_HOURS = Object\.freeze\(\[0, 3, 6, 9, 12, 15, 18, 21\]\)/);
+  assert.match(marketLib, /updateSchedule: \{ timeZone: MARKET_TIME_ZONE, hours: \[\.\.\.MARKET_UPDATE_HOURS\] \}/);
+});

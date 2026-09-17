@@ -3463,6 +3463,11 @@ function marketRadarMarkup(assets) {
 }
 function renderInvestmentMarket(profile = {}) {
   const market = profile.investmentMarket || {}; const assets = Array.isArray(market.assets) ? market.assets : [];
+  const schedule = market.updateSchedule || { timeZone: 'America/Sao_Paulo', hours: [0, 3, 6, 9, 12, 15, 18, 21] };
+  const scheduleHours = Array.isArray(schedule.hours) && schedule.hours.length ? schedule.hours : [0, 3, 6, 9, 12, 15, 18, 21];
+  const scheduleZone = schedule.timeZone === 'America/Sao_Paulo' ? 'horário de Brasília' : String(schedule.timeZone || 'horário local');
+  const scheduleEl = $('#marketUpdateSchedule');
+  if (scheduleEl) scheduleEl.textContent = `Atualizações automáticas: ${scheduleHours.map((hour) => String(Number(hour)).padStart(2, '0') + 'h').join(' · ')} (${scheduleZone}). A primeira sincronização após cada horário consolida a nova cotação.`;
   const wallet = Number(profile.wallet || 0); const holdingsValue = Number(market.holdingsValue || 0); const portfolioValue = wallet + holdingsValue;
   const walletEl = $('#marketWallet'); if (walletEl) { walletEl.textContent = marketMoney(wallet); walletEl.parentElement?.setAttribute('aria-label', `${marketMoney(wallet)} Créditos 51`); }
   const holdingsEl = $('#marketHoldingsValue'); if (holdingsEl) { holdingsEl.textContent = marketMoney(holdingsValue); holdingsEl.parentElement?.setAttribute('aria-label', `${marketMoney(holdingsValue)} Créditos 51`); }
