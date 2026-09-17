@@ -4097,6 +4097,7 @@ async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/draw/gay-shield') {
     const { user } = requireAuth(req);
     const body = await readJson(req);
+    if (liveDraw && liveDraw.endsAt > Date.now()) throw new HttpError(409, 'Aguarde o sorteio ao vivo terminar antes de decidir sobre o Escudo.');
     const pending = db.economy.pendingGayDraw;
     if (!pending || pending.roundId !== db.settings.currentRoundId) throw new HttpError(409, 'Não há uma decisão de Escudo pendente.');
     if (body.pendingId && body.pendingId !== pending.id) throw new HttpError(409, 'Esta decisão de Escudo já foi atualizada.');
@@ -4115,6 +4116,7 @@ async function handleApi(req, res, route) {
       consumePower(user.id, 'power-shield-gay', { roundId: pending.roundId, pendingGayId: pending.id, rerolled: true });
       db.economy.powerAnnouncements.push({ id: randomUUID(), roundId: pending.roundId, itemId: 'power-shield-gay', itemName: 'Escudo da Rodada usado', activatedByUserId: user.id, createdAt: new Date().toISOString() });
       db.economy.powerAnnouncements = db.economy.powerAnnouncements.slice(-100);
+      if (db.economy.forcedGay?.roundId === pending.roundId) db.economy.forcedGay = null;
       pending.protectedIds = [...new Set([...(pending.protectedIds || []), user.id])];
       pending.remainingCandidateIds = (pending.remainingCandidateIds || []).filter((id) => id !== user.id);
       pending.forcedTargetId = null;
