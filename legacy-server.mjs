@@ -1777,7 +1777,7 @@ function profileFor(user, computed = {}) {
       const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
       const total = 5 + extra;
         const buyQuantity = Math.max(0, 10 - extra);
-        return { remaining: Math.max(0, total - used), total, used, daily: 5, extra, buyQuantity, canBuy: buyQuantity > 0, buyPrice: buyQuantity ? Math.ceil(90 * buyQuantity / 10) : 0 };
+        return { remaining: Math.max(0, total - used), total, used, daily: 5, extra, buyQuantity, canBuy: buyQuantity > 0, buyPrice: buyQuantity ? roundMoney(retailPriceWithCents(90) * buyQuantity / 10) : 0 };
       })(),
       roulette: (() => {
         const last = [...db.economy.cobblemonRouletteSpins].reverse().find((entry) => entry.userId === user.id);
@@ -3360,7 +3360,7 @@ async function handleApi(req, res, route) {
     const already = Math.min(10, Math.max(0, Number(existing?.quantity || 0)));
     const quantity = 10 - already;
     if (quantity <= 0) throw new HttpError(409, 'O pacote extra de hoje já foi comprado.');
-    const price = Math.ceil(90 * quantity / 10), before = walletFor(user.id);
+    const price = roundMoney(retailPriceWithCents(90) * quantity / 10), before = walletFor(user.id);
     if (before < price) throw new HttpError(409, 'Créditos 51 insuficientes para comprar as Poké Balls.');
     addCredits(user.id, -price); const createdAt = new Date().toISOString();
     if (existing) { existing.quantity = already + quantity; existing.price = Number(existing.price || 0) + price; existing.updatedAt = createdAt; }

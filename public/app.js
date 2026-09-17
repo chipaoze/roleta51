@@ -2911,11 +2911,11 @@ function renderCobblemonDex(profile = {}) {
   });
   const pageSize = 24, pages = Math.max(1, Math.ceil(visible.length / pageSize)); cobblemonDexPage = Math.min(cobblemonDexPage, pages - 1);
   $('#cobblemonDexProgress').textContent = caught.size + ' / ' + (profile.cobblemon?.total || catalog.length);
-  const balls = profile.cobblemon?.balls || { remaining: 5, total: 5, canBuy: true, buyPrice: 90 };
+  const balls = profile.cobblemon?.balls || { remaining: 5, total: 5, canBuy: true, buyPrice: 89.90 };
   $('#cobblemonBallCount').textContent = `${Number(balls.remaining)} / ${Number(balls.total)} Poké Balls`;
   const buyBallsButton = $('#cobblemonBuyBalls');
   buyBallsButton.disabled = !balls.canBuy;
-  buyBallsButton.textContent = balls.canBuy ? `Comprar +${Number(balls.buyQuantity || 10)} por ${Number(balls.buyPrice || 90)}` : 'Pacote extra comprado hoje';
+  buyBallsButton.textContent = balls.canBuy ? `Comprar +${Number(balls.buyQuantity || 10)} por ${formatCredits(balls.buyPrice || 89.90)}` : 'Pacote extra comprado hoje';
   if (!cobblemonPageEncounter) $('#cobblemonCaptureButton').disabled = !viewingMine || Number(balls.remaining) < 1;
   $('#cobblemonDexPage').textContent = 'Página ' + (cobblemonDexPage + 1) + ' de ' + pages;
   $('#cobblemonDexPrev').disabled = cobblemonDexPage === 0; $('#cobblemonDexNext').disabled = cobblemonDexPage >= pages - 1;
@@ -4588,7 +4588,7 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       applyState(data);
       showToast(data.mysteryReward ? 'Caixa aberta grátis! Você recebeu ' + data.mysteryReward.icon + ' ' + data.mysteryReward.name + '.' : 'Compra Grátis 51 utilizada: ' + itemName + ' é seu! 🎁');
     } else if (button.dataset.shopAction === 'cobblemon-balls') {
-      if (!confirm('Comprar 3 Poké Balls extras para hoje por 90 Créditos 51?')) return;
+      if (!confirm('Comprar 3 Poké Balls extras para hoje por 89,90 Créditos 51?')) return;
       const data = await api('/api/cobblemon/balls/buy', { method: 'POST' });
       applyState(data);
       showToast('3 Poké Balls adicionadas para a caça de hoje.');
@@ -5554,7 +5554,7 @@ document.addEventListener('click', async (event) => {
   if (oddsButton) { const box = COBBLEMON_BOX_CATALOG[oddsButton.dataset.cobblemonBoxOdds]; if (box) showCobblemonOdds(box.name,box.rewards,'Veja todos os itens e a chance individual antes de abrir.'); return; }
   if (event.target?.id === 'cobblemonRouletteOdds') { showCobblemonOdds('Roleta Cobblemon',COBBLEMON_ROULETTE_REWARDS,'Um giro por pessoa por dia. Itens Shiny e lendários são deliberadamente excepcionais.'); return; }
   if (event.target?.id === 'cobblemonBuyBalls') {
-    if (!confirm('Comprar o pacote extra diário com 3 Poké Balls por 90 Créditos 51?')) return;
+    if (!confirm('Comprar o pacote extra diário com 3 Poké Balls por 89,90 Créditos 51?')) return;
     event.target.disabled = true;
     try {
       const data = await api('/api/cobblemon/balls/buy', { method: 'POST' });
@@ -5565,7 +5565,7 @@ document.addEventListener('click', async (event) => {
     return;
   }
   if (event.target?.id === 'cobblemonRouletteSpin') {
-    const button = event.target; if (!confirm('Girar a Roleta Cobblemon por 260 Créditos 51? O próximo giro será liberado amanhã.')) return; button.disabled = true;
+    const button = event.target; if (!confirm(`Girar a Roleta Cobblemon por ${formatCredits(appState.profile?.cobblemon?.roulette?.price || 259.90)} Créditos 51? O próximo giro será liberado amanhã.`)) return; button.disabled = true;
     try { const data = await api('/api/cobblemon/roulette/spin',{method:'POST'}); const wheel = $('#cobblemonRouletteWheel'); const rewardIndex = Math.max(0, COBBLEMON_ROULETTE_REWARDS.findIndex(([name]) => name === data.reward.name)); spinCobblemonRouletteWheel(wheel,rewardIndex); await new Promise((resolve)=>setTimeout(resolve,3200)); const decided = await showCobblemonOpening('Resultado da Roleta Cobblemon',{...data.reward,profile:data.profile},{skipCarousel:true}); appState.profile = decided.profile; renderProfileEconomy(appState.profile); }
     catch(error){ showToast(error.message,'error'); renderCobblemonDex(appState.profile); }
     return;

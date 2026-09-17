@@ -85,9 +85,13 @@ test('tabela de preços usa finais em centavos sem alterar recompensas e estorno
   assert.match(serverJs, /SHOP_CATALOG\.forEach\(\(item\) => \{ if \(item\.price > 0\) item\.price = retailPriceWithCents\(item\.price\); \}\)/);
   assert.match(serverJs, /price: 899\.90, monthlyPokemon: true/);
   assert.match(serverJs, /price: 259\.90,/);
-  assert.match(serverJs, /entry\.purchasePrice \?\? entry\.price \?\? 900/);
-  assert.match(appJs, /price: 899\.90/);
-  assert.match(appJs, /price\|\|259\.90/);
+      assert.match(serverJs, /entry\.purchasePrice \?\? entry\.price \?\? 900/);
+      assert.match(serverJs, /retailPriceWithCents\(90\) \* buyQuantity \/ 10/);
+      assert.match(serverJs, /retailPriceWithCents\(90\) \* quantity \/ 10/);
+      assert.match(appJs, /price: 899\.90/);
+      assert.match(appJs, /price\|\|259\.90/);
+      assert.match(appJs, /buyPrice: 89\.90/);
+      assert.match(appJs, /Roleta Cobblemon por \$\{formatCredits/);
 });
 
 test('radar do mercado lista todos os ativos e o gráfico inclui a janela anterior', () => {
