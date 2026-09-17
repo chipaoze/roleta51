@@ -33,6 +33,10 @@ test('Mercado mostra total da carteira e direção da cotação', () => {
   assert.match(app, /Total da ordem/);
   assert.match(app, /releaseNoticeLoaded/);
   assert.match(fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8'), /market-change\.up/);
+  const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  assert.match(styles, /market-page \.market-asset-card>header>\.market-position\{[^}]*white-space:normal/);
+  assert.match(styles, /market-page \.market-portfolio-breakdown>span\{display:grid!important/);
+  assert.match(styles, /market-page \.market-portfolio-breakdown b\.negative\{color:#ff7185!important/);
   assert.match(fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8'), /const marketAdvanced = syncMarketEconomy\(\)/);
   assert.doesNotMatch(app, /confirm\('Uma nova versão do Área 51 está disponível/);
 });

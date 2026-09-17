@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-mercado-carteira-v23',
-  title: 'Notificações e carteira do Mercado 51',
-  notes: 'Notificações agora abrem e destacam o item exato. O Mercado 51 ganhou pontos com tooltip de cotação e variação, custo pago, valor atual, resultado positivo ou negativo por moeda e carteira, além de oito atualizações seguras por dia.'
+  version: '20260917-mercado-carteira-v24',
+  title: 'Mercado 51: gráfico e carteira ajustados',
+  notes: 'Corrigimos a quebra visual dos gráficos e dos cartões em diferentes larguras e temas. O custo pago, resultado positivo ou negativo e variação desde a compra agora ficam separados e legíveis; quedas aparecem em vermelho e altas em verde.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
