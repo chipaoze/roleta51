@@ -30,7 +30,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260916-283/);
-  assert.match(html, /app\.js\?v=20260917-286/);
+  assert.match(html, /app\.js\?v=20260917-287/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -77,7 +77,17 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.match(html, /id="flightBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260917-creditos-centavos-v16/);
+  assert.match(appJs, /20260917-precos-centavos-v17/);
+});
+
+test('tabela de preços usa finais em centavos sem alterar recompensas e estornos históricos', () => {
+  assert.match(serverJs, /function retailPriceWithCents\(value\)/);
+  assert.match(serverJs, /SHOP_CATALOG\.forEach\(\(item\) => \{ if \(item\.price > 0\) item\.price = retailPriceWithCents\(item\.price\); \}\)/);
+  assert.match(serverJs, /price: 899\.90, monthlyPokemon: true/);
+  assert.match(serverJs, /price: 259\.90,/);
+  assert.match(serverJs, /entry\.purchasePrice \?\? entry\.price \?\? 900/);
+  assert.match(appJs, /price: 899\.90/);
+  assert.match(appJs, /price\|\|259\.90/);
 });
 
 test('radar do mercado lista todos os ativos e o gráfico inclui a janela anterior', () => {
@@ -92,7 +102,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260917-creditos-centavos-v16/);
+  assert.match(appJs, /20260917-precos-centavos-v17/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

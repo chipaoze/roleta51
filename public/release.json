@@ -1,5 +1,5 @@
 {
-  "version": "20260917-creditos-centavos-v16",
-  "title": "Valores financeiros com centavos",
-  "notes": "Roleta 51, Voo do Unicórnio, presentes, pagamentos do Agiota e ajustes administrativos agora aceitam até duas casas decimais. Compras e vendas calculam preços com centavos e a carteira mantém arredondamento seguro; quantidades, aberturas e unidades continuam inteiras. Os preços atuais da Loja foram preservados para ajustes graduais."
+  "version": "20260917-precos-centavos-v17",
+  "title": "Preços da economia com centavos",
+  "notes": "Os preços-base da Loja, das Cápsulas Cobblemon e da Roleta Cobblemon agora usam finais em centavos (como 899,90), mantendo o valor econômico praticamente igual. Saldos, compras históricas, vendas, recompensas e empréstimos foram preservados; somente novas compras usam a tabela atualizada."
 }
