@@ -2300,7 +2300,9 @@ function buildStateFor(user) {
     onlinePeople: sharedOnlinePeople.length ? sharedOnlinePeople : [{ id: user.id, displayName: user.displayName }],
     casino: (() => {
       const dayKey = saoPauloDayKey(); const plays = db.economy.casinoPlays.filter((item) => item.userId === user.id && item.dayKey === dayKey); const account = casinoAccountFor(user.id);
-      const totalWagered = db.economy.casinoPlays.reduce((sum, item) => sum + Number(item.bet || 0), 0);
+      // O Apostômetro mede apenas o valor que saiu do saldo principal da Loja 51.
+      // Apostas promocionais continuam no histórico, mas não inflacionam o valor real.
+      const totalWagered = db.economy.casinoPlays.filter((item) => item.walletSource === 'shop').reduce((sum, item) => sum + Number(item.bet || 0), 0);
       const totalPlays = db.economy.casinoPlays.length;
       const round = db.economy.globalFlight; const myFlightBet = round?.bets?.find((item) => item.userId === user.id);
       const recentFlights = db.economy.flightHistory.slice(-12).reverse().map((item) => ({ multiplier: Number(item.multiplier || 0), createdAt: item.createdAt }));

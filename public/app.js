@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-mercado-horarios-v28',
-  title: 'Horários do Mercado 51 visíveis',
-  notes: 'O Mercado 51 agora exibe suas oito janelas de atualização: 00h, 03h, 06h, 09h, 12h, 15h, 18h e 21h, sempre no horário de Brasília.'
+  version: '20260917-apostometro-real-v29',
+  title: 'Apostômetro com valor real',
+  notes: 'O Apostômetro agora soma apenas apostas pagas com o saldo da Loja 51. Apostas promocionais continuam no histórico, mas não inflacionam o valor movimentado.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
