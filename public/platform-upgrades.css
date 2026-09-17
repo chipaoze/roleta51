@@ -37,3 +37,22 @@ html{scroll-behavior:smooth}body{-webkit-font-smoothing:antialiased;text-renderi
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
   .skip-link{transition:none!important}
 }
+
+/* Créditos 51 v13 — campos numéricos preparados para valores com centavos em todos os temas. */
+input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]{
+  width:100%;
+  min-width:10ch!important;
+  min-height:44px!important;
+  box-sizing:border-box;
+  padding:10px 12px!important;
+  line-height:1.2;
+  font-variant-numeric:tabular-nums;
+}
+.shop-quantity-picker{grid-template-columns:minmax(0,1fr) minmax(96px,8rem)!important}
+.shop-quantity-picker input[type="number"]{min-width:10ch!important}
+.market-order-fields input[type="number"]{min-width:10ch}
+@media(max-width:600px){
+  input[type="number"],input[inputmode="decimal"],input[inputmode="numeric"]{min-width:9ch!important}
+  .shop-quantity-picker{grid-template-columns:minmax(0,1fr) minmax(96px,8rem)!important}
+  .shop-quantity-picker input[type="number"]{min-width:9ch!important}
+}

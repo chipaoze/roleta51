@@ -29,8 +29,9 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260916-282/);
-  assert.match(html, /app\.js\?v=20260916-282/);
+  assert.match(html, /styles\.css\?v=20260916-283/);
+  assert.match(html, /app\.js\?v=20260916-283/);
+  assert.match(html, /platform-upgrades\.css\?v=20260916-215/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -56,6 +57,15 @@ test('cabeçalho exibe e atualiza o saldo de Créditos 51 em qualquer página', 
   assert.match(appJs, /topWallet\.setAttribute\('aria-label', 'Saldo: ' \+ topWalletValue \+ ' Créditos 51'\)/);
   assert.match(styles, /\.top-wallet\{display:inline-flex;flex:0 0 auto/);
   assert.match(styles, /body\.theme-rainbow \.top-wallet\{border-color:#fff1a3/);
+});
+
+test('campos numéricos têm largura e altura para centavos em todos os temas', () => {
+  const upgrades = fs.readFileSync(path.join(root, 'public', 'platform-upgrades.css'), 'utf8');
+  assert.match(upgrades, /input\[type="number"\]/);
+  assert.match(upgrades, /min-width:10ch/);
+  assert.match(upgrades, /font-variant-numeric:tabular-nums/);
+  assert.match(upgrades, /\.shop-quantity-picker\{grid-template-columns:minmax\(0,1fr\) minmax\(96px,8rem\)!important\}/);
+  assert.match(upgrades, /\.shop-quantity-picker input\[type="number"\]\{min-width:10ch!important\}/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

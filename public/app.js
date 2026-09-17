@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-creditos-51-centavos-v12',
-  title: 'Saldo em Créditos 51 com centavos',
-  notes: 'O saldo principal agora aparece sempre com duas casas decimais no cabeçalho, perfil, loja e administração. O Mercado 51 já calcula operações com centavos; compras e jogos continuam com valores inteiros nesta etapa.'
+  version: '20260916-creditos-51-campos-v13',
+  title: 'Campos preparados para valores com centavos',
+  notes: 'Os campos numéricos da loja, Mercado 51, roleta, avião e demais formulários agora têm tamanho e alinhamento padronizados para valores com duas casas. Nenhuma regra de preço foi alterada: a migração de compras para centavos será feita por etapas.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
