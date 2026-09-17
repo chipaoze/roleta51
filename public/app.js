@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-mercado-renda-v18',
-  title: 'Nova liquidez do Mercado 51',
-  notes: 'O Mercado 51 agora oferece Renda 51 diária após uma atividade válida, missões de mercado, dividendos simulados limitados para quem mantém posições e um alerta de liquidez. A valorização continua sendo o principal ganho; os limites evitam inflação e não alteram compras ou saldos históricos.'
+  version: '20260917-bonus-investimento-v19',
+  title: 'Bônus coletivo para investir',
+  notes: 'O painel administrativo agora permite creditar um bônus de investimento para todas as contas ativas de uma vez. Cada lançamento fica registrado no extrato, com confirmação e proteção contra repetição acidental da mesma operação.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3189,6 +3189,8 @@ function renderAdmin() {
   $('#clearAnnouncementButton').disabled = !announcement;
   const users = appState.adminUsers || [];
   $('#adminUserCount').textContent = users.length + ' contas';
+  const bulkPreview = $('#bulkCreditPreview');
+  if (bulkPreview) bulkPreview.textContent = `${users.filter((user) => user.active && user.approved !== false).length} contas ativas receberão o valor informado.`;
   $('#adminUsers').innerHTML = users.map((user) =>
     '<div id="admin-user-' + escapeHtml(user.id) + '" class="admin-user' + (user.approved === false ? ' pending-approval' : '') + '"><p><strong>' + escapeHtml(formatDisplayName(user.displayName)) + '</strong><small>@' + escapeHtml(user.username) + (user.role === 'admin' ? ' · Administrador' : '') + (user.approved === false ? ' · Aguardando aprovação' : '') + ' · <span class="coin-51" aria-hidden="true">51</span> ' + formatCredits(user.wallet) + '</small></p>' +
     '<div class="admin-user-actions"><button class="tiny-toggle ' + (user.eligible ? 'on' : 'off') + '" data-user-action="eligible" data-user-id="' + user.id + '" data-value="' + (!user.eligible) + '">' + (user.eligible ? 'Participa' : 'Fora da roleta') + '</button>' +
@@ -4841,6 +4843,23 @@ $('#scheduleForm').addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
   try { applyState(await api('/api/admin/settings', { method: 'PATCH', body: { roundSchedule: { submissionsAt: $('#scheduleSubmissions').value, drawAt: $('#scheduleDraw').value, voteAt: $('#scheduleVote').value } } })); showToast('Calendário atualizado para toda a equipe.'); }
   catch (error) { showToast(error.message, 'error'); } finally { setBusy(form, false); }
+});
+$('#bulkCreditForm')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget; const amount = Number($('#bulkCreditAmount').value); const users = (appState.adminUsers || []).filter((user) => user.active && user.approved !== false); const reason = $('#bulkCreditReason').value.trim();
+  $('#bulkCreditError').textContent = '';
+  if (!Number.isFinite(amount) || amount < 0.01 || amount > 100000) { $('#bulkCreditError').textContent = 'Informe um valor entre 0,01 e 100.000 créditos.'; return; }
+  if (!users.length) { $('#bulkCreditError').textContent = 'Não há contas ativas para receber o bônus.'; return; }
+  const total = amount * users.length;
+  if (!confirm(`Creditar ${formatCredits(amount)} Créditos 51 para ${users.length} contas ativas? Total distribuído: ${formatCredits(total)}. Essa ação não pode ser desfeita automaticamente.`)) return;
+  setBusy(form, true);
+  try {
+    const grantId = globalThis.crypto?.randomUUID?.() || `bulk-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    const data = await api('/api/admin/credits/bulk', { method: 'POST', body: { amount, reason, grantId } });
+    applyState(data); $('#bulkCreditAmount').value = ''; $('#bulkCreditReason').value = '';
+    const grant = data.bulkGrant || {}; showToast(data.duplicate ? 'Este bônus já havia sido aplicado; nenhum saldo foi duplicado.' : `${formatCredits(grant.amount || amount)} créditos enviados para ${Number(grant.recipientCount || users.length)} contas.`);
+  } catch (error) { $('#bulkCreditError').textContent = error.message; }
+  finally { setBusy(form, false); }
 });
 $('#downloadBackupButton').addEventListener('click', async () => {
   try { const response = await fetch('/api/admin/backup'); if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Não foi possível criar o backup.'); const blob = await response.blob(); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'area51-backup-' + new Date().toISOString().slice(0, 10) + '.json'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1500); showToast('Backup completo baixado.'); } catch (error) { showToast(error.message, 'error'); }

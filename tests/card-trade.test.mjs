@@ -30,7 +30,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260917-284/);
-  assert.match(html, /app\.js\?v=20260917-288/);
+  assert.match(html, /app\.js\?v=20260917-289/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -77,7 +77,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.match(html, /id="flightBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260917-mercado-renda-v18/);
+  assert.match(appJs, /20260917-bonus-investimento-v19/);
 });
 
 test('tabela de preços usa finais em centavos sem alterar recompensas e estornos históricos', () => {
@@ -120,12 +120,24 @@ test('Mercado oferece liquidez controlada sem substituir a valorização', () =>
   assert.match(html, /id="marketLiquidityHint"/);
 });
 
+test('administração consegue distribuir bônus coletivo com proteção contra duplicação', () => {
+  assert.match(serverJs, /route === '\/api\/admin\/credits\/bulk'/);
+  assert.match(serverJs, /bulkCreditGrants/);
+  assert.match(serverJs, /mode: 'bulk-add'/);
+  assert.match(serverJs, /batchId: grantId/);
+  assert.match(serverJs, /person\.active && person\.approved !== false/);
+  assert.match(appJs, /\$\('#bulkCreditForm'\)/);
+  assert.match(appJs, /data\.duplicate \? 'Este bônus já havia sido aplicado/);
+  assert.match(html, /id="bulkCreditAmount" type="number" min="0\.01"/);
+  assert.match(html, /Creditar para toda a equipe/);
+});
+
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /function sanitizePendingLieVoters\(now = new Date\(\)\.toISOString\(\)\)/);
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260917-mercado-renda-v18/);
+  assert.match(appJs, /20260917-bonus-investimento-v19/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

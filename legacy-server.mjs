@@ -321,6 +321,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.shields)) { db.economy.shields = []; changed = true; }
   if (!Array.isArray(db.economy.authorReveals)) { db.economy.authorReveals = []; changed = true; }
   if (!Array.isArray(db.economy.creditAdjustments)) { db.economy.creditAdjustments = []; changed = true; }
+  if (!Array.isArray(db.economy.bulkCreditGrants)) { db.economy.bulkCreditGrants = []; changed = true; }
   if (!Array.isArray(db.economy.dailyIncomeClaims)) { db.economy.dailyIncomeClaims = []; changed = true; }
   if (!Array.isArray(db.economy.marketMissionClaims)) { db.economy.marketMissionClaims = []; changed = true; }
   if (!db.economy.investmentMarket || typeof db.economy.investmentMarket !== 'object') { ensureMarketState(db.economy); changed = true; }
@@ -4260,7 +4261,7 @@ async function handleApi(req, res, route) {
     db.economy.dailyMissionRewards ||= []; db.economy.cleanNameRewards ||= [];
     db.economy.teamMissionRewards ||= []; db.economy.seasonChallengeRewards ||= []; db.economy.gifts ||= []; db.economy.activityTotals ||= {};
     db.economy.powerUses ||= []; db.economy.shields ||= []; db.economy.authorReveals ||= [];
-    db.economy.creditAdjustments ||= []; db.economy.forcedCursors ||= [];
+    db.economy.creditAdjustments ||= []; db.economy.bulkCreditGrants ||= []; db.economy.forcedCursors ||= [];
     db.economy.mysteryBoxes ||= []; db.economy.casinoPlays ||= []; db.economy.casinoAccounts ||= {};
     db.settings.roundSchedule ||= { submissionsAt: '', drawAt: '', voteAt: '' };
     db.settings.featureFlags = { ...DEFAULT_FEATURE_FLAGS, ...db.settings.featureFlags };
@@ -4280,6 +4281,29 @@ async function handleApi(req, res, route) {
       createdAt: new Date().toISOString(), ...makePassword(password) };
     db.users.push(createdUser); joinOpenRound(createdUser);
     await persist(); json(res, 201, stateFor(admin)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/admin/credits/bulk') {
+    const { user: admin } = requireAdmin(req); const body = await readJson(req);
+    const amount = parseMoney(body.amount, { min: 0.01, max: 100000 });
+    if (amount === null) throw new HttpError(400, 'Informe um bônus entre 0,01 e 100.000 créditos, com no máximo duas casas decimais.');
+    const grantId = String(body.grantId || '').trim();
+    if (!/^[a-zA-Z0-9_-]{12,120}$/.test(grantId)) throw new HttpError(400, 'Identificador do bônus inválido. Tente novamente.');
+    const previous = (db.economy.bulkCreditGrants || []).find((entry) => entry.id === grantId);
+    if (previous) { json(res, 200, { ...stateFor(admin), bulkGrant: previous, duplicate: true }); return; }
+    const targets = db.users.filter((person) => person.active && person.approved !== false);
+    if (!targets.length) throw new HttpError(409, 'Não há contas ativas para receber o bônus.');
+    const reason = String(body.reason || '').trim().slice(0, 120) || 'Bônus coletivo para investimento no Mercado 51';
+    const createdAt = new Date().toISOString();
+    targets.forEach((target) => {
+      const before = walletFor(target.id); addCredits(target.id, amount);
+      db.economy.creditAdjustments.push({ id: randomUUID(), adminId: admin.id, adminName: admin.displayName, userId: target.id, mode: 'bulk-add', amount, before, after: walletFor(target.id), reason, batchId: grantId, createdAt });
+    });
+    if (db.economy.creditAdjustments.length > 1000) db.economy.creditAdjustments = db.economy.creditAdjustments.slice(-1000);
+    const bulkGrant = { id: grantId, amount, reason, recipientCount: targets.length, total: roundMoney(amount * targets.length), adminId: admin.id, adminName: admin.displayName, createdAt };
+    db.economy.bulkCreditGrants.push(bulkGrant);
+    if (db.economy.bulkCreditGrants.length > 1000) db.economy.bulkCreditGrants = db.economy.bulkCreditGrants.slice(-1000);
+    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(admin), bulkGrant, duplicate: false }); return;
   }
 
   const creditMatch = route.match(/^\/api\/admin\/users\/([a-f0-9-]+)\/credits$/);

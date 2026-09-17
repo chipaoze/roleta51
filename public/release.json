@@ -1,5 +1,5 @@
 {
-  "version": "20260917-mercado-renda-v18",
-  "title": "Nova liquidez do Mercado 51",
-  "notes": "O Mercado 51 agora oferece Renda 51 diária após uma atividade válida, missões de mercado, dividendos simulados limitados para quem mantém posições e um alerta de liquidez. A valorização continua sendo o principal ganho; os limites evitam inflação e não alteram compras ou saldos históricos."
+  "version": "20260917-bonus-investimento-v19",
+  "title": "Bônus coletivo para investir",
+  "notes": "O painel administrativo agora permite creditar um bônus de investimento para todas as contas ativas de uma vez. Cada lançamento fica registrado no extrato, com confirmação e proteção contra repetição acidental da mesma operação."
 }
