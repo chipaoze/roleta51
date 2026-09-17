@@ -2571,7 +2571,7 @@ async function handleApi(req, res, route) {
     const auth = requireAuth(req); const { user } = auth;
     // As cotações avançam no servidor, o polling normal também precisa
     // perceber a virada da janela sem exigir que o usuário recarregue a tela.
-    // A função só altera o estado duas vezes por dia; portanto, não cria
+    // A função só altera o estado cinco vezes por dia; portanto, não cria
     // gravações extras durante os demais ciclos de presença.
     try {
       const marketAdvanced = advanceMarket(db.economy);

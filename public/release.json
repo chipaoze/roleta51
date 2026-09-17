@@ -1,5 +1,5 @@
 {
-  "version": "20260916-creditos-51-campos-v13",
-  "title": "Campos preparados para valores com centavos",
-  "notes": "Os campos numéricos da loja, Mercado 51, roleta, avião e demais formulários agora têm tamanho e alinhamento padronizados para valores com duas casas. Nenhuma regra de preço foi alterada: a migração de compras para centavos será feita por etapas."
+  "version": "20260917-mercado-radar-v14",
+  "title": "Radar completo e gráfico do Mercado 51",
+  "notes": "O radar agora lista as seis moedas com valor anterior, valor atual, variação e seta de alta ou baixa. O gráfico passou a mostrar a evolução individual de cada ativo, incluindo a última janela. As cotações do servidor agora atualizam cinco vezes por dia, mantendo uma única gravação por janela no plano Free."
 }

@@ -30,8 +30,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260916-283/);
-  assert.match(html, /app\.js\?v=20260916-283/);
-  assert.match(html, /platform-upgrades\.css\?v=20260916-215/);
+  assert.match(html, /app\.js\?v=20260917-284/);
+  assert.match(html, /platform-upgrades\.css\?v=20260917-216/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -66,6 +66,13 @@ test('campos numéricos têm largura e altura para centavos em todos os temas', 
   assert.match(upgrades, /font-variant-numeric:tabular-nums/);
   assert.match(upgrades, /\.shop-quantity-picker\{grid-template-columns:minmax\(0,1fr\) minmax\(96px,8rem\)!important\}/);
   assert.match(upgrades, /\.shop-quantity-picker input\[type="number"\]\{min-width:10ch!important\}/);
+});
+
+test('radar do mercado lista todos os ativos e o gráfico inclui a janela anterior', () => {
+  assert.match(appJs, /function marketRadarMarkup\(assets\)/);
+  assert.match(appJs, /marketRadarMarkup\(assets\)/);
+  assert.match(appJs, /const previous = Number\(asset\.previousPrice \|\| current\)/);
+  assert.match(html, /5 atualizações por dia/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

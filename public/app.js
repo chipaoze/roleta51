@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-creditos-51-campos-v13',
-  title: 'Campos preparados para valores com centavos',
-  notes: 'Os campos numéricos da loja, Mercado 51, roleta, avião e demais formulários agora têm tamanho e alinhamento padronizados para valores com duas casas. Nenhuma regra de preço foi alterada: a migração de compras para centavos será feita por etapas.'
+  version: '20260917-mercado-radar-v14',
+  title: 'Radar completo e gráfico do Mercado 51',
+  notes: 'O radar agora lista as seis moedas com valor anterior, valor atual, variação e seta de alta ou baixa. O gráfico passou a mostrar a evolução individual de cada ativo, incluindo a última janela. As cotações do servidor agora atualizam cinco vezes por dia, mantendo uma única gravação por janela no plano Free.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3362,10 +3362,15 @@ function marketSignedMoney(value) {
 }
 function marketChartMarkup(assets, history) {
   const chronological = [...history].reverse();
-  const rows = chronological.length ? chronological : [{ prices: Object.fromEntries(assets.map((asset) => [asset.id, asset.price])) }];
   const series = assets.map((asset, index) => {
-    const values = rows.map((row) => Number(row.prices?.[asset.id] || asset.price));
-    values.push(Number(asset.price));
+    const current = Number(asset.price || 0);
+    const previous = Number(asset.previousPrice || current);
+    const values = chronological.map((row) => Number(row.prices?.[asset.id] || current));
+    if (!values.length) values.push(previous, current);
+    else if (values.length === 1) {
+      if (Math.abs(values[0] - previous) > 0.0001) values.unshift(previous);
+      if (Math.abs(values[values.length - 1] - current) > 0.0001) values.push(current);
+    } else if (Math.abs(values[values.length - 1] - current) > 0.0001) values.push(current);
     if (values.length === 1) values.unshift(values[0]);
     const base = values[0] || Number(asset.price) || 1;
     return { asset, color: MARKET_CHART_COLORS[index % MARKET_CHART_COLORS.length], points: values.map((value) => ((value / base) - 1) * 100) };
@@ -3386,6 +3391,16 @@ function marketMoverMarkup(asset, kind) {
   const positive = kind === 'up'; const direction = asset.direction === 'flat' ? 'flat' : positive ? 'up' : 'down';
   return `<div class="market-mover-row ${direction}"><span class="market-mover-icon">${positive ? '↗' : '↘'}</span><span><b>${escapeHtml(asset.name)}</b><small>${marketMoney(asset.price)} Créditos 51</small></span><strong>${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2).replace('.', ',')}%</strong></div>`;
 }
+function marketRadarMarkup(assets) {
+  if (!assets.length) return '<p class="market-mover-empty">Nenhuma cotação disponível nesta janela.</p>';
+  const rows = assets.map((asset) => {
+    const direction = asset.direction || 'flat';
+    const arrow = direction === 'up' ? '↗' : direction === 'down' ? '↘' : '→';
+    const percent = `${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2).replace('.', ',')}%`;
+    return `<div class="market-radar-row ${direction}"><span class="market-radar-asset" data-label="Moeda"><i>${asset.icon}</i><b>${escapeHtml(asset.name)}</b></span><span data-label="Antes">${marketMoney(asset.previousPrice)}<small>Créditos 51</small></span><span data-label="Agora"><strong>${marketMoney(asset.price)}</strong><small>Créditos 51</small></span><span class="market-radar-change" data-label="Variação"><b>${arrow} ${marketSignedMoney(asset.change)}</b><small>${percent}</small></span></div>`;
+  }).join('');
+  return `<div class="market-radar-grid"><div class="market-radar-head" aria-hidden="true"><span>Moeda</span><span>Antes</span><span>Agora</span><span>Variação</span></div>${rows}</div>`;
+}
 function renderInvestmentMarket(profile = {}) {
   const market = profile.investmentMarket || {}; const assets = Array.isArray(market.assets) ? market.assets : [];
   const wallet = Number(profile.wallet || 0); const holdingsValue = Number(market.holdingsValue || 0); const portfolioValue = wallet + holdingsValue;
@@ -3395,8 +3410,7 @@ function renderInvestmentMarket(profile = {}) {
   const lastUpdateEl = $('#marketLastUpdate'); if (lastUpdateEl) lastUpdateEl.textContent = market.updatedAt ? `Última atualização: ${new Date(market.updatedAt).toLocaleString('pt-BR')}` : 'Aguardando a primeira atualização do servidor';
   const root = $('#marketAssets'); if (!root) return;
   const history = Array.isArray(market.history) ? market.history : [];
-  const sortedByChange = [...assets].sort((a, b) => Number(b.changePercent || 0) - Number(a.changePercent || 0));
-  const movers = $('#marketMovers'); if (movers) movers.innerHTML = `<div class="market-mover-column"><small class="market-mover-heading up">MAIORES ALTAS</small>${marketMoverMarkup(sortedByChange.find((asset) => Number(asset.changePercent || 0) > 0), 'up')}</div><div class="market-mover-column"><small class="market-mover-heading down">MAIORES BAIXAS</small>${marketMoverMarkup([...sortedByChange].reverse().find((asset) => Number(asset.changePercent || 0) < 0), 'down')}</div>`;
+  const movers = $('#marketMovers'); if (movers) movers.innerHTML = marketRadarMarkup(assets);
   const chart = $('#marketChart'); if (chart) chart.innerHTML = marketChartMarkup(assets, history);
   root.innerHTML = assets.map((asset) => { const arrow = asset.direction === 'up' ? '<b class="market-change up">↑</b>' : asset.direction === 'down' ? '<b class="market-change down">↓</b>' : '<b class="market-change flat">→</b>'; const changeText = `${marketSignedMoney(asset.change)} (${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2).replace('.', ',')}%)`; const quantity = Number(asset.quantity || 0); const price = Number(asset.price || 0); const order = (side, label, buttonClass, max) => `<form class="market-order" data-market-action="${side}" data-market-asset="${escapeHtml(asset.id)}" data-market-price="${price}"><div class="market-order-head"><b>${label}</b><output data-market-total>Total da ordem: ${marketMoney(price)} Créditos 51</output></div><div class="market-order-fields"><label>Quantidade<input name="quantity" type="number" min="1" max="${max}" step="1" value="1" required></label><button class="button ${buttonClass}" type="submit">${label}</button></div><div class="market-quick-qty" aria-label="Quantidades rápidas">${[1, 5, 10, 25].map((amount) => `<button type="button" data-market-quick="${amount}">${amount}</button>`).join('')}</div></form>`; return `<article class="card market-asset-card"><header><span class="market-asset-icon">${asset.icon}</span><div><h3>${escapeHtml(asset.name)}</h3><strong class="market-price"><span>${marketMoney(asset.price)}</span> <small>Créditos 51 / unidade</small> ${arrow}</strong><small class="market-change-label ${asset.direction}">${changeText}</small></div><small class="market-position">${quantity} em carteira<br><b>${marketMoney(asset.positionValue)} Créditos 51</b></small></header><div class="market-card-chart">${marketChartMarkup([asset], history)}</div>${order('buy', 'Comprar', 'button-primary', 100000)}${order('sell', 'Vender', 'button-dark', Math.max(1, quantity))}</article>`; }).join('') || '<p class="market-empty">Carregando cotações…</p>';
   $('#marketHistory').innerHTML = history.length ? history.map((row) => `<div class="market-history-row"><time>${new Date(row.createdAt).toLocaleString('pt-BR')}</time><span>${assets.map((asset) => `${escapeHtml(asset.name)}: ${marketMoney(row.prices?.[asset.id])}`).join(' · ')}</span></div>`).join('') : '<p class="market-empty">O histórico será formado na próxima atualização do servidor.</p>';
