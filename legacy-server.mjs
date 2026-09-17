@@ -903,9 +903,10 @@ const LOTTERY_MAX_POOL = 1500;
 const LOTTERY_DRAW_HOUR = 16;
 const LOTTERY_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // Exceção única para a primeira transmissão do sorteio: a rodada aberta nesta
-// semana fecha às 16h05; todas as rodadas seguintes continuam às 16h.
-const LOTTERY_ONE_OFF_ROUND_ID = 'lottery:2026-09-11T19:00:00.000Z';
-const LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T19:05:00.000Z';
+// semana fecha às 16h10; todas as rodadas seguintes continuam às 16h.
+const LOTTERY_ONE_OFF_ROUND_ID = 'lottery:2026-09-10T19:00:00.000Z';
+const LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T19:10:00.000Z';
+const LOTTERY_ONE_OFF_RESET_VERSION = '2026-09-17T19:10-reopen-v1';
 function casinoAccountFor(userId, create = false) {
   const dayKey = saoPauloDayKey(); const current = db.economy.casinoAccounts[userId];
   if (current?.dayKey === dayKey) return current;
@@ -988,8 +989,65 @@ function createLotteryRound(window, carryOver = 0) {
   return round;
 }
 
+function reopenOneOffLotteryRoundIfNeeded(now = new Date()) {
+  ensureLotteryState();
+  if (!Array.isArray(db.economy.creditAdjustments)) db.economy.creditAdjustments = [];
+  const round = db.economy.lottery.rounds.find((item) => item.id === LOTTERY_ONE_OFF_ROUND_ID);
+  if (!round || round.status !== 'drawn' || round.oneOffResetVersion === LOTTERY_ONE_OFF_RESET_VERSION) return false;
+
+  // A primeira publicação encerrou esta rodada antes da janela excepcional.
+  // Reverte somente os créditos emitidos pela própria apuração e registra uma
+  // reversão compensatória, preservando o histórico financeiro e qualquer
+  // movimentação legítima posterior do participante.
+  const payouts = Array.isArray(round.payouts) ? round.payouts : [];
+  const payoutAdjustments = (db.economy.creditAdjustments || []).filter((item) => item.mode === 'lottery-prize' && item.lotteryRoundId === round.id);
+  for (const payout of payouts) {
+    const amount = roundMoney(payout.amount);
+    if (!amount) continue;
+    const adjustment = payoutAdjustments.find((item) => item.userId === payout.userId && roundMoney(item.amount) === amount);
+    const before = walletFor(payout.userId);
+    addCredits(payout.userId, -amount);
+    db.economy.creditAdjustments.push({
+      id: randomUUID(), userId: payout.userId, mode: 'lottery-reversal', amount: -amount,
+      before, after: walletFor(payout.userId), reason: `Estorno da apuração antecipada da Loteria 51 · rodada ${round.id.slice(-10)}`,
+      createdAt: now.toISOString(), lotteryRoundId: round.id, reversesAdjustmentId: adjustment?.id || null,
+    });
+  }
+
+  // Um novo segredo evita que qualquer resultado exibido antes da correção
+  // dê vantagem a alguém. Os palpites já registrados continuam válidos.
+  const secret = randomBytes(32).toString('hex');
+  round.secret = secret;
+  round.commitHash = createHash('sha256').update(secret).digest('hex');
+  round.closeAt = LOTTERY_ONE_OFF_CLOSE_AT;
+  round.status = 'open';
+  round.oneOffHold = true;
+  round.oneOffResetVersion = LOTTERY_ONE_OFF_RESET_VERSION;
+  round.reopenedFromDrawnAt = round.drawnAt || null;
+  round.drawnAt = null;
+  round.revealedSecret = null;
+  round.winningNumbers = [];
+  round.winnerIds = [];
+  round.payouts = [];
+  round.rolloverAmount = 0;
+  round.realWagered = 0;
+  round.houseMargin = 0;
+  round.contribution = 0;
+  round.prizePool = 0;
+  return true;
+}
+
 function currentLotteryRound(date = new Date()) {
   ensureLotteryState();
+  reopenOneOffLotteryRoundIfNeeded(date);
+  const oneOffRound = db.economy.lottery.rounds.find((item) => item.id === LOTTERY_ONE_OFF_ROUND_ID && item.status === 'open' && Date.parse(item.closeAt) > date.getTime());
+  if (oneOffRound) {
+    if (Date.parse(oneOffRound.closeAt) !== Date.parse(LOTTERY_ONE_OFF_CLOSE_AT)) {
+      oneOffRound.closeAt = LOTTERY_ONE_OFF_CLOSE_AT;
+      oneOffRound.oneOffHold = true;
+    }
+    return oneOffRound;
+  }
   const window = lotteryWindowFor(date);
   let round = db.economy.lottery.rounds.find((item) => item.id === window.id);
   if (!round) {
