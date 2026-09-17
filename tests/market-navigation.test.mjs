@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { marketSlotKey } from '../lib/investment-market.mjs';
 
 test('Mercado 51 possui rota própria e navegação direta no menu', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
@@ -47,6 +48,17 @@ test('Mercado informa as oito janelas de atualização no horário de Brasília'
   const marketLib = fs.readFileSync(new URL('../lib/investment-market.mjs', import.meta.url), 'utf8');
   assert.match(html, /id="marketUpdateSchedule"/);
   assert.match(app, /A primeira sincronização após cada horário consolida a nova cotação/);
-  assert.match(marketLib, /MARKET_UPDATE_HOURS = Object\.freeze\(\[0, 3, 6, 9, 12, 15, 18, 21\]\)/);
-  assert.match(marketLib, /updateSchedule: \{ timeZone: MARKET_TIME_ZONE, hours: \[\.\.\.MARKET_UPDATE_HOURS\] \}/);
+  assert.match(marketLib, /MARKET_UPDATE_TIMES = Object\.freeze\(\[/);
+  assert.match(marketLib, /'08:00', '09:15', '10:30', '11:45'/);
+  assert.match(marketLib, /'13:00', '14:15', '15:30', '16:45'/);
+  assert.match(marketLib, /updateSchedule: \{ timeZone: MARKET_TIME_ZONE, times: \[\.\.\.MARKET_UPDATE_TIMES\] \}/);
+  assert.doesNotMatch(html, /00h · 03h · 06h/);
+});
+
+test('Mercado não altera cotações fora da janela operacional', () => {
+  assert.equal(marketSlotKey(new Date('2026-09-17T10:59:00.000Z')), '2026-09-16:u7'); // 07h59 BRT
+  assert.equal(marketSlotKey(new Date('2026-09-17T11:00:00.000Z')), '2026-09-17:u0'); // 08h00 BRT
+  assert.equal(marketSlotKey(new Date('2026-09-17T12:14:00.000Z')), '2026-09-17:u0'); // 09h14 BRT
+  assert.equal(marketSlotKey(new Date('2026-09-17T12:15:00.000Z')), '2026-09-17:u1'); // 09h15 BRT
+  assert.equal(marketSlotKey(new Date('2026-09-17T20:45:00.000Z')), '2026-09-17:u7'); // 17h45 BRT, última cotação vigente
 });

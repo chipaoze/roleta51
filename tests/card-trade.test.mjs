@@ -31,7 +31,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260917-288/);
-  assert.match(html, /app\.js\?v=20260917-306/);
+  assert.match(html, /app\.js\?v=20260917-307/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -90,7 +90,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.match(html, /id="flightBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260917-mentirometro-v36/);
+  assert.match(appJs, /20260917-mercado-v37/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -187,8 +187,9 @@ test('Mercado mostra tooltip por ponto e resultado desde o custo médio', () => 
 });
 
 test('Mercado usa oito janelas fixas sem API externa', () => {
-  assert.match(marketLib, /Math\.floor\(Number\(get\('hour'\)\) \/ 3\)/);
-  assert.match(marketLib, /Oito janelas fixas/);
+  assert.match(marketLib, /MARKET_UPDATE_TIMES/);
+  assert.match(marketLib, /MARKET_UPDATE_MINUTES/);
+  assert.match(marketLib, /As oito sincronizações/);
 });
 
 test('Mercado oferece liquidez controlada sem substituir a valorização', () => {
@@ -221,7 +222,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260917-mentirometro-v36/);
+  assert.match(appJs, /20260917-mercado-v37/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -229,7 +230,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260917-mentirometro-v36/);
+  assert.match(appJs, /20260917-mercado-v37/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
