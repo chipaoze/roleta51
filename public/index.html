@@ -693,6 +693,19 @@
     <button class="button button-primary" id="closeWinnerButton">Boa! Continuar</button>
   </dialog>
 
+  <dialog id="shieldDecisionDialog" class="shield-decision-dialog" aria-labelledby="shieldDecisionTitle">
+    <span class="shield-decision-icon" aria-hidden="true">🛡️</span>
+    <span class="winner-kicker">DECISÃO DO SORTEIO</span>
+    <h2 id="shieldDecisionTitle">Você foi sorteado como Gay</h2>
+    <p><strong id="shieldDecisionName">Você</strong>, seu Escudo da Rodada está disponível no inventário.</p>
+    <p id="shieldDecisionMessage">Use-o para remover seu nome e reabrir o sorteio, ou mantenha o resultado e abra a votação.</p>
+    <div class="shield-decision-actions">
+      <button id="useShieldButton" class="button button-primary" type="button">Usar Escudo e sortear novamente</button>
+      <button id="keepGayButton" class="button button-dark" type="button">Manter o resultado</button>
+    </div>
+    <small id="shieldDecisionStatus" role="status"></small>
+  </dialog>
+
   <dialog id="passwordDialog" class="password-dialog">
     <button id="closePasswordDialog" class="dialog-close" aria-label="Fechar">×</button>
     <div class="dialog-form">

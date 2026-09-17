@@ -1,5 +1,5 @@
 {
-  "version": "20260917-correcao-extrato-v20",
-  "title": "Correção do extrato de Créditos 51",
-  "notes": "Valores de bônus, presentes e demais ajustes agora são arredondados corretamente em centavos no extrato e nas notificações. O bônus coletivo já creditado não foi duplicado nem alterado."
+  "version": "20260917-escudo-rodada-v21",
+  "title": "Escudo da Rodada após o sorteio",
+  "notes": "O Escudo agora permanece no inventário até você ser sorteado como Gay. Nesse momento aparece uma decisão: usar o poder para retirar seu nome e reabrir o sorteio, ou manter o resultado. O item só é consumido quando usado e cada novo sorteado com escudo recebe a mesma escolha."
 }

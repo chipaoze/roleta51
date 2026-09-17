@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-correcao-extrato-v20',
-  title: 'Correção do extrato de Créditos 51',
-  notes: 'Valores de bônus, presentes e demais ajustes agora são arredondados corretamente em centavos no extrato e nas notificações. O bônus coletivo já creditado não foi duplicado nem alterado.'
+  version: '20260917-escudo-rodada-v21',
+  title: 'Escudo da Rodada após o sorteio',
+  notes: 'O Escudo agora permanece no inventário até você ser sorteado como Gay. Nesse momento aparece uma decisão: usar o poder para retirar seu nome e reabrir o sorteio, ou manter o resultado. O item só é consumido quando usado e cada novo sorteado com escudo recebe a mesma escolha.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -80,6 +80,7 @@ let flightAnimationFrame=null;
 let flightCurrentId=null;
 let mysteryOpeningInProgress = false;
 let forcedCursorExpiryTimer = null;
+let pendingShieldDialogIdShown = null;
 let seasonCountdownTimer = null;
 const casinoWheelValues = [
   0,.5,1,1.5,'box-sonda',.5,1,2,1.5,.5,0,1,3,1.5,'box-cosmic',0,1,2,1.5,1,
@@ -3053,7 +3054,7 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   if (powers.forcedTheme) powerRows.push(['🎨', 'Tema reservado', powers.forcedTheme, true]);
   (powers.available || []).forEach((entry) => powerRows.push([entry.icon, entry.name, entry.detail || 'Pronto para usar.', false, null, entry.itemId]));
   $('#activePowersCard').classList.toggle('hidden', powerRows.length === 0);
-  $('#activePowersList').innerHTML = powerRows.map(([icon, title, detail, active, cancelId, availableId]) => `<div class="active-power-row${active ? ' is-active' : ''}"><span>${icon}</span><p><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></p>${cancelId ? `<button type="button" data-cancel-power="${cancelId}">Cancelar</button>` : availableId ? `<button type="button" data-profile-power-use="${escapeHtml(availableId)}">Usar</button>` : '<b>ATIVO</b>'}</div>`).join('');
+  $('#activePowersList').innerHTML = powerRows.map(([icon, title, detail, active, cancelId, availableId]) => `<div class="active-power-row${active ? ' is-active' : ''}"><span>${icon}</span><p><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></p>${cancelId ? `<button type="button" data-cancel-power="${cancelId}">Cancelar</button>` : availableId === 'power-shield-gay' ? '<b>AGUARDE O SORTEIO</b>' : availableId ? `<button type="button" data-profile-power-use="${escapeHtml(availableId)}">Usar</button>` : '<b>ATIVO</b>'}</div>`).join('');
   const mysteryBoxes = Array.isArray(profile.mysteryBoxes) ? profile.mysteryBoxes : [];
   const mysteryRewards = Array.isArray(profile.mysteryRewards) ? profile.mysteryRewards : [];
   const physicalPrizes = profile.physicalPrizes || [];
@@ -3138,8 +3139,9 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
     const isOwnedVisual = item.owned && !item.consumable && !item.mysteryBox && !item.service;
     const filteredOut = (shopFilter !== 'all' && shopFilter !== category) || (hideOwnedVisuals && isOwnedVisual);
     const label = isCobblemonBalls ? 'POKÉDEX 51 · CAPTURA' : item.cardPack ? 'PACOTE DE CARTAS' : item.service ? 'TROCA DE CONQUISTA' : item.mysteryBox ? 'CAIXA MISTERIOSA' : item.type === 'title' ? 'TÍTULO' : item.type === 'badge' ? 'EMBLEMA DO PERFIL' : item.type === 'frame' ? 'MOLDURA' : item.type === 'nameStyle' ? 'ESTILO DO NOME' : item.type === 'siteTheme' ? 'TEMA VISUAL' : item.type === 'cursorStyle' ? 'SKIN DO CURSOR' : item.type === 'trailStyle' ? 'RASTRO DO CURSOR' : 'PODER CONSUMÍVEL';
-    const action = isCobblemonBalls ? (balls.canBuy ? `Comprar +${Number(balls.buyQuantity || 10)} Poké Balls` : 'Comprado hoje') : item.cardPack ? 'Comprar pacote' : item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Comprar fechada' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
-    const shopAction = isCobblemonBalls ? 'cobblemon-balls' : item.cardPack ? 'purchase' : item.service ? 'sell-best-win' : item.mysteryBox ? 'mystery-purchase' : item.consumable ? (item.quantity > 0 ? 'use' : 'purchase') : item.owned ? 'equip' : 'purchase';
+    const shieldWaiting = item.value === 'shieldGay' && Number(item.quantity || 0) > 0;
+    const action = isCobblemonBalls ? (balls.canBuy ? `Comprar +${Number(balls.buyQuantity || 10)} Poké Balls` : 'Comprado hoje') : item.cardPack ? 'Comprar pacote' : item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Comprar fechada' : shieldWaiting ? 'Aguardar sorteio' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
+    const shopAction = isCobblemonBalls ? 'cobblemon-balls' : item.cardPack ? 'purchase' : item.service ? 'sell-best-win' : item.mysteryBox ? 'mystery-purchase' : shieldWaiting ? 'shield-waiting' : item.consumable ? (item.quantity > 0 ? 'use' : 'purchase') : item.owned ? 'equip' : 'purchase';
     const status = isCobblemonBalls ? `<span class="coin-51" aria-hidden="true">51</span> ${formatCredits(balls.buyPrice || 0)} créditos · ${Number(balls.remaining || 0)} restantes hoje` : item.cardPack ? formatCredits(item.price) + ' créditos · ' + item.quantity + ' fechado(s)' : item.service ? '🏆 ' + Number(item.availablePoints || 0) + ' disponível · receba 500 créditos' : item.mysteryBox ? (Number(item.quantity || 0) ? '🎁 ' + item.quantity + ' fechado' + (Number(item.quantity) === 1 ? '' : 's') + ' no perfil · ' : '') + '<span class="coin-51" aria-hidden="true">51</span> ' + formatCredits(item.price) + ' créditos' : item.granted ? (item.equipped ? '★ Cursor oficial em uso' : '★ Concedido ao administrador') : item.consumable && item.quantity > 0 ? '🎟️ ' + item.quantity + ' disponível' : item.equipped ? (item.type === 'siteTheme' ? '✓ Tema aplicado em todo o site' : '● Em uso') : item.owned ? '✓ Na sua coleção' : '<span class="coin-51" aria-hidden="true">51</span> ' + formatCredits(item.price) + ' créditos';
     const themeConfirmation = item.type === 'siteTheme' && item.equipped ? '<div class="theme-applied-confirmation"><span>✓</span><strong>ESTE TEMA ESTÁ ATIVO</strong><small>Você está vendo este visual em todo o site agora.</small></div>' : '';
     const previewButton = item.service || item.consumable || item.mysteryBox ? '' : `<button class="shop-test-button" type="button" data-shop-preview="${escapeHtml(item.id)}" data-preview-type="${escapeHtml(item.type)}" data-preview-value="${escapeHtml(item.value)}">Testar 20s</button>`;
@@ -3153,7 +3155,7 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
     const boxInfo = item.mysteryBox ? ` data-box-info="true" data-box-name="${escapeHtml(item.name)}" data-box-icon="${escapeHtml(item.icon)}" data-box-credit="${Math.round(Number(item.creditChance || 0) * 100)}" data-box-power="${Math.round(Number(item.powerChance || 0) * 100)}" data-box-min="${Number(item.creditMin || 0)}" data-box-max="${Number(item.creditMax || 0)}" data-box-reward-min="${Number(item.minRewardPrice || 0)}" data-box-reward-max="${Number(item.maxRewardPrice || 0)}" data-box-physical-chance="${Number(item.physicalKitChance || 0)}"` : '';
     const iconMarkup = isCobblemonBalls ? `<span class="shop-item-icon"><img src="${COBBLEMON_ITEM_SPRITES.poke}" alt="Poké Ball" style="width:52px;height:52px;object-fit:contain;image-rendering:pixelated"></span>` : item.mysteryBox ? `<button class="shop-item-icon" type="button" aria-label="Ver chances da ${escapeHtml(item.name)}">${item.icon}</button>` : `<span class="shop-item-icon">${item.icon}</span>`;
     const oddsButton = item.mysteryBox ? '<button type="button" data-box-odds>Ver chances</button>' : '';
-    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}"${boxInfo}>${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}${iconMarkup}<div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong>${quantityPicker}<span class="shop-card-actions">${oddsButton}${previewButton}${freeButton}${buyMorePower}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}" data-equipped="${item.equipped}"${isCobblemonBalls ? (!balls.canBuy ? ' disabled' : '') : item.service && Number(item.availablePoints || 0) < 1 ? ' disabled' : ''}>${action}</button></span></footer></article>`;
+    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}"${boxInfo}>${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}${iconMarkup}<div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong>${quantityPicker}<span class="shop-card-actions">${oddsButton}${previewButton}${freeButton}${buyMorePower}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}" data-equipped="${item.equipped}"${shieldWaiting || (isCobblemonBalls ? (!balls.canBuy ? ' disabled' : '') : item.service && Number(item.availablePoints || 0) < 1 ? ' disabled' : '') ? ' disabled' : ''}>${action}</button></span></footer></article>`;
   }).join('');
   const collectionCatalog = $('#collectionCatalog');
   collectionCatalog.innerHTML = '';
@@ -3560,6 +3562,12 @@ function applyState(data) {
   $('#sideRoundName').textContent = data.settings.roundName;
   $('#currentThemeLabel').textContent = data.workflow.currentTheme ? data.workflow.currentTheme.toUpperCase() : 'AGUARDANDO SORTEIO';
   renderProfileEconomy(data.profile, true);
+  const pendingShield = data.profile?.activePowers?.pendingGayShield;
+  if (!pendingShield) pendingShieldDialogIdShown = null;
+  else if (pendingShield.id !== pendingShieldDialogIdShown && !$('#shieldDecisionDialog')?.open) {
+    pendingShieldDialogIdShown = pendingShield.id;
+    showShieldOffer({ pendingShield: true, pendingId: pendingShield.id, shieldTargetId: data.me.id, shieldTargetName: data.me.displayName, winner: data.me.displayName });
+  }
   const schedule = data.settings.roundSchedule || {};
   const scheduleItems = [['📤', 'Envios', schedule.submissionsAt], ['🎡', 'Sorteio', schedule.drawAt], ['🗳️', 'Votação', schedule.voteAt]].filter((item) => item[2]);
   $('#roundScheduleBanner').classList.toggle('hidden', !scheduleItems.length);
@@ -3740,6 +3748,25 @@ function showWinner(result) {
   playTone(660, .25, .06); setTimeout(() => playTone(880, .4, .05), 180);
 }
 
+function showShieldOffer(result) {
+  const isMine = result.shieldTargetId && appState?.me?.id === result.shieldTargetId;
+  if (!isMine) {
+    showToast('O sorteio aguarda a decisão de ' + (result.shieldTargetName || result.winner) + ' sobre o Escudo da Rodada.');
+    return;
+  }
+  const dialog = $('#shieldDecisionDialog');
+  if (!dialog) return;
+  $('#shieldDecisionName').textContent = result.winner || 'você';
+  $('#shieldDecisionMessage').textContent = 'Você possui um Escudo da Rodada. Use-o para remover seu nome e reabrir o sorteio, ou mantenha o resultado e abra a votação.';
+  $('#shieldDecisionStatus').textContent = '';
+  dialog.dataset.pendingId = result.pendingId || '';
+  $('#useShieldButton').disabled = false;
+  $('#keepGayButton').disabled = false;
+  if (dialog.open) dialog.close();
+  dialog.showModal();
+  playTone(520, .2, .05);
+}
+
 function selectLiveMode(mode) {
   setMode(mode);
 }
@@ -3748,7 +3775,7 @@ function finishLiveDraw(result) {
   $('.wheel-stage').classList.remove('is-spinning');
   document.body.classList.remove('roulette-cinema');
   musicForcedBySpin = false;
-  showWinner(result);
+  if (result.pendingShield) showShieldOffer(result); else showWinner(result);
   api('/api/state').then((data) => {
     spinning = false; liveWheelItems = null; canvas.style.transition = '';
     applyState(data);
@@ -4685,6 +4712,8 @@ $('#shopCatalog').addEventListener('click', async (event) => {
         const wallpapers = (appState.submissions || []).filter((item) => !item.revealed && !item.isMine);
         if (!wallpapers.length) throw new Error('Não há wallpapers secretos disponíveis para revelar.');
         if (!confirm('Usar o Raio-X Total para revelar quem enviou todos os ' + wallpapers.length + ' wallpapers secretos desta rodada? Somente você verá os nomes.')) return;
+      } else if (button.dataset.shopValue === 'shieldGay') {
+        throw new Error('O Escudo só pode ser usado depois que você for sorteado como Gay. Aguarde o aviso do sorteio.');
       } else if (!confirm('Ativar o Escudo da Rodada agora?')) return;
       applyState(await api('/api/powers/use', { method: 'POST', body }));
       if (['cleanseCursor','loanExtension'].includes(button.dataset.shopValue)) { showToast('Poder aplicado com sucesso!'); return; }
@@ -5027,6 +5056,24 @@ function closeWinner() {
 $('.dialog-close').addEventListener('click', closeWinner);
 $('#closeWinnerButton').addEventListener('click', closeWinner);
 $('#winnerDialog').addEventListener('click', (event) => { if (event.target === $('#winnerDialog')) closeWinner(); });
+async function decideGayShield(action, button) {
+  const dialog = $('#shieldDecisionDialog');
+  const pendingId = dialog?.dataset.pendingId;
+  if (!pendingId) return;
+  button.disabled = true;
+  $('#shieldDecisionStatus').textContent = action === 'use' ? 'Escudo consumido. Reabrindo o sorteio…' : 'Resultado mantido. Abrindo a votação…';
+  try {
+    receiveLiveDraw(await api('/api/draw/gay-shield', { method: 'POST', body: { pendingId, action } }));
+    dialog.close();
+  } catch (error) {
+    $('#shieldDecisionStatus').textContent = error.message;
+    button.disabled = false;
+    showToast(error.message, 'error');
+  }
+}
+$('#useShieldButton')?.addEventListener('click', () => decideGayShield('use', $('#useShieldButton')));
+$('#keepGayButton')?.addEventListener('click', () => decideGayShield('decline', $('#keepGayButton')));
+$('#shieldDecisionDialog')?.addEventListener('cancel', (event) => event.preventDefault());
 $('#nextStepButton').addEventListener('click', goToNextStep);
 
 $('#feedbackLauncher').addEventListener('click', () => {

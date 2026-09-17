@@ -436,6 +436,24 @@ async function ensureDatabase(seedDatabase) {
   }
   if (!db.notificationsReadAt || typeof db.notificationsReadAt !== 'object') { db.notificationsReadAt = {}; changed = true; }
   if (!Object.hasOwn(db.economy, 'forcedGay')) { db.economy.forcedGay = null; changed = true; }
+  if (!Object.hasOwn(db.economy, 'pendingGayDraw')) { db.economy.pendingGayDraw = null; changed = true; }
+  // O escudo deixou de ser uma reserva antecipada. Devolva somente as
+  // reservas antigas que ainda não chegaram a um sorteio Gay concluído.
+  // Assim, poderes já consumidos em rodadas encerradas permanecem históricos.
+  if (!db.economy.shieldFlowV2) {
+    const restored = [];
+    const keptShields = [];
+    for (const shield of db.economy.shields || []) {
+      const finalized = db.draws.some((draw) => draw.type === 'gay' && draw.roundId === shield.roundId);
+      if (finalized) { keptShields.push(shield); continue; }
+      const useIndex = db.economy.powerUses.findLastIndex((use) => use.userId === shield.userId && use.itemId === 'power-shield-gay' && use.roundId === shield.roundId);
+      if (useIndex >= 0) db.economy.powerUses.splice(useIndex, 1);
+      restored.push({ userId: shield.userId, roundId: shield.roundId });
+    }
+    db.economy.shields = keptShields;
+    db.economy.shieldFlowV2 = { migratedAt: new Date().toISOString(), restored };
+    changed = true;
+  }
   if (!Object.hasOwn(db.economy, 'forcedTheme')) { db.economy.forcedTheme = null; changed = true; }
   const historicalWaterTotals = new Map();
   db.waterEntries.forEach((entry) => {
@@ -735,7 +753,7 @@ const SHOP_CATALOG = [
   { id: 'trail-rocket', name: 'Rastro Propulsão 51', description: 'Cauda de fogo azul, laranja e amarelo inspirada em propulsão espacial.', price: 310, type: 'trailStyle', value: 'rocket', icon: '🚀' },
   { id: 'trail-alien', name: 'Rastro Pegadas Alienígenas', description: 'Trilha verde radioativa para qualquer skin de cursor da coleção.', price: 260, type: 'trailStyle', value: 'alien', icon: '👣' },
   { id: 'power-reveal-author', name: 'Raio-X Total de Autoria', description: 'Use durante uma rodada com envios. Revela todas as autorias somente para você.', price: 420, type: 'power', value: 'revealAuthor', icon: '🔎', consumable: true },
-  { id: 'power-shield-gay', name: 'Escudo da Rodada', description: 'Ative durante a rodada, antes do Gay da Rodada ser definido.', price: 320, type: 'power', value: 'shieldGay', icon: '🛡️', consumable: true },
+  { id: 'power-shield-gay', name: 'Escudo da Rodada', description: 'Fica no inventário. Se você for sorteado como Gay, poderá usar para reabrir o sorteio sem consumir o poder antes da hora.', price: 320, type: 'power', value: 'shieldGay', icon: '🛡️', consumable: true },
   { id: 'power-theme', name: 'Controle de Tema', description: 'Use entre rodadas para abrir a próxima já com o tema escolhido.', price: 450, type: 'power', value: 'chooseTheme', icon: '🎨', consumable: true },
   { id: 'power-force-gay-cursor', name: 'Seta Gay Compulsória', description: 'Escolha um participante para usar a seta arco-íris cômica durante a rodada atual.', price: 520, type: 'power', value: 'forceGayCursor', icon: '🌈', consumable: true },
   { id: 'power-choose-gay', name: 'Controle Gay da Rodada', description: 'Use durante a rodada, antes do sorteio especial. Escudos ativos são respeitados.', price: 650, type: 'power', value: 'chooseGay', icon: '👑', consumable: true },
@@ -1458,6 +1476,70 @@ function drawForUser(draw, userId) {
   return personalized;
 }
 
+function gayDrawContext(roundId) {
+  const participants = eligibleUsers();
+  const assignments = db.assignments.filter((item) => item.roundId === roundId && item.revealed);
+  if (!participants.length || assignments.length !== participants.length) {
+    throw new HttpError(409, 'Distribua um wallpaper para cada participante antes deste sorteio.');
+  }
+  if (db.draws.some((item) => item.type === 'gay' && item.roundId === roundId) || db.economy.pendingGayDraw?.roundId === roundId) {
+    throw new HttpError(409, 'O Gay da Rodada desta rodada já foi sorteado ou aguarda uma decisão.');
+  }
+  const submissions = db.submissions.filter((item) => item.active && item.roundId === roundId);
+  if (submissions.length < 2) throw new HttpError(409, 'São necessários ao menos 2 wallpapers para abrir a votação.');
+  let candidates = [...participants];
+  const forcedGay = db.economy.forcedGay && db.economy.forcedGay.roundId === roundId ? db.economy.forcedGay : null;
+  if (!forcedGay && db.settings.excludeLastGayWinner && candidates.length > 1) {
+    const last = [...db.draws].reverse().find((item) => item.type === 'gay' && item.roundId !== roundId);
+    if (last) candidates = candidates.filter((item) => item.id !== last.winnerId);
+  }
+  return { participants, assignments, submissions, candidates, forcedGay };
+}
+
+function chooseGayCandidate(candidates, forcedTargetId = null) {
+  if (forcedTargetId) return candidates.find((candidate) => candidate.id === forcedTargetId) || null;
+  return candidates.length ? candidates[randomInt(candidates.length)] : null;
+}
+
+function makeGayDrawResult({ roundId, participants, assignments, submissions, winner, drawnBy }) {
+  const winnerAssignment = assignments.find((item) => item.userId === winner.id);
+  const sourceSubmission = winnerAssignment && db.submissions.find((item) => item.id === winnerAssignment.submissionId);
+  if (!sourceSubmission) throw new HttpError(409, 'Não foi possível localizar o wallpaper do sorteado.');
+  const votingId = randomUUID();
+  const result = {
+    id: randomUUID(), type: 'gay', winnerId: winner.id, winnerUserId: winner.id,
+    winner: winner.displayName, detail: 'Gay da Rodada', imageUrl: '/gay-da-rodada.png',
+    roundId, votingId, watermarkSourceUrl: '/uploads/' + sourceSubmission.filename,
+    watermarkSourceTitle: sourceSubmission.title, roundName: db.settings.roundName,
+    drawnBy, createdAt: new Date().toISOString(),
+  };
+  db.votings.push({
+    id: votingId, roundId, roundName: db.settings.roundName, theme: db.settings.currentTheme,
+    submissionIds: submissions.map((item) => item.id), requiredVoterIds: participants.map((item) => item.id),
+    votes: [], status: 'open', scoresApplied: false, openedAt: new Date().toISOString(), closedAt: null,
+  });
+  addScore(winner.id, { gayWins: 1 });
+  db.economy.forcedGay = null;
+  db.economy.pendingGayDraw = null;
+  db.draws.push(result);
+  return result;
+}
+
+function makePendingGayResult(pending, winner) {
+  return {
+    id: randomUUID(), type: 'gay', pendingShield: true, pendingId: pending.id,
+    winnerId: winner.id, winnerUserId: winner.id, winner: winner.displayName,
+    shieldTargetId: winner.id, shieldTargetName: winner.displayName,
+    detail: 'Possui Escudo da Rodada — aguardando decisão', imageUrl: '/gay-da-rodada.png',
+    roundId: pending.roundId, roundName: db.settings.roundName, drawnBy: pending.drawnBy,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function shieldAvailableFor(userId) {
+  return availablePowerPurchases(userId, 'power-shield-gay').length > 0;
+}
+
 async function readJson(req, maxBytes = 12 * 1024 * 1024) {
   let size = 0;
   const chunks = [];
@@ -1927,6 +2009,9 @@ function profileFor(user, computed = {}) {
     mission: weeklyMissionFor(user.id), dailyMissions: dailyMissionsFor(user.id), cleanNameMission: cleanNameMissionFor(user.id), creditLedger: computed.creditLedger || creditLedgerFor(user.id),
     activePowers: {
       shield: Boolean(db.settings.currentRoundId && db.economy.shields.some((item) => item.roundId === db.settings.currentRoundId && item.userId === user.id)),
+      pendingGayShield: db.economy.pendingGayDraw && db.economy.pendingGayDraw.roundId === db.settings.currentRoundId && db.economy.pendingGayDraw.currentCandidateId === user.id
+        ? { id: db.economy.pendingGayDraw.id, roundId: db.economy.pendingGayDraw.roundId, candidateName: user.displayName, createdAt: db.economy.pendingGayDraw.createdAt }
+        : null,
       forcedTheme: db.economy.forcedTheme && db.economy.forcedTheme.userId === user.id ? db.economy.forcedTheme.theme : null,
       forcedGay: db.economy.forcedGay && db.economy.forcedGay.userId === user.id ? db.economy.forcedGay.targetName : null,
       recentUses: db.economy.powerUses.filter((entry) => entry.userId === user.id).slice(-6).reverse().map((entry) => {
@@ -2071,6 +2156,16 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
       createdAt: person.createdAt,
     }));
   }
+  const pendingGayShield = db.economy.pendingGayDraw && db.economy.pendingGayDraw.roundId === roundId && db.economy.pendingGayDraw.currentCandidateId === user.id ? db.economy.pendingGayDraw : null;
+  if (pendingGayShield) items.push({
+    id: 'gay-shield-offer:' + pendingGayShield.id,
+    icon: '🛡️',
+    title: 'Você foi sorteado como Gay da Rodada',
+    detail: 'Você possui um Escudo da Rodada. Escolha agora entre usar o escudo e reabrir o sorteio ou manter o resultado.',
+    page: 'sorteio',
+    targetId: 'sorteio',
+    createdAt: pendingGayShield.createdAt,
+  });
   const forcedCursor = [...db.economy.forcedCursors].reverse().find((item) => item.targetUserId === user.id && isForcedCursorActive(item, roundId));
   if (forcedCursor) items.push({ id: 'forced-cursor:' + forcedCursor.id, icon: forcedCursor.style === 'giant-slow' ? '🐌' : forcedCursor.style === 'adhd' ? '⚡' : '🌈', title: forcedCursor.style === 'giant-slow' ? 'Maldição do Mouse Gigante ativada' : forcedCursor.style === 'adhd' ? 'Maldição TDAH ativada' : 'Seta Gay Compulsória ativada', detail: forcedCursor.style === 'giant-slow' ? 'Duração de 24 horas a partir da ativação.' : forcedCursor.style === 'adhd' ? 'O cursor pode assumir o controle por cerca de 30 segundos, sem revelar quem enviou.' : 'Seu cursor especial ficará ativo durante esta rodada.', page: 'perfil', createdAt: forcedCursor.createdAt });
   const assignment = db.assignments.find((item) => item.roundId === roundId && item.userId === user.id && item.revealed);
@@ -3735,13 +3830,7 @@ async function handleApi(req, res, route) {
       db.draws.push({ id: randomUUID(), type: 'theme', winnerId: theme, winner: theme, detail: 'Tema escolhido com poder da Loja 51', imageUrl: '/gay-da-rodada.png', roundId: selectedRoundId, roundName: db.settings.roundName, drawnBy: user.displayName, createdAt: new Date().toISOString() });
       db.economy.forcedTheme = null;
     } else if (item.value === 'shieldGay') {
-      if (!roundId) throw new HttpError(409, 'Use o escudo durante uma rodada ativa.');
-      if (!eligibleUsers().some((person) => person.id === user.id)) throw new HttpError(403, 'Você não participa desta rodada.');
-      if (db.draws.some((draw) => draw.type === 'gay' && draw.roundId === roundId)) throw new HttpError(409, 'O sorteio especial desta rodada já aconteceu.');
-      if (db.economy.forcedGay && db.economy.forcedGay.roundId === roundId && db.economy.forcedGay.targetId === user.id) throw new HttpError(409, 'Você já foi escolhido por um poder nesta rodada; o escudo precisa ser ativado antes da escolha.');
-      if (db.economy.shields.some((shield) => shield.roundId === roundId && shield.userId === user.id)) throw new HttpError(409, 'Seu escudo já está ativo nesta rodada.');
-      consumePower(user.id, item.id, { roundId });
-      db.economy.shields.push({ roundId, userId: user.id, createdAt: new Date().toISOString() });
+      throw new HttpError(409, 'O Escudo da Rodada só pode ser usado depois que você for sorteado como Gay. Aguarde o aviso do sorteio.');
     } else if (item.value === 'revealAuthor') {
       if (!roundId) throw new HttpError(409, 'Não há uma rodada ativa.');
       const alreadyRevealed = db.economy.authorReveals.some((reveal) => reveal.roundId === roundId && reveal.userId === user.id);
@@ -3805,7 +3894,7 @@ async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/powers/cancel') {
     const { user } = requireAuth(req); const body = await readJson(req); const roundId = db.settings.currentRoundId;
     if (!roundId || db.draws.some((draw) => draw.type === 'gay' && draw.roundId === roundId)) throw new HttpError(409, 'Este poder já não pode ser cancelado nesta rodada.');
-    const allowed = ['power-shield-gay', 'power-choose-gay'];
+    const allowed = ['power-choose-gay'];
     if (!allowed.includes(body.itemId)) throw new HttpError(400, 'Este poder não pode ser cancelado.');
     const useIndex = db.economy.powerUses.findLastIndex((item) => item.userId === user.id && item.itemId === body.itemId && item.roundId === roundId);
     if (useIndex < 0) throw new HttpError(404, 'Reserva ativa não encontrada.');
@@ -4005,6 +4094,57 @@ async function handleApi(req, res, route) {
     json(res, 200, stateFor(user)); return;
   }
 
+  if (req.method === 'POST' && route === '/api/draw/gay-shield') {
+    const { user } = requireAuth(req);
+    const body = await readJson(req);
+    const pending = db.economy.pendingGayDraw;
+    if (!pending || pending.roundId !== db.settings.currentRoundId) throw new HttpError(409, 'Não há uma decisão de Escudo pendente.');
+    if (body.pendingId && body.pendingId !== pending.id) throw new HttpError(409, 'Esta decisão de Escudo já foi atualizada.');
+    if (pending.currentCandidateId !== user.id) throw new HttpError(403, 'Somente a pessoa sorteada pode decidir sobre o Escudo.');
+    const action = String(body.action || '').toLowerCase();
+    if (!['use', 'decline'].includes(action)) throw new HttpError(400, 'Informe se deseja usar ou manter o resultado.');
+    const participants = eligibleUsers();
+    const assignments = db.assignments.filter((item) => item.roundId === pending.roundId && item.revealed);
+    const submissions = db.submissions.filter((item) => item.active && item.roundId === pending.roundId);
+    if (!participants.length || assignments.length !== participants.length || submissions.length < 2) throw new HttpError(409, 'A rodada mudou e o sorteio precisa ser refeito.');
+    const participantById = new Map(participants.map((item) => [item.id, item]));
+    let winner = participantById.get(pending.currentCandidateId);
+    if (!winner) throw new HttpError(409, 'A pessoa sorteada não participa mais da rodada.');
+    if (action === 'use') {
+      if (!shieldAvailableFor(user.id)) throw new HttpError(409, 'Seu Escudo da Rodada não está mais disponível no inventário.');
+      consumePower(user.id, 'power-shield-gay', { roundId: pending.roundId, pendingGayId: pending.id, rerolled: true });
+      db.economy.powerAnnouncements.push({ id: randomUUID(), roundId: pending.roundId, itemId: 'power-shield-gay', itemName: 'Escudo da Rodada usado', activatedByUserId: user.id, createdAt: new Date().toISOString() });
+      db.economy.powerAnnouncements = db.economy.powerAnnouncements.slice(-100);
+      pending.protectedIds = [...new Set([...(pending.protectedIds || []), user.id])];
+      pending.remainingCandidateIds = (pending.remainingCandidateIds || []).filter((id) => id !== user.id);
+      pending.forcedTargetId = null;
+      const nextCandidates = pending.remainingCandidateIds.map((id) => participantById.get(id)).filter(Boolean);
+      winner = chooseGayCandidate(nextCandidates);
+      // Se todos tinham escudo, todos foram consumidos e o último protegido
+      // vira o desempate inevitável, sem deixar a rodada travada.
+      if (!winner) {
+        const fallback = (pending.protectedIds || []).map((id) => participantById.get(id)).filter(Boolean);
+        winner = chooseGayCandidate(fallback);
+      }
+      if (!winner) throw new HttpError(409, 'Não foi possível encontrar outro participante para o sorteio.');
+    }
+    if (action === 'use' && shieldAvailableFor(winner.id)) {
+      pending.currentCandidateId = winner.id;
+      pending.currentCandidateName = winner.displayName;
+      pending.updatedAt = new Date().toISOString();
+      const result = makePendingGayResult(pending, winner);
+      const startedDraw = startLiveDraw(result, participants, false);
+      await persist();
+      broadcastLive('draw', startedDraw);
+      json(res, 200, drawForUser(startedDraw, user.id)); return;
+    }
+    const result = makeGayDrawResult({ roundId: pending.roundId, participants, assignments, submissions, winner, drawnBy: pending.drawnBy });
+    const startedDraw = startLiveDraw(result, participants, false);
+    await persist();
+    broadcastLive('draw', startedDraw);
+    json(res, 200, drawForUser(startedDraw, user.id)); return;
+  }
+
   if (req.method === 'POST' && route === '/api/draw') {
     const { user } = requireAdmin(req);
     if (liveDraw && liveDraw.endsAt > Date.now()) throw new HttpError(409, 'Já existe um sorteio ao vivo em andamento.');
@@ -4068,43 +4208,26 @@ async function handleApi(req, res, route) {
     } else if (type === 'gay') {
       const roundId = db.settings.currentRoundId;
       if (!roundId) throw new HttpError(409, 'Não há uma rodada ativa.');
-      const participants = eligibleUsers();
-      const assignments = db.assignments.filter((item) => item.roundId === roundId && item.revealed);
-      if (!participants.length || assignments.length !== participants.length) {
-        throw new HttpError(409, 'Distribua um wallpaper para cada participante antes deste sorteio.');
+      const context = gayDrawContext(roundId);
+      const { participants, assignments, submissions } = context;
+      candidates = context.candidates;
+      const winner = chooseGayCandidate(candidates, context.forcedGay?.targetId);
+      if (!winner) throw new HttpError(409, 'Não foi possível encontrar um participante para o sorteio.');
+      if (shieldAvailableFor(winner.id)) {
+        const pending = {
+          id: randomUUID(), roundId, currentCandidateId: winner.id, currentCandidateName: winner.displayName,
+          remainingCandidateIds: candidates.map((candidate) => candidate.id).filter((id) => id !== winner.id),
+          protectedIds: [], forcedTargetId: context.forcedGay?.targetId || null,
+          drawnBy: user.displayName, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        };
+        db.economy.pendingGayDraw = pending;
+        result = makePendingGayResult(pending, winner);
+        const startedDraw = startLiveDraw(result, participants, false);
+        await persist();
+        broadcastLive('draw', startedDraw);
+        json(res, 200, drawForUser(startedDraw, user.id)); return;
       }
-      if (db.draws.some((item) => item.type === 'gay' && item.roundId === roundId)) {
-        throw new HttpError(409, 'O Gay da Rodada desta rodada já foi sorteado.');
-      }
-      const submissions = db.submissions.filter((item) => item.active && item.roundId === roundId);
-      if (submissions.length < 2) throw new HttpError(409, 'São necessários ao menos 2 wallpapers para abrir a votação.');
-      candidates = [...participants];
-      const forcedGay = db.economy.forcedGay && db.economy.forcedGay.roundId === roundId ? db.economy.forcedGay : null;
-      const shieldedIds = new Set(db.economy.shields.filter((shield) => shield.roundId === roundId).map((shield) => shield.userId));
-      if (candidates.some((candidate) => !shieldedIds.has(candidate.id))) candidates = candidates.filter((candidate) => !shieldedIds.has(candidate.id));
-      if (!forcedGay && db.settings.excludeLastGayWinner && candidates.length > 1) {
-        const last = [...db.draws].reverse().find((item) => item.type === 'gay' && item.roundId !== roundId);
-        if (last) candidates = candidates.filter((item) => item.id !== last.winnerId);
-      }
-      const forcedCandidate = forcedGay ? candidates.find((candidate) => candidate.id === forcedGay.targetId) : null;
-      const winner = forcedCandidate || candidates[randomInt(candidates.length)];
-      db.economy.forcedGay = null;
-      const winnerAssignment = assignments.find((item) => item.userId === winner.id);
-      const sourceSubmission = db.submissions.find((item) => item.id === winnerAssignment.submissionId);
-      const votingId = randomUUID();
-      result = {
-        id: randomUUID(), type: 'gay', winnerId: winner.id, winnerUserId: winner.id,
-        winner: winner.displayName, detail: 'Gay da Rodada', imageUrl: '/gay-da-rodada.png',
-        roundId, votingId, watermarkSourceUrl: '/uploads/' + sourceSubmission.filename,
-        watermarkSourceTitle: sourceSubmission.title,
-        roundName: db.settings.roundName, drawnBy: user.displayName, createdAt: new Date().toISOString(),
-      };
-      db.votings.push({
-        id: votingId, roundId, roundName: db.settings.roundName, theme: db.settings.currentTheme,
-        submissionIds: submissions.map((item) => item.id), requiredVoterIds: participants.map((item) => item.id),
-        votes: [], status: 'open', scoresApplied: false, openedAt: new Date().toISOString(), closedAt: null,
-      });
-      addScore(winner.id, { gayWins: 1 });
+      result = makeGayDrawResult({ roundId, participants, assignments, submissions, winner, drawnBy: user.displayName });
     } else throw new HttpError(400, 'Tipo de sorteio inválido.');
     db.draws.push(result);
     // No Worker os participantes podem cair em instâncias diferentes. Grave o
@@ -4472,6 +4595,7 @@ async function handleApi(req, res, route) {
     db.assignments = [];
     db.draws = [];
     db.votings = [];
+    db.economy.pendingGayDraw = null;
     db.scores = {};
     db.settings.currentRoundId = null;
     db.settings.currentTheme = null;
@@ -4573,6 +4697,7 @@ async function handleApi(req, res, route) {
     db.economy.cleanNameRewards = db.economy.cleanNameRewards.filter((key) => key.startsWith(user.id + ':'));
     db.economy.forcedGay = db.economy.forcedGay?.userId === user.id ? db.economy.forcedGay : null;
     db.economy.forcedTheme = db.economy.forcedTheme?.userId === user.id ? db.economy.forcedTheme : null;
+    db.economy.pendingGayDraw = null;
     db.settings.currentRoundId = null;
     db.settings.currentTheme = null;
     db.settings.currentParticipantIds = [];
@@ -4602,6 +4727,7 @@ async function handleApi(req, res, route) {
     db.settings.currentParticipantsLocked = false;
     db.settings.currentRoundRecoveredAt = null;
     db.settings.lastCleanupAt = new Date().toISOString();
+    db.economy.pendingGayDraw = null;
     db.economy.forcedCursors = db.economy.forcedCursors.filter((item) => item.roundId !== roundId);
     await persist(); broadcastRefresh('round-cleared');
     json(res, 200, { ...stateFor(user), storageCleanup: { deletedWallpapers: roundImages.length } }); return;
