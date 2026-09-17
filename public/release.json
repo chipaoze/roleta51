@@ -1,5 +1,5 @@
 {
-  "version": "20260917-mercado-mentirometro-v15",
-  "title": "Mercado ajustado e Mentirometro atualizado",
-  "notes": "O radar do Mercado 51 agora se ajusta corretamente dentro do painel, sem cortar o movimento ou invadir o gráfico. No Mentirometro, contas apagadas ou desativadas saem das votações pendentes; os votos ativos permanecem e a decisão é recalculada com segurança."
+  "version": "20260917-creditos-centavos-v16",
+  "title": "Valores financeiros com centavos",
+  "notes": "Roleta 51, Voo do Unicórnio, presentes, pagamentos do Agiota e ajustes administrativos agora aceitam até duas casas decimais. Compras e vendas calculam preços com centavos e a carteira mantém arredondamento seguro; quantidades, aberturas e unidades continuam inteiras. Os preços atuais da Loja foram preservados para ajustes graduais."
 }

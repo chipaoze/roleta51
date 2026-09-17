@@ -300,6 +300,10 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.gateAuthorizations)) { db.gateAuthorizations = []; changed = true; }
   if (!db.economy || typeof db.economy !== 'object') { db.economy = {}; changed = true; }
   if (!db.economy.wallets || typeof db.economy.wallets !== 'object') { db.economy.wallets = {}; changed = true; }
+  Object.entries(db.economy.wallets).forEach(([userId, value]) => {
+    const normalized = roundMoney(value);
+    if (db.economy.wallets[userId] !== normalized) { db.economy.wallets[userId] = normalized; changed = true; }
+  });
   if (!Array.isArray(db.economy.waterRewardDays)) { db.economy.waterRewardDays = []; changed = true; }
   if (!Array.isArray(db.economy.purchases)) { db.economy.purchases = []; changed = true; }
   if (!Array.isArray(db.economy.freeShopUses)) { db.economy.freeShopUses = []; changed = true; }
@@ -830,8 +834,21 @@ function saoPauloWeekKey(date = new Date()) {
   return value.toISOString().slice(0, 10);
 }
 
-function walletFor(userId) { return Number(db.economy.wallets[userId] || 0); }
-function addCredits(userId, amount) { db.economy.wallets[userId] = Math.round((walletFor(userId) + Number(amount || 0)) * 100) / 100; }
+const MONEY_EPSILON = 0.000001;
+function roundMoney(value) {
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) ? Math.round((numeric + Number.EPSILON) * 100) / 100 : 0;
+}
+function parseMoney(value, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const numeric = typeof value === 'string' ? Number(value.trim().replace(',', '.')) : Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  const normalized = roundMoney(numeric);
+  if (Math.abs(numeric - normalized) > MONEY_EPSILON || normalized < min || normalized > max) return null;
+  return normalized;
+}
+function moneyCents(value) { return Math.round(roundMoney(value) * 100); }
+function walletFor(userId) { return roundMoney(db.economy.wallets[userId] || 0); }
+function addCredits(userId, amount) { db.economy.wallets[userId] = (moneyCents(walletFor(userId)) + moneyCents(amount)) / 100; }
 
 const CASINO_DAILY_BONUS = 250;
 const CASINO_CASHOUT_THRESHOLD = 500;
@@ -868,8 +885,8 @@ function grantMysteryBoxReward(user, box) {
   if (!pool.length) return creditReward();
   const reward = pool[Math.floor(Math.random() * pool.length)];
   const purchaseId = randomUUID();
-  db.economy.purchases.push({ id: purchaseId, userId: user.id, itemId: reward.id, price: 0, originalPrice: reward.price, sourceMysteryBoxId: box.id, mysteryDecisionPending: true, createdAt: new Date().toISOString() });
-  return { kind: reward.type === 'power' ? 'power' : 'item', icon: reward.icon, name: reward.name, itemId: reward.id, purchaseId, sellPrice: Math.min(Math.max(10, Math.floor(Number(reward.price || 0) * .55 / 10) * 10), Math.max(10, Math.floor(Number(box.sellPrice || 0) * .8 / 10) * 10)) };
+  db.economy.purchases.push({ id: purchaseId, userId: user.id, itemId: reward.id, price: 0, originalPrice: roundMoney(reward.price), sourceMysteryBoxId: box.id, mysteryDecisionPending: true, createdAt: new Date().toISOString() });
+  return { kind: reward.type === 'power' ? 'power' : 'item', icon: reward.icon, name: reward.name, itemId: reward.id, purchaseId, sellPrice: Math.min(Math.max(0.01, roundMoney(Number(reward.price || 0) * .55)), Math.max(0.01, roundMoney(Number(box.sellPrice || 0) * .8))) };
 }
 
 function addMysteryBox(userId, boxId, source, bet = null) {
@@ -1386,14 +1403,14 @@ function overdueLoanFor(userId, now = Date.now()) {
 function applyLoanPayment(userId, requested, reason) {
   const loan = activeLoanFor(userId);
   if (!loan) return 0;
-  const amount = Math.min(requested, Number(loan.remainingDue), walletFor(userId));
-  if (!Number.isInteger(amount) || amount <= 0) return 0;
+  const amount = roundMoney(Math.min(Number(requested), Number(loan.remainingDue), walletFor(userId)));
+  if (amount < 0.01) return 0;
   const before = walletFor(userId), createdAt = new Date().toISOString();
   addCredits(userId, -amount);
-  loan.remainingDue -= amount;
+  loan.remainingDue = roundMoney(Number(loan.remainingDue) - amount);
   loan.payments.push({ amount, createdAt });
-  if (loan.remainingDue === 0) { loan.status = 'paid'; loan.paidAt = createdAt; }
-  db.economy.creditAdjustments.push({ id: randomUUID(), userId, mode: 'stellar-loan-payment', amount: -amount, before, after: before - amount, reason, createdAt });
+  if (loan.remainingDue <= 0) { loan.remainingDue = 0; loan.status = 'paid'; loan.paidAt = createdAt; }
+  db.economy.creditAdjustments.push({ id: randomUUID(), userId, mode: 'stellar-loan-payment', amount: -amount, before, after: roundMoney(before - amount), reason, createdAt });
   return amount;
 }
 
@@ -1403,7 +1420,7 @@ function stellarItemOffers(userId) {
     const item = SHOP_CATALOG.find((entry) => entry.id === purchase.itemId);
     if (!item || item.consumable || item.mysteryBox || item.service || item.adminOnly) return null;
     const base = Number(item.price || purchase.originalPrice || 0);
-    const value = Math.max(25, Math.floor((base * .6) / 5) * 5);
+    const value = roundMoney(Math.max(25, base * .6));
     return { purchaseId: purchase.id, itemId: item.id, type: item.type || '', name: item.name, icon: item.icon || '🎁', value };
   }).filter(Boolean).sort((a, b) => b.value - a.value).slice(0, 12);
 }
@@ -1565,10 +1582,10 @@ function isForcedCursorActive(item, roundId, now = Date.now()) {
 
 function recordFlightPayout(flight,bet,multiplier,createdAt) {
   if(bet.result)return bet.result;
-  const payout=Math.round(bet.bet*multiplier),account=casinoAccountFor(bet.userId,true);
-  if(bet.walletSource==='shop')addCredits(bet.userId,payout);else account.balance=Number(account.balance)+payout;
+  const payout=roundMoney(bet.bet*multiplier),account=casinoAccountFor(bet.userId,true);
+  if(bet.walletSource==='shop')addCredits(bet.userId,payout);else account.balance=roundMoney(Number(account.balance)+payout);
   bet.status='cashed-out';bet.multiplier=multiplier;bet.payout=payout;bet.endedAt=createdAt;
-  const play={id:randomUUID(),flightId:flight.id,userId:bet.userId,dayKey:saoPauloDayKey(),walletSource:bet.walletSource,bet:bet.bet,resultType:'flight',multiplier,payout,net:payout-bet.bet,balanceAfter:bet.walletSource==='shop'?walletFor(bet.userId):account.balance,createdAt};
+  const play={id:randomUUID(),flightId:flight.id,userId:bet.userId,dayKey:saoPauloDayKey(),walletSource:bet.walletSource,bet:bet.bet,resultType:'flight',multiplier,payout,net:roundMoney(payout-bet.bet),balanceAfter:bet.walletSource==='shop'?walletFor(bet.userId):account.balance,createdAt};
   bet.result=play;db.economy.casinoPlays.push(play);return play;
 }
 function settleGlobalFlight(now=Date.now()) {
@@ -1576,7 +1593,7 @@ function settleGlobalFlight(now=Date.now()) {
   const wasCrashed=flight?.status==='crashed';
   const changed=settleFlight(flight,now,(bet,multiplier,date)=>recordFlightPayout(flight,bet,multiplier,date),(bet,date)=>{
     bet.status='crashed';
-    db.economy.casinoPlays.push({id:randomUUID(),flightId:flight.id,userId:bet.userId,dayKey:saoPauloDayKey(),walletSource:bet.walletSource,bet:bet.bet,resultType:'flight',multiplier:0,payout:0,net:-bet.bet,balanceAfter:bet.walletSource==='shop'?walletFor(bet.userId):casinoAccountFor(bet.userId).balance,createdAt:date});
+    db.economy.casinoPlays.push({id:randomUUID(),flightId:flight.id,userId:bet.userId,dayKey:saoPauloDayKey(),walletSource:bet.walletSource,bet:bet.bet,resultType:'flight',multiplier:0,payout:0,net:roundMoney(-bet.bet),balanceAfter:bet.walletSource==='shop'?walletFor(bet.userId):casinoAccountFor(bet.userId).balance,createdAt:date});
   });
   if(changed && !wasCrashed && flight.status==='crashed'){
     db.economy.flightHistory.push({id:flight.id,multiplier:flight.crashAt,players:flight.bets.length,createdAt:flight.endedAt});
@@ -2644,8 +2661,8 @@ async function handleApi(req, res, route) {
   }
 
   if (req.method === 'POST' && route === '/api/casino/flight/start') {
-    const { user } = requireAuth(req); const body = await readJson(req); const bet = Number(body.bet); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
-    if (!Number.isInteger(bet) || bet < 1) throw new HttpError(400, 'A aposta deve ser um valor inteiro de pelo menos 1 crédito.');
+    const { user } = requireAuth(req); const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
+    if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
     const now = Date.now();
     if(settleGlobalFlight(now))await persist();
     const autoCashout=body.autoCashout ? Number(body.autoCashout) : null;
@@ -2659,7 +2676,7 @@ async function handleApi(req, res, route) {
     }
     if (flight.status !== 'betting' || now >= flight.launchAt) throw new HttpError(409, 'A nave já decolou. Aguarde a próxima contagem.');
     if (flight.bets.some((item) => item.userId === user.id)) throw new HttpError(409, 'Sua aposta já está confirmada neste voo.');
-    if (walletSource === 'shop') addCredits(user.id, -bet); else account.balance = before - bet;
+    if (walletSource === 'shop') addCredits(user.id, -bet); else account.balance = roundMoney(before - bet);
     flight.bets.push({ id: randomUUID(), userId: user.id, userName: user.displayName, bet, walletSource, status: 'active', autoCashout, joinedAt: new Date(now).toISOString() });
     await persist(); broadcastRefresh('global-flight'); json(res, 200, stateFor(user)); return;
   }
@@ -2718,7 +2735,7 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'POST' && route === '/api/casino/play') {
     const { user } = requireAuth(req);
-    const body = await readJson(req); const bet = Number(body.bet); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
+    const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
     const requestId = body.requestId == null ? null : String(body.requestId);
     if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da aposta inválida.');
     const previous = requestId && db.economy.casinoPlays.find(play => play.userId === user.id && play.requestId === requestId && play.resultType !== 'flight');
@@ -2726,7 +2743,7 @@ async function handleApi(req, res, route) {
       if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra aposta.');
       json(res, 200, body.compact ? { casinoResult: previous } : { ...stateFor(user), casinoResult: previous }); return;
     }
-    if (!Number.isInteger(bet) || bet < 1) throw new HttpError(400, 'A aposta deve ser um valor inteiro de pelo menos 1 crédito.');
+    if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
     const dayKey = saoPauloDayKey();
     const casinoAccount = casinoAccountFor(user.id, true);
     const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
@@ -2748,13 +2765,13 @@ async function handleApi(req, res, route) {
       resultType = 'mysteryBox'; net = 0; payout = bet;
       mysteryBox = addMysteryBox(user.id, outcome, 'casino', bet);
     } else {
-      multiplier = Number(outcome); payout = Math.round(bet * multiplier); net = payout - bet;
+      multiplier = Number(outcome); payout = roundMoney(bet * multiplier); net = roundMoney(payout - bet);
     }
     if (walletSource === 'shop') {
       addCredits(user.id, net);
-      if (net !== 0) db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before, after: before + net, reason: 'Resultado da Roleta 51 usando saldo da loja', createdAt });
-    } else casinoAccount.balance = before + net;
-    const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
+      if (net !== 0) db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before, after: roundMoney(before + net), reason: 'Resultado da Roleta 51 usando saldo da loja', createdAt });
+    } else casinoAccount.balance = roundMoney(before + net);
+    const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : roundMoney(casinoAccount.balance);
     const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType, segmentIndex, wheelValue: outcome, multiplier, payout, net, mysteryBox, balanceAfter, createdAt };
     db.economy.casinoPlays.push(play);
     await persist(); broadcastRefresh('economy'); json(res, 200, body.compact ? { casinoResult: play } : { ...stateFor(user), casinoResult: play }); return;
@@ -2764,9 +2781,9 @@ async function handleApi(req, res, route) {
     const { user } = requireAuth(req); const account = casinoAccountFor(user.id, true);
     if (account.cashedOut) throw new HttpError(409, 'O lucro promocional de hoje já foi resgatado.');
     if (Number(account.balance) < CASINO_CASHOUT_THRESHOLD) throw new HttpError(409, 'Chegue a 500 créditos promocionais para liberar o lucro na loja.');
-    const amount = Number(account.balance); const before = walletFor(user.id); const createdAt = new Date().toISOString();
+    const amount = roundMoney(account.balance); const before = walletFor(user.id); const createdAt = new Date().toISOString();
     addCredits(user.id, amount); account.balance = 0; account.cashedOut = true; account.cashedOutAt = createdAt; account.cashedOutAmount = amount;
-    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'casino-cashout', amount, before, after: before + amount, reason: 'Saldo promocional liberado pelo Cassino 51 após atingir a meta', createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'casino-cashout', amount, before, after: roundMoney(before + amount), reason: 'Saldo promocional liberado pelo Cassino 51 após atingir a meta', createdAt });
     const debtPayment = activeLoanFor(user.id)?.dueAt ? applyLoanPayment(user.id, amount, 'Abatimento automático do resgate promocional') : 0;
     await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), casinoCashout: amount - debtPayment, debtPayment }); return;
   }
@@ -3157,7 +3174,7 @@ async function handleApi(req, res, route) {
     const { user } = requireAuth(req); const body = await readJson(req); const side = route.endsWith('/buy') ? 'buy' : 'sell';
     advanceMarket(db.economy); const assetId = String(body.assetId || ''); const quantity = Number(body.quantity);
     const asset = MARKET_ASSETS.find((item) => item.id === assetId); if (!asset) throw new HttpError(400, 'Ativo não encontrado.');
-    const market = ensureMarketState(db.economy); const price = Number(market.prices[asset.id] || asset.initialPrice); const total = price * quantity;
+    const market = ensureMarketState(db.economy); const price = roundMoney(market.prices[asset.id] || asset.initialPrice); const total = roundMoney(price * quantity);
     if (side === 'buy' && (!Number.isInteger(quantity) || quantity < 1 || walletFor(user.id) < total)) throw new HttpError(409, 'Quantidade inválida ou Créditos 51 insuficientes.');
     let operation; try { operation = transactMarket(db.economy, user.id, assetId, quantity, side); } catch (error) { throw new HttpError(400, error.message); }
     const before = walletFor(user.id);
@@ -3177,9 +3194,9 @@ async function handleApi(req, res, route) {
     if (cycleEntries.some((entry) => ['weekly-choice-pending', 'awaiting-delivery', 'delivered', 'claimed-no-delivery'].includes(entry.status))) throw new HttpError(409, 'A escolha da semana já foi encerrada. A próxima compra libera no sábado.');
     if (cycleEntries.length >= 7) throw new HttpError(409, 'Você já atingiu os sete Pokémon desta semana. Escolha um deles para a entrega de sexta.');
     if (walletFor(user.id) < box.price) throw new HttpError(409, 'Créditos 51 insuficientes.');
-    const before = walletFor(user.id), createdAt = new Date().toISOString(); addCredits(user.id, -box.price);
+    const price = roundMoney(box.price); const before = walletFor(user.id), createdAt = new Date().toISOString(); addCredits(user.id, -price);
     db.economy.cobblemonDeliveries.push({ id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, name: box.name, sprite: 'https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp', status: 'box-closed', openCount: 0, cycleId, cycleDay: cycleEntries.length + 1, rolls: [], createdAt });
-    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box-purchase', amount: -box.price, before, after: before - box.price, reason: box.name, createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box-purchase', amount: -price, before, after: roundMoney(before - price), reason: box.name, createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/box/open') {
@@ -3204,9 +3221,9 @@ async function handleApi(req, res, route) {
       await persist(); broadcastRefresh('economy'); json(res, 200, { reward: responseReward, profile: responseReward.profile }); return;
     }
     if (walletFor(user.id) < box.price) throw new HttpError(409, 'Créditos 51 insuficientes.');
-    const before = walletFor(user.id), reward = weightedCobblemonReward(box), createdAt = new Date().toISOString(); addCredits(user.id, -box.price);
+    const price = roundMoney(box.price); const before = walletFor(user.id), reward = weightedCobblemonReward(box), createdAt = new Date().toISOString(); addCredits(user.id, -price);
     const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, rewardId: reward.id, name: reward.name, sprite: reward.sprite, sellPrice: reward.sellPrice, status: 'decision-pending', pokemonId: reward.pokemonId || null, rarity: reward.rarity || null, isShiny: Boolean(reward.isShiny), createdAt };
-    db.economy.cobblemonDeliveries.push(delivery); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box', amount: -box.price, before, after: before - box.price, reason: box.name, createdAt });
+    db.economy.cobblemonDeliveries.push(delivery); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box', amount: -price, before, after: roundMoney(before - price), reason: box.name, createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/roulette/spin') {
@@ -3215,12 +3232,12 @@ async function handleApi(req, res, route) {
     const dayKey = saoPauloDayKey();
     if (last && (last.dayKey || saoPauloDayKey(new Date(last.createdAt))) === dayKey) throw new HttpError(409, 'Você já girou a Roleta Cobblemon hoje. A próxima tentativa libera amanhã.');
     if (walletFor(user.id) < COBBLEMON_ROULETTE.price) throw new HttpError(409, 'Créditos 51 insuficientes para girar.');
-    const before = walletFor(user.id), reward = weightedCobblemonReward(COBBLEMON_ROULETTE), createdAt = new Date(now).toISOString(); addCredits(user.id, -COBBLEMON_ROULETTE.price);
+    const price = roundMoney(COBBLEMON_ROULETTE.price); const before = walletFor(user.id), reward = weightedCobblemonReward(COBBLEMON_ROULETTE), createdAt = new Date(now).toISOString(); addCredits(user.id, -price);
     const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: 'roulette', boxName: 'Roleta Cobblemon', rewardId: reward.id, name: reward.name, sprite: reward.sprite, sellPrice: reward.sellPrice, status: reward.noPrize ? 'no-prize' : 'decision-pending', noPrize: Boolean(reward.noPrize), createdAt };
     if (!reward.noPrize) db.economy.cobblemonDeliveries.push(delivery);
     db.economy.cobblemonRouletteSpins.push({ id: randomUUID(), userId: user.id, rewardId: reward.id, rewardName: reward.name, dayKey, createdAt });
     if (db.economy.cobblemonRouletteSpins.length > 1000) db.economy.cobblemonRouletteSpins = db.economy.cobblemonRouletteSpins.slice(-1000);
-    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-roulette', amount: -COBBLEMON_ROULETTE.price, before, after: before - COBBLEMON_ROULETTE.price, reason: 'Roleta Cobblemon', createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-roulette', amount: -price, before, after: roundMoney(before - price), reason: 'Roleta Cobblemon', createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/reward/decision') {
@@ -3229,7 +3246,7 @@ async function handleApi(req, res, route) {
     if (wantsCandidateSale) {
       if (!['cycle-candidate', 'weekly-choice-pending'].includes(reward.status) || reward.deliveryLocked) throw new HttpError(409, 'Este Pokémon já foi escolhido para entrega e não pode ser vendido.');
       const amount = cobblemonCandidateSellPrice(reward.rarity || reward.roll?.rarity); const before = walletFor(user.id); const now = new Date().toISOString(); addCredits(user.id, amount); reward.soldFromWeeklyChoice = reward.status === 'weekly-choice-pending'; reward.status = 'sold'; reward.decidedAt = now; reward.soldAt = now;
-      db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-candidate-sale', amount, before, after: before + amount, reason: 'Venda de Pokémon não escolhido: ' + reward.name, createdAt: now });
+      db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-candidate-sale', amount: roundMoney(amount), before, after: roundMoney(before + amount), reason: 'Venda de Pokémon não escolhido: ' + reward.name, createdAt: now });
     } else if (wantsWeeklyImmediate) {
       if (reward.status !== 'cycle-candidate') throw new HttpError(409, 'Este Pokémon já não está disponível para a entrega semanal.');
       const now = new Date().toISOString();
@@ -3255,7 +3272,7 @@ async function handleApi(req, res, route) {
           reward.choices = candidates.map(pokemonCapsuleChoiceForEntry);
         }
       }
-    } else if (body.action === 'sell') { if (reward.status !== 'decision-pending') throw new HttpError(409, 'A cápsula só pode ser escolhida após as três aberturas.'); const before = walletFor(user.id); addCredits(user.id, reward.sellPrice); reward.status = 'sold'; reward.decidedAt = new Date().toISOString(); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-sale', amount: reward.sellPrice, before, after: before + reward.sellPrice, reason: 'Venda de ' + reward.name, createdAt: reward.decidedAt }); }
+    } else if (body.action === 'sell') { if (reward.status !== 'decision-pending') throw new HttpError(409, 'A cápsula só pode ser escolhida após as três aberturas.'); const before = walletFor(user.id); const amount = roundMoney(reward.sellPrice); addCredits(user.id, amount); reward.status = 'sold'; reward.decidedAt = new Date().toISOString(); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-sale', amount, before, after: roundMoney(before + amount), reason: 'Venda de ' + reward.name, createdAt: reward.decidedAt }); }
     else {
       if (reward.status === 'box-open') throw new HttpError(409, 'Escolha um Pokémon agora ou continue os sorteios desta cápsula.');
       if (reward.deliveryLocked) { reward.status = 'claimed-no-delivery'; reward.decidedAt = new Date().toISOString(); }
@@ -3339,7 +3356,7 @@ async function handleApi(req, res, route) {
     if (existing) { existing.quantity = already + quantity; existing.price = Number(existing.price || 0) + price; existing.updatedAt = createdAt; }
     else db.economy.cobblemonBallPurchases.push({ id: randomUUID(), userId: user.id, dayKey, quantity, price, createdAt });
     if (db.economy.cobblemonBallPurchases.length > 1500) db.economy.cobblemonBallPurchases = db.economy.cobblemonBallPurchases.slice(-1500);
-    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-balls', amount: -price, before, after: before - price, reason: 'Complemento diário de ' + quantity + ' Poké Balls', createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-balls', amount: -price, before, after: roundMoney(before - price), reason: 'Complemento diário de ' + quantity + ' Poké Balls', createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
   }
 
@@ -3352,8 +3369,8 @@ async function handleApi(req, res, route) {
     db.economy.equipped ||= {};
     db.economy.equipped[user.id] ||= {};
     if (allowed.type && db.economy.equipped[user.id][allowed.type] === allowed.itemId) db.economy.equipped[user.id][allowed.type] = null;
-    if (loan) { const paid = Math.min(Number(allowed.value), Number(loan.remainingDue)); loan.remainingDue -= paid; loan.payments ||= []; loan.payments.push({ amount: paid, method: 'item', itemId: purchase.itemId, createdAt: now }); if (loan.remainingDue <= 0) { loan.remainingDue = 0; loan.status = 'paid'; loan.paidAt = now; } db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-loan-item-payment', amount: 0, before, after: before, reason: `Item entregue ao Agiota: ${allowed.name} (${paid} créditos abatidos)`, createdAt: now }); }
-    else { addCredits(user.id, allowed.value); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-item-sale', amount: allowed.value, before, after: before + allowed.value, reason: `Item vendido ao Agiota: ${allowed.name}`, createdAt: now }); }
+    if (loan) { const paid = roundMoney(Math.min(Number(allowed.value), Number(loan.remainingDue))); loan.remainingDue = roundMoney(Number(loan.remainingDue) - paid); loan.payments ||= []; loan.payments.push({ amount: paid, method: 'item', itemId: purchase.itemId, createdAt: now }); if (loan.remainingDue <= 0) { loan.remainingDue = 0; loan.status = 'paid'; loan.paidAt = now; } db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-loan-item-payment', amount: 0, before, after: before, reason: `Item entregue ao Agiota: ${allowed.name} (${paid} créditos abatidos)`, createdAt: now }); }
+    else { addCredits(user.id, allowed.value); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-item-sale', amount: roundMoney(allowed.value), before, after: roundMoney(before + Number(allowed.value || 0)), reason: `Item vendido ao Agiota: ${allowed.name}`, createdAt: now }); }
     await persist(); broadcastRefresh(); json(res, 200, stateFor(user)); return;
   }
 
@@ -3364,21 +3381,21 @@ async function handleApi(req, res, route) {
     const before = walletFor(user.id); const totalDue = Math.round(principal * 1.2); const createdAt = new Date().toISOString();
     addCredits(user.id, principal);
     db.economy.loans.push({ id: randomUUID(), userId: user.id, principal, interestRate: .2, totalDue, remainingDue: totalDue, status: 'active', payments: [], createdAt, dueAt: new Date(Date.now() + 48 * 3600000).toISOString(), paidAt: null });
-    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-loan', amount: principal, before, after: before + principal, reason: 'Empréstimo do Agiota Estelar', createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-loan', amount: principal, before, after: roundMoney(before + principal), reason: 'Empréstimo do Agiota Estelar', createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, stateFor(user)); return;
   }
 
   if (req.method === 'POST' && route === '/api/loans/repay') {
-    const { user } = requireAuth(req); const { amount } = await readJson(req); const requested = Number(amount);
+    const { user } = requireAuth(req); const { amount } = await readJson(req); const requested = parseMoney(amount, { min: 0.01 });
     const loan = [...db.economy.loans].reverse().find((item) => item.userId === user.id && item.status === 'active');
     if (!loan) throw new HttpError(404, 'Você não possui empréstimo ativo.');
-    if (!Number.isInteger(requested) || requested < 1) throw new HttpError(400, 'Informe um valor inteiro para pagar.');
-    const payment = Math.min(requested, Number(loan.remainingDue)); const before = walletFor(user.id);
+    if (requested === null) throw new HttpError(400, 'Informe um valor com no máximo duas casas decimais para pagar.');
+    const payment = roundMoney(Math.min(requested, Number(loan.remainingDue))); const before = walletFor(user.id);
     if (before < payment) throw new HttpError(409, 'Seu saldo da Loja 51 não cobre esse pagamento.');
-    addCredits(user.id, -payment); loan.remainingDue = Number(loan.remainingDue) - payment;
+    addCredits(user.id, -payment); loan.remainingDue = roundMoney(Number(loan.remainingDue) - payment);
     const createdAt = new Date().toISOString(); loan.payments.push({ amount: payment, createdAt });
     if (loan.remainingDue <= 0) { loan.remainingDue = 0; loan.status = 'paid'; loan.paidAt = createdAt; }
-    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-loan-payment', amount: -payment, before, after: before - payment, reason: 'Pagamento ao Agiota Estelar', createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'stellar-loan-payment', amount: -payment, before, after: roundMoney(before - payment), reason: 'Pagamento ao Agiota Estelar', createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, stateFor(user)); return;
   }
 
@@ -3400,13 +3417,13 @@ async function handleApi(req, res, route) {
       if(quantity>remaining)throw new HttpError(409,remaining?'Você pode comprar mais '+remaining+' deste pacote hoje.':'Limite diário deste pacote atingido.');
     }
     if (!item.consumable && !item.mysteryBox && db.economy.purchases.some((purchase) => purchase.userId === user.id && purchase.itemId === item.id)) throw new HttpError(409, 'Você já possui este item.');
-    const totalPrice = Number(item.price) * quantity;
+    const totalPrice = roundMoney(Number(item.price) * quantity);
     if (walletFor(user.id) < totalPrice) throw new HttpError(409, 'Créditos 51 insuficientes para comprar esta quantidade.');
     addCredits(user.id, -totalPrice);
     const createdAt = new Date().toISOString();
     const mysteryBoxes = [];
     for (let index = 0; index < quantity; index += 1) {
-      db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: item.id, price: item.price, closedBox: Boolean(item.mysteryBox), createdAt });
+      db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: item.id, price: roundMoney(item.price), closedBox: Boolean(item.mysteryBox), createdAt });
       if (item.mysteryBox) mysteryBoxes.push(addMysteryBox(user.id, item.id, 'shop'));
     }
     if (!item.consumable && !item.mysteryBox) {
@@ -3449,9 +3466,9 @@ async function handleApi(req, res, route) {
     const inventoryItem = db.economy.mysteryBoxes[index];
     const box = SHOP_CATALOG.find((item) => item.id === inventoryItem.boxId && item.mysteryBox);
     if (!box) throw new HttpError(404, 'Tipo de baú não encontrado.');
-    const amount = Number(box.sellPrice || 0); const before = walletFor(user.id); const createdAt = new Date().toISOString();
+    const amount = roundMoney(box.sellPrice || 0); const before = walletFor(user.id); const createdAt = new Date().toISOString();
     db.economy.mysteryBoxes.splice(index, 1); addCredits(user.id, amount);
-    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'mystery-box-sale', amount, before, after: before + amount, reason: 'Venda de ' + box.name, createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'mystery-box-sale', amount, before, after: roundMoney(before + amount), reason: 'Venda de ' + box.name, createdAt });
     await persist(); broadcastRefresh('economy');
     json(res, 200, { ...stateFor(user), soldBox: { name: box.name, amount } }); return;
   }
@@ -3465,14 +3482,14 @@ async function handleApi(req, res, route) {
     if (!item) throw new HttpError(404, 'Item premiado não encontrado na loja.');
     if (item.consumable && db.economy.powerUses.some((use) => use.purchaseId === purchase.id)) throw new HttpError(409, 'Este poder já foi utilizado e não pode ser vendido.');
     const sourceBox = SHOP_CATALOG.find((entry) => entry.id === purchase.sourceMysteryBoxId && entry.mysteryBox);
-    const marketResale = Math.max(10, Math.floor(Number(item.price || purchase.originalPrice || 0) * .55 / 10) * 10);
-    const boxResaleCap = sourceBox ? Math.max(10, Math.floor(Number(sourceBox.sellPrice || 0) * .8 / 10) * 10) : marketResale;
+    const marketResale = Math.max(0.01, roundMoney(Number(item.price || purchase.originalPrice || 0) * .55));
+    const boxResaleCap = sourceBox ? Math.max(0.01, roundMoney(Number(sourceBox.sellPrice || 0) * .8)) : marketResale;
     const amount = Math.min(marketResale, boxResaleCap);
     const before = walletFor(user.id); const createdAt = new Date().toISOString();
     db.economy.purchases.splice(index, 1);
     if (db.economy.equipped[user.id]?.[item.type] === item.id) delete db.economy.equipped[user.id][item.type];
     addCredits(user.id, amount);
-    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'mystery-reward-sale', amount, before, after: before + amount, reason: 'Revenda de prêmio: ' + item.name, createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'mystery-reward-sale', amount, before, after: roundMoney(before + amount), reason: 'Revenda de prêmio: ' + item.name, createdAt });
     await persist(); broadcastRefresh('economy');
     json(res, 200, { ...stateFor(user), soldReward: { name: item.name, amount } }); return;
   }
@@ -3513,11 +3530,11 @@ async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/gifts/credits') {
     const { user } = requireAuth(req); const body = await readJson(req);
     const target = db.users.find((item) => item.id === body.targetId && item.active && item.approved !== false);
-    const amount = Number(body.amount); const weekKey = saoPauloWeekKey();
+    const amount = parseMoney(body.amount, { min: 0.01, max: 100 }); const weekKey = saoPauloWeekKey();
     if (!target || target.id === user.id) throw new HttpError(404, 'Participante escolhido não encontrado.');
-    if (!Number.isInteger(amount) || amount < 1 || amount > 100) throw new HttpError(400, 'Envie um valor inteiro entre 1 e 100 créditos.');
+    if (amount === null) throw new HttpError(400, 'Envie um valor entre 0,01 e 100 créditos, com no máximo duas casas decimais.');
     const sent = db.economy.gifts.filter((item) => item.type === 'credits' && item.fromUserId === user.id && item.createdAt.slice(0, 10) >= weekKey).reduce((sum, item) => sum + item.amount, 0);
-    if (sent + amount > 100) throw new HttpError(409, 'Seu limite semanal restante é de ' + Math.max(0, 100 - sent) + ' créditos.');
+    if (roundMoney(sent + amount) > 100) throw new HttpError(409, 'Seu limite semanal restante é de ' + roundMoney(Math.max(0, 100 - sent)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' créditos.');
     if (walletFor(user.id) < amount) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const now = new Date().toISOString(); addCredits(user.id, -amount); addCredits(target.id, amount);
     db.economy.gifts.push({ id: randomUUID(), type: 'credits', fromUserId: user.id, toUserId: target.id, amount, createdAt: now });
@@ -4145,11 +4162,11 @@ async function handleApi(req, res, route) {
     const target = db.users.find((item) => item.id === creditMatch[1]);
     if (!target) throw new HttpError(404, 'Usuário não encontrado.');
     const body = await readJson(req);
-    const amount = Number(body.amount);
-    if (!Number.isInteger(amount) || amount < 0 || amount > 100000) throw new HttpError(400, 'Informe um valor inteiro entre 0 e 100.000.');
+    const amount = parseMoney(body.amount, { min: 0, max: 100000 });
+    if (amount === null) throw new HttpError(400, 'Informe um valor entre 0 e 100.000 créditos, com no máximo duas casas decimais.');
     const mode = ['add', 'remove', 'set'].includes(body.mode) ? body.mode : 'add';
     const before = walletFor(target.id);
-    const after = mode === 'set' ? amount : mode === 'remove' ? Math.max(0, before - amount) : before + amount;
+    const after = mode === 'set' ? amount : mode === 'remove' ? roundMoney(Math.max(0, before - amount)) : roundMoney(before + amount);
     db.economy.wallets[target.id] = after;
     db.economy.creditAdjustments.push({ id: randomUUID(), adminId: admin.id, adminName: admin.displayName, userId: target.id, mode, amount, before, after, reason: String(body.reason || '').trim().slice(0, 120), createdAt: new Date().toISOString() });
     if (db.economy.creditAdjustments.length > 1000) db.economy.creditAdjustments = db.economy.creditAdjustments.slice(-1000);

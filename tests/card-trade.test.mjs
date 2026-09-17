@@ -30,7 +30,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260916-283/);
-  assert.match(html, /app\.js\?v=20260917-285/);
+  assert.match(html, /app\.js\?v=20260917-286/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -68,6 +68,18 @@ test('campos numéricos têm largura e altura para centavos em todos os temas', 
   assert.match(upgrades, /\.shop-quantity-picker input\[type="number"\]\{min-width:10ch!important\}/);
 });
 
+test('valores financeiros aceitam centavos, mas quantidades continuam inteiras', () => {
+  assert.match(serverJs, /function parseMoney\(value, \{ min = 0, max = Number\.MAX_SAFE_INTEGER \} = \{\}\)/);
+  assert.match(serverJs, /const bet = parseMoney\(body\.bet, \{ min: 0\.01 \}\)/);
+  assert.match(serverJs, /const amount = parseMoney\(body\.amount, \{ min: 0\.01, max: 100 \}\)/);
+  assert.match(serverJs, /if \(!Number\.isInteger\(quantity\) \|\| quantity < 1 \|\| quantity > 20\)/);
+  assert.match(html, /id="casinoBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
+  assert.match(html, /id="flightBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
+  assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
+  assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
+  assert.match(appJs, /20260917-creditos-centavos-v16/);
+});
+
 test('radar do mercado lista todos os ativos e o gráfico inclui a janela anterior', () => {
   assert.match(appJs, /function marketRadarMarkup\(assets\)/);
   assert.match(appJs, /marketRadarMarkup\(assets\)/);
@@ -80,7 +92,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260917-mercado-mentirometro-v15/);
+  assert.match(appJs, /20260917-creditos-centavos-v16/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

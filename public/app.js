@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-mercado-mentirometro-v15',
-  title: 'Mercado ajustado e Mentirometro atualizado',
-  notes: 'O radar do Mercado 51 agora se ajusta corretamente dentro do painel, sem cortar o movimento ou invadir o gráfico. No Mentirometro, contas apagadas ou desativadas saem das votações pendentes; os votos ativos permanecem e a decisão é recalculada com segurança.'
+  version: '20260917-creditos-centavos-v16',
+  title: 'Valores financeiros com centavos',
+  notes: 'Roleta 51, Voo do Unicórnio, presentes, pagamentos do Agiota e ajustes administrativos agora aceitam até duas casas decimais. Compras e vendas calculam preços com centavos e a carteira mantém arredondamento seguro; quantidades, aberturas e unidades continuam inteiras. Os preços atuais da Loja foram preservados para ajustes graduais.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2034,19 +2034,19 @@ $('#closeOnlinePeopleDialog')?.addEventListener('click',()=>$('#onlinePeopleDial
 
 function renderCasino(casino = {}) {
   if (casinoSpinInProgress) { drawCasinoWheel(); return; }
-  $('#casinoWallet').textContent = Number(casino.wallet || 0).toLocaleString('pt-BR');
-  $('#casinoShopWallet').textContent = Number(casino.shopWallet || 0).toLocaleString('pt-BR');
+  $('#casinoWallet').textContent = formatCredits(casino.wallet);
+  $('#casinoShopWallet').textContent = formatCredits(casino.shopWallet);
   $('#casinoClosedBoxes').textContent = Number(casino.closedBoxes || 0).toLocaleString('pt-BR');
   $('#casinoPlays').textContent = String(Number(casino.playsToday || 0));
-  $('#casinoTotalWagered').textContent = Number(casino.totalWagered || 0).toLocaleString('pt-BR');
+  $('#casinoTotalWagered').textContent = formatCredits(casino.totalWagered);
   $('#casinoTotalPlays').textContent = Number(casino.totalPlays || 0).toLocaleString('pt-BR');
   const recentFlights = Array.isArray(casino.recentFlights) ? casino.recentFlights : [];
   $('#flightPublicHistory').innerHTML = recentFlights.length ? recentFlights.map((flight) => `<span class="${Number(flight.multiplier) <= 1 ? 'crashed' : Number(flight.multiplier) >= 3 ? 'high' : ''}">x${Number(flight.multiplier || 1).toFixed(2).replace('.', ',')}</span>`).join('') : '<span>Aguardando voos</span>';
   const cashoutTarget = Number(casino.cashoutThreshold || 500); const cashoutBalance = Number(casino.wallet || 0); const cashoutButton = $('#casinoCashoutButton');
-  $('#casinoCashoutText').textContent = casino.cashedOut ? 'Lucro de hoje já resgatado' : `${Math.min(cashoutBalance, cashoutTarget).toLocaleString('pt-BR')} de ${cashoutTarget.toLocaleString('pt-BR')}`;
+  $('#casinoCashoutText').textContent = casino.cashedOut ? 'Lucro de hoje já resgatado' : `${formatCredits(Math.min(cashoutBalance, cashoutTarget))} de ${formatCredits(cashoutTarget)}`;
   $('#casinoCashoutProgress').style.width = `${Math.min(100, Math.round(cashoutBalance / cashoutTarget * 100))}%`;
-  cashoutButton.disabled = !casino.canCashOut; cashoutButton.textContent = casino.cashedOut ? 'Resgate realizado hoje' : casino.canCashOut ? `Resgatar ${Number(casino.cashoutAmount || cashoutBalance).toLocaleString('pt-BR')} créditos` : `Faltam ${Math.max(0, cashoutTarget - cashoutBalance).toLocaleString('pt-BR')}`;
-  const historyMarkup = (history, emptyText, flight = false) => history.length ? history.map((play) => { const source = play.walletSource === 'shop' ? 'Loja 51' : 'Bônus diário'; return play.resultType === 'mysteryBox' ? `<div class="casino-history-item jackpot"><span>${play.mysteryBox?.icon || '🎁'}</span><p><strong>${escapeHtml(play.mysteryBox?.name || 'Baú misterioso')}</strong><small>${source} · aposta ${play.bet} devolvida · baú enviado ao perfil</small></p></div>` : `<div class="casino-history-item ${play.net > 0 ? 'win' : play.net < 0 ? 'loss' : 'draw'}"><span>${flight ? '🦄' : play.net > 0 ? '🚀' : play.net < 0 ? '🕳️' : '🛸'}</span><p><strong>x${String(play.multiplier).replace('.', ',')}</strong><small>${source} · aposta ${play.bet} · retorno ${play.payout} · saldo ${play.net > 0 ? '+' : ''}${play.net}</small></p></div>`; }).join('') : `<p class="casino-empty">${emptyText}</p>`;
+  cashoutButton.disabled = !casino.canCashOut; cashoutButton.textContent = casino.cashedOut ? 'Resgate realizado hoje' : casino.canCashOut ? `Resgatar ${formatCredits(casino.cashoutAmount || cashoutBalance)} créditos` : `Faltam ${formatCredits(Math.max(0, cashoutTarget - cashoutBalance))}`;
+  const historyMarkup = (history, emptyText, flight = false) => history.length ? history.map((play) => { const source = play.walletSource === 'shop' ? 'Loja 51' : 'Bônus diário'; return play.resultType === 'mysteryBox' ? `<div class="casino-history-item jackpot"><span>${play.mysteryBox?.icon || '🎁'}</span><p><strong>${escapeHtml(play.mysteryBox?.name || 'Baú misterioso')}</strong><small>${source} · aposta ${formatCredits(play.bet)} devolvida · baú enviado ao perfil</small></p></div>` : `<div class="casino-history-item ${play.net > 0 ? 'win' : play.net < 0 ? 'loss' : 'draw'}"><span>${flight ? '🦄' : play.net > 0 ? '🚀' : play.net < 0 ? '🕳️' : '🛸'}</span><p><strong>x${String(play.multiplier).replace('.', ',')}</strong><small>${source} · aposta ${formatCredits(play.bet)} · retorno ${formatCredits(play.payout)} · saldo ${play.net > 0 ? '+' : ''}${formatCredits(play.net)}</small></p></div>`; }).join('') : `<p class="casino-empty">${emptyText}</p>`;
   const rouletteHistory = Array.isArray(casino.recentRoulette) ? casino.recentRoulette : [];
   const flightHistory = Array.isArray(casino.recentFlight) ? casino.recentFlight : [];
   const compactHistory = (selector, history, emptyText, flight = false) => {
@@ -2180,11 +2180,11 @@ async function showMysteryOpening(boxName, reward) {
   track.children[winningIndex]?.classList.add('winner');
   result.innerHTML = `<span>${reward.icon || '🎁'}</span><strong>Você recebeu ${escapeHtml(reward.name || 'um prêmio secreto')}!</strong>`; result.classList.add('revealed');
   if (!reward.purchaseId) { await new Promise((resolve) => setTimeout(resolve, 2200)); dialog.close(); mysteryOpeningInProgress = false; return null; }
-  $('#sellMysteryReward').textContent = `Vender agora por ${Number(reward.sellPrice || 0).toLocaleString('pt-BR')} créditos`;
+  $('#sellMysteryReward').textContent = `Vender agora por ${formatCredits(reward.sellPrice)} créditos`;
   decision.classList.remove('hidden');
   const finalState = await new Promise((resolve) => {
     $('#keepMysteryReward').onclick = async () => { setBusy(decision, true); try { resolve(await api('/api/mystery-rewards/keep', { method: 'POST', body: { purchaseId: reward.purchaseId } })); } catch (error) { showToast(error.message, 'error'); setBusy(decision, false); } };
-    $('#sellMysteryReward').onclick = async () => { setBusy(decision, true); try { const data = await api('/api/mystery-rewards/sell', { method: 'POST', body: { purchaseId: reward.purchaseId } }); showToast(`${data.soldReward.name} vendido por ${Number(data.soldReward.amount).toLocaleString('pt-BR')} créditos.`); resolve(data); } catch (error) { showToast(error.message, 'error'); setBusy(decision, false); } };
+    $('#sellMysteryReward').onclick = async () => { setBusy(decision, true); try { const data = await api('/api/mystery-rewards/sell', { method: 'POST', body: { purchaseId: reward.purchaseId } }); showToast(`${data.soldReward.name} vendido por ${formatCredits(data.soldReward.amount)} créditos.`); resolve(data); } catch (error) { showToast(error.message, 'error'); setBusy(decision, false); } };
   });
   dialog.close(); decision.classList.add('hidden'); mysteryOpeningInProgress = false; return finalState;
 }
@@ -2865,7 +2865,7 @@ function renderCobblemonDex(profile = {}) {
     const locked = box.monthly && !monthlyBox.canPurchase && !readyToOpen && !choicePending;
     const choiceMode = choicePending && monthlyBox.choice;
     const actionLabel = readyToOpen ? `Sorteio ${Number(monthlyBox.openRollCount || 0) + 1}/3` : choiceMode ? (monthlyBox.choiceStage === 'weekly' ? 'Escolher entrega da semana' : 'Escolher 1 dos 3') : locked ? `Novo ciclo no sábado` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
-    const priceLabel = readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes nesta cápsula` : choiceMode ? `<b>${monthlyBox.choice?.choices?.length || (monthlyBox.choiceStage === 'weekly' ? monthlyBox.weeklyCandidates?.length || 7 : 3)} opções</b> para escolher` : `<b>${Number(box.price).toLocaleString('pt-BR')}</b> Créditos 51`;
+    const priceLabel = readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes nesta cápsula` : choiceMode ? `<b>${monthlyBox.choice?.choices?.length || (monthlyBox.choiceStage === 'weekly' ? monthlyBox.weeklyCandidates?.length || 7 : 3)} opções</b> para escolher` : `<b>${formatCredits(box.price)}</b> Créditos 51`;
     const deliveryNote = box.monthly ? `<small class="cobblemon-delivery-lock"><b>${Number(monthlyBox.weeklyPurchasesRemaining ?? 7)} de 7</b> cápsulas disponíveis nesta semana · 3 sorteios por cápsula · escolha da entrega na sexta · ciclo reinicia no sábado.</small>` : '';
     const purchaseMore = box.monthly && monthlyBox.canPurchase && (readyToOpen || choiceMode) ? `<button data-cobblemon-box="${id}" data-cobblemon-box-mode="purchase">Comprar outra cápsula</button>` : '';
     return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}${choiceMode ? ' choice-ready' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em>${priceLabel}</em>${deliveryNote}</p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${choiceMode ? 'choice' : readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : choiceMode ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button>${purchaseMore}</div></article>`;
@@ -2901,7 +2901,7 @@ function renderCobblemonDex(profile = {}) {
     rouletteWheel.innerHTML = COBBLEMON_ROULETTE_REWARDS.map(([name, sprite], index) => `<span style="--i:${index}" title="${escapeHtml(name)}">${index === 0 ? '<b class="roulette-loss">×</b>' : `<img src="${sprite}" alt="${escapeHtml(name)}">`}</span>`).join('');
     rouletteWheel.dataset.rewardsReady = 'true';
   }
-  rouletteButton.disabled = !roulette.canSpin; rouletteButton.textContent = roulette.canSpin ? `Girar por ${Number(roulette.price||260).toLocaleString('pt-BR')}` : 'Roleta em recarga';
+  rouletteButton.disabled = !roulette.canSpin; rouletteButton.textContent = roulette.canSpin ? `Girar por ${formatCredits(roulette.price||260)}` : 'Roleta em recarga';
   $('#cobblemonRouletteStatus').textContent = roulette.canSpin ? '✓ Disponível agora' : `Próximo giro: ${new Date(roulette.nextSpinAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
   const search = ($('#cobblemonDexSearch')?.value || '').trim().toLowerCase();
   const visible = catalog.filter((mon) => {
@@ -3093,7 +3093,7 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   ];
   $('#profileStats').innerHTML = statItems.map(([icon, value, label]) => `<div><span>${icon}</span><strong>${Number(value).toLocaleString('pt-BR')}</strong><small>${label}</small></div>`).join('');
   const ledger = Array.isArray(profile.creditLedger) ? profile.creditLedger : [];
-  $('#creditLedger').innerHTML = ledger.length ? ledger.slice(0, 12).map((item) => `<div class="credit-ledger-row"><span>${item.icon || '🪙'}</span><p><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(formatDate(item.createdAt))}</small></p><b class="${Number(item.amount) >= 0 ? 'positive' : 'negative'}">${Number(item.amount) >= 0 ? '+' : ''}${Number(item.amount).toLocaleString('pt-BR')}</b></div>`).join('') : '<div class="credit-ledger-empty">Seu extrato começará após a primeira movimentação.</div>';
+    $('#creditLedger').innerHTML = ledger.length ? ledger.slice(0, 12).map((item) => `<div class="credit-ledger-row"><span>${item.icon || '🪙'}</span><p><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(formatDate(item.createdAt))}</small></p><b class="${Number(item.amount) >= 0 ? 'positive' : 'negative'}">${Number(item.amount) >= 0 ? '+' : ''}${formatCredits(item.amount)}</b></div>`).join('') : '<div class="credit-ledger-empty">Seu extrato começará após a primeira movimentação.</div>';
   const medals = Array.isArray(profile.medals) ? profile.medals : [];
   const unlocked = medals.filter((medal) => medal.unlocked).length;
   $('#medalCount').textContent = unlocked + ' de ' + medals.length + ' desbloqueadas';
@@ -3103,7 +3103,7 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   const peopleOptions = (gifts.people || []).map((person) => `<option value="${escapeHtml(person.id)}">${escapeHtml(formatDisplayName(person.displayName))}</option>`).join('');
   $('#giftCreditsUser').innerHTML = peopleOptions || '<option value="">Nenhuma pessoa disponível</option>';
   $('#giftItemUser').innerHTML = peopleOptions || '<option value="">Nenhuma pessoa disponível</option>';
-  $('#giftShopItem').innerHTML = (gifts.items || []).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${Number(item.price).toLocaleString('pt-BR')} créditos</option>`).join('');
+    $('#giftShopItem').innerHTML = (gifts.items || []).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${formatCredits(item.price)} créditos</option>`).join('');
   $('#giftCreditLimit').textContent = 'Limite restante nesta semana: ' + Number(gifts.weeklyCreditRemaining || 0) + ' créditos';
   $('.gift-center-card').classList.toggle('hidden', !(gifts.people || []).length);
   const freeShopAvailable = Boolean(profile.freeShopPurchaseAvailable);
@@ -3119,14 +3119,14 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
     $('.topbar').insertAdjacentElement('afterend', debtNotice);
   } else if (!loan?.overdue) debtNotice?.remove();
   $('#stellarLoanCard').classList.toggle('has-debt', Boolean(loan));
-  $('#stellarLoanTitle').textContent = loan ? `Dívida atual: ${Number(loan.remainingDue).toLocaleString('pt-BR')} créditos` : 'Créditos rápidos para a sua coleção';
+  $('#stellarLoanTitle').textContent = loan ? `Dívida atual: ${formatCredits(loan.remainingDue)} créditos` : 'Créditos rápidos para a sua coleção';
   $('#stellarLoanText').textContent = loan ? `Você recebeu ${loan.principal} e deve ${loan.totalDue} com juros. ${loan.dueAt ? `Vencimento: ${formatDate(loan.dueAt)}. ${loan.overdue ? 'ATRASADO: tema de cobrança e cursor lento ativos; quite para entrar em novas rodadas.' : 'Resgates promocionais abatem primeiro a dívida.'}` : 'Contrato anterior: sem prazo ou novas penalidades.'}` : 'Receba 300, 600 ou 900 créditos. Juros fixos de 20%; prazo de 48 horas. Atrasos ativam cobrança visual e impedem entrada em novas rodadas. Você também pode quitar a dívida entregando itens do inventário. Apenas um empréstimo por vez.';
-  $('#stellarLoanActions').innerHTML = loan ? `<input id="stellarRepayAmount" type="number" min="1" max="${Number(loan.remainingDue)}" step="1" value="${Math.min(Number(profile.wallet || 0), Number(loan.remainingDue)) || 1}" aria-label="Valor do pagamento"><button type="button" data-loan-repay>Pagar</button><button type="button" data-loan-repay-all>Quitar ${Number(loan.remainingDue).toLocaleString('pt-BR')}</button>` : [300,600,900].map((amount) => `<button type="button" data-loan-borrow="${amount}">Receber ${amount}<small>Devolver ${Math.round(amount * 1.2)}</small></button>`).join('');
+  $('#stellarLoanActions').innerHTML = loan ? `<input id="stellarRepayAmount" type="number" min="0.01" max="${Number(loan.remainingDue).toFixed(2)}" step="0.01" inputmode="decimal" value="${Math.min(Number(profile.wallet || 0), Number(loan.remainingDue)).toFixed(2)}" aria-label="Valor do pagamento"><button type="button" data-loan-repay>Pagar</button><button type="button" data-loan-repay-all>Quitar ${formatCredits(loan.remainingDue)}</button>` : [300,600,900].map((amount) => `<button type="button" data-loan-borrow="${amount}">Receber ${formatCredits(amount)}<small>Devolver ${formatCredits(amount * 1.2)}</small></button>`).join('');
   let lenderOffers = $('#stellarLenderOffers');
   if (!lenderOffers) { lenderOffers = document.createElement('section'); lenderOffers.id = 'stellarLenderOffers'; lenderOffers.className = 'stellar-lender-offers'; $('#stellarLoanCard').append(lenderOffers); }
   const lender = profile.stellarLender;
   lenderOffers.classList.toggle('hidden', !lender?.visible || !(lender.offers || []).length);
-  lenderOffers.innerHTML = lender?.visible ? `<strong>💼 Venda um item ao Agiota</strong><small>${lender.reason === 'overdue' ? 'Sua dívida está vencida: o valor será abatido dela.' : 'Saldo abaixo de 500: troque um item do inventário por créditos.'}</small><div class="stellar-item-offer-list">${(lender.offers || []).map((item) => `<button type="button" data-loan-item="${escapeHtml(item.purchaseId)}"><span>${escapeHtml(item.icon)}</span><b>${escapeHtml(item.name)}</b><em>+${Number(item.value).toLocaleString('pt-BR')} créditos</em></button>`).join('')}</div>` : '';
+  lenderOffers.innerHTML = lender?.visible ? `<strong>💼 Venda um item ao Agiota</strong><small>${lender.reason === 'overdue' ? 'Sua dívida está vencida: o valor será abatido dela.' : 'Saldo abaixo de 500: troque um item do inventário por créditos.'}</small><div class="stellar-item-offer-list">${(lender.offers || []).map((item) => `<button type="button" data-loan-item="${escapeHtml(item.purchaseId)}"><span>${escapeHtml(item.icon)}</span><b>${escapeHtml(item.name)}</b><em>+${formatCredits(item.value)} créditos</em></button>`).join('')}</div>` : '';
   const shopPriority = (item) => item.service ? -2 : item.id === 'power-force-gay-cursor' ? -1 : 0;
   const orderedShop = [...shop].sort((a, b) => shopPriority(a) - shopPriority(b));
   const nextShopCatalogSignature = JSON.stringify([shop, profile.cardPacks || [], mysteryBoxes, freeShopAvailable, profile.cobblemon?.balls || {}, shopFilter, hideOwnedVisuals]);
@@ -4372,7 +4372,7 @@ $('#casinoForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (casinoSpinInProgress) return;
   const form = event.currentTarget; const bet = Number($('#casinoBet').value); const walletSource = $('#casinoWalletSource').value;
-  if (!Number.isInteger(bet) || bet < 1) { showToast('Aposte um valor inteiro de pelo menos 1 crédito.', 'error'); return; }
+  if (!Number.isFinite(bet) || bet < 0.01 || Math.abs(Math.round(bet * 100) - bet * 100) > 0.000001) { showToast('Aposte um valor de pelo menos 0,01 crédito, com no máximo duas casas decimais.', 'error'); return; }
   casinoSpinInProgress = true; setBusy(form, true); $('#casinoResult').textContent = 'Confirmando sua aposta…';
   try {
     const data = await submitRouletteBet(bet, walletSource);
@@ -4384,7 +4384,7 @@ $('#casinoForm').addEventListener('submit', async (event) => {
       $('#casinoResult').textContent = message; showToast(message);
     } else {
       const message = result.net > 0 ? `Você ganhou ${result.net} créditos de lucro! 🚀` : result.net < 0 ? `Você perdeu ${Math.abs(result.net)} créditos. 👽` : 'Empate: seus créditos voltaram. 🛸';
-      $('#casinoResult').textContent = `x${String(result.multiplier).replace('.', ',')} · retorno total ${result.payout} · ${message}`; showToast(message);
+      $('#casinoResult').textContent = `x${String(result.multiplier).replace('.', ',')} · retorno total ${formatCredits(result.payout)} créditos · ${message}`; showToast(message);
     }
     offerStellarLoan(result);
     try { const fresh = await api('/api/state', {}, false); casinoSpinInProgress = false; applyState(fresh); }
@@ -4395,7 +4395,7 @@ $('#casinoForm').addEventListener('submit', async (event) => {
 
 $('#flightForm').addEventListener('submit', async (event) => {
   event.preventDefault(); if ($('#flightSky').dataset.phase === 'flying') return; const form = event.currentTarget; const bet = Number($('#flightBet').value); const walletSource = $('#flightWalletSource').value;
-  if (!Number.isInteger(bet) || bet < 1) { showToast('Aposte um valor inteiro de pelo menos 1 crédito.', 'error'); return; }
+  if (!Number.isFinite(bet) || bet < 0.01 || Math.abs(Math.round(bet * 100) - bet * 100) > 0.000001) { showToast('Aposte um valor de pelo menos 0,01 crédito, com no máximo duas casas decimais.', 'error'); return; }
   setBusy(form, true);
   try { const data = await flightApi('/api/casino/flight/start', { method: 'POST', body: { bet, walletSource, autoCashout:Number($('#flightAutoCashout').value)||null } }); applyState(data); startFlightPolling(); showToast('Aposta confirmada. Todos decolam juntos ao fim da contagem!'); }
   catch (error) { showToast(error.message, 'error'); }
@@ -4429,7 +4429,7 @@ $('#stellarLoanCard').addEventListener('click', async (event) => {
 
 $('#casinoCashoutButton').addEventListener('click', async () => {
   const button = $('#casinoCashoutButton'); button.disabled = true;
-  try { const data = await api('/api/casino/cashout', { method: 'POST' }); applyState(data); showToast(`${Number(data.casinoCashout || 0).toLocaleString('pt-BR')} créditos liberados para a Loja 51!${data.debtPayment ? ` ${data.debtPayment} usados para pagar sua dívida.` : ''} 🪙`); }
+  try { const data = await api('/api/casino/cashout', { method: 'POST' }); applyState(data); showToast(`${formatCredits(data.casinoCashout || 0)} créditos liberados para a Loja 51!${data.debtPayment ? ` ${formatCredits(data.debtPayment)} usados para pagar sua dívida.` : ''} 🪙`); }
   catch (error) { showToast(error.message, 'error'); }
   finally { renderCasino(appState?.casino); }
 });
@@ -4442,7 +4442,7 @@ $('#mysteryInventory').addEventListener('click', async (event) => {
   const button = openButton || sellButton;
   if (!button) return;
   const boxName = button.dataset.boxName || 'Baú misterioso';
-  if (sellButton && !confirm(`Vender “${boxName}” fechado por ${Number(button.dataset.boxPrice || 0).toLocaleString('pt-BR')} Créditos 51?`)) return;
+  if (sellButton && !confirm(`Vender “${boxName}” fechado por ${formatCredits(button.dataset.boxPrice || 0)} Créditos 51?`)) return;
   if (openButton && !confirm(`Abrir “${boxName}” agora? O prêmio será definido pela roleta e o baú será consumido.`)) return;
   button.disabled = true;
   try {
@@ -4452,7 +4452,7 @@ $('#mysteryInventory').addEventListener('click', async (event) => {
       showToast('O baú revelou: ' + data.mysteryReward.icon + ' ' + data.mysteryReward.name + '!');
     } else {
       const data = await api('/api/mystery-boxes/sell', { method: 'POST', body: { inventoryId: button.dataset.boxSell } });
-      applyState(data); showToast(`${data.soldBox.name} vendido por ${Number(data.soldBox.amount).toLocaleString('pt-BR')} Créditos 51. 🪙`);
+      applyState(data); showToast(`${data.soldBox.name} vendido por ${formatCredits(data.soldBox.amount)} Créditos 51. 🪙`);
     }
   } catch (error) { showToast(error.message, 'error'); }
   finally { button.disabled = false; }
@@ -4464,7 +4464,7 @@ $('#mysteryRewardInventory').addEventListener('click', async (event) => {
   const button = keepButton || sellButton;
   if (!button) return;
   const name = sellButton?.dataset.rewardName || 'este prêmio';
-  if (sellButton && !confirm(`Vender “${name}” agora por ${Number(sellButton.dataset.rewardPrice || 0).toLocaleString('pt-BR')} Créditos 51? Depois não será possível recuperar o item.`)) return;
+  if (sellButton && !confirm(`Vender “${name}” agora por ${formatCredits(sellButton.dataset.rewardPrice || 0)} Créditos 51? Depois não será possível recuperar o item.`)) return;
   button.disabled = true;
   try {
     if (keepButton) {
@@ -4472,7 +4472,7 @@ $('#mysteryRewardInventory').addEventListener('click', async (event) => {
       showToast('Prêmio guardado na sua coleção. Agora você já pode usá-lo.');
     } else {
       const data = await api('/api/mystery-rewards/sell', { method: 'POST', body: { purchaseId: sellButton.dataset.rewardSell } });
-      applyState(data); showToast(`${data.soldReward.name} vendido por ${Number(data.soldReward.amount).toLocaleString('pt-BR')} créditos.`);
+      applyState(data); showToast(`${data.soldReward.name} vendido por ${formatCredits(data.soldReward.amount)} créditos.`);
     }
   } catch (error) { showToast(error.message, 'error'); }
   finally { button.disabled = false; }
@@ -4602,7 +4602,7 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       const quantity = quantityInput ? Number(quantityInput.value) : 1;
       if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) throw new Error('Escolha uma quantidade inteira entre 1 e 20.');
       const total = Number(button.dataset.shopPrice || 0) * quantity;
-      if (!confirm(`Comprar ${quantity} unidade${quantity === 1 ? '' : 's'} por ${total.toLocaleString('pt-BR')} Créditos 51?`)) return;
+      if (!confirm(`Comprar ${quantity} unidade${quantity === 1 ? '' : 's'} por ${formatCredits(total)} Créditos 51?`)) return;
       const data = await api('/api/shop/purchase', { method: 'POST', body: { itemId: button.dataset.shopItem, quantity } });
       applyState(data);
       if (button.dataset.shopType === 'cardPack') {
@@ -4615,7 +4615,7 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       const quantity = quantityInput ? Number(quantityInput.value) : 1;
       if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) throw new Error('Escolha uma quantidade inteira entre 1 e 20.');
       const total = Number(button.dataset.shopPrice || 0) * quantity;
-      if (!confirm(`Comprar ${quantity}x “${itemName}” por ${total.toLocaleString('pt-BR')} créditos?\n\nAs caixas irão fechadas para Meus baús no perfil.`)) return;
+      if (!confirm(`Comprar ${quantity}x “${itemName}” por ${formatCredits(total)} créditos?\n\nAs caixas irão fechadas para Meus baús no perfil.`)) return;
       const data = await api('/api/shop/purchase', { method: 'POST', body: { itemId: button.dataset.shopItem, quantity } });
       applyState(data); showToast(`${quantity} caixa${quantity === 1 ? '' : 's'} adicionada${quantity === 1 ? '' : 's'} ao seu perfil! 🎁`);
     } else if (button.dataset.shopAction === 'equip') {
@@ -4974,7 +4974,7 @@ $('#resetMyPurchasesButton').addEventListener('click', async () => {
   try {
     const data = await api('/api/admin/reset-my-purchases', { method: 'POST' });
     applyState(data);
-    showToast('Compras zeradas. ' + Number(data.refundedCredits || 0).toLocaleString('pt-BR') + ' créditos foram devolvidos.');
+    showToast('Compras zeradas. ' + formatCredits(data.refundedCredits || 0) + ' créditos foram devolvidos.');
   } catch (error) { showToast(error.message, 'error'); }
 });
 
@@ -5573,7 +5573,7 @@ document.addEventListener('click', async (event) => {
   const boxButton = event.target?.closest?.('[data-cobblemon-box]');
   if (boxButton) {
     const boxId = boxButton.dataset.cobblemonBox, box = COBBLEMON_BOX_CATALOG[boxId], mode = boxButton.dataset.cobblemonBoxMode || 'open';
-    const prompt = mode === 'purchase' ? `Comprar “${box?.name || 'este baú'}” fechado por ${Number(box?.price||0).toLocaleString('pt-BR')} Créditos 51? Você poderá fazer os três sorteios depois.` : mode === 'choice' ? null : box?.monthly ? `Fazer o sorteio ${Number(appState.profile?.cobblemon?.monthlyPokemonBox?.openRollCount || 0) + 1} de 3 da “${box.name}”?` : `Abrir “${box?.name || 'este baú'}” por ${Number(box?.price||0).toLocaleString('pt-BR')} Créditos 51?`;
+    const prompt = mode === 'purchase' ? `Comprar “${box?.name || 'este baú'}” fechado por ${formatCredits(box?.price || 0)} Créditos 51? Você poderá fazer os três sorteios depois.` : mode === 'choice' ? null : box?.monthly ? `Fazer o sorteio ${Number(appState.profile?.cobblemon?.monthlyPokemonBox?.openRollCount || 0) + 1} de 3 da “${box.name}”?` : `Abrir “${box?.name || 'este baú'}” por ${formatCredits(box?.price || 0)} Créditos 51?`;
     if (prompt && !confirm(prompt)) return;
     boxButton.disabled = true;
     try {
