@@ -1,5 +1,5 @@
 {
-  "version": "20260917-cacada-fluida-v25",
-  "title": "Caçada Cobblemon mais fluida",
-  "notes": "A troca entre setores durante a caçada agora aparece imediatamente; a renderização pesada de listas e imagens fica para depois do primeiro quadro. Isso reduz a espera percebida sem criar novas requisições ao servidor."
+  "version": "20260917-perfil-loja-fluidos-v26",
+  "title": "Perfil e Loja mais fluidos",
+  "notes": "A abertura do Perfil e da Loja agora pinta o layout primeiro e monta os cards pesados logo depois. Também removemos a reconstrução duplicada do Perfil durante a sincronização, reduzindo a espera sem criar novas requisições ao servidor."
 }

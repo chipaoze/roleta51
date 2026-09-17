@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-cacada-fluida-v25',
-  title: 'Caçada Cobblemon mais fluida',
-  notes: 'A troca entre setores durante a caçada agora aparece imediatamente; a renderização pesada de listas e imagens fica para depois do primeiro quadro. Isso reduz a espera percebida sem criar novas requisições ao servidor.'
+  version: '20260917-perfil-loja-fluidos-v26',
+  title: 'Perfil e Loja mais fluidos',
+  notes: 'A abertura do Perfil e da Loja agora pinta o layout primeiro e monta os cards pesados logo depois. Também removemos a reconstrução duplicada do Perfil durante a sincronização, reduzindo a espera sem criar novas requisições ao servidor.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -1406,10 +1406,11 @@ function showPortalPage(page, pushState = false, resetScroll = true) {
       if (requestId !== portalRenderRequest || currentPortalPage() !== page || renderedPortalPage === page) return;
       renderActivePortalPage(appState);
     };
-    // Durante a caça, primeiro pinta a nova tela e reposiciona o alvo; a
-    // montagem de listas e imagens acontece depois do primeiro quadro para
-    // não transformar a troca de setor em uma espera perceptível.
-    if (cobblemonPageEncounter) requestAnimationFrame(() => requestAnimationFrame(renderPage));
+    // Páginas com listas grandes precisam pintar o cabeçalho e o layout antes
+    // de montar todos os cards. Isso tira a espera perceptível da navegação;
+    // o conteúdo continua sendo renderizado logo depois, sem nova requisição.
+    const needsFirstPaint = cobblemonPageEncounter || page === 'perfil' || page === 'loja';
+    if (needsFirstPaint) requestAnimationFrame(() => requestAnimationFrame(renderPage));
     else setTimeout(renderPage, 0);
   }
 }
@@ -2970,9 +2971,14 @@ function renderCobblemonDex(profile = {}) {
 
 function renderProfileEconomy(profile = {}, globalOnly = false) {
   const profilePage = currentPortalPage();
-  if (profilePage === 'cobblemon') renderCobblemonDex(profile);
-  if (profilePage === 'perfil') renderVisualTrading(appState.trading || {});
-  if (profilePage === 'album') renderCardAlbum(appState.cardAlbum);
+  // applyState() chama esta função em modo global para atualizar apenas o
+  // cabeçalho. A página ativa é renderizada uma vez por
+  // renderActivePortalPage(), evitando reconstruir Perfil/Loja duas vezes.
+  if (!globalOnly) {
+    if (profilePage === 'cobblemon') renderCobblemonDex(profile);
+    if (profilePage === 'perfil') renderVisualTrading(appState.trading || {});
+    if (profilePage === 'album') renderCardAlbum(appState.cardAlbum);
+  }
   const albumBadge=appState.cardAlbum?.collections?.find(c=>c.id===appState.cardAlbum.equipped && c.craftedAt);
   const shop = Array.isArray(profile.shop) ? profile.shop : [];
   const equipped = profile.equipped || {};
