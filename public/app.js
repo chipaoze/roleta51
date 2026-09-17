@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-precos-centavos-v17',
-  title: 'Preços da economia com centavos',
-  notes: 'Os preços-base da Loja, das Cápsulas Cobblemon e da Roleta Cobblemon agora usam finais em centavos (como 899,90), mantendo o valor econômico praticamente igual. Saldos, compras históricas, vendas, recompensas e empréstimos foram preservados; somente novas compras usam a tabela atualizada.'
+  version: '20260917-mercado-renda-v18',
+  title: 'Nova liquidez do Mercado 51',
+  notes: 'O Mercado 51 agora oferece Renda 51 diária após uma atividade válida, missões de mercado, dividendos simulados limitados para quem mantém posições e um alerta de liquidez. A valorização continua sendo o principal ganho; os limites evitam inflação e não alteram compras ou saldos históricos.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3407,6 +3407,14 @@ function renderInvestmentMarket(profile = {}) {
   const walletEl = $('#marketWallet'); if (walletEl) { walletEl.textContent = marketMoney(wallet); walletEl.parentElement?.setAttribute('aria-label', `${marketMoney(wallet)} Créditos 51`); }
   const holdingsEl = $('#marketHoldingsValue'); if (holdingsEl) { holdingsEl.textContent = marketMoney(holdingsValue); holdingsEl.parentElement?.setAttribute('aria-label', `${marketMoney(holdingsValue)} Créditos 51`); }
   const portfolioValueEl = $('#marketPortfolioValue'); if (portfolioValueEl) { portfolioValueEl.textContent = marketMoney(portfolioValue); portfolioValueEl.parentElement?.setAttribute('aria-label', `${marketMoney(portfolioValue)} Créditos 51`); }
+  const income = market.income || {}; const dailyIncome = income.dailyIncome || { amount: 40, eligible: false, claimed: false, available: false }; const dailyIncomeText = $('#marketDailyIncomeText'); const dailyIncomeStatus = $('#marketDailyIncomeStatus'); const dailyIncomeButton = $('#marketDailyIncomeButton');
+  if (dailyIncomeText) dailyIncomeText.textContent = dailyIncome.claimed ? 'Sua Renda 51 de hoje já foi resgatada. Volte amanhã.' : dailyIncome.eligible ? `Você pode resgatar ${marketMoney(dailyIncome.amount)} Créditos 51 agora.` : `Faça uma atividade válida hoje para liberar ${marketMoney(dailyIncome.amount)} Créditos 51.`;
+  if (dailyIncomeStatus) dailyIncomeStatus.textContent = dailyIncome.claimed ? 'Resgatada hoje' : dailyIncome.eligible ? 'Disponível agora' : 'Uma por dia';
+  if (dailyIncomeButton) { dailyIncomeButton.disabled = !dailyIncome.available; dailyIncomeButton.textContent = dailyIncome.claimed ? 'Renda resgatada hoje' : 'Resgatar renda diária'; }
+  const missionList = $('#marketMissionList'); const missions = Array.isArray(income.missions) ? income.missions : [];
+  if (missionList) missionList.innerHTML = missions.map((mission) => `<div class="market-mission-row${mission.completed ? ' completed' : ''}"><span>${mission.icon}</span><div><strong>${escapeHtml(mission.title)}</strong><small>${escapeHtml(mission.description)}</small></div><b>${mission.completed ? '✓' : '+' + formatCredits(mission.reward)}</b></div>`).join('');
+  const dividend = income.dividend || {}; const dividendStatus = $('#marketDividendStatus'); if (dividendStatus) dividendStatus.textContent = `Dividendos hoje: ${formatCredits(dividend.paidToday || 0)} / ${formatCredits(dividend.dailyCap || 20)}`;
+  const liquidityHint = $('#marketLiquidityHint'); if (liquidityHint) liquidityHint.textContent = income.liquidity?.warning ? `Atenção: ${formatCredits(income.liquidity.investedShare || 0)}% do seu patrimônio está investido. Mantenha saldo livre para oportunidades.` : `Dividendos de ${formatCredits(Number(dividend.ratePerUpdate || 0) * 100)}% por atualização, com limite diário. A valorização continua sendo o principal ganho.`;
   const lastUpdateEl = $('#marketLastUpdate'); if (lastUpdateEl) lastUpdateEl.textContent = market.updatedAt ? `Última atualização: ${new Date(market.updatedAt).toLocaleString('pt-BR')}` : 'Aguardando a primeira atualização do servidor';
   const root = $('#marketAssets'); if (!root) return;
   const history = Array.isArray(market.history) ? market.history : [];
@@ -5201,6 +5209,12 @@ $('#mercado').addEventListener('input', (event) => {
   if (input) updateMarketOrderTotal(input.form);
 });
 $('#mercado').addEventListener('click', (event) => {
+  const incomeButton = event.target.closest('[data-market-income-claim]');
+  if (incomeButton) {
+    incomeButton.disabled = true;
+    api('/api/market/daily-income', { method: 'POST' }).then((data) => { appState.profile = data.profile; renderProfileEconomy(appState.profile); if (currentPortalPage() === 'mercado') renderInvestmentMarket(appState.profile); showToast(`Renda 51 resgatada: ${formatCredits(data.amount)} créditos.`); }).catch((error) => { showToast(error.message, 'error'); if (appState?.profile && currentPortalPage() === 'mercado') renderInvestmentMarket(appState.profile); });
+    return;
+  }
   const quick = event.target.closest('[data-market-quick]');
   if (!quick) return;
   const form = quick.closest('[data-market-action]'); const input = form?.querySelector('input[name="quantity"]');

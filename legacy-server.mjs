@@ -321,6 +321,8 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.shields)) { db.economy.shields = []; changed = true; }
   if (!Array.isArray(db.economy.authorReveals)) { db.economy.authorReveals = []; changed = true; }
   if (!Array.isArray(db.economy.creditAdjustments)) { db.economy.creditAdjustments = []; changed = true; }
+  if (!Array.isArray(db.economy.dailyIncomeClaims)) { db.economy.dailyIncomeClaims = []; changed = true; }
+  if (!Array.isArray(db.economy.marketMissionClaims)) { db.economy.marketMissionClaims = []; changed = true; }
   if (!db.economy.investmentMarket || typeof db.economy.investmentMarket !== 'object') { ensureMarketState(db.economy); changed = true; }
   ensureMarketState(db.economy);
   if (!Array.isArray(db.economy.forcedCursors)) { db.economy.forcedCursors = []; changed = true; }
@@ -834,6 +836,17 @@ const DAILY_MISSIONS = [
   { id: 'daily-meme', icon: '😂', title: 'Meme do expediente', description: 'Publique um meme hoje.', target: 1, reward: 10, unit: 'meme' },
 ];
 
+// A valorização continua sendo o lucro principal do Mercado 51. Estas
+// recompensas só criam liquidez controlada para que o usuário não precise
+// liquidar uma posição por falta de saldo para uma nova oportunidade.
+const MARKET_DAILY_INCOME = 40;
+const MARKET_DIVIDEND_RATE_PER_UPDATE = 0.0002; // 0,02% por atualização = até ~0,10% ao dia
+const MARKET_DIVIDEND_DAILY_CAP = 20;
+const MARKET_MISSIONS = [
+  { id: 'market-order', icon: '📈', title: 'Primeira ordem do dia', description: 'Compre ou venda pelo menos uma unidade hoje.', reward: 10 },
+  { id: 'market-hold', icon: '🪙', title: 'Mão firme', description: 'Mantenha uma posição durante uma atualização do Mercado.', reward: 15 },
+];
+
 function saoPauloWeekKey(date = new Date()) {
   const dayKey = saoPauloDayKey(date);
   const value = new Date(dayKey + 'T12:00:00Z');
@@ -933,6 +946,93 @@ function recordActivity(userId, type) {
   totals[type] = Number(totals[type] || 0) + 1;
   db.economy.activityTotals[userId] = totals;
   return recordMissionActivity(userId, type);
+}
+
+function hasDailyEconomyActivity(userId, dayKey = saoPauloDayKey()) {
+  return db.waterEntries.some((entry) => entry.userId === userId && entry.dayKey === dayKey)
+    || db.dailyPhrases.some((entry) => entry.userId === userId && dayKeyForTimestamp(entry.createdAt) === dayKey)
+    || db.dailyMemes.some((entry) => entry.userId === userId && dayKeyForTimestamp(entry.createdAt) === dayKey)
+    || db.anonymousPosts.some((entry) => entry.authorId === userId && dayKeyForTimestamp(entry.createdAt) === dayKey)
+    || ensureMarketState(db.economy).ledger.some((entry) => entry.userId === userId && dayKeyForTimestamp(entry.createdAt) === dayKey);
+}
+
+function marketMissionStateFor(userId, dayKey = saoPauloDayKey()) {
+  const market = ensureMarketState(db.economy);
+  const claims = db.economy.marketMissionClaims || [];
+  const orderedToday = market.ledger.some((entry) => entry.userId === userId && dayKeyForTimestamp(entry.createdAt) === dayKey);
+  const heldThroughUpdate = db.economy.creditAdjustments.some((entry) => entry.userId === userId && entry.mode === 'market-dividend' && dayKeyForTimestamp(entry.createdAt) === dayKey);
+  const progressById = { 'market-order': orderedToday ? 1 : 0, 'market-hold': heldThroughUpdate ? 1 : 0 };
+  return MARKET_MISSIONS.map((mission) => {
+    const key = userId + ':' + dayKey + ':' + mission.id;
+    const progress = progressById[mission.id] || 0;
+    return { ...mission, key, dayKey, progress, target: 1, completed: claims.includes(key) };
+  });
+}
+
+function settleMarketMissionsForUser(userId, dayKey = saoPauloDayKey()) {
+  let changed = false;
+  marketMissionStateFor(userId, dayKey).forEach((mission) => {
+    if (mission.completed || mission.progress < mission.target) return;
+    const key = mission.key;
+    if (db.economy.marketMissionClaims.includes(key)) return;
+    const before = walletFor(userId);
+    addCredits(userId, mission.reward);
+    db.economy.marketMissionClaims.push(key);
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId, mode: 'market-mission', amount: mission.reward, before, after: walletFor(userId), reason: 'Missão do Mercado: ' + mission.title, createdAt: new Date().toISOString() });
+    changed = true;
+  });
+  if (db.economy.marketMissionClaims.length > 10000) db.economy.marketMissionClaims = db.economy.marketMissionClaims.slice(-10000);
+  return changed;
+}
+
+function marketDailyIncomeFor(userId, dayKey = saoPauloDayKey()) {
+  const key = userId + ':' + dayKey;
+  const claimed = (db.economy.dailyIncomeClaims || []).some((entry) => entry.key === key);
+  const eligible = hasDailyEconomyActivity(userId, dayKey);
+  return { amount: MARKET_DAILY_INCOME, dayKey, claimed, eligible, available: !claimed && eligible };
+}
+
+function marketIncomeFor(userId) {
+  const dayKey = saoPauloDayKey();
+  const market = marketForUser(db.economy, userId);
+  const wallet = walletFor(userId);
+  const total = roundMoney(wallet + market.holdingsValue);
+  const investedShare = total > 0 ? roundMoney((market.holdingsValue / total) * 100) : 0;
+  const paidToday = roundMoney(db.economy.creditAdjustments.filter((entry) => entry.userId === userId && entry.mode === 'market-dividend' && dayKeyForTimestamp(entry.createdAt) === dayKey).reduce((sum, entry) => sum + Number(entry.amount || 0), 0));
+  return {
+    dailyIncome: marketDailyIncomeFor(userId, dayKey),
+    missions: marketMissionStateFor(userId, dayKey),
+    dividend: { ratePerUpdate: MARKET_DIVIDEND_RATE_PER_UPDATE, dailyCap: MARKET_DIVIDEND_DAILY_CAP, paidToday, remainingToday: Math.max(0, roundMoney(MARKET_DIVIDEND_DAILY_CAP - paidToday)) },
+    liquidity: { investedShare, warning: investedShare >= 80 },
+  };
+}
+
+function settleMarketDividends(now = new Date()) {
+  const market = ensureMarketState(db.economy);
+  if (!market.updatedAt || !market.slotKey || market.dividendSlots.includes(market.slotKey)) return false;
+  const dayKey = saoPauloDayKey(now);
+  const usersWithPositions = new Set(Object.keys(market.portfolios || {}));
+  db.users.filter((user) => user.active && user.approved !== false).forEach((user) => usersWithPositions.add(user.id));
+  usersWithPositions.forEach((userId) => {
+    const snapshot = marketForUser(db.economy, userId);
+    if (snapshot.holdingsValue <= 0) return;
+    const paidToday = db.economy.creditAdjustments.filter((entry) => entry.userId === userId && entry.mode === 'market-dividend' && dayKeyForTimestamp(entry.createdAt) === dayKey).reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+    const amount = roundMoney(Math.min(Math.max(0, MARKET_DIVIDEND_DAILY_CAP - paidToday), snapshot.holdingsValue * MARKET_DIVIDEND_RATE_PER_UPDATE));
+    if (amount < 0.01) return;
+    const before = walletFor(userId);
+    addCredits(userId, amount);
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId, mode: 'market-dividend', amount, before, after: walletFor(userId), reason: 'Dividendo simulado do Mercado 51', createdAt: now.toISOString(), slotKey: market.slotKey });
+    settleMarketMissionsForUser(userId, dayKey);
+  });
+  market.dividendSlots.push(market.slotKey);
+  if (market.dividendSlots.length > 240) market.dividendSlots = market.dividendSlots.slice(-240);
+  return true;
+}
+
+function syncMarketEconomy(now = new Date()) {
+  const advanced = advanceMarket(db.economy, now);
+  const rewarded = settleMarketDividends(now);
+  return advanced || rewarded;
 }
 
 const timestampDayCache = new Map();
@@ -1722,9 +1822,11 @@ function profileFor(user, computed = {}) {
   ];
   const savedShowcase = Array.isArray(user.profileShowcase) ? user.profileShowcase.slice(0, 4) : [];
   const showcaseSelected = savedShowcase.map((id) => showcaseOptions.find((item) => item.id === id)).filter(Boolean);
+  const investmentMarket = marketForUser(db.economy, user.id);
+  investmentMarket.income = marketIncomeFor(user.id);
   return {
     wallet: walletFor(user.id), equipped,
-    investmentMarket: marketForUser(db.economy, user.id),
+    investmentMarket,
     cobblemon: {
       caught: Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : [],
       total: COBBLEMON_CATALOG.length,
@@ -2447,7 +2549,7 @@ async function handleApi(req, res, route) {
     const settledCleanName = settleCleanNameRewards();
     const settledSeasonChallenges = settleSeasonalChallenges();
     const settledPokemonCapsules = settlePokemonCapsules();
-    const marketAdvanced = advanceMarket(db.economy);
+    const marketAdvanced = syncMarketEconomy();
     if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules || marketAdvanced) await persist();
     json(res, 200, stateFor(user)); return;
   }
@@ -2623,7 +2725,7 @@ async function handleApi(req, res, route) {
     // A função só altera o estado cinco vezes por dia; portanto, não cria
     // gravações extras durante os demais ciclos de presença.
     try {
-      const marketAdvanced = advanceMarket(db.economy);
+      const marketAdvanced = syncMarketEconomy();
       if (marketAdvanced) await persist();
     } catch {
       // Se outra instância do Worker ganhar a mesma virada, recarregamos o
@@ -3180,7 +3282,7 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'POST' && (route === '/api/market/buy' || route === '/api/market/sell')) {
     const { user } = requireAuth(req); const body = await readJson(req); const side = route.endsWith('/buy') ? 'buy' : 'sell';
-    advanceMarket(db.economy); const assetId = String(body.assetId || ''); const quantity = Number(body.quantity);
+    syncMarketEconomy(); const assetId = String(body.assetId || ''); const quantity = Number(body.quantity);
     const asset = MARKET_ASSETS.find((item) => item.id === assetId); if (!asset) throw new HttpError(400, 'Ativo não encontrado.');
     const market = ensureMarketState(db.economy); const price = roundMoney(market.prices[asset.id] || asset.initialPrice); const total = roundMoney(price * quantity);
     if (side === 'buy' && (!Number.isInteger(quantity) || quantity < 1 || walletFor(user.id) < total)) throw new HttpError(409, 'Quantidade inválida ou Créditos 51 insuficientes.');
@@ -3192,7 +3294,21 @@ async function handleApi(req, res, route) {
     operation.userId = user.id; operation.before = before; operation.after = after;
     market.ledger.push({ ...operation }); if (market.ledger.length > 5000) market.ledger = market.ledger.slice(-5000);
     db.economy.creditAdjustments.push({ id: operation.id, userId: user.id, mode: 'investment-market-' + side, amount: side === 'buy' ? -operation.total : operation.total, before, after, reason: `${side === 'buy' ? 'Compra' : 'Venda'} de ${asset.name}`, createdAt: operation.createdAt });
+    settleMarketMissionsForUser(user.id);
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), operation }); return;
+  }
+  if (req.method === 'POST' && route === '/api/market/daily-income') {
+    const { user } = requireAuth(req);
+    const dayKey = saoPauloDayKey(); const status = marketDailyIncomeFor(user.id, dayKey);
+    if (status.claimed) throw new HttpError(409, 'A renda diária de hoje já foi resgatada.');
+    if (!status.eligible) throw new HttpError(409, 'Faça uma atividade válida hoje para liberar a Renda 51.');
+    const before = walletFor(user.id); addCredits(user.id, MARKET_DAILY_INCOME);
+    const createdAt = new Date().toISOString(); const key = user.id + ':' + dayKey;
+    db.economy.dailyIncomeClaims.push({ id: randomUUID(), key, userId: user.id, dayKey, amount: MARKET_DAILY_INCOME, createdAt });
+    if (db.economy.dailyIncomeClaims.length > 10000) db.economy.dailyIncomeClaims = db.economy.dailyIncomeClaims.slice(-10000);
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'market-daily-income', amount: MARKET_DAILY_INCOME, before, after: walletFor(user.id), reason: 'Renda diária 51', createdAt });
+    settleMarketMissionsForUser(user.id, dayKey);
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), amount: MARKET_DAILY_INCOME }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/box/purchase') {
     const { user } = requireAuth(req); const body = await readJson(req); const box = COBBLEMON_BOXES[body.boxId];

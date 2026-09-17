@@ -1,5 +1,5 @@
 {
-  "version": "20260917-precos-centavos-v17",
-  "title": "Preços da economia com centavos",
-  "notes": "Os preços-base da Loja, das Cápsulas Cobblemon e da Roleta Cobblemon agora usam finais em centavos (como 899,90), mantendo o valor econômico praticamente igual. Saldos, compras históricas, vendas, recompensas e empréstimos foram preservados; somente novas compras usam a tabela atualizada."
+  "version": "20260917-mercado-renda-v18",
+  "title": "Nova liquidez do Mercado 51",
+  "notes": "O Mercado 51 agora oferece Renda 51 diária após uma atividade válida, missões de mercado, dividendos simulados limitados para quem mantém posições e um alerta de liquidez. A valorização continua sendo o principal ganho; os limites evitam inflação e não alteram compras ou saldos históricos."
 }

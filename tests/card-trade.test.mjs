@@ -29,8 +29,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260916-283/);
-  assert.match(html, /app\.js\?v=20260917-287/);
+  assert.match(html, /styles\.css\?v=20260917-284/);
+  assert.match(html, /app\.js\?v=20260917-288/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -77,7 +77,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.match(html, /id="flightBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260917-precos-centavos-v17/);
+  assert.match(appJs, /20260917-mercado-renda-v18/);
 });
 
 test('tabela de preços usa finais em centavos sem alterar recompensas e estornos históricos', () => {
@@ -106,12 +106,26 @@ test('radar do mercado lista todos os ativos e o gráfico inclui a janela anteri
   assert.match(html, /5 atualizações por dia/);
 });
 
+test('Mercado oferece liquidez controlada sem substituir a valorização', () => {
+  assert.match(serverJs, /const MARKET_DAILY_INCOME = 40/);
+  assert.match(serverJs, /MARKET_DIVIDEND_RATE_PER_UPDATE = 0\.0002/);
+  assert.match(serverJs, /MARKET_DIVIDEND_DAILY_CAP = 20/);
+  assert.match(serverJs, /route === '\/api\/market\/daily-income'/);
+  assert.match(serverJs, /mode: 'market-dividend'/);
+  assert.match(serverJs, /mode: 'market-mission'/);
+  assert.match(serverJs, /function syncMarketEconomy\(now = new Date\(\)\)/);
+  assert.match(appJs, /data-market-income-claim/);
+  assert.match(appJs, /marketMissionList/);
+  assert.match(html, /id="marketDailyIncomeButton"/);
+  assert.match(html, /id="marketLiquidityHint"/);
+});
+
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /function sanitizePendingLieVoters\(now = new Date\(\)\.toISOString\(\)\)/);
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260917-precos-centavos-v17/);
+  assert.match(appJs, /20260917-mercado-renda-v18/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
