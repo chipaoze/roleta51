@@ -903,10 +903,11 @@ const LOTTERY_MAX_POOL = 1500;
 const LOTTERY_DRAW_HOUR = 16;
 const LOTTERY_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // Exceção única para a primeira transmissão do sorteio: a rodada aberta nesta
-// semana fecha às 16h10; todas as rodadas seguintes continuam às 16h.
+// semana fecha às 16h20; todas as rodadas seguintes continuam às 16h.
 const LOTTERY_ONE_OFF_ROUND_ID = 'lottery:2026-09-10T19:00:00.000Z';
-const LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T19:10:00.000Z';
-const LOTTERY_ONE_OFF_RESET_VERSION = '2026-09-17T19:10-reopen-v1';
+const LOTTERY_ONE_OFF_ACTIVE_ROUND_ID = 'lottery:2026-09-17T19:00:00.000Z';
+const LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T19:20:00.000Z';
+const LOTTERY_ONE_OFF_RESET_VERSION = '2026-09-17T19:20-clear-v2';
 function casinoAccountFor(userId, create = false) {
   const dayKey = saoPauloDayKey(); const current = db.economy.casinoAccounts[userId];
   if (current?.dayKey === dayKey) return current;
@@ -989,6 +990,65 @@ function createLotteryRound(window, carryOver = 0) {
   return round;
 }
 
+function resetOneOffLotteryForDelayedDraw(now = new Date()) {
+  ensureLotteryState();
+  if (!Array.isArray(db.economy.creditAdjustments)) db.economy.creditAdjustments = [];
+  const active = db.economy.lottery.rounds.find((item) => item.id === LOTTERY_ONE_OFF_ACTIVE_ROUND_ID);
+  if (!active || active.oneOffResetVersion === LOTTERY_ONE_OFF_RESET_VERSION) return false;
+  const previous = db.economy.lottery.rounds.find((item) => item.id === LOTTERY_ONE_OFF_ROUND_ID);
+
+  // A apuração das 16h10 foi publicada antes de o código estar concluído.
+  // Estornamos somente o prêmio daquela rodada e mantemos a trilha financeira.
+  if (previous?.status === 'drawn') {
+    const payoutAdjustments = db.economy.creditAdjustments.filter((item) => item.mode === 'lottery-prize' && item.lotteryRoundId === previous.id);
+    for (const payout of Array.isArray(previous.payouts) ? previous.payouts : []) {
+      const amount = roundMoney(payout.amount);
+      const adjustment = payoutAdjustments.find((item) => item.userId === payout.userId && roundMoney(item.amount) === amount);
+      if (!amount || !adjustment) continue;
+      const before = walletFor(payout.userId);
+      addCredits(payout.userId, -amount);
+      db.economy.creditAdjustments.push({
+        id: randomUUID(), userId: payout.userId, mode: 'lottery-reset-reversal', amount: -amount,
+        before, after: walletFor(payout.userId), reason: `Estorno da rodada de teste da Loteria 51 · rodada ${previous.id.slice(-10)}`,
+        createdAt: now.toISOString(), lotteryRoundId: previous.id, reversesAdjustmentId: adjustment.id,
+      });
+    }
+    previous.status = 'void';
+    previous.voidedAt = now.toISOString();
+    previous.voidedReason = 'Rodada de teste limpa para o novo sorteio excepcional das 16h20';
+    previous.voidedFromDrawnAt = previous.drawnAt || null;
+    previous.winningNumbers = [];
+    previous.winnerIds = [];
+    previous.payouts = [];
+    previous.prizePool = 0;
+    previous.rolloverAmount = 0;
+    previous.drawnAt = null;
+    previous.revealedSecret = null;
+  }
+
+  // Remove palpites das duas rodadas de teste, sem tocar em rodadas anteriores.
+  db.economy.lottery.entries = db.economy.lottery.entries.filter((item) => item.roundId !== LOTTERY_ONE_OFF_ROUND_ID && item.roundId !== LOTTERY_ONE_OFF_ACTIVE_ROUND_ID);
+
+  const secret = randomBytes(32).toString('hex');
+  active.secret = secret;
+  active.commitHash = createHash('sha256').update(secret).digest('hex');
+  active.closeAt = LOTTERY_ONE_OFF_CLOSE_AT;
+  active.status = 'open';
+  active.oneOffHold = true;
+  active.oneOffResetVersion = LOTTERY_ONE_OFF_RESET_VERSION;
+  active.winningNumbers = [];
+  active.winnerIds = [];
+  active.payouts = [];
+  active.rolloverAmount = 0;
+  active.realWagered = 0;
+  active.houseMargin = 0;
+  active.contribution = 0;
+  active.prizePool = 0;
+  active.drawnAt = null;
+  active.revealedSecret = null;
+  return true;
+}
+
 function reopenOneOffLotteryRoundIfNeeded(now = new Date()) {
   ensureLotteryState();
   if (!Array.isArray(db.economy.creditAdjustments)) db.economy.creditAdjustments = [];
@@ -1039,8 +1099,9 @@ function reopenOneOffLotteryRoundIfNeeded(now = new Date()) {
 
 function currentLotteryRound(date = new Date()) {
   ensureLotteryState();
+  resetOneOffLotteryForDelayedDraw(date);
   reopenOneOffLotteryRoundIfNeeded(date);
-  const oneOffRound = db.economy.lottery.rounds.find((item) => item.id === LOTTERY_ONE_OFF_ROUND_ID && item.status === 'open' && Date.parse(item.closeAt) > date.getTime());
+  const oneOffRound = db.economy.lottery.rounds.find((item) => item.id === LOTTERY_ONE_OFF_ACTIVE_ROUND_ID && item.status === 'open' && Date.parse(item.closeAt) > date.getTime());
   if (oneOffRound) {
     if (Date.parse(oneOffRound.closeAt) !== Date.parse(LOTTERY_ONE_OFF_CLOSE_AT)) {
       oneOffRound.closeAt = LOTTERY_ONE_OFF_CLOSE_AT;
