@@ -1,5 +1,5 @@
 {
-  "version": "20260917-mercado-carteira-v24",
-  "title": "Mercado 51: gráfico e carteira ajustados",
-  "notes": "Corrigimos a quebra visual dos gráficos e dos cartões em diferentes larguras e temas. O custo pago, resultado positivo ou negativo e variação desde a compra agora ficam separados e legíveis; quedas aparecem em vermelho e altas em verde."
+  "version": "20260917-cacada-fluida-v25",
+  "title": "Caçada Cobblemon mais fluida",
+  "notes": "A troca entre setores durante a caçada agora aparece imediatamente; a renderização pesada de listas e imagens fica para depois do primeiro quadro. Isso reduz a espera percebida sem criar novas requisições ao servidor."
 }

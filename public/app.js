@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-mercado-carteira-v24',
-  title: 'Mercado 51: gráfico e carteira ajustados',
-  notes: 'Corrigimos a quebra visual dos gráficos e dos cartões em diferentes larguras e temas. O custo pago, resultado positivo ou negativo e variação desde a compra agora ficam separados e legíveis; quedas aparecem em vermelho e altas em verde.'
+  version: '20260917-cacada-fluida-v25',
+  title: 'Caçada Cobblemon mais fluida',
+  notes: 'A troca entre setores durante a caçada agora aparece imediatamente; a renderização pesada de listas e imagens fica para depois do primeiro quadro. Isso reduz a espera percebida sem criar novas requisições ao servidor.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -1402,10 +1402,15 @@ function showPortalPage(page, pushState = false, resetScroll = true) {
   updateCobblemonHuntSector(page);
   if (appState && !renderingActivePortalPage && renderedPortalPage !== page) {
     const requestId = ++portalRenderRequest;
-    setTimeout(() => {
+    const renderPage = () => {
       if (requestId !== portalRenderRequest || currentPortalPage() !== page || renderedPortalPage === page) return;
       renderActivePortalPage(appState);
-    }, 0);
+    };
+    // Durante a caça, primeiro pinta a nova tela e reposiciona o alvo; a
+    // montagem de listas e imagens acontece depois do primeiro quadro para
+    // não transformar a troca de setor em uma espera perceptível.
+    if (cobblemonPageEncounter) requestAnimationFrame(() => requestAnimationFrame(renderPage));
+    else setTimeout(renderPage, 0);
   }
 }
 
