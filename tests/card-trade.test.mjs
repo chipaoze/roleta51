@@ -7,6 +7,7 @@ const root = path.resolve(import.meta.dirname, '..');
 const js = fs.readFileSync(path.join(root, 'public', 'card-album.js'), 'utf8');
 const appJs = fs.readFileSync(path.join(root, 'public', 'app.js'), 'utf8');
 const serverJs = fs.readFileSync(path.join(root, 'legacy-server.mjs'), 'utf8');
+const marketLib = fs.readFileSync(path.join(root, 'lib', 'investment-market.mjs'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
@@ -27,10 +28,10 @@ test('painéis ocultam combos redundantes e informam como navegar', () => {
 test('análise calcula utilidade por coleção e versão dos assets é atualizada', () => {
   assert.match(js, /utilityScore/);
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
-  assert.match(html, /card-album\.js\?v=20260916-236/);
+  assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260917-284/);
-  assert.match(html, /app\.js\?v=20260917-290/);
+  assert.match(html, /app\.js\?v=20260917-292/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -47,6 +48,18 @@ test('aviso de versão pede atualização e exibe notas uma vez por versão', ()
   assert.match(appJs, /releaseCheckPromise/);
   assert.match(appJs, /APP_RELEASE_VERSION/);
   assert.match(appJs, /releaseNoticeRequiresUpdate/);
+});
+
+test('notificações navegam até o item exato depois da renderização', () => {
+  assert.match(serverJs, /targetId:'card-trade-'\s*\+\s*trade\.id/);
+  assert.match(serverJs, /targetId:'card-market-post-'\s*\+\s*post\.id/);
+  assert.match(serverJs, /targetId:'visual-trade-'\s*\+\s*trade\.id/);
+  assert.match(js, /id="card-trade-'\+escapeHtml\(t\.id\)/);
+  assert.match(js, /id="card-market-post-'\+escapeHtml\(post\.id\)/);
+  assert.match(appJs, /function waitForNotificationTarget\(targetId/);
+  assert.match(appJs, /await focusNotificationTarget\(targetId, safePage\)/);
+  assert.match(appJs, /target\.scrollIntoView\(\{ block: 'center'/);
+  assert.match(styles, /\.notification-target\{outline:3px solid/);
 });
 
 test('cabeçalho exibe e atualiza o saldo de Créditos 51 em qualquer página', () => {
@@ -77,7 +90,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.match(html, /id="flightBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260917-escudo-rodada-v21/);
+  assert.match(appJs, /20260917-mercado-carteira-v23/);
 });
 
 test('tabela de preços usa finais em centavos sem alterar recompensas e estornos históricos', () => {
@@ -103,7 +116,26 @@ test('radar do mercado lista todos os ativos e o gráfico inclui a janela anteri
   assert.match(appJs, /function marketRadarMarkup\(assets\)/);
   assert.match(appJs, /marketRadarMarkup\(assets\)/);
   assert.match(appJs, /const previous = Number\(asset\.previousPrice \|\| current\)/);
-  assert.match(html, /5 atualizações por dia/);
+  assert.match(html, /8 atualizações por dia/);
+});
+
+test('Mercado mostra tooltip por ponto e resultado desde o custo médio', () => {
+  assert.match(appJs, /class="market-chart-point"/);
+  assert.match(appJs, /<title>\$\{escapeHtml\(asset\.name\).*Créditos 51/);
+  assert.match(appJs, /marketInvestedCost/);
+  assert.match(appJs, /marketUnrealizedPnlPercent/);
+  assert.match(appJs, /holdingChangePercent/);
+  assert.match(marketLib, /investedCost/);
+  assert.match(marketLib, /unrealizedPnlPercent/);
+  assert.match(marketLib, /averagePrice/);
+  assert.match(html, /id="marketInvestedCost"/);
+  assert.match(html, /id="marketUnrealizedPnl"/);
+  assert.match(html, /id="marketUnrealizedPnlPercent"/);
+});
+
+test('Mercado usa oito janelas fixas sem API externa', () => {
+  assert.match(marketLib, /Math\.floor\(Number\(get\('hour'\)\) \/ 3\)/);
+  assert.match(marketLib, /Oito janelas fixas/);
 });
 
 test('Mercado oferece liquidez controlada sem substituir a valorização', () => {
@@ -136,7 +168,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260917-escudo-rodada-v21/);
+  assert.match(appJs, /20260917-mercado-carteira-v23/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -144,7 +176,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260917-escudo-rodada-v21/);
+  assert.match(appJs, /20260917-mercado-carteira-v23/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

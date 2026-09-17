@@ -1,5 +1,5 @@
 {
-  "version": "20260917-escudo-rodada-v21",
-  "title": "Escudo da Rodada após o sorteio",
-  "notes": "O Escudo agora permanece no inventário até você ser sorteado como Gay. Nesse momento aparece uma decisão: usar o poder para retirar seu nome e reabrir o sorteio, ou manter o resultado. O item só é consumido quando usado e cada novo sorteado com escudo recebe a mesma escolha."
+  "version": "20260917-mercado-carteira-v23",
+  "title": "Notificações e carteira do Mercado 51",
+  "notes": "Notificações agora abrem e destacam o item exato. O Mercado 51 ganhou pontos com tooltip de cotação e variação, custo pago, valor atual, resultado positivo ou negativo por moeda e carteira, além de oito atualizações seguras por dia."
 }

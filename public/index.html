@@ -502,12 +502,13 @@
 
     <section id="mercado" class="section market-page portal-page-hidden">
       <header class="market-hero">
-        <div class="market-hero-top"><div><small>MERCADO INTERNO · COTAÇÕES SIMULADAS</small><h2>Mercado 51</h2><p>Negocie ativos virtuais com Créditos 51. As cotações são calculadas pelo Worker e atualizadas cinco vezes por dia — sem API externa e sem valores reais.</p></div><span class="market-session-status"><i></i> MERCADO ABERTO<br><small>Simulação em tempo real</small></span></div>
+        <div class="market-hero-top"><div><small>MERCADO INTERNO · COTAÇÕES SIMULADAS</small><h2>Mercado 51</h2><p>Negocie ativos virtuais com Créditos 51. As cotações são calculadas pelo Worker e atualizadas oito vezes por dia — sem API externa e sem valores reais.</p></div><span class="market-session-status"><i></i> MERCADO ABERTO<br><small>Simulação em tempo real</small></span></div>
         <div class="market-totals">
           <article class="market-total-card"><small class="market-total-label">CAIXA DISPONÍVEL</small><strong class="market-total-amount"><span id="marketWallet">0,00</span><small>Créditos 51</small></strong><span>Saldo livre para novas ordens</span></article>
-          <article class="market-total-card"><small class="market-total-label">VALOR INVESTIDO</small><strong class="market-total-amount"><span id="marketHoldingsValue">0,00</span><small>Créditos 51</small></strong><span>Valor atual das suas posições</span></article>
+          <article class="market-total-card"><small class="market-total-label">VALOR ATUAL INVESTIDO</small><strong class="market-total-amount"><span id="marketHoldingsValue">0,00</span><small>Créditos 51</small></strong><span>Quanto suas posições valem agora</span></article>
           <article class="market-total-card featured"><small class="market-total-label">PATRIMÔNIO TOTAL</small><strong class="market-total-amount"><span id="marketPortfolioValue">0,00</span><small>Créditos 51</small></strong><span>Caixa + posições</span></article>
         </div>
+        <div class="market-portfolio-breakdown" aria-label="Resultado das posições"><span><small>CAPITAL PAGO</small><b id="marketInvestedCost">0,00</b><em>custo das moedas ainda em carteira</em></span><span><small>RESULTADO ATUAL</small><b id="marketUnrealizedPnl">0,00</b><em id="marketUnrealizedPnlLabel">positivo ou negativo</em></span><span><small>VARIAÇÃO DESDE A COMPRA</small><b id="marketUnrealizedPnlPercent">0,00%</b><em>baseada no custo médio</em></span></div>
         <div class="market-income-grid">
           <article class="card market-income-card"><div class="market-panel-heading"><div><small>LIQUIDEZ DA TRIPULAÇÃO</small><h3>Renda 51</h3></div><span id="marketDailyIncomeStatus">Uma por dia</span></div><p id="marketDailyIncomeText">Faça uma atividade válida para liberar sua renda diária de 40,00 Créditos 51.</p><button id="marketDailyIncomeButton" class="button button-primary" type="button" data-market-income-claim>Resgatar renda diária</button></article>
           <article class="card market-income-card"><div class="market-panel-heading"><div><small>OBJETIVOS DO MERCADO</small><h3>Missões de hoje</h3></div><span id="marketDividendStatus">Dividendos limitados</span></div><div id="marketMissionList" class="market-mission-list"></div><p id="marketLiquidityHint" class="market-liquidity-hint"></p></article>
@@ -515,8 +516,8 @@
         <div id="marketLastUpdate" class="market-last-update">Aguardando a primeira atualização do servidor</div>
       </header>
       <div class="market-overview-grid">
-        <article class="card market-movers-card"><div class="market-panel-heading"><div><small>RADAR DO MERCADO</small><h3>Movimentos da sessão</h3></div><span>5 atualizações por dia</span></div><div id="marketMovers" class="market-movers"></div></article>
-        <article class="card market-chart-card"><div class="market-panel-heading"><div><small>PERFORMANCE</small><h3>Evolução das cotações</h3></div><span>Variação percentual</span></div><div id="marketChart" class="market-chart"></div></article>
+        <article class="card market-movers-card"><div class="market-panel-heading"><div><small>RADAR DO MERCADO</small><h3>Movimentos da sessão</h3></div><span>8 atualizações por dia</span></div><div id="marketMovers" class="market-movers"></div></article>
+        <article class="card market-chart-card"><div class="market-panel-heading"><div><small>PERFORMANCE</small><h3>Evolução das cotações</h3></div><span>Passe o mouse nos pontos para ver a variação</span></div><div id="marketChart" class="market-chart"></div></article>
       </div>
       <div class="market-section-heading"><div><small>ATIVOS NEGOCIADOS</small><h3>Escolha uma posição</h3></div><p>Informe a quantidade ou use os atalhos. O total da ordem é calculado antes da confirmação.</p></div>
       <div id="marketAssets" class="market-assets"></div>
@@ -848,9 +849,9 @@
   <script src="/community-feed.js?v=20260910-195"></script>
   <script src="/avatar-crop.js?v=20260903-161"></script>
   <script src="/visual-trading.js?v=20260902-140"></script>
-  <script src="/card-album.js?v=20260916-236"></script>
+  <script src="/card-album.js?v=20260917-237"></script>
   <script src="/weather.js?v=20260914-178"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-      <script src="/app.js?v=20260917-290"></script>
+      <script src="/app.js?v=20260917-292"></script>
 </body>
 </html>

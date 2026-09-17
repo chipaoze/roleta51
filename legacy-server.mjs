@@ -2091,7 +2091,7 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   for (const dispute of (db.lieDisputes || []).filter((item) => item.status === 'open' && item.participantIds.includes(user.id)).slice(-4)) {
     const lie = db.lieAccusations.find((item) => item.id === dispute.lieId);
     const pending = dispute.participantIds.filter((id) => !dispute.decisions?.[id]).length;
-    items.push({ id: 'lie-dispute:' + dispute.id, icon: '⚖️', title: 'Discussão sobre uma mentira', detail: lie?.reason || (pending + ' decisão(ões) aguardando'), page: 'mentirometro', createdAt: dispute.updatedAt || dispute.createdAt });
+    items.push({ id: 'lie-dispute:' + dispute.id, icon: '⚖️', title: 'Discussão sobre uma mentira', detail: lie?.reason || (pending + ' decisão(ões) aguardando'), page: 'mentirometro', targetId: 'lie-dispute-' + dispute.id, createdAt: dispute.updatedAt || dispute.createdAt });
   }
   // Uma nova acusação depende do voto coletivo. O mesmo aviso é mostrado para
   // toda a tripulação elegível, inclusive para quem abriu a votação, que também
@@ -2110,7 +2110,7 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     });
   }
   for (const trade of (db.economy.trades || []).filter(t => (t.toId===user.id || t.fromId===user.id) && (t.status!=='pending' || Date.parse(t.expiresAt)>Date.now())).slice(-4)) {
-    items.push({id:'trade:'+trade.id,icon:'🔄',title:trade.status==='pending'?'Proposta de troca de visuais':'Proposta de troca atualizada',detail:trade.offeredName+' ↔ '+trade.wantedName,page:'perfil',createdAt:trade.updatedAt});
+    items.push({id:'trade:'+trade.id,icon:'🔄',title:trade.status==='pending'?'Proposta de troca de visuais':'Proposta de troca atualizada',detail:trade.offeredName+' ↔ '+trade.wantedName,page:'perfil',targetId:'visual-trade-'+trade.id,createdAt:trade.updatedAt});
   }
   for (const announcement of (db.economy.powerAnnouncements || []).filter((item) => item.activatedByUserId !== user.id).slice(-8)) {
     items.push({ id: 'power-activation:' + announcement.id, icon: '⚡', title: announcement.itemName + ' ativado na rodada', detail: 'Um poder da Loja 51 foi ativado. Confira a rodada.', page: 'sorteio', targetId: 'sorteio', createdAt: announcement.createdAt });
@@ -2129,20 +2129,20 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     });
   }
   db.economy.purchases.filter((item) => item.userId === user.id && item.cardPackOpenedAt).slice(-2).forEach((item) => items.push({id:'card-pack:'+item.id,icon:'🎴',title:'Cartas recebidas no pacotinho',detail:(item.cardPackRewards || []).map((card) => card.name).join(' · ') || 'Abra o Álbum para conferir.',page:'album',targetId:'cardAlbumCollections',createdAt:item.cardPackOpenedAt}));
-  for(const trade of (db.economy.cardTrades || []).filter(t=>t.toId===user.id || t.fromId===user.id).slice(-2))items.push({id:'card-trade:'+trade.id,icon:'🎴',title:trade.status==='pending'?'Proposta de troca de cartas':'Troca de cartas atualizada',detail:'Confira no Álbum de cartas.',page:'album',createdAt:trade.updatedAt});
+  for(const trade of (db.economy.cardTrades || []).filter(t=>t.toId===user.id || t.fromId===user.id).slice(-2))items.push({id:'card-trade:'+trade.id,icon:'🎴',title:trade.status==='pending'?'Proposta de troca de cartas':'Troca de cartas atualizada',detail:'Confira no Álbum de cartas.',page:'album',targetId:'card-trade-'+trade.id,createdAt:trade.updatedAt});
   const rejectedCardOffers=(db.economy.cardTradePosts || []).flatMap(post=>(post.offers || []).filter(offer=>offer.fromId===user.id&&offer.status==='rejected').map(offer=>({post,offer}))).sort((a,b)=>(b.offer.updatedAt || '').localeCompare(a.offer.updatedAt || '')).slice(0,4);
-  for(const {post,offer} of rejectedCardOffers){const card=CARD_COLLECTIONS.flatMap(collection=>collection.cards.map(([id,name])=>[collection.id+':'+id,name])).find(([id])=>id===offer.cardId);items.push({id:'card-market-rejected:'+offer.id,icon:'↩️',title:'Sua oferta foi recusada',detail:offer.creditAmount?offer.creditAmount+' créditos foram liberados para novas ofertas.':(card?.[1] || 'Sua carta')+' foi liberada para outra troca.',page:'album',createdAt:offer.updatedAt});}
+  for(const {post,offer} of rejectedCardOffers){const card=CARD_COLLECTIONS.flatMap(collection=>collection.cards.map(([id,name])=>[collection.id+':'+id,name])).find(([id])=>id===offer.cardId);items.push({id:'card-market-rejected:'+offer.id,icon:'↩️',title:'Sua oferta foi recusada',detail:offer.creditAmount?offer.creditAmount+' créditos foram liberados para novas ofertas.':(card?.[1] || 'Sua carta')+' foi liberada para outra troca.',page:'album',targetId:'card-market-post-'+post.id,createdAt:offer.updatedAt});}
   const incomingCardMarketOffers=(db.economy.cardTradePosts || []).filter(post=>post.fromId===user.id&&post.status==='open').flatMap(post=>(post.offers || []).filter(offer=>offer.status!=='rejected').map(offer=>({post,offer}))).sort((a,b)=>String(b.offer.createdAt || '').localeCompare(String(a.offer.createdAt || ''))).slice(0,4);
-  for(const {post,offer} of incomingCardMarketOffers)items.push({id:'card-market-offer:'+offer.id,icon:offer.creditAmount?'🪙':'🃏',title:'Nova oferta pela sua carta',detail:offer.creditAmount?offer.creditAmount+' créditos oferecidos.':'Uma carta foi oferecida para troca.',page:'album',createdAt:offer.createdAt});
+  for(const {post,offer} of incomingCardMarketOffers)items.push({id:'card-market-offer:'+offer.id,icon:offer.creditAmount?'🪙':'🃏',title:'Nova oferta pela sua carta',detail:offer.creditAmount?offer.creditAmount+' créditos oferecidos.':'Uma carta foi oferecida para troca.',page:'album',targetId:'card-market-post-'+post.id,createdAt:offer.createdAt});
   const masterGift = db.settings.masterGift136;
-  if (masterGift?.userIds?.includes(user.id)) items.push({id:'feature-master-136',icon:'💠',title:'Você ganhou um Baú Master Aurora!',detail:'Brinde das novidades: abra ou venda pelo perfil.',page:'perfil',createdAt:masterGift.grantedAt});
+  if (masterGift?.userIds?.includes(user.id)) items.push({id:'feature-master-136',icon:'💠',title:'Você ganhou um Baú Master Aurora!',detail:'Brinde das novidades: abra ou venda pelo perfil.',page:'perfil',targetId:'mysteryInventoryCard',createdAt:masterGift.grantedAt});
   for (const post of [...db.dailyMemes, ...db.dailyPhrases]) {
     for (const comment of post.comments || []) {
       const mention = comment.mentions?.find((item) => item.userId === user.id);
-      if (mention) items.push({ id: 'mention:' + comment.id, icon: '💬', title: comment.authorName + ' marcou você', detail: comment.message, page: 'memes', createdAt: mention.createdAt });
+      if (mention) items.push({ id: 'mention:' + comment.id, icon: '💬', title: comment.authorName + ' marcou você', detail: comment.message, page: 'memes', targetId: 'feed-comment-' + comment.id, createdAt: mention.createdAt });
     }
   }
-  for (const comment of (db.profileComments || []).filter((item) => item.targetUserId === user.id && item.authorId !== user.id).slice(-4)) items.push({id:'profile-comment:'+comment.id,icon:'💭',title:'Novo comentário no seu perfil',detail:comment.authorName+': '+comment.message,page:'memes',profileId:user.id,createdAt:comment.createdAt});
+  for (const comment of (db.profileComments || []).filter((item) => item.targetUserId === user.id && item.authorId !== user.id).slice(-4)) items.push({id:'profile-comment:'+comment.id,icon:'💭',title:'Novo comentário no seu perfil',detail:comment.authorName+': '+comment.message,page:'memes',profileId:user.id,targetId:'profile-comment-'+comment.id,createdAt:comment.createdAt});
   // Aprovações são uma pendência administrativa: cada conta aguardando ganha um
   // atalho próprio, para o sino abrir exatamente a linha daquela pessoa.
   if (user.role === 'admin') {
@@ -2167,11 +2167,11 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     createdAt: pendingGayShield.createdAt,
   });
   const forcedCursor = [...db.economy.forcedCursors].reverse().find((item) => item.targetUserId === user.id && isForcedCursorActive(item, roundId));
-  if (forcedCursor) items.push({ id: 'forced-cursor:' + forcedCursor.id, icon: forcedCursor.style === 'giant-slow' ? '🐌' : forcedCursor.style === 'adhd' ? '⚡' : '🌈', title: forcedCursor.style === 'giant-slow' ? 'Maldição do Mouse Gigante ativada' : forcedCursor.style === 'adhd' ? 'Maldição TDAH ativada' : 'Seta Gay Compulsória ativada', detail: forcedCursor.style === 'giant-slow' ? 'Duração de 24 horas a partir da ativação.' : forcedCursor.style === 'adhd' ? 'O cursor pode assumir o controle por cerca de 30 segundos, sem revelar quem enviou.' : 'Seu cursor especial ficará ativo durante esta rodada.', page: 'perfil', createdAt: forcedCursor.createdAt });
+  if (forcedCursor) items.push({ id: 'forced-cursor:' + forcedCursor.id, icon: forcedCursor.style === 'giant-slow' ? '🐌' : forcedCursor.style === 'adhd' ? '⚡' : '🌈', title: forcedCursor.style === 'giant-slow' ? 'Maldição do Mouse Gigante ativada' : forcedCursor.style === 'adhd' ? 'Maldição TDAH ativada' : 'Seta Gay Compulsória ativada', detail: forcedCursor.style === 'giant-slow' ? 'Duração de 24 horas a partir da ativação.' : forcedCursor.style === 'adhd' ? 'O cursor pode assumir o controle por cerca de 30 segundos, sem revelar quem enviou.' : 'Seu cursor especial ficará ativo durante esta rodada.', page: 'perfil', targetId: 'activePowersCard', createdAt: forcedCursor.createdAt });
   const assignment = db.assignments.find((item) => item.roundId === roundId && item.userId === user.id && item.revealed);
-  if (assignment) items.push({ id: 'assignment:' + assignment.id, icon: '🖼️', title: 'Seu wallpaper chegou', detail: assignment.seenAt ? 'Wallpaper visualizado.' : 'Abra o Sorteio para visualizar.', page: 'sorteio', createdAt: assignment.revealedAt || assignment.createdAt });
+  if (assignment) items.push({ id: 'assignment:' + assignment.id, icon: '🖼️', title: 'Seu wallpaper chegou', detail: assignment.seenAt ? 'Wallpaper visualizado.' : 'Abra o Sorteio para visualizar.', page: 'sorteio', targetId: 'receivedWallpaperCard', createdAt: assignment.revealedAt || assignment.createdAt });
   const voting = openVoting();
-  if (voting && voting.requiredVoterIds.includes(user.id) && !voting.votes.some((vote) => vote.userId === user.id)) items.push({ id: 'vote:' + voting.id, icon: '🗳️', title: 'Sua votação está disponível', detail: 'Escolha o melhor e o pior wallpaper.', page: 'sorteio', createdAt: voting.openedAt });
+  if (voting && voting.requiredVoterIds.includes(user.id) && !voting.votes.some((vote) => vote.userId === user.id)) items.push({ id: 'vote:' + voting.id, icon: '🗳️', title: 'Sua votação está disponível', detail: 'Escolha o melhor e o pior wallpaper.', page: 'sorteio', targetId: 'votingPanel', createdAt: voting.openedAt });
   db.feedbackMessages.filter((item) => item.authorId === user.id && (item.status !== 'pending' || item.adminComment)).slice(-4).forEach((item) => items.push({
     id: 'feedback:' + item.id + ':' + item.updatedAt,
     icon: '💬',
@@ -2181,7 +2181,7 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     targetId: 'my-feedback-' + item.id,
     createdAt: item.updatedAt || item.createdAt,
   }));
-  creditLedger.filter((item) => item.amount > 0 && !item.id.startsWith('gift:')).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + roundMoney(item.amount) + ' Créditos 51', detail: item.label, page: 'perfil', createdAt: item.createdAt }));
+  creditLedger.filter((item) => item.amount > 0 && !item.id.startsWith('gift:')).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + roundMoney(item.amount) + ' Créditos 51', detail: item.label, page: 'perfil', targetId: 'creditLedger', createdAt: item.createdAt }));
   db.economy.gifts.filter((item) => item.toUserId === user.id).slice(-5).forEach((item) => items.push({ id: 'gift:' + item.id, icon: '🎁', title: 'Você recebeu um presente secreto', targetId: item.type === 'credits' ? 'creditLedger' : 'collectionCatalog', detail: item.type === 'credits' ? roundMoney(item.amount) + ' Créditos 51' : (SHOP_CATALOG.find((catalog) => catalog.id === item.itemId)?.name || 'Item da Loja 51'), page: 'perfil', createdAt: item.createdAt }));
   const readAt = db.notificationsReadAt[user.id] || null;
   const sorted = items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 15).map((item) => ({ ...item, unread: !readAt || item.createdAt > readAt }));
