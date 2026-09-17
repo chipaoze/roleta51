@@ -92,6 +92,11 @@ test('tabela de preços usa finais em centavos sem alterar recompensas e estorno
       assert.match(appJs, /price\|\|259\.90/);
       assert.match(appJs, /buyPrice: 89\.90/);
       assert.match(appJs, /Roleta Cobblemon por \$\{formatCredits/);
+      assert.match(html, /Gire por <b>259,90 Cr[eé]ditos 51<\/b>/);
+      assert.match(html, /Girar por 259,90/);
+      assert.match(html, /Comprar \+10 por 89,90/);
+      assert.doesNotMatch(html, /Gire por <b>260 Cr[eé]ditos 51<\/b>/);
+      assert.doesNotMatch(html, /Comprar \+10 por 90/);
 });
 
 test('radar do mercado lista todos os ativos e o gráfico inclui a janela anterior', () => {
