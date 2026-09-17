@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-apostometro-real-v29',
-  title: 'Apostômetro com valor real',
-  notes: 'O Apostômetro agora soma apenas apostas pagas com o saldo da Loja 51. Apostas promocionais continuam no histórico, mas não inflacionam o valor movimentado.'
+  version: '20260917-loteria-51-v33',
+  title: 'Loteria 51: sorteio ao vivo',
+  notes: 'A Loteria 51 fecha toda quinta às 16h (Brasília): cada participante registra um palpite gratuito de 1 a 20, cinco números são sorteados e revelados ao vivo pelo servidor. O prêmio é calculado com 10% do movimento real pago. Rodadas sem acúmulo têm limite de 1.500 Créditos 51; quando há rollover, o valor acumulado é preservado e a nova contribuição é somada.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -78,6 +78,10 @@ let flightPollGeneration = 0;
 let flightSnapshot=null;
 let flightAnimationFrame=null;
 let flightCurrentId=null;
+let lotteryGuessDraft = null;
+let lotteryReminderTimer = null;
+let lotteryDrawTimer = null;
+let lotteryDrawInProgress = false;
 let mysteryOpeningInProgress = false;
 let forcedCursorExpiryTimer = null;
 let pendingShieldDialogIdShown = null;
@@ -1344,9 +1348,9 @@ function openFeedbackPanel() {
   $('#feedbackMessage').focus();
 }
 
-const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','cobblemon','album','loja','jogos','mercado','classificacao','admin'];
+const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','cobblemon','album','loja','jogos','loteria','mercado','classificacao','admin'];
 const portalSections = ['inicio', ...portalPages];
-const featurePageMap = { jogos: 'casino', impostor: 'impostor', misterio: 'mystery', loja: 'shop', inscricoes: 'uploads' };
+const featurePageMap = { jogos: 'casino', loteria: 'casino', impostor: 'impostor', misterio: 'mystery', loja: 'shop', inscricoes: 'uploads' };
 
 function setMenuOpen(open) {
   const menu = $('#siteMenu');
@@ -2100,6 +2104,109 @@ function renderCasino(casino = {}) {
   compactHistory('#casinoFlightHistory', flightHistory, 'Seu primeiro voo aparecerá aqui.', true);
   if (casino.globalFlight && !flightPollTimer) startFlightPolling();
   drawCasinoWheel();
+}
+
+function lotteryDateLabel(value) {
+  if (!value) return 'Aguardando a rodada';
+  return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(value));
+}
+
+function lotteryTimeLabel(value) {
+  if (!value) return '16h';
+  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(value)).replace(':', 'h');
+}
+
+function scheduleLotteryDraw(lottery = {}) {
+  clearTimeout(lotteryDrawTimer);
+  lotteryDrawTimer = null;
+  if (lottery.status !== 'open' || !lottery.closeAt) return;
+  const remaining = Date.parse(lottery.closeAt) - (Date.now() + serverClockOffset);
+  lotteryDrawTimer = setTimeout(() => runLotteryLiveDraw(String(lottery.id || '')), Math.max(0, remaining + 120));
+}
+
+async function runLotteryLiveDraw(roundId) {
+  if (lotteryDrawInProgress || !roundId || !appState) return;
+  lotteryDrawInProgress = true;
+  const live = $('#lotteryLiveDraw');
+  try {
+    const data = await api('/api/state', {}, false);
+    const lottery = data?.casino?.lottery;
+    const drawnRound = lottery && String(lottery.id || '') === roundId && lottery.status === 'drawn'
+      ? lottery
+      : lottery?.previous?.find((round) => String(round.id || '') === roundId);
+    if (!lottery || !drawnRound || !Array.isArray(drawnRound.winningNumbers) || !drawnRound.winningNumbers.length) {
+      applyState(data);
+      return;
+    }
+    if (currentPortalPage() !== 'loteria' || !live) {
+      applyState(data);
+      return;
+    }
+    live.classList.remove('hidden');
+    live.innerHTML = drawnRound.winningNumbers.map((number, index) => `<span class="lottery-live-ball" data-lottery-live-ball="${index}">?</span>`).join('');
+    const balls = $$('.lottery-live-ball', live);
+    $('#lotteryResult').textContent = 'Sorteio ao vivo: os números estão sendo revelados pelo servidor…';
+    for (let index = 0; index < balls.length; index += 1) {
+      const ball = balls[index];
+      ball.classList.add('rolling');
+      for (let tick = 0; tick < 10; tick += 1) {
+        ball.textContent = String(1 + Math.floor(Math.random() * 20)).padStart(2, '0');
+        await new Promise((resolve) => setTimeout(resolve, 70));
+      }
+      ball.textContent = String(drawnRound.winningNumbers[index]).padStart(2, '0');
+      ball.classList.remove('rolling');
+      ball.classList.add('revealed');
+      await new Promise((resolve) => setTimeout(resolve, 220));
+    }
+    applyState(data);
+    showToast(`Resultado da Loteria 51: ${drawnRound.winningNumbers.join(', ')}.`);
+  } catch {
+    try { applyState(await api('/api/state', {}, false)); } catch {}
+  } finally {
+    lotteryDrawInProgress = false;
+    if (live) { live.classList.add('hidden'); live.innerHTML = ''; }
+  }
+}
+
+function scheduleLotteryReminder(lottery = {}) {
+  clearTimeout(lotteryReminderTimer);
+  lotteryReminderTimer = null;
+  if (lottery.status !== 'open' || lottery.myEntry || !lottery.closeAt) return;
+  const remaining = Date.parse(lottery.closeAt) - (Date.now() + serverClockOffset);
+  if (!Number.isFinite(remaining) || remaining <= 0 || remaining > 10 * 60 * 1000) return;
+  const key = 'area51-lottery-reminder-toast:' + String(lottery.id || lottery.closeAt);
+  const show = () => {
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch {}
+    showToast(`Faltam 10 minutos para a Loteria 51. Escolha seu número antes das ${lotteryTimeLabel(lottery.closeAt)}.`, 'error');
+  };
+  const delay = remaining - 10 * 60 * 1000;
+  if (delay <= 0) show();
+  else lotteryReminderTimer = setTimeout(show, delay);
+}
+
+function renderLottery(lottery = {}) {
+  const numbers = Array.isArray(lottery.numbers) ? lottery.numbers : [];
+  const myEntry = lottery.myEntry || null;
+  const open = lottery.status === 'open';
+  const selected = Number(myEntry?.guess || lotteryGuessDraft || 0);
+  const closeAt = $('#lotteryCloseAt'); const countdown = $('#lotteryCountdown'); const prize = $('#lotteryPrizePool');
+  if (closeAt) closeAt.textContent = lotteryDateLabel(lottery.closeAt);
+  if (countdown) countdown.textContent = open ? `Fechamento às ${lotteryTimeLabel(lottery.closeAt)} · 5 números serão sorteados · semente ${String(lottery.commitHash || '').slice(0, 10)}` : 'Rodada encerrada · resultado publicado';
+  if (prize) prize.textContent = formatCredits(lottery.prizePool || 0);
+  if ($('#lotteryEntryCount')) $('#lotteryEntryCount').textContent = Number(lottery.entryCount || 0).toLocaleString('pt-BR');
+  if ($('#lotteryRealWagered')) $('#lotteryRealWagered').textContent = formatCredits(lottery.realWagered || 0);
+  const grid = $('#lotteryNumbers');
+  if (grid) grid.innerHTML = numbers.map((number) => `<button type="button" class="lottery-number${selected === number ? ' selected' : ''}${(lottery.winningNumbers || []).includes(number) ? ' winning' : ''}" data-lottery-number="${number}" ${!open || myEntry ? 'disabled' : ''} aria-pressed="${selected === number}">${number}</button>`).join('');
+  const submit = $('#lotterySubmitButton'); if (submit) { submit.disabled = !open || Boolean(myEntry) || !selected; submit.textContent = myEntry ? `Palpite registrado: ${myEntry.guess}` : open ? 'Registrar meu palpite' : 'Rodada encerrada'; }
+  const result = $('#lotteryResult');
+  if (result) result.textContent = myEntry ? `Seu palpite é ${myEntry.guess}. Aguarde o fechamento semanal.` : open ? (selected ? `Você escolheu o número ${selected}. Confirme para participar.` : 'Escolha um número para participar.') : lottery.winningNumbers?.length ? `Números sorteados: ${lottery.winningNumbers.join(', ')}.` : 'A rodada ainda não foi aberta.';
+  const commit = $('#lotteryCommitStatus'); if (commit) commit.textContent = open ? `Semente pública: ${String(lottery.commitHash || '').slice(0, 12)}…` : 'Resultado verificável no servidor';
+  const history = $('#lotteryHistory');
+  const previous = Array.isArray(lottery.previous) ? lottery.previous : [];
+  if (history) history.innerHTML = previous.length ? previous.map((round) => `<article class="lottery-history-row"><header><strong>${lotteryDateLabel(round.drawnAt)}</strong><span><span class="coin-51" aria-hidden="true">51</span>${formatCredits(round.prizePool || 0)}</span></header><div class="lottery-history-numbers">${(round.winningNumbers || []).map((number) => `<b>${number}</b>`).join('')}</div><p>${round.winners?.length ? round.winners.map((winner) => `${escapeHtml(winner.displayName)} · ${formatCredits(winner.amount)} créditos`).join(' · ') : 'Ninguém acertou; o prêmio acumulou.'}</p></article>`).join('') : '<p class="lottery-empty">A primeira rodada ainda está aberta.</p>';
 }
 
 function setFlightVisual(active, multiplier = 1, message = '', options = {}) {
@@ -2965,7 +3072,7 @@ function renderCobblemonDex(profile = {}) {
   const dexGridKey = [cobblemonDexOwnerId, cobblemonDexFilter, search, cobblemonDexPage, visible.map((mon) => { const owned = caught.get(Number(mon.i)); return `${mon.i}:${owned?.level || 0}`; }).join(',')].join('|');
   if (dexGridKey !== cobblemonDexGridKey) {
     cobblemonDexGridKey = dexGridKey;
-    $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}"><img loading="lazy" decoding="async" src="https://cobbledex.b-cdn.net/3dmons/previews/small/${Number(mon.i)}.webp" alt="${owned ? escapeHtml(mon.n) : 'Silhueta'}"><p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
+    $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}"><img loading="lazy" decoding="async" fetchpriority="low" width="52" height="52" src="https://cobbledex.b-cdn.net/3dmons/previews/small/${Number(mon.i)}.webp" alt="${owned ? escapeHtml(mon.n) : 'Silhueta'}"><p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
   }
 }
 
@@ -3521,6 +3628,7 @@ function renderActivePortalPage(data = appState) {
     else if (['perfil', 'cobblemon', 'album', 'loja'].includes(page)) renderProfileEconomy(data.profile);
     else if (page === 'classificacao') { renderRankings(); renderSeason(data.season); }
     else if (page === 'jogos') renderCasino(data.casino);
+    else if (page === 'loteria' && !lotteryDrawInProgress) renderLottery(data.casino?.lottery);
     else if (page === 'mercado') renderInvestmentMarket(data.profile);
     else if (page === 'admin') renderAdmin();
     optimizeRenderedImages();
@@ -3610,6 +3718,8 @@ function applyState(data) {
   }
   appState = data;
   serverClockOffset = Number(data.serverTime || Date.now()) - Date.now();
+  scheduleLotteryReminder(data.casino?.lottery || {});
+  scheduleLotteryDraw(data.casino?.lottery || {});
   musicEpoch = Number(data.musicEpoch || musicEpoch || Date.now());
   renderOnlinePeople();
   if (musicPrimedByGesture) startMusic();
@@ -4494,6 +4604,23 @@ $('#casinoForm').addEventListener('submit', async (event) => {
     catch { showToast('Resultado confirmado. O saldo será atualizado quando a conexão voltar.'); }
   } catch (error) { $('#casinoResult').textContent = error.message; showToast(error.message, 'error'); }
   finally { casinoSpinInProgress = false; setBusy(form, false); renderCasino(appState?.casino); }
+});
+
+$('#lotteryNumbers')?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-lottery-number]');
+  if (!button || button.disabled) return;
+  lotteryGuessDraft = Number(button.dataset.lotteryNumber);
+  renderLottery(appState?.casino?.lottery || {});
+});
+
+$('#lotteryForm')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const lottery = appState?.casino?.lottery || {}; const guess = Number(lotteryGuessDraft || lottery.myEntry?.guess || 0); const form = event.currentTarget;
+  if (!Number.isInteger(guess) || guess < 1 || guess > 20) { showToast('Escolha um número entre 1 e 20.', 'error'); return; }
+  setBusy(form, true);
+  try { applyState(await api('/api/lottery/entry', { method: 'POST', body: { guess } })); lotteryGuessDraft = null; showToast(`Palpite ${guess} registrado para a Loteria 51! 🎟️`); }
+  catch (error) { showToast(error.message, 'error'); }
+  finally { setBusy(form, false); renderLottery(appState?.casino?.lottery || {}); }
 });
 
 $('#flightForm').addEventListener('submit', async (event) => {
@@ -5476,7 +5603,24 @@ async function runPortalSync() {
     serverClockOffset = Number(sync.serverTime || Date.now()) - Date.now();
     if (sync.liveDraw) receiveLiveDraw(sync.liveDraw);
     const changed = Number(sync.revision) !== Number(appState.serverRevision) || Boolean(sync.loanOverdue) !== Boolean(appState.profile?.loan?.overdue);
-    if (changed && !editingMystery && !spinning && !casinoSpinInProgress && !mysteryOpeningInProgress) applyState(await api('/api/state', {}, false));
+    let reminderNeedsState = false;
+    if (sync.lotteryReminder) {
+      const stateKey = 'area51-lottery-reminder-state:' + String(sync.lotteryReminder.roundId);
+      try {
+        reminderNeedsState = !sessionStorage.getItem(stateKey);
+        if (reminderNeedsState) sessionStorage.setItem(stateKey, '1');
+      } catch { reminderNeedsState = true; }
+      if (reminderNeedsState) {
+        const toastKey = 'area51-lottery-reminder-toast:' + String(sync.lotteryReminder.roundId);
+        try {
+          if (!sessionStorage.getItem(toastKey)) {
+            sessionStorage.setItem(toastKey, '1');
+            showToast(`Faltam 10 minutos para a Loteria 51. Escolha seu número antes das ${lotteryTimeLabel(sync.lotteryReminder.closeAt)}.`, 'error');
+          }
+        } catch { showToast(`Faltam 10 minutos para a Loteria 51. Escolha seu número antes das ${lotteryTimeLabel(sync.lotteryReminder.closeAt)}.`, 'error'); }
+      }
+    }
+    if ((changed || reminderNeedsState) && !editingMystery && !spinning && !casinoSpinInProgress && !mysteryOpeningInProgress) applyState(await api('/api/state', {}, false));
     if ($('#liveStatus')) {
       $('#liveStatus').textContent = 'SINCRONIZADO';
       $('#liveStatus').title = 'Atualizado em ' + Math.round(performance.now() - syncStartedAt) + ' ms';

@@ -329,6 +329,9 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.forcedCursors)) { db.economy.forcedCursors = []; changed = true; }
   if (!Array.isArray(db.economy.casinoPlays)) { db.economy.casinoPlays = []; changed = true; }
   if (!db.economy.casinoAccounts || typeof db.economy.casinoAccounts !== 'object') { db.economy.casinoAccounts = {}; changed = true; }
+  if (!db.economy.lottery || typeof db.economy.lottery !== 'object') { db.economy.lottery = { rounds: [], entries: [] }; changed = true; }
+  if (!Array.isArray(db.economy.lottery.rounds)) { db.economy.lottery.rounds = []; changed = true; }
+  if (!Array.isArray(db.economy.lottery.entries)) { db.economy.lottery.entries = []; changed = true; }
   if (!Array.isArray(db.economy.mysteryBoxes)) { db.economy.mysteryBoxes = []; changed = true; }
   if (!db.economy.cobblemonDex || typeof db.economy.cobblemonDex !== 'object') { db.economy.cobblemonDex = {}; changed = true; }
   if (!Array.isArray(db.economy.cobblemonDeliveries)) { db.economy.cobblemonDeliveries = []; changed = true; }
@@ -892,12 +895,185 @@ function addCredits(userId, amount) { db.economy.wallets[userId] = (moneyCents(w
 
 const CASINO_DAILY_BONUS = 250;
 const CASINO_CASHOUT_THRESHOLD = 500;
+const LOTTERY_NUMBER_MAX = 20;
+const LOTTERY_DRAW_COUNT = 5;
+const LOTTERY_PRIZE_RATE = 0.10;
+const LOTTERY_MARGIN_SHARE = 0.50;
+const LOTTERY_MAX_POOL = 1500;
+const LOTTERY_DRAW_HOUR = 16;
+const LOTTERY_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+// Exceção única para a primeira transmissão do sorteio: a rodada aberta nesta
+// semana fecha às 16h05; todas as rodadas seguintes continuam às 16h.
+const LOTTERY_ONE_OFF_ROUND_ID = 'lottery:2026-09-11T19:00:00.000Z';
+const LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T19:05:00.000Z';
 function casinoAccountFor(userId, create = false) {
   const dayKey = saoPauloDayKey(); const current = db.economy.casinoAccounts[userId];
   if (current?.dayKey === dayKey) return current;
   if (!create) return { dayKey, balance: CASINO_DAILY_BONUS, cashedOut: false };
   db.economy.casinoAccounts[userId] = { dayKey, balance: CASINO_DAILY_BONUS, cashedOut: false, createdAt: new Date().toISOString() };
   return db.economy.casinoAccounts[userId];
+}
+
+function lotteryBoundaryFor(date = new Date()) {
+  const dayKey = saoPauloDayKey(date);
+  const value = new Date(dayKey + 'T12:00:00Z');
+  const daysSinceThursday = (value.getUTCDay() + 7 - 4) % 7;
+  value.setUTCDate(value.getUTCDate() - daysSinceThursday);
+  let boundary = new Date(value.toISOString().slice(0, 10) + `T${String(LOTTERY_DRAW_HOUR).padStart(2, '0')}:00:00-03:00`);
+  if (boundary.getTime() > date.getTime()) boundary = new Date(boundary.getTime() - LOTTERY_WEEK_MS);
+  return boundary;
+}
+
+function lotteryWindowFor(date = new Date()) {
+  const start = lotteryBoundaryFor(date);
+  return { id: 'lottery:' + start.toISOString(), startAt: start.toISOString(), closeAt: new Date(start.getTime() + LOTTERY_WEEK_MS).toISOString() };
+}
+
+function lotterySeedForRound(round) {
+  return createHash('sha256').update(String(round.secret || '') + ':' + String(round.id || '')).digest();
+}
+
+function lotteryNumbersForRound(round) {
+  const seed = lotterySeedForRound(round);
+  const numbers = [];
+  let cursor = 0;
+  while (numbers.length < LOTTERY_DRAW_COUNT) {
+    const hash = createHash('sha256').update(seed).update(String(cursor++)).digest();
+    const candidate = (hash.readUInt32BE(0) % LOTTERY_NUMBER_MAX) + 1;
+    if (!numbers.includes(candidate)) numbers.push(candidate);
+  }
+  return numbers.sort((a, b) => a - b);
+}
+
+function lotteryProjectionForRound(round) {
+  const start = Date.parse(round.startAt) || 0;
+  const close = Date.parse(round.closeAt) || Number.MAX_SAFE_INTEGER;
+  const plays = db.economy.casinoPlays.filter((item) => item.walletSource === 'shop' && Date.parse(item.createdAt || '') >= start && Date.parse(item.createdAt || '') < close);
+  const realWagered = roundMoney(plays.reduce((sum, item) => sum + Number(item.bet || 0), 0));
+  // Só uma parte da margem negativa real pode financiar a loteria. Isso evita
+  // criar créditos quando a roleta estiver pagando mais do que recebeu.
+  const houseMargin = roundMoney(plays.reduce((sum, item) => sum + Math.max(0, -Number(item.net || 0)), 0));
+  const contribution = roundMoney(Math.min(realWagered * LOTTERY_PRIZE_RATE, houseMargin * LOTTERY_MARGIN_SHARE));
+  const carryOver = roundMoney(round.carryOver || 0);
+  // O teto protege uma rodada nova contra um prêmio desproporcional. Quando
+  // há acúmulo, o rollover é preservado e a contribuição da nova rodada é
+  // somada sem cortar o valor acumulado.
+  const cappedContribution = carryOver > 0 ? contribution : Math.min(LOTTERY_MAX_POOL, contribution);
+  return { realWagered, houseMargin, contribution, prizePool: roundMoney(carryOver + cappedContribution) };
+}
+
+function lotterySplitPrize(pool, winnerIds) {
+  if (!winnerIds.length || pool <= 0) return [];
+  const cents = moneyCents(pool); const base = Math.floor(cents / winnerIds.length); const remainder = cents % winnerIds.length;
+  return winnerIds.map((userId, index) => ({ userId, amount: (base + (index < remainder ? 1 : 0)) / 100 }));
+}
+
+function ensureLotteryState() {
+  if (!db.economy.lottery || typeof db.economy.lottery !== 'object') db.economy.lottery = { rounds: [], entries: [] };
+  if (!Array.isArray(db.economy.lottery.rounds)) db.economy.lottery.rounds = [];
+  if (!Array.isArray(db.economy.lottery.entries)) db.economy.lottery.entries = [];
+}
+
+function createLotteryRound(window, carryOver = 0) {
+  ensureLotteryState();
+  const secret = randomBytes(32).toString('hex');
+  const round = {
+    id: window.id, startAt: window.startAt, closeAt: window.closeAt, status: 'open',
+    secret, commitHash: createHash('sha256').update(secret).digest('hex'), carryOver: roundMoney(carryOver),
+    realWagered: 0, houseMargin: 0, contribution: 0, prizePool: 0, winningNumbers: [], winnerIds: [], payouts: [],
+    createdAt: new Date().toISOString(), drawnAt: null,
+  };
+  db.economy.lottery.rounds.push(round);
+  if (db.economy.lottery.rounds.length > 60) db.economy.lottery.rounds = db.economy.lottery.rounds.slice(-60);
+  return round;
+}
+
+function currentLotteryRound(date = new Date()) {
+  ensureLotteryState();
+  const window = lotteryWindowFor(date);
+  let round = db.economy.lottery.rounds.find((item) => item.id === window.id);
+  if (!round) {
+    // Se o horário da rodada mudou entre versões, reaproveitamos a rodada
+    // aberta que ainda contém o momento atual, antecipando apenas o fechamento.
+    // Isso evita criar duas rodadas sobrepostas e preserva palpites já registrados.
+    round = db.economy.lottery.rounds.find((item) => item.status === 'open' && Date.parse(item.startAt) <= date.getTime() && Date.parse(item.closeAt) > date.getTime()) || null;
+    if (round) {
+      round.closeAt = window.closeAt;
+      round.scheduleHour = LOTTERY_DRAW_HOUR;
+    } else {
+      const previous = [...db.economy.lottery.rounds].filter((item) => item.status === 'drawn').at(-1);
+      round = createLotteryRound(window, previous?.rolloverAmount || 0);
+    }
+  }
+  if (round.status === 'open' && round.id === LOTTERY_ONE_OFF_ROUND_ID && Date.parse(round.closeAt) !== Date.parse(LOTTERY_ONE_OFF_CLOSE_AT)) {
+    round.closeAt = LOTTERY_ONE_OFF_CLOSE_AT;
+    round.oneOffHold = true;
+  }
+  return round;
+}
+
+function settleLotteryRounds(now = new Date()) {
+  ensureLotteryState();
+  const openScheduleBefore = db.economy.lottery.rounds.filter((item) => item.status === 'open').map((item) => item.id + ':' + item.closeAt).join('|');
+  let changed = false;
+  // Resolve the active window first so a schedule migration that already
+  // passed its new close time is settled in this same request.
+  currentLotteryRound(now);
+  for (const round of db.economy.lottery.rounds.filter((item) => item.status === 'open' && Date.parse(item.closeAt) <= now.getTime())) {
+    const projection = lotteryProjectionForRound(round);
+    const entries = db.economy.lottery.entries.filter((item) => item.roundId === round.id);
+    const winningNumbers = lotteryNumbersForRound(round);
+    const winnerIds = [...new Set(entries.filter((item) => winningNumbers.includes(Number(item.guess))).map((item) => item.userId))].sort((a, b) => String(a).localeCompare(String(b)));
+    const payouts = lotterySplitPrize(projection.prizePool, winnerIds);
+    round.status = 'drawn'; round.realWagered = projection.realWagered; round.houseMargin = projection.houseMargin;
+    round.contribution = projection.contribution; round.prizePool = projection.prizePool; round.winningNumbers = winningNumbers;
+    round.winnerIds = winnerIds; round.payouts = payouts; round.rolloverAmount = winnerIds.length ? 0 : projection.prizePool;
+    round.drawnAt = now.toISOString(); round.revealedSecret = round.secret;
+    for (const payout of payouts) {
+      const before = walletFor(payout.userId); addCredits(payout.userId, payout.amount);
+      db.economy.creditAdjustments.push({ id: randomUUID(), userId: payout.userId, mode: 'lottery-prize', amount: payout.amount, before, after: walletFor(payout.userId), reason: `Prêmio da Loteria 51 · rodada ${round.id.slice(-10)}`, createdAt: round.drawnAt, lotteryRoundId: round.id });
+    }
+    changed = true;
+  }
+  const beforeRoundCount = db.economy.lottery.rounds.length;
+  currentLotteryRound(now);
+  if (db.economy.lottery.rounds.length !== beforeRoundCount) changed = true;
+  const openScheduleAfter = db.economy.lottery.rounds.filter((item) => item.status === 'open').map((item) => item.id + ':' + item.closeAt).join('|');
+  if (openScheduleAfter !== openScheduleBefore) changed = true;
+  return changed;
+}
+
+function lotteryForUser(user) {
+  ensureLotteryState();
+  const round = currentLotteryRound(new Date());
+  const projection = round.status === 'open' ? lotteryProjectionForRound(round) : { realWagered: round.realWagered, houseMargin: round.houseMargin, contribution: round.contribution, prizePool: round.prizePool };
+  const entries = db.economy.lottery.entries.filter((item) => item.roundId === round.id);
+  const myEntry = entries.find((item) => item.userId === user.id) || null;
+  const names = new Map(db.users.map((item) => [item.id, item.displayName]));
+  const previous = [...db.economy.lottery.rounds].filter((item) => item.id !== round.id && item.status === 'drawn').slice(-6).reverse().map((item) => ({
+    id: item.id, closeAt: item.closeAt, drawnAt: item.drawnAt, prizePool: Number(item.prizePool || 0), winningNumbers: item.winningNumbers || [],
+    winners: (item.payouts || []).map((payout) => ({ displayName: names.get(payout.userId) || 'Conta removida', amount: Number(payout.amount || 0) })),
+  }));
+  return {
+    id: round.id, status: round.status, startAt: round.startAt, closeAt: round.closeAt, commitHash: round.commitHash,
+    numbers: Array.from({ length: LOTTERY_NUMBER_MAX }, (_, index) => index + 1), drawCount: LOTTERY_DRAW_COUNT,
+    prizeRate: LOTTERY_PRIZE_RATE, maxPool: LOTTERY_MAX_POOL, prizePool: projection.prizePool, realWagered: projection.realWagered,
+    contribution: projection.contribution, entryCount: entries.length, myEntry: myEntry ? { id: myEntry.id, guess: Number(myEntry.guess), createdAt: myEntry.createdAt } : null,
+    winningNumbers: round.status === 'drawn' ? round.winningNumbers : [], revealedSecret: round.status === 'drawn' ? round.revealedSecret : null,
+    winners: round.status === 'drawn' ? (round.payouts || []).map((payout) => ({ displayName: names.get(payout.userId) || 'Conta removida', amount: Number(payout.amount || 0) })) : [], previous,
+  };
+}
+
+function lotteryReminderForUser(user, date = new Date()) {
+  const round = currentLotteryRound(date);
+  const remaining = Date.parse(round.closeAt) - date.getTime();
+  if (round.status !== 'open' || remaining <= 0 || remaining > 10 * 60 * 1000) return null;
+  const hasEntry = (db.economy.lottery.entries || []).some((item) => item.roundId === round.id && item.userId === user.id);
+  return hasEntry ? null : { roundId: round.id, closeAt: round.closeAt };
+}
+
+function lotteryTimeLabelForNotification(value) {
+  return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(value)).replace(':', 'h');
 }
 
 // A single durable claim, persisted atomically with consuming the box (D1 CAS).
@@ -2115,6 +2291,21 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   for (const announcement of (db.economy.powerAnnouncements || []).filter((item) => item.activatedByUserId !== user.id).slice(-8)) {
     items.push({ id: 'power-activation:' + announcement.id, icon: '⚡', title: announcement.itemName + ' ativado na rodada', detail: 'Um poder da Loja 51 foi ativado. Confira a rodada.', page: 'sorteio', targetId: 'sorteio', createdAt: announcement.createdAt });
   }
+  const lotteryReminder = lotteryReminderForUser(user);
+  if (lotteryReminder) items.push({ id: 'lottery-reminder:' + lotteryReminder.roundId + ':' + user.id, icon: '⏰', title: 'Faltam 10 minutos para a Loteria 51', detail: 'Você ainda não registrou seu palpite. Escolha um número antes das ' + lotteryTimeLabelForNotification(lotteryReminder.closeAt) + '.', page: 'loteria', targetId: 'loteria', createdAt: new Date(Date.parse(lotteryReminder.closeAt) - 10 * 60 * 1000).toISOString() });
+  for (const round of (db.economy.lottery?.rounds || []).filter((item) => item.status === 'drawn').slice(-6)) {
+    const entry = (db.economy.lottery?.entries || []).find((item) => item.roundId === round.id && item.userId === user.id);
+    if (!entry) continue;
+    const payout = (round.payouts || []).find((item) => item.userId === user.id);
+    const numbers = (round.winningNumbers || []).join(', ');
+    items.push({
+      id: 'lottery-result:' + round.id + ':' + user.id,
+      icon: payout ? '🏆' : '🎟️',
+      title: payout ? 'Você ganhou na Loteria 51!' : 'Resultado da Loteria 51',
+      detail: payout ? `Sorteados: ${numbers} · prêmio de ${roundMoney(payout.amount)} Créditos 51.` : `Sorteados: ${numbers} · seu palpite foi ${entry.guess}.`,
+      page: 'loteria', targetId: 'loteria', createdAt: round.drawnAt,
+    });
+  }
   for (const drop of (db.economy.cardAlbums?.[user.id]?.drops || []).slice(-2)) {
     const collection = CARD_COLLECTIONS.find((item) => drop.id?.startsWith(item.id + ':'));
     const copies = Number(db.economy.cardAlbums?.[user.id]?.cards?.[drop.id] || 0);
@@ -2307,7 +2498,7 @@ function buildStateFor(user) {
       const round = db.economy.globalFlight; const myFlightBet = round?.bets?.find((item) => item.userId === user.id);
       const recentFlights = db.economy.flightHistory.slice(-12).reverse().map((item) => ({ multiplier: Number(item.multiplier || 0), createdAt: item.createdAt }));
       const myPlays = db.economy.casinoPlays.filter((item) => item.userId === user.id);
-      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday: plays.length, totalWagered, totalPlays, recentFlights, globalFlight: round && round.status !== 'crashed' ? { id: round.id, status: round.status, launchAt: round.launchAt, joined: Boolean(myFlightBet), betStatus: myFlightBet?.status || null, players: round.bets.length } : null, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette: myPlays.filter((item) => item.resultType !== 'flight').slice(-6).reverse(), recentFlight: myPlays.filter((item) => item.resultType === 'flight').slice(-6).reverse() };
+      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday: plays.length, totalWagered, totalPlays, recentFlights, globalFlight: round && round.status !== 'crashed' ? { id: round.id, status: round.status, launchAt: round.launchAt, joined: Boolean(myFlightBet), betStatus: myFlightBet?.status || null, players: round.bets.length } : null, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette: myPlays.filter((item) => item.resultType !== 'flight').slice(-6).reverse(), recentFlight: myPlays.filter((item) => item.resultType === 'flight').slice(-6).reverse(), lottery: lotteryForUser(user) };
     })(),
     visualTheme: activeVisualPenalty?.kind || 'user-choice', visualThemeEndsAt: activeVisualPenalty?.endsAt || null,
     themes: db.settings.themes.map((name) => ({ id: name, name })),
@@ -2647,15 +2838,16 @@ async function handleApi(req, res, route) {
     const settledCleanName = settleCleanNameRewards();
     const settledSeasonChallenges = settleSeasonalChallenges();
     const settledPokemonCapsules = settlePokemonCapsules();
+    const settledLottery = settleLotteryRounds();
     const marketAdvanced = syncMarketEconomy();
-    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules || marketAdvanced) await persist();
+    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules || settledLottery || marketAdvanced) await persist();
     json(res, 200, stateFor(user)); return;
   }
 
   if (req.method !== 'GET') {
     if (route.startsWith('/api/impostor/')) { requireAuth(req); requireFeature('impostor'); }
     if (route === '/api/mystery' || route.startsWith('/api/mystery/')) { requireAuth(req); requireFeature('mystery'); }
-    if (route === '/api/casino/play' || route === '/api/casino/flight/start') { requireAuth(req); requireFeature('casino'); }
+    if (route === '/api/casino/play' || route === '/api/casino/flight/start' || route === '/api/lottery/entry') { requireAuth(req); requireFeature('casino'); }
     if (route === '/api/shop/purchase' || route === '/api/shop/free-purchase' || route === '/api/gifts/item' || route === '/api/loans/borrow' || route === '/api/loans/offer-item') { requireAuth(req); requireFeature('shop'); }
     if (route === '/api/uploads' || route === '/api/admin/uploads') { requireAuth(req); requireFeature('uploads'); }
   }
@@ -2822,9 +3014,15 @@ async function handleApi(req, res, route) {
     // perceber a virada da janela sem exigir que o usuário recarregue a tela.
     // A função só altera o estado oito vezes por dia; portanto, não cria
     // gravações extras durante os demais ciclos de presença.
+    let lotteryReminder = null;
     try {
       const marketAdvanced = syncMarketEconomy();
-      if (marketAdvanced) await persist();
+      const lotterySettled = settleLotteryRounds();
+      lotteryReminder = lotteryReminderForUser(user);
+      if (marketAdvanced || lotterySettled) {
+        await persist();
+        if (lotterySettled) broadcastRefresh('lottery');
+      }
     } catch {
       // Se outra instância do Worker ganhar a mesma virada, recarregamos o
       // estado vencedor e mantemos o polling de presença funcionando.
@@ -2836,6 +3034,7 @@ async function handleApi(req, res, route) {
     json(res, 200, {
       onlinePeople,
       revision: stateRevision,
+      lotteryReminder,
       loanOverdue: Boolean(overdueLoanFor(user.id)),
       serverTime: Date.now(),
       releaseVersion: Math.max(0, Number(db.settings.releaseVersion || 0)),
@@ -2983,6 +3182,22 @@ async function handleApi(req, res, route) {
     const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType, segmentIndex, wheelValue: outcome, multiplier, payout, net, mysteryBox, balanceAfter, createdAt };
     db.economy.casinoPlays.push(play);
     await persist(); broadcastRefresh('economy'); json(res, 200, body.compact ? { casinoResult: play } : { ...stateFor(user), casinoResult: play }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/lottery/entry') {
+    const { user } = requireAuth(req); const body = await readJson(req); const guess = Number(body.guess);
+    const settled = settleLotteryRounds(); const round = currentLotteryRound();
+    if (settled) await persist();
+    if (!Number.isInteger(guess) || guess < 1 || guess > LOTTERY_NUMBER_MAX) throw new HttpError(400, `Escolha um número inteiro entre 1 e ${LOTTERY_NUMBER_MAX}.`);
+    if (round.status !== 'open' || Date.parse(round.closeAt) <= Date.now()) throw new HttpError(409, 'Esta rodada já foi encerrada. Aguarde a próxima rodada semanal.');
+    const previous = db.economy.lottery.entries.find((item) => item.roundId === round.id && item.userId === user.id);
+    if (previous) {
+      if (Number(previous.guess) !== guess) throw new HttpError(409, 'Você já registrou um palpite nesta rodada.');
+      json(res, 200, { ...stateFor(user), lotteryEntry: previous, duplicate: true }); return;
+    }
+    const entry = { id: randomUUID(), roundId: round.id, userId: user.id, guess, createdAt: new Date().toISOString() };
+    db.economy.lottery.entries.push(entry);
+    await persist(); broadcastRefresh('lottery'); json(res, 201, { ...stateFor(user), lotteryEntry: entry }); return;
   }
 
   if (req.method === 'POST' && route === '/api/casino/cashout') {
@@ -4389,7 +4604,7 @@ async function handleApi(req, res, route) {
     db.economy.teamMissionRewards ||= []; db.economy.seasonChallengeRewards ||= []; db.economy.gifts ||= []; db.economy.activityTotals ||= {};
     db.economy.powerUses ||= []; db.economy.shields ||= []; db.economy.authorReveals ||= [];
     db.economy.creditAdjustments ||= []; db.economy.bulkCreditGrants ||= []; db.economy.forcedCursors ||= [];
-    db.economy.mysteryBoxes ||= []; db.economy.casinoPlays ||= []; db.economy.casinoAccounts ||= {};
+    db.economy.mysteryBoxes ||= []; db.economy.casinoPlays ||= []; db.economy.casinoAccounts ||= {}; db.economy.lottery ||= { rounds: [], entries: [] }; db.economy.lottery.rounds ||= []; db.economy.lottery.entries ||= [];
     db.settings.roundSchedule ||= { submissionsAt: '', drawAt: '', voteAt: '' };
     db.settings.featureFlags = { ...DEFAULT_FEATURE_FLAGS, ...db.settings.featureFlags };
     db.settings.lastBackupAt ||= null; db.settings.lastCleanupAt ||= null;
@@ -4534,6 +4749,7 @@ async function handleApi(req, res, route) {
     db.economy.mysteryBoxes = db.economy.mysteryBoxes.filter((item) => item.userId !== target.id);
     db.economy.casinoPlays = db.economy.casinoPlays.filter((item) => item.userId !== target.id);
     delete db.economy.casinoAccounts[target.id];
+    db.economy.lottery.entries = (db.economy.lottery.entries || []).filter((item) => item.userId !== target.id);
     db.economy.forcedCursors = db.economy.forcedCursors.filter((item) => item.targetUserId !== target.id && item.usedByUserId !== target.id);
     if (db.economy.forcedGay && (db.economy.forcedGay.userId === target.id || db.economy.forcedGay.targetId === target.id)) db.economy.forcedGay = null;
     if (db.economy.forcedTheme?.userId === target.id) db.economy.forcedTheme = null;

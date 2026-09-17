@@ -8,7 +8,7 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260917-285">
+  <link rel="stylesheet" href="/styles.css?v=20260917-288">
   <link rel="stylesheet" href="/improvements.css?v=20260902-118">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260916-211">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
@@ -156,6 +156,7 @@
         <a href="?pagina=album" data-page="album"><span>🎴</span><p><strong>Álbum de cartas</strong><small>Coleções e insígnias</small></p></a>
         <a href="?pagina=loja" data-page="loja"><span>🛍️</span><p><strong>Loja 51</strong><small>Visuais, poderes e presentes</small></p></a>
         <a href="?pagina=jogos" data-page="jogos"><span>🎰</span><p><strong>Jogos 51</strong><small>Roleta e Voo do Unicórnio</small></p></a>
+        <a href="?pagina=loteria" data-page="loteria"><span>🎟️</span><p><strong>Loteria 51</strong><small>Palpite semanal e prêmio acumulado</small></p></a>
         <a href="?pagina=mercado" data-page="mercado"><span>📈</span><p><strong>Mercado 51</strong><small>Investimentos simulados</small></p></a>
         <a href="?pagina=classificacao" data-page="classificacao"><span>📊</span><p><strong>Classificação</strong><small>Placares da equipe</small></p></a>
         <a href="?pagina=admin" data-page="admin" id="adminNav" class="hidden"><span>⚙️</span><p><strong>Administração</strong><small>Controle do site e usuários</small></p></a>
@@ -440,6 +441,31 @@
         <article class="card casino-machine"><small>ROLETA DE CRÉDITOS E BAÚS</small><h3>Multiplique ou encontre um baú</h3><p>O multiplicador é o retorno total: em uma aposta de 10, x1,5 devolve os 10 e acrescenta 5. Ao ganhar um baú, a aposta volta inteira e o baú fechado vai para o perfil.</p><div class="casino-bet-legend"><span>📦 Caixa Sonda <b>qualquer aposta</b></span><span>🎁 Caixa Cósmica <b>a partir de 30</b></span><span>🛸 Cofre Área 51 <b>a partir de 70</b></span></div><div class="casino-wheel-stage"><span class="casino-wheel-pointer">▼</span><canvas id="casinoWheel" width="440" height="440" aria-label="Roleta com multiplicadores e três tipos de baús misteriosos"></canvas><strong>51</strong></div><form id="casinoForm"><label>Usar saldo de<select id="casinoWalletSource"><option value="promotional">Bônus promocional diário</option><option value="shop">Minha Loja 51</option></select></label><label>Valor da aposta<input id="casinoBet" type="number" min="0.01" step="0.01" inputmode="decimal" value="10.00" required></label><button class="button button-primary" type="submit">Girar a roleta</button></form><div id="casinoResult" class="casino-result">Escolha um valor disponível, com até duas casas decimais.</div></article>
         <aside class="card casino-status"><div class="casino-master-total"><small>APOSTÔMETRO DA TRIPULAÇÃO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoTotalWagered">0</b></strong><em><b id="casinoTotalPlays">0</b> apostas registradas · valor considera somente o saldo da Loja 51</em></div><div><small>SALDO PROMOCIONAL</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoWallet">250</b></strong></div><div><small>SALDO DA LOJA</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="casinoShopWallet">0</b></strong></div><div class="casino-cashout"><p><small>META PARA RESGATE</small><strong id="casinoCashoutText">0 de 500</strong></p><i><b id="casinoCashoutProgress"></b></i><button id="casinoCashoutButton" class="button button-primary" type="button" disabled>Resgatar lucro na loja</button></div><div><small>BAÚS FECHADOS</small><strong>🎁 <b id="casinoClosedBoxes">0</b></strong></div><div><small>JOGADAS HOJE</small><strong id="casinoPlays">0</strong></div><h3>Resultados da roleta</h3><div id="casinoRouletteHistory" class="casino-history"></div><h3>Resultados do voo</h3><div id="casinoFlightHistory" class="casino-history"></div><a class="button button-dark" href="?pagina=perfil" data-page="perfil">Abrir ou vender meus baús</a></aside>
         <article class="card unicorn-flight-game"><div class="unicorn-flight-copy"><small>NOVO JOGO · VOO DO UNICÓRNIO</small><h3>Resgate antes da nave cair</h3><p>Todos acompanham o mesmo voo. Ele pode cair imediatamente em x1,00; o resgate abre em x1,25. Escolha o automático antes de apostar: se o alvo for atingido antes da queda, o servidor resgata mesmo com atraso na conexão. O número animado é uma estimativa entre atualizações.</p><form id="flightForm"><label>Saldo<select id="flightWalletSource"><option value="promotional">Bônus diário</option><option value="shop">Loja 51</option></select></label><label>Aposta<input id="flightBet" type="number" min="0.01" step="0.01" inputmode="decimal" value="10.00" required></label><label>Resgate automático<select id="flightAutoCashout"><option value="1.5">Em x1,50</option><option value="1.25">Em x1,25</option><option value="2">Em x2,00</option><option value="3">Em x3,00</option><option value="0">Somente manual</option></select></label><button id="flightStartButton" class="button button-primary" type="submit">Iniciar voo</button></form><div><small>ÚLTIMAS QUEDAS DA EQUIPE</small><div id="flightPublicHistory" class="flight-public-history"><span>Aguardando voos</span></div></div></div><div id="flightSky" class="flight-sky"><span id="flightShip">🦄🚀</span><strong id="flightMultiplier">x1,00</strong><em id="flightMessage">Aguardando lançamento</em><button id="flightCashoutButton" class="button button-primary" type="button" disabled>Resgatar agora</button></div></article>
+      </div>
+    </section>
+
+    <section id="loteria" class="section lottery-page portal-page-hidden">
+      <div class="lottery-shell">
+        <header class="lottery-hero-card">
+          <div><span class="eyebrow">SORTEIO SEMANAL · ÁREA 51</span><h2>Loteria <em>51</em></h2><p>Um palpite gratuito por pessoa. O fechamento acontece toda quinta-feira às 16h (Brasília); depois, cinco números são sorteados e o prêmio é dividido entre quem acertar.</p></div>
+          <div class="lottery-draw-badge"><span>PRÓXIMO FECHAMENTO</span><strong id="lotteryCloseAt">Carregando…</strong><small id="lotteryCountdown">Aguardando a rodada</small></div>
+        </header>
+        <div class="lottery-summary-grid">
+          <article class="lottery-stat-card"><small>PRÊMIO ATUAL DA RODADA</small><strong><span class="coin-51" aria-hidden="true">51</span><b id="lotteryPrizePool">0,00</b></strong><span>Valor acumulado exibido em tempo real; pode crescer até o fechamento das 16h.</span></article>
+          <article class="lottery-stat-card"><small>PALPITES REGISTRADOS</small><strong id="lotteryEntryCount">0</strong><span>Uma chance por participante nesta rodada.</span></article>
+          <article class="lottery-stat-card"><small>MOVIMENTO DA RODADA</small><strong><span class="coin-51" aria-hidden="true">51</span><b id="lotteryRealWagered">0,00</b></strong><span>Somente apostas pagas com saldo da Loja 51.</span></article>
+        </div>
+        <article class="lottery-board-card">
+          <div class="lottery-board-heading"><div><span class="eyebrow">ESCOLHA SEU PALPITE</span><h3>Qual número vai aparecer?</h3></div><span id="lotteryCommitStatus" class="lottery-commit-status">Semente registrada no servidor</span></div>
+          <p class="lottery-explanation">Escolha um número de 1 a 20. O servidor sorteia cinco números diferentes no fechamento. Isso dá 5 chances em 20 (25%) para cada palpite. Se mais de uma pessoa acertar, o prêmio é dividido em partes iguais.</p>
+          <form id="lotteryForm"><div id="lotteryNumbers" class="lottery-number-grid" role="group" aria-label="Números disponíveis para o palpite"></div><button id="lotterySubmitButton" class="button button-primary" type="submit" disabled>Registrar meu palpite</button></form>
+          <div id="lotteryLiveDraw" class="lottery-live-draw hidden" aria-live="polite" aria-label="Sorteio ao vivo"></div>
+          <div id="lotteryResult" class="lottery-result" aria-live="polite">Escolha um número para participar.</div>
+        </article>
+        <div class="lottery-columns">
+          <article class="lottery-info-card"><h3>Como o prêmio é formado</h3><p>O prêmio atual é recalculado pelo servidor: movimento real pago da rodada × 10%, limitado a 50% das perdas líquidas reais da casa. Em uma rodada sem acúmulo, o limite é de 1.500 Créditos 51; quando há rollover, o valor acumulado é preservado e a nova contribuição é somada, podendo superar esse limite. Bônus promocionais não entram.</p><ul><li>5 números sorteados entre 1 e 20;</li><li>um palpite gratuito por usuário;</li><li>um vencedor recebe tudo ou vários dividem;</li><li>sem acerto, o prêmio acumula para a próxima rodada.</li></ul></article>
+          <article class="lottery-history-card"><div class="lottery-board-heading"><div><span class="eyebrow">TRANSPARÊNCIA</span><h3>Rodadas anteriores</h3></div><span id="lotteryProofStatus">Resultado verificável</span></div><div id="lotteryHistory"><p class="lottery-empty">A primeira rodada ainda está aberta.</p></div></article>
+        </div>
       </div>
     </section>
 
@@ -852,6 +878,6 @@
   <script src="/card-album.js?v=20260917-237"></script>
   <script src="/weather.js?v=20260914-178"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-      <script src="/app.js?v=20260917-298"></script>
+      <script src="/app.js?v=20260917-303"></script>
 </body>
 </html>

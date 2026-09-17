@@ -30,8 +30,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260917-285/);
-  assert.match(html, /app\.js\?v=20260917-298/);
+  assert.match(html, /styles\.css\?v=20260917-288/);
+  assert.match(html, /app\.js\?v=20260917-303/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -90,12 +90,52 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.match(html, /id="flightBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260917-apostometro-real-v29/);
+  assert.match(appJs, /20260917-loteria-51-v33/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
   assert.match(serverJs, /const totalWagered = db\.economy\.casinoPlays\.filter\(\(item\) => item\.walletSource === 'shop'\)\.reduce/);
   assert.match(html, /valor considera somente o saldo da Loja 51/);
+});
+
+test('Loteria 51 semanal controla palpite, fechamento e prêmio sem inflação', () => {
+  assert.match(serverJs, /const LOTTERY_NUMBER_MAX = 20/);
+  assert.match(serverJs, /const LOTTERY_DRAW_COUNT = 5/);
+  assert.match(serverJs, /const LOTTERY_PRIZE_RATE = 0\.10/);
+  assert.match(serverJs, /const LOTTERY_MAX_POOL = 1500/);
+  assert.match(serverJs, /const cappedContribution = carryOver > 0 \? contribution : Math\.min\(LOTTERY_MAX_POOL, contribution\)/);
+  assert.match(serverJs, /prizePool: roundMoney\(carryOver \+ cappedContribution\)/);
+  assert.match(serverJs, /const LOTTERY_DRAW_HOUR = 16/);
+  assert.match(serverJs, /LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T19:05:00\.000Z'/);
+  assert.match(serverJs, /function lotteryBoundaryFor/);
+  assert.match(serverJs, /function lotteryNumbersForRound/);
+  assert.match(serverJs, /reaproveitamos a rodada/);
+  assert.match(serverJs, /createHash\('sha256'\)\.update\(secret\)/);
+  assert.match(serverJs, /route === '\/api\/lottery\/entry'/);
+  assert.match(serverJs, /if \(!Number\.isInteger\(guess\) \|\| guess < 1 \|\| guess > LOTTERY_NUMBER_MAX\)/);
+  assert.match(serverJs, /const winnerIds = \[\.\.\.new Set\(entries\.filter/);
+  assert.match(serverJs, /mode: 'lottery-prize'/);
+  assert.match(serverJs, /id: 'lottery-result:'/);
+  assert.match(serverJs, /function lotteryReminderForUser/);
+  assert.match(serverJs, /function lotteryTimeLabelForNotification/);
+  assert.match(serverJs, /id: 'lottery-reminder:'/);
+  assert.match(serverJs, /const lotterySettled = settleLotteryRounds\(\)/);
+  assert.match(serverJs, /let lotteryReminder = null;\s*try \{/);
+  assert.match(serverJs, /lotteryReminder = lotteryReminderForUser\(user\)/);
+  assert.match(serverJs, /lottery: lotteryForUser\(user\)/);
+  assert.match(appJs, /function renderLottery/);
+  assert.match(appJs, /function scheduleLotteryReminder/);
+  assert.match(appJs, /function scheduleLotteryDraw/);
+  assert.match(appJs, /function runLotteryLiveDraw/);
+  assert.match(appJs, /lottery-live-ball/);
+  assert.match(appJs, /Faltam 10 minutos para a Loteria 51/);
+  assert.match(appJs, /\/api\/lottery\/entry/);
+  assert.match(html, /id="loteria" class="section lottery-page/);
+  assert.match(html, /id="lotteryNumbers"/);
+  assert.match(html, /id="lotteryPrizePool"/);
+  assert.match(html, /id="lotteryLiveDraw"/);
+  assert.match(html, /quando há rollover/);
+  assert.match(html, /data-page="loteria"/);
 });
 
 test('tabela de preços usa finais em centavos sem alterar recompensas e estornos históricos', () => {
@@ -173,7 +213,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260917-apostometro-real-v29/);
+  assert.match(appJs, /20260917-loteria-51-v33/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -181,7 +221,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260917-apostometro-real-v29/);
+  assert.match(appJs, /20260917-loteria-51-v33/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -219,6 +259,9 @@ test('Pokédex espalha sprites Cobblemon decorativos sem bloquear a interface', 
   assert.match(styles, /@keyframes cobblemon-scene-float/);
   assert.match(appJs, /previews\/small\/\$\{Number\(mon\.i\)\}\.webp/);
   assert.match(appJs, /cobblemonDexGridKey/);
+  assert.match(appJs, /fetchpriority="low"/);
+  assert.match(styles, /contain-intrinsic-size:72px/);
+  assert.match(styles, /background-attachment:scroll!important/);
 });
 
 test('poder consumível usado não fica marcado como item da coleção', () => {

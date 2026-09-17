@@ -1,5 +1,5 @@
 {
-  "version": "20260917-apostometro-real-v29",
-  "title": "Apostômetro com valor real",
-  "notes": "O Apostômetro agora soma apenas apostas pagas com o saldo da Loja 51. Apostas promocionais continuam no histórico, mas não inflacionam o valor movimentado."
+  "version": "20260917-loteria-51-v31",
+  "title": "Loteria 51: prêmio acumulado",
+  "notes": "A Loteria 51 fecha toda quinta às 16h (Brasília): cada participante registra um palpite gratuito de 1 a 20, cinco números são sorteados e o prêmio é calculado com 10% do movimento real pago. Rodadas sem acúmulo têm limite de 1.500 Créditos 51; quando há rollover, o valor acumulado é preservado e a nova contribuição é somada."
 }
