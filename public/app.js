@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-balls-quantidade-v27',
-  title: 'Compra de Poké Balls corrigida',
-  notes: 'A confirmação e o aviso da compra de Poké Balls agora usam a quantidade realmente liberada pelo servidor. O pacote extra pode adicionar até 10 arremessos, respeitando o que já foi comprado no dia.'
+  version: '20260917-mercado-horarios-v28',
+  title: 'Horários do Mercado 51 visíveis',
+  notes: 'O Mercado 51 agora exibe suas oito janelas de atualização: 00h, 03h, 06h, 09h, 12h, 15h, 18h e 21h, sempre no horário de Brasília.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
