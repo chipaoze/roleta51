@@ -108,11 +108,13 @@ test('Loteria 51 semanal controla palpite, fechamento e prêmio sem inflação',
   assert.match(serverJs, /const LOTTERY_DRAW_HOUR = 16/);
   assert.match(serverJs, /LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T20:00:00\.000Z'/);
   assert.match(serverJs, /LOTTERY_ONE_OFF_ROUND_ID = 'lottery:2026-09-10T19:00:00\.000Z'/);
-  assert.match(serverJs, /LOTTERY_ONE_OFF_ACTIVE_ROUND_ID = 'lottery:2026-09-17T19:00:00\.000Z'/);
+  assert.match(serverJs, /LOTTERY_ONE_OFF_ACTIVE_ROUND_ID = LOTTERY_ONE_OFF_ROUND_ID/);
   assert.match(serverJs, /resetOneOffLotteryForDelayedDraw/);
   assert.match(serverJs, /mode: 'lottery-reset-reversal'/);
   assert.match(serverJs, /reopenOneOffLotteryRoundIfNeeded/);
   assert.match(serverJs, /mode: 'lottery-reversal'/);
+  assert.match(serverJs, /invalidatedLotteryRounds/);
+  assert.match(serverJs, /invalidatedLotteryPrizeIds/);
   assert.match(serverJs, /function lotteryBoundaryFor/);
   assert.match(serverJs, /function lotteryNumbersForRound/);
   assert.match(serverJs, /reaproveitamos a rodada/);

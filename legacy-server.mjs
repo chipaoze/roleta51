@@ -905,7 +905,9 @@ const LOTTERY_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // Exceção única para a primeira transmissão do sorteio: a rodada aberta nesta
 // semana fecha às 17h; todas as rodadas seguintes continuam às 16h.
 const LOTTERY_ONE_OFF_ROUND_ID = 'lottery:2026-09-10T19:00:00.000Z';
-const LOTTERY_ONE_OFF_ACTIVE_ROUND_ID = 'lottery:2026-09-17T19:00:00.000Z';
+// A exceção ainda é a rodada iniciada na quinta anterior; a rodada seguinte
+// será criada normalmente depois que esta apuração terminar.
+const LOTTERY_ONE_OFF_ACTIVE_ROUND_ID = LOTTERY_ONE_OFF_ROUND_ID;
 const LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T20:00:00.000Z';
 const LOTTERY_ONE_OFF_RESET_VERSION = '2026-09-17T20:00-clear-v4';
 function casinoAccountFor(userId, create = false) {
@@ -2491,7 +2493,9 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     targetId: 'my-feedback-' + item.id,
     createdAt: item.updatedAt || item.createdAt,
   }));
-  creditLedger.filter((item) => item.amount > 0 && !item.id.startsWith('gift:')).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + roundMoney(item.amount) + ' Créditos 51', detail: item.label, page: 'perfil', targetId: 'creditLedger', createdAt: item.createdAt }));
+  const invalidatedLotteryRounds = new Set((db.economy.lottery?.rounds || []).filter((item) => item.status === 'void').map((item) => item.id));
+  const invalidatedLotteryPrizeIds = new Set((db.economy.lottery?.rounds || []).flatMap((item) => item.voidedPayoutAdjustmentIds || []));
+  creditLedger.filter((item) => item.amount > 0 && !item.id.startsWith('gift:') && !invalidatedLotteryPrizeIds.has(item.id) && !(item.lotteryRoundId && invalidatedLotteryRounds.has(item.lotteryRoundId))).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + roundMoney(item.amount) + ' Créditos 51', detail: item.label, page: 'perfil', targetId: 'creditLedger', createdAt: item.createdAt }));
   db.economy.gifts.filter((item) => item.toUserId === user.id).slice(-5).forEach((item) => items.push({ id: 'gift:' + item.id, icon: '🎁', title: 'Você recebeu um presente secreto', targetId: item.type === 'credits' ? 'creditLedger' : 'collectionCatalog', detail: item.type === 'credits' ? roundMoney(item.amount) + ' Créditos 51' : (SHOP_CATALOG.find((catalog) => catalog.id === item.itemId)?.name || 'Item da Loja 51'), page: 'perfil', createdAt: item.createdAt }));
   const readAt = db.notificationsReadAt[user.id] || null;
   const sorted = items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 15).map((item) => ({ ...item, unread: !readAt || item.createdAt > readAt }));
