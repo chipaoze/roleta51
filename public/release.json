@@ -1,5 +1,5 @@
 {
-  "version": "20260916-market-51-v11",
-  "title": "Mercado 51 mais claro e legível",
-  "notes": "Os valores agora aparecem maiores, com contraste reforçado e a unidade Créditos 51 sempre visível. Caixa, valor investido, patrimônio, preço por unidade e total da ordem ficaram mais fáceis de identificar."
+  "version": "20260916-creditos-51-centavos-v12",
+  "title": "Saldo em Créditos 51 com centavos",
+  "notes": "O saldo principal agora aparece sempre com duas casas decimais no cabeçalho, perfil, loja e administração. O Mercado 51 já calcula operações com centavos; compras e jogos continuam com valores inteiros nesta etapa."
 }

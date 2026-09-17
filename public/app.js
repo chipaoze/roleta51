@@ -1,10 +1,13 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+function formatCredits(value) {
+  return Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260916-market-51-v11',
-  title: 'Mercado 51 mais claro e legível',
-  notes: 'Os valores agora aparecem maiores, com contraste reforçado e a unidade Créditos 51 sempre visível. Caixa, valor investido, patrimônio, preço por unidade e total da ordem ficaram mais fáceis de identificar.'
+  version: '20260916-creditos-51-centavos-v12',
+  title: 'Saldo em Créditos 51 com centavos',
+  notes: 'O saldo principal agora aparece sempre com duas casas decimais no cabeçalho, perfil, loja e administração. O Mercado 51 já calcula operações com centavos; compras e jogos continuam com valores inteiros nesta etapa.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3001,7 +3004,7 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   });
   $('#topProfileButton').className = 'top-profile-button' + (frameItem ? ' frame-' + frameItem.value : '');
   $('.site-menu-user').className = 'site-menu-user' + (frameItem ? ' frame-' + frameItem.value : '');
-  const topWalletValue = Number(profile.wallet || 0).toLocaleString('pt-BR');
+  const topWalletValue = formatCredits(profile.wallet);
   const topWallet = $('#topWallet');
   if (topWallet) {
     $('#topWalletValue').textContent = topWalletValue;
@@ -3010,8 +3013,8 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   // Álbum e Cobblemon já tiveram sua área específica atualizada acima. Não
   // reconstruímos Perfil e Loja enquanto essas páginas permanecem ocultas.
   if (globalOnly || profilePage === 'album' || profilePage === 'cobblemon') return;
-  $('#profileWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
-  $('#shopPageWallet').textContent = Number(profile.wallet || 0).toLocaleString('pt-BR');
+  $('#profileWallet').textContent = formatCredits(profile.wallet);
+  $('#shopPageWallet').textContent = formatCredits(profile.wallet);
   renderAvatar($('#profileAvatar'), appState.me.avatarDataUrl, initials(appState.me.displayName));
   $('#profileDisplayName').textContent = formatDisplayName(appState.me.displayName);
   // A insígnia do álbum é uma conquista, não deve substituir um emblema comprado.
@@ -3187,7 +3190,7 @@ function renderAdmin() {
   const users = appState.adminUsers || [];
   $('#adminUserCount').textContent = users.length + ' contas';
   $('#adminUsers').innerHTML = users.map((user) =>
-    '<div id="admin-user-' + escapeHtml(user.id) + '" class="admin-user' + (user.approved === false ? ' pending-approval' : '') + '"><p><strong>' + escapeHtml(formatDisplayName(user.displayName)) + '</strong><small>@' + escapeHtml(user.username) + (user.role === 'admin' ? ' · Administrador' : '') + (user.approved === false ? ' · Aguardando aprovação' : '') + ' · <span class="coin-51" aria-hidden="true">51</span> ' + Number(user.wallet || 0).toLocaleString('pt-BR') + '</small></p>' +
+    '<div id="admin-user-' + escapeHtml(user.id) + '" class="admin-user' + (user.approved === false ? ' pending-approval' : '') + '"><p><strong>' + escapeHtml(formatDisplayName(user.displayName)) + '</strong><small>@' + escapeHtml(user.username) + (user.role === 'admin' ? ' · Administrador' : '') + (user.approved === false ? ' · Aguardando aprovação' : '') + ' · <span class="coin-51" aria-hidden="true">51</span> ' + formatCredits(user.wallet) + '</small></p>' +
     '<div class="admin-user-actions"><button class="tiny-toggle ' + (user.eligible ? 'on' : 'off') + '" data-user-action="eligible" data-user-id="' + user.id + '" data-value="' + (!user.eligible) + '">' + (user.eligible ? 'Participa' : 'Fora da roleta') + '</button>' +
     '<button class="tiny-toggle ' + (user.active ? 'on' : 'off') + '" data-user-action="active" data-user-id="' + user.id + '" data-value="' + (!user.active) + '">' + (user.active ? 'Ativo' : 'Inativo') + '</button>' +
     (user.approved === false ? '<button class="admin-user-approve" type="button" data-user-action="approved" data-user-id="' + user.id + '" data-value="true">Aprovar acesso</button>' : '') +
@@ -4730,7 +4733,7 @@ $('#shareProfileCardButton')?.addEventListener('click', async () => {
     context.fillStyle = '#f6a34b'; context.font = 'bold 25px system-ui'; context.fillText('ÁREA 51 · CARTÃO DA TRIPULAÇÃO', 72, 100);
     context.fillStyle = '#fff7e7'; context.font = 'bold 70px Georgia'; context.fillText(formatDisplayName(appState.me.displayName), 72, 185);
     context.fillStyle = '#d5e4f6'; context.font = '28px system-ui'; context.fillText($('#profileEquippedTitle').textContent || 'Tripulante da Área 51', 75, 230);
-    context.fillStyle = '#ffd968'; context.font = 'bold 46px system-ui'; context.fillText(Number(profile.wallet || 0).toLocaleString('pt-BR') + ' Créditos 51', 75, 330);
+    context.fillStyle = '#ffd968'; context.font = 'bold 46px system-ui'; context.fillText(formatCredits(profile.wallet) + ' Créditos 51', 75, 330);
     const unlocked = (profile.medals || []).filter((medal) => medal.unlocked).slice(0, 4);
     context.fillStyle = '#bcd5f2'; context.font = 'bold 23px system-ui'; context.fillText('CONQUISTAS DESBLOQUEADAS', 75, 410);
     unlocked.forEach((medal, index) => { const x = 75 + index * 238; context.fillStyle = '#172a49'; context.fillRect(x, 438, 210, 100); context.fillStyle = '#fff'; context.font = '36px system-ui'; context.fillText(medal.icon, x + 15, 480); context.fillStyle = '#f6edff'; context.font = 'bold 17px system-ui'; context.fillText(medal.name.slice(0, 19), x + 62, 478); });
@@ -4831,7 +4834,7 @@ $('#adminUsers').addEventListener('click', async (event) => {
   const creditButton = event.target.closest('[data-credit-user]');
   if (creditButton) {
     $('#creditAdminUserId').value = creditButton.dataset.creditUser;
-    $('#creditAdminUser').textContent = creditButton.dataset.userName + ' · saldo atual: ' + Number(creditButton.dataset.userWallet || 0).toLocaleString('pt-BR') + ' créditos';
+    $('#creditAdminUser').textContent = creditButton.dataset.userName + ' · saldo atual: ' + formatCredits(creditButton.dataset.userWallet) + ' créditos';
     $('#creditAdminAmount').value = '';
     $('#creditAdminReason').value = '';
     $('#creditAdminError').textContent = '';

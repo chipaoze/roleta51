@@ -835,7 +835,7 @@ function saoPauloWeekKey(date = new Date()) {
 }
 
 function walletFor(userId) { return Number(db.economy.wallets[userId] || 0); }
-function addCredits(userId, amount) { db.economy.wallets[userId] = walletFor(userId) + amount; }
+function addCredits(userId, amount) { db.economy.wallets[userId] = Math.round((walletFor(userId) + Number(amount || 0)) * 100) / 100; }
 
 const CASINO_DAILY_BONUS = 250;
 const CASINO_CASHOUT_THRESHOLD = 500;

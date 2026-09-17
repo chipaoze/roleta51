@@ -29,8 +29,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260916-236/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260916-281/);
-  assert.match(html, /app\.js\?v=20260916-281/);
+  assert.match(html, /styles\.css\?v=20260916-282/);
+  assert.match(html, /app\.js\?v=20260916-282/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -51,7 +51,8 @@ test('aviso de versão pede atualização e exibe notas uma vez por versão', ()
 test('cabeçalho exibe e atualiza o saldo de Créditos 51 em qualquer página', () => {
   assert.match(html, /id="topWallet"/);
   assert.match(html, /id="topWalletValue"/);
-  assert.match(appJs, /const topWalletValue = Number\(profile\.wallet \|\| 0\)\.toLocaleString\('pt-BR'\)/);
+  assert.match(appJs, /function formatCredits\(value\)/);
+  assert.match(appJs, /const topWalletValue = formatCredits\(profile\.wallet\)/);
   assert.match(appJs, /topWallet\.setAttribute\('aria-label', 'Saldo: ' \+ topWalletValue \+ ' Créditos 51'\)/);
   assert.match(styles, /\.top-wallet\{display:inline-flex;flex:0 0 auto/);
   assert.match(styles, /body\.theme-rainbow \.top-wallet\{border-color:#fff1a3/);

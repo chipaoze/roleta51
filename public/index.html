@@ -8,7 +8,7 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260916-281">
+  <link rel="stylesheet" href="/styles.css?v=20260916-282">
   <link rel="stylesheet" href="/improvements.css?v=20260902-118">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260916-211">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
@@ -118,8 +118,8 @@
       <button id="menuButton" class="menu-button" type="button" aria-label="Abrir menu principal" aria-controls="siteMenu" aria-expanded="false"><i></i><i></i><i></i><span>Menu</span></button>
       <div class="account">
         <button id="onlinePeopleButton" class="online-people-button" type="button" title="Pessoas conectadas"><i></i><strong id="onlinePeopleCount">1</strong><span>online</span></button>
-        <div id="topWallet" class="top-wallet" role="status" aria-live="polite" aria-label="Saldo: 0 Créditos 51" title="Seu saldo de Créditos 51">
-          <span class="coin-51" aria-hidden="true">51</span><strong id="topWalletValue">0</strong><small>créditos</small>
+        <div id="topWallet" class="top-wallet" role="status" aria-live="polite" aria-label="Saldo: 0,00 Créditos 51" title="Seu saldo de Créditos 51">
+          <span class="coin-51" aria-hidden="true">51</span><strong id="topWalletValue">0,00</strong><small>créditos</small>
         </div>
         <button id="notificationButton" class="icon-button notification-button" type="button" title="Abrir notificações" aria-label="Abrir notificações" aria-expanded="false">🔔<b id="notificationBadge" class="hidden">0</b></button>
         <button id="feedbackTopButton" class="feedback-top-button hidden" type="button" aria-controls="feedbackPanel" aria-expanded="false" title="Enviar melhoria ou bug">💬 <span>Feedback</span><b id="feedbackUnreadTop" class="feedback-unread hidden">0</b></button>
@@ -454,7 +454,7 @@
             <label class="profile-avatar-upload" title="Trocar foto de perfil"><div id="profileAvatar" class="profile-avatar">A</div><span>Trocar foto</span><input id="profileAvatarInput" type="file" accept="image/png,image/jpeg,image/webp"></label>
             <div class="profile-name-wrap"><small>PERFIL DA TRIPULAÇÃO</small><h3 id="profileDisplayName">Participante</h3><span id="profileEquippedTitle">Tripulante da Área 51</span></div>
             <div id="profileVisualSignature" class="profile-visual-signature" aria-live="polite">✦ Sua assinatura visual está carregando…</div>
-            <div class="profile-wallet"><span class="coin-51 coin-51-large" aria-hidden="true">51</span><p><small>SALDO</small><strong><b id="profileWallet">0</b> Créditos 51</strong></p></div>
+            <div class="profile-wallet"><span class="coin-51 coin-51-large" aria-hidden="true">51</span><p><small>SALDO</small><strong><b id="profileWallet">0,00</b> Créditos 51</strong></p></div>
             <div class="active-visuals"><small>VISUAIS ATIVOS</small><div id="activeVisualsList"></div></div>
             <button id="shareProfileCardButton" class="profile-share-card" type="button">🛸 Compartilhar cartão</button>
           </article>
@@ -550,7 +550,7 @@
     <section id="loja" class="section profile-shop-section shop-only-section">
       <div class="section-heading split-heading"><div><span class="eyebrow">SHOPPING INTERGALÁCTICO</span><h2>Loja <em>Área 51</em></h2></div><p>Compre visuais, poderes e baús usando seus Créditos 51. Nenhum dinheiro real é utilizado.</p></div>
       <div class="shop-page-shell">
-        <div class="shop-page-toolbar"><div><small>SEU SALDO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="shopPageWallet">0</b> créditos</strong></div><label class="shop-owned-toggle"><input id="hideOwnedVisuals" type="checkbox"><span>Ocultar visuais que já adquiri</span></label></div>
+        <div class="shop-page-toolbar"><div><small>SEU SALDO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="shopPageWallet">0,00</b> créditos</strong></div><label class="shop-owned-toggle"><input id="hideOwnedVisuals" type="checkbox"><span>Ocultar visuais que já adquiri</span></label></div>
         <article id="freeShopPass" class="free-shop-pass"><span>🎟️</span><p><small>PRESENTE PARA CADA TRIPULANTE</small><strong id="freeShopPassTitle">Compra Grátis 51 disponível</strong><em id="freeShopPassText">Escolha um visual da loja e use seu único passe sem gastar créditos.</em></p><b id="freeShopPassStatus">1 USO</b></article>
         <article id="stellarLoanCard" class="stellar-loan-card"><span>🛸</span><div><small>AGIOTA ESTELAR</small><strong id="stellarLoanTitle">Créditos rápidos para a sua coleção</strong><p id="stellarLoanText">Escolha 100, 200 ou 300 créditos. O pagamento tem 20% de juros e só é permitido um empréstimo por vez.</p></div><div id="stellarLoanActions" class="stellar-loan-actions"></div></article>
         <div id="shopFilters" class="shop-filters" aria-label="Filtrar itens da loja"><button class="active" type="button" data-shop-filter="all">Tudo</button><button type="button" data-shop-filter="box">🎁 Baús e pacotes</button><button type="button" data-shop-filter="cursor">Cursores</button><button type="button" data-shop-filter="trail">Rastros</button><button type="button" data-shop-filter="theme">Temas</button><button type="button" data-shop-filter="profile">Perfil</button><button class="power-filter-button" type="button" data-shop-filter="power">✨ Poderes</button></div>
@@ -833,6 +833,6 @@
   <script src="/card-album.js?v=20260916-236"></script>
   <script src="/weather.js?v=20260914-178"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-      <script src="/app.js?v=20260916-281"></script>
+      <script src="/app.js?v=20260916-282"></script>
 </body>
 </html>
