@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-mentirometro-v34',
-  title: 'Mentirômetro: voto obrigatório',
-  notes: 'Após 10 minutos, uma votação de mentira pendente passa a exigir sua decisão antes de continuar usando o portal. Também é possível registrar várias marcações diferentes para a mesma pessoa na mesma rodada.'
+  version: '20260917-mentirometro-v35',
+  title: 'Mentirômetro: sequência de votos corrigida',
+  notes: 'O voto obrigatório continua após 10 minutos, mas cada nova mentira recebe controles próprios: votar em uma pendência não desabilita a próxima e erros de rede liberam os botões novamente.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
