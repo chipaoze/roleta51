@@ -1,5 +1,5 @@
 {
-  "version": "20260917-loteria-51-v31",
-  "title": "Loteria 51: prêmio acumulado",
-  "notes": "A Loteria 51 fecha toda quinta às 16h (Brasília): cada participante registra um palpite gratuito de 1 a 20, cinco números são sorteados e o prêmio é calculado com 10% do movimento real pago. Rodadas sem acúmulo têm limite de 1.500 Créditos 51; quando há rollover, o valor acumulado é preservado e a nova contribuição é somada."
+  "version": "20260917-mentirometro-v34",
+  "title": "Mentirômetro: voto obrigatório",
+  "notes": "Após 10 minutos, uma votação de mentira pendente passa a exigir sua decisão antes de continuar usando o portal. Também é possível registrar várias marcações diferentes para a mesma pessoa na mesma rodada."
 }

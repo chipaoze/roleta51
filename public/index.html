@@ -9,7 +9,7 @@
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
   <link rel="stylesheet" href="/styles.css?v=20260917-288">
-  <link rel="stylesheet" href="/improvements.css?v=20260902-118">
+  <link rel="stylesheet" href="/improvements.css?v=20260917-119">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260916-211">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
   <link rel="stylesheet" href="/platform-upgrades.css?v=20260917-217">
@@ -409,7 +409,7 @@
     <section id="mentirometro" class="section lie-meter-section">
       <div class="section-heading split-heading">
         <div><span class="eyebrow">AUDITORIA DA TRIPULAÇÃO</span><h2>Contador de <em>mentiras</em></h2></div>
-        <p>Marque uma mentira ou solicite uma correção. O placar só muda após outra pessoa validar.</p>
+        <p>Marque quantas mentiras quiser para a mesma pessoa. O placar só muda após a validação; depois de 10 minutos, votar em cada pendência vira obrigatório.</p>
       </div>
       <div class="lie-meter-layout">
         <article class="card lie-ranking-card">
@@ -695,6 +695,17 @@
   </div>
 
   <dialog id="releaseNoticeDialog" class="release-notice-dialog" aria-live="polite"></dialog>
+  <dialog id="lieVoteRequiredDialog" class="lie-vote-required-dialog" aria-labelledby="lieVoteRequiredTitle" aria-describedby="lieVoteRequiredText">
+    <span class="lie-vote-required-icon" aria-hidden="true">🗳️</span>
+    <small>VOTAÇÃO OBRIGATÓRIA</small>
+    <h2 id="lieVoteRequiredTitle">Sua decisão é necessária</h2>
+    <p id="lieVoteRequiredText">Uma marcação de mentira aguarda seu voto.</p>
+    <div class="lie-vote-required-actions">
+      <button type="button" class="button button-primary" data-required-lie-vote="lie">Mentiu</button>
+      <button type="button" class="button button-dark" data-required-lie-vote="truth">Não mentiu</button>
+    </div>
+    <small class="lie-vote-required-note">Para continuar usando o portal, escolha uma das opções. Sua decisão fica registrada na votação coletiva.</small>
+  </dialog>
   <dialog id="announcementDialog" class="announcement-dialog"><button id="closeAnnouncement" class="dialog-close" type="button" aria-label="Fechar aviso">×</button><span>📢</span><small>AVISO DA ÁREA 51</small><h2 id="announcementDialogTitle">Aviso</h2><p id="announcementDialogMessage"></p><button id="acknowledgeAnnouncement" class="button button-primary" type="button">Entendi</button></dialog>
 
   <dialog id="refundMerchantDialog" class="refund-merchant-dialog" aria-labelledby="refundMerchantTitle">
@@ -878,6 +889,6 @@
   <script src="/card-album.js?v=20260917-237"></script>
   <script src="/weather.js?v=20260914-178"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-      <script src="/app.js?v=20260917-303"></script>
+      <script src="/app.js?v=20260917-304"></script>
 </body>
 </html>

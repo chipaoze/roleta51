@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-loteria-51-v33',
-  title: 'Loteria 51: sorteio ao vivo',
-  notes: 'A Loteria 51 fecha toda quinta às 16h (Brasília): cada participante registra um palpite gratuito de 1 a 20, cinco números são sorteados e revelados ao vivo pelo servidor. O prêmio é calculado com 10% do movimento real pago. Rodadas sem acúmulo têm limite de 1.500 Créditos 51; quando há rollover, o valor acumulado é preservado e a nova contribuição é somada.'
+  version: '20260917-mentirometro-v34',
+  title: 'Mentirômetro: voto obrigatório',
+  notes: 'Após 10 minutos, uma votação de mentira pendente passa a exigir sua decisão antes de continuar usando o portal. Também é possível registrar várias marcações diferentes para a mesma pessoa na mesma rodada.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -1194,6 +1194,9 @@ async function requestApi(url, options = {}, retry = true) {
   if (retry && response.status >= 500 && (!config.method || config.method === 'GET')) return api(url, options, false);
   if (!response.ok) {
     if (response.status === 401 && !url.endsWith('/login')) showAuth();
+    if (response.status === 423 && url !== '/api/state' && appState?.me) {
+      try { applyState(await requestApi('/api/state', {}, false)); } catch {}
+    }
     const error = new Error(data.error || 'Não foi possível concluir a ação.'); error.status = response.status; throw error;
   }
   return data;
@@ -2659,6 +2662,24 @@ function lieAttribution(entry) {
   return '<span class="lie-attribution"><span>Registrada por <b>' + escapeHtml(entry.createdBy || 'Não registrado') + '</b></span><span>Aprovada por <b>' + escapeHtml(entry.validatedBy || 'Não registrado') + '</b></span></span>';
 }
 
+function renderRequiredLieVote(required) {
+  const dialog = $('#lieVoteRequiredDialog');
+  if (!dialog) return;
+  if (!required || appState?.me?.role === 'admin') {
+    if (dialog.open) dialog.close();
+    delete dialog.dataset.voteId;
+    return;
+  }
+  const title = $('#lieVoteRequiredTitle');
+  const text = $('#lieVoteRequiredText');
+  if (title) title.textContent = `${formatDisplayName(required.targetName)} mentiu?`;
+  if (text) text.textContent = required.reason
+    ? `${formatDisplayName(required.creatorName)} registrou esta marcação: “${required.reason}”. Escolha uma opção para continuar.`
+    : `${formatDisplayName(required.creatorName)} solicitou uma correção para ${formatDisplayName(required.targetName)}. Escolha uma opção para continuar.`;
+  dialog.dataset.voteId = required.id;
+  if (!dialog.open) dialog.showModal();
+}
+
 function renderLieMeter(lieMeter = {}) {
   const ranking = Array.isArray(lieMeter.ranking) ? lieMeter.ranking : [];
   const pending = Array.isArray(lieMeter.pending) ? lieMeter.pending : [];
@@ -2700,6 +2721,22 @@ function renderLieMeter(lieMeter = {}) {
     return `<section id="lie-dispute-${escapeHtml(dispute.id)}" class="lie-dispute${resolved ? ' resolved' : ''}"><header><div><small>REVISÃO POR CONSENSO</small><h3>Mentira de ${escapeHtml(formatDisplayName(dispute.targetName))}</h3><p>Denúncia: “${escapeHtml(dispute.reportReason)}”</p></div><span>${resolved ? 'Encerrada' : 'Em discussão'}</span></header><p class="lie-dispute-original">Registro contestado: “${escapeHtml(dispute.lieReason)}”</p><div class="lie-dispute-people">${participantMarkup}</div><div class="lie-dispute-chat">${messages}</div>${decisionControls}</section>`;
   }).join('');
 }
+
+$('#lieVoteRequiredDialog')?.addEventListener('cancel', (event) => event.preventDefault());
+$('#lieVoteRequiredDialog')?.addEventListener('click', async (event) => {
+  if (event.target === event.currentTarget) { event.preventDefault(); return; }
+  const button = event.target.closest('[data-required-lie-vote]');
+  const required = appState?.lieMeter?.requiredVote;
+  if (!button || !required) return;
+  button.disabled = true;
+  try {
+    applyState(await api('/api/lie-meter/' + encodeURIComponent(required.id) + '/vote', { method: 'POST', body: { vote: button.dataset.requiredLieVote } }));
+    showToast('Voto registrado. Obrigado por participar da validação.');
+  } catch (error) {
+    showToast(error.message, 'error');
+    button.disabled = false;
+  }
+});
 
 function maybeShowWaterReminder(hydration) {
   if (!appState || !hydration || Number(hydration.myTotalMl || 0) >= Number(hydration.goalMl || 2500)) return;
@@ -3726,6 +3763,7 @@ function applyState(data) {
   document.body.classList.toggle('admin-command-mode', data.me.role === 'admin');
   applyVisualTheme(data);
   document.dispatchEvent(new CustomEvent('area51:state', { detail: data }));
+  renderRequiredLieVote(data.lieMeter?.requiredVote || null);
   if (!spinning) setMode(suggestedMode());
   $('#userName').textContent = formatDisplayName(data.me.displayName);
   $('#userRole').textContent = data.me.role === 'admin' ? 'Administrador' : 'Participante';
@@ -5603,6 +5641,9 @@ async function runPortalSync() {
     serverClockOffset = Number(sync.serverTime || Date.now()) - Date.now();
     if (sync.liveDraw) receiveLiveDraw(sync.liveDraw);
     const changed = Number(sync.revision) !== Number(appState.serverRevision) || Boolean(sync.loanOverdue) !== Boolean(appState.profile?.loan?.overdue);
+    const currentRequiredLieVoteId = appState.lieMeter?.requiredVote?.id || null;
+    const incomingRequiredLieVoteId = sync.requiredLieVote?.id || null;
+    const requiredLieVoteChanged = currentRequiredLieVoteId !== incomingRequiredLieVoteId;
     let reminderNeedsState = false;
     if (sync.lotteryReminder) {
       const stateKey = 'area51-lottery-reminder-state:' + String(sync.lotteryReminder.roundId);
@@ -5620,7 +5661,7 @@ async function runPortalSync() {
         } catch { showToast(`Faltam 10 minutos para a Loteria 51. Escolha seu número antes das ${lotteryTimeLabel(sync.lotteryReminder.closeAt)}.`, 'error'); }
       }
     }
-    if ((changed || reminderNeedsState) && !editingMystery && !spinning && !casinoSpinInProgress && !mysteryOpeningInProgress) applyState(await api('/api/state', {}, false));
+    if ((changed || reminderNeedsState || requiredLieVoteChanged) && !editingMystery && !spinning && !casinoSpinInProgress && !mysteryOpeningInProgress) applyState(await api('/api/state', {}, false));
     if ($('#liveStatus')) {
       $('#liveStatus').textContent = 'SINCRONIZADO';
       $('#liveStatus').title = 'Atualizado em ' + Math.round(performance.now() - syncStartedAt) + ' ms';

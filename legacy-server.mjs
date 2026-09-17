@@ -26,6 +26,11 @@ const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_P
 const LIVE_DRAW_DURATION = Math.max(80, Number(process.env.LIVE_DRAW_DURATION || 5900));
 const MUSIC_EPOCH = Date.now();
 const MUSIC_LOOP_MS = 8000;
+// Uma votação pode ser ignorada por alguns minutos para a pessoa terminar a
+// ação atual. Depois disso, votar vira uma etapa obrigatória antes de usar o
+// restante do portal; a própria rota de voto continua liberada para não criar
+// um bloqueio impossível de resolver.
+const LIE_VOTE_GRACE_MS = 10 * 60 * 1000;
 const liveClients = new Map();
 let sharedOnlinePeople = [];
 const PRESENCE_TTL = 60000;
@@ -1562,6 +1567,37 @@ function activeLieReasons(targetUserId) {
   return stack;
 }
 
+function requiredLieVoteForUser(userId, now = Date.now()) {
+  const pending = db.lieAccusations
+    .filter((item) => item.status === 'pending' && Array.isArray(item.requiredVoterIds) && item.requiredVoterIds.includes(userId) && !item.votes?.[userId])
+    .map((item) => ({ item, createdAt: Date.parse(item.createdAt || '') }))
+    .filter(({ createdAt }) => Number.isFinite(createdAt) && now - createdAt >= LIE_VOTE_GRACE_MS)
+    .sort((a, b) => a.createdAt - b.createdAt)[0]?.item;
+  if (!pending) return null;
+  const target = db.users.find((person) => person.id === pending.targetUserId);
+  const creator = db.users.find((person) => person.id === pending.createdByUserId);
+  return {
+    id: pending.id,
+    targetUserId: pending.targetUserId,
+    targetName: target?.displayName || 'Usuário removido',
+    creatorName: creator?.displayName || 'Usuário removido',
+    reason: pending.reason || '',
+    createdAt: pending.createdAt,
+    eligibleAt: new Date(Date.parse(pending.createdAt) + LIE_VOTE_GRACE_MS).toISOString(),
+  };
+}
+
+function enforceLieVoteGate(req, route) {
+  const auth = sessionFor(req);
+  if (!auth || auth.user.role === 'admin') return;
+  const stateRoute = req.method === 'GET' && (route === '/api/state' || route === '/api/sync');
+  const logoutRoute = req.method === 'POST' && route === '/api/logout';
+  const voteRoute = req.method === 'POST' && /^\/api\/lie-meter\/[^/]+\/vote$/.test(route);
+  if (stateRoute || logoutRoute || voteRoute) return;
+  const required = requiredLieVoteForUser(auth.user.id);
+  if (required) throw new HttpError(423, 'Você precisa votar na mentira pendente antes de continuar.');
+}
+
 export function lieVoteDecision(requiredVoterIds = [], votes = {}) {
   const voterIds = [...new Set(requiredVoterIds)];
   const lieVotes = voterIds.filter((id) => votes[id] === 'lie').length;
@@ -2695,6 +2731,7 @@ function buildStateFor(user) {
     trading: tradingFor(user),
     cardAlbum,
     lieMeter: {
+      requiredVote: user.role === 'admin' ? null : requiredLieVoteForUser(user.id),
       ranking: db.users.filter((person) => person.active).map((person) => ({
         id: person.id,
         displayName: person.displayName,
@@ -2967,6 +3004,8 @@ async function handleApi(req, res, route) {
     json(res, 200, stateFor(user)); return;
   }
 
+  enforceLieVoteGate(req, route);
+
   if (req.method !== 'GET') {
     if (route.startsWith('/api/impostor/')) { requireAuth(req); requireFeature('impostor'); }
     if (route === '/api/mystery' || route.startsWith('/api/mystery/')) { requireAuth(req); requireFeature('mystery'); }
@@ -3158,6 +3197,7 @@ async function handleApi(req, res, route) {
       onlinePeople,
       revision: stateRevision,
       lotteryReminder,
+      requiredLieVote: user.role === 'admin' ? null : requiredLieVoteForUser(user.id),
       loanOverdue: Boolean(overdueLoanFor(user.id)),
       serverTime: Date.now(),
       releaseVersion: Math.max(0, Number(db.settings.releaseVersion || 0)),
@@ -3641,11 +3681,14 @@ async function handleApi(req, res, route) {
       const total = db.lieAccusations.filter((item) => item.targetUserId === target.id && item.status === 'confirmed').reduce((sum, item) => sum + item.delta, 0);
       if (total <= 0) throw new HttpError(409, 'Essa pessoa ainda não possui mentiras confirmadas para remover.');
     }
-    const duplicate = db.lieAccusations.some((item) => item.status === 'pending' && item.targetUserId === target.id && item.createdByUserId === user.id && item.delta === delta);
+    // A mesma pessoa pode receber várias marcações simultâneas. Só evitamos o
+    // duplo envio acidental do mesmo motivo nos primeiros segundos.
+    const now = new Date().toISOString();
+    const duplicate = db.lieAccusations.some((item) => item.status === 'pending' && item.targetUserId === target.id && item.createdByUserId === user.id && item.delta === delta && (item.reason || '') === (delta > 0 ? reason : '') && Date.parse(now) - Date.parse(item.createdAt || '') < 30000);
     if (duplicate) throw new HttpError(409, 'Você já possui uma marcação igual aguardando validação.');
     const requiredVoterIds = db.users.filter((person) => person.active && person.approved !== false).map((person) => person.id);
     const votes = delta > 0 ? { [user.id]: 'lie' } : { [user.id]: 'truth' };
-    db.lieAccusations.push({ id: randomUUID(), targetUserId: target.id, createdByUserId: user.id, delta, reason: delta > 0 ? reason : '', status: 'pending', createdAt: new Date().toISOString(), validatedByUserId: null, confirmedAt: null, requiredVoterIds, votes });
+    db.lieAccusations.push({ id: randomUUID(), targetUserId: target.id, createdByUserId: user.id, delta, reason: delta > 0 ? reason : '', status: 'pending', createdAt: now, validatedByUserId: null, confirmedAt: null, requiredVoterIds, votes });
     if (db.lieAccusations.length > 3000) db.lieAccusations = db.lieAccusations.slice(-3000);
     await persist(); broadcastRefresh('lie-meter'); json(res, 201, stateFor(user)); return;
   }
