@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-flow-v55",
-  "title": "Fluxo Cobblemon corrigido",
-  "notes": "Cápsulas e vendas voltaram a ficar acessíveis na aba Pokédex, os filtros respondem corretamente e o contraste da roleta foi preservado."
+  "version": "20260918-cobblemon-hunt-v56",
+  "title": "Caçada Cobblemon reativada",
+  "notes": "O botão Iniciar caçada voltou a responder mesmo após trocar de aba ou coleção; a aba Caça retorna automaticamente à sua própria Pokédex."
 }

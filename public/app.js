@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-flow-v55',
-  title: 'Fluxo Cobblemon corrigido',
-  notes: 'Cápsulas e vendas voltaram a ficar acessíveis na aba Pokédex, os filtros respondem corretamente e o contraste da roleta foi preservado.'
+  version: '20260918-cobblemon-hunt-v56',
+  title: 'Caçada Cobblemon reativada',
+  notes: 'O botão Iniciar caçada voltou a responder mesmo após trocar de aba ou coleção; a aba Caça retorna automaticamente à sua própria Pokédex.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3028,6 +3028,7 @@ function setCobblemonTab(tab = 'hunt') {
   const dexCard = $('#cobblemonDexCard');
   if (!page || !dexCard) return;
   const nextTab = tab === 'catalog' ? 'catalog' : 'hunt';
+  if (nextTab === 'hunt' && appState?.me?.id) cobblemonDexOwnerId = appState.me.id;
   page.dataset.cobblemonTab = nextTab;
   dexCard.classList.toggle('catalog-view', nextTab === 'catalog');
   $$('#cobblemonTabs [data-cobblemon-tab]').forEach((button) => {
@@ -3035,6 +3036,7 @@ function setCobblemonTab(tab = 'hunt') {
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', String(active));
   });
+  if (nextTab === 'hunt' && appState?.profile) renderCobblemonDex(appState.profile);
 }
 
 function renderCobblemonDex(profile = {}) {
@@ -6041,6 +6043,7 @@ document.addEventListener('click', async (event) => {
   if (decision) { try { const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: JSON.stringify({ id: decision.dataset.id, action: decision.dataset.cobblemonDecision }) }); appState.profile = data.profile; renderProfileEconomy(appState.profile); } catch (error) { showToast(error.message); } return; }
   const delivered = event.target?.closest?.('[data-cobblemon-delivered]');
   if (delivered) { try { applyState(await api('/api/admin/cobblemon/delivered', { method: 'POST', body: JSON.stringify({ id: delivered.dataset.cobblemonDelivered }) })); } catch (error) { showToast(error.message); } return; }
-  if (event.target?.id === 'cobblemonCaptureButton') await startCobblemonPageEncounter();
+  const captureButton = event.target?.closest?.('#cobblemonCaptureButton');
+  if (captureButton) await startCobblemonPageEncounter();
 });
 $('#cobblemonDexOwner')?.addEventListener('change', (event) => { cobblemonDexOwnerId = event.target.value; cobblemonDexPage = 0; renderCobblemonDex(appState.profile); });
