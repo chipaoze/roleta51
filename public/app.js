@@ -57,6 +57,7 @@ let releaseNoticeLoaded = false;
 let releaseCheckPromise = null;
 let releaseNoticeRequiresUpdate = false;
 let navigationFrame = null;
+let cobblemonScrollTimer = null;
 let visiblePortalPage = null;
 let portalRenderRequest = 0;
 let shopPreviewItemId = null;
@@ -1429,6 +1430,18 @@ function updateActiveNavigation() {
 
 function scheduleActiveNavigation() {
   if (navigationFrame === null) navigationFrame = requestAnimationFrame(updateActiveNavigation);
+}
+
+function scheduleCobblemonScrollMode() {
+  const page = $('#cobblemon');
+  if (!page || currentPortalPage() !== 'cobblemon') return;
+  page.classList.add('is-scrolling');
+  document.body.classList.add('cobblemon-scrolling');
+  clearTimeout(cobblemonScrollTimer);
+  cobblemonScrollTimer = setTimeout(() => {
+    page.classList.remove('is-scrolling');
+    document.body.classList.remove('cobblemon-scrolling');
+  }, 140);
 }
 
 function showToast(message, type = 'ok') {
@@ -3016,10 +3029,10 @@ function renderCobblemonDex(profile = {}) {
     const locked = box.monthly && !monthlyBox.canPurchase && !readyToOpen && !choicePending;
     const choiceMode = choicePending && monthlyBox.choice;
     const actionLabel = readyToOpen ? `Sorteio ${Number(monthlyBox.openRollCount || 0) + 1}/3` : choiceMode ? (monthlyBox.choiceStage === 'weekly' ? 'Escolher entrega da semana' : 'Escolher 1 dos 3') : locked ? `Novo ciclo no sábado` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
-    const priceLabel = readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes nesta cápsula` : choiceMode ? `<b>${monthlyBox.choice?.choices?.length || (monthlyBox.choiceStage === 'weekly' ? monthlyBox.weeklyCandidates?.length || 7 : 3)} opções</b> para escolher` : `<b>${formatCredits(box.price)}</b> Créditos 51`;
+    const priceLabel = readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes nesta cápsula` : choiceMode ? `<b>${monthlyBox.choice?.choices?.length || (monthlyBox.choiceStage === 'weekly' ? monthlyBox.weeklyCandidates?.length || 7 : 3)} opções</b> para escolher` : shopCreditMarkup(box.price, 'por cápsula');
     const deliveryNote = box.monthly ? `<small class="cobblemon-delivery-lock"><b>${Number(monthlyBox.weeklyPurchasesRemaining ?? 7)} de 7</b> cápsulas disponíveis nesta semana · 3 sorteios por cápsula · escolha da entrega na sexta · ciclo reinicia no sábado.</small>` : '';
-    const purchaseMore = box.monthly && monthlyBox.canPurchase && (readyToOpen || choiceMode) ? `<button data-cobblemon-box="${id}" data-cobblemon-box-mode="purchase">Comprar outra cápsula</button>` : '';
-    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}${choiceMode ? ' choice-ready' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><em>${priceLabel}</em>${deliveryNote}</p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${choiceMode ? 'choice' : readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : choiceMode ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button>${purchaseMore}</div></article>`;
+    const purchaseMore = box.monthly && monthlyBox.canPurchase && (readyToOpen || choiceMode) ? `<button data-cobblemon-box="${id}" data-cobblemon-box-mode="purchase">Comprar outra cápsula · ${shopCreditMarkup(box.price)}</button>` : '';
+    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}${choiceMode ? ' choice-ready' : ''}"><span><img src="${box.cover}" alt=""></span><p><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><div class="cobblemon-box-price">${priceLabel}</div>${deliveryNote}</p><div><button data-cobblemon-box-odds="${id}">Ver chances</button><button data-cobblemon-box="${id}" data-cobblemon-box-mode="${choiceMode ? 'choice' : readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : choiceMode ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button>${purchaseMore}</div></article>`;
   }).join('');
   const weeklyCandidates = Array.isArray(monthlyBox.weeklyCandidates) ? monthlyBox.weeklyCandidates : [];
   const resultCards = weeklyCandidates.map((entry) => { const rarity = String(entry.rarity || 'common').toLowerCase(); const sellAmount = rarity === 'shiny' ? 400 : rarity === 'rare' ? 450 : 300; const sellButton = entry.deliveryLocked ? '' : `<button type="button" class="button button-dark cobblemon-candidate-sell" data-cobblemon-candidate-sell="${escapeHtml(entry.entryId || entry.id)}" data-cobblemon-candidate-price="${sellAmount}">Vender por: ${sellAmount} coins</button>`; return `<article class="cobblemon-capsule-result"><img src="${escapeHtml(entry.sprite || COBBLEMON_ITEM_SPRITES.poke)}" alt=""><div><strong>${escapeHtml(entry.name || 'Pokémon')}</strong><small>${escapeHtml(entry.rarity || 'Pokémon')} · aguardando escolha da semana</small><button type="button" class="button button-dark cobblemon-weekly-choice" data-cobblemon-weekly-choice="${escapeHtml(entry.entryId || entry.id)}">Escolher para entrega</button>${sellButton}</div></article>`; }).join('');
@@ -3052,7 +3065,11 @@ function renderCobblemonDex(profile = {}) {
     rouletteWheel.innerHTML = COBBLEMON_ROULETTE_REWARDS.map(([name, sprite], index) => `<span style="--i:${index}" title="${escapeHtml(name)}">${index === 0 ? '<b class="roulette-loss">×</b>' : `<img src="${sprite}" alt="${escapeHtml(name)}">`}</span>`).join('');
     rouletteWheel.dataset.rewardsReady = 'true';
   }
-  rouletteButton.disabled = !roulette.canSpin; rouletteButton.textContent = roulette.canSpin ? `Girar por ${formatCredits(roulette.price||259.90)}` : 'Roleta em recarga';
+  const roulettePrice = Number(roulette.price || 259.90);
+  const roulettePriceMarkup = shopCreditMarkup(roulettePrice, 'por giro');
+  const roulettePriceElement = $('#cobblemonRoulettePrice');
+  if (roulettePriceElement) roulettePriceElement.innerHTML = roulettePriceMarkup;
+  rouletteButton.disabled = !roulette.canSpin; rouletteButton.innerHTML = roulette.canSpin ? `Girar por ${roulettePriceMarkup}` : 'Roleta em recarga';
   $('#cobblemonRouletteStatus').textContent = roulette.canSpin ? '✓ Disponível agora' : `Próximo giro: ${new Date(roulette.nextSpinAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
   const search = ($('#cobblemonDexSearch')?.value || '').trim().toLowerCase();
   const visible = catalog.filter((mon) => {
@@ -3067,7 +3084,7 @@ function renderCobblemonDex(profile = {}) {
   renderCobblemonBallOptions(balls, cobblemonPageEncounter);
   const buyBallsButton = $('#cobblemonBuyBalls');
   buyBallsButton.disabled = !balls.canBuy;
-  buyBallsButton.textContent = balls.canBuy ? `Comprar +${Number(balls.buyQuantity || 10)} por ${formatCredits(balls.buyPrice || 89.90)}` : 'Pacote extra comprado hoje';
+  buyBallsButton.innerHTML = balls.canBuy ? `Comprar +${Number(balls.buyQuantity || 10)} · ${shopCreditMarkup(balls.buyPrice || 89.90, 'pacote')}` : 'Pacote extra comprado hoje';
   if (!cobblemonPageEncounter) $('#cobblemonCaptureButton').disabled = !viewingMine || Number(balls.remaining) < 1;
   $('#cobblemonDexPage').textContent = 'Página ' + (cobblemonDexPage + 1) + ' de ' + pages;
   $('#cobblemonDexPrev').disabled = cobblemonDexPage === 0; $('#cobblemonDexNext').disabled = cobblemonDexPage >= pages - 1;
@@ -5437,7 +5454,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && $('#siteMenu').classList.contains('open')) setMenuOpen(false);
   else if (event.key === 'Escape' && feedbackPanelOpen) closeFeedbackPanel();
 });
-window.addEventListener('scroll', scheduleActiveNavigation, { passive: true });
+window.addEventListener('scroll', () => { scheduleActiveNavigation(); scheduleCobblemonScrollMode(); }, { passive: true });
 window.addEventListener('resize', scheduleActiveNavigation, { passive: true });
 document.addEventListener('click', (event) => {
   const link = event.target.closest('a[data-page]');

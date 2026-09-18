@@ -21,7 +21,16 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /data-cobblemon-ball-buy/);
   assert.match(app, /shop-quantity-picker/);
   assert.match(app, /shopCreditMarkup\(ball\.price/);
+  assert.match(app, /shopCreditMarkup\(balls\.buyPrice \|\| 89\.90, 'pacote'\)/);
   assert.match(app, /ballType: cobblemonSelectedBall/);
   assert.match(app, /Chance nesta aparição/);
   assert.match(html, /id="cobblemonBallOptions"/);
+});
+
+test('Cobblemon mantém rolagem leve e preço de cápsula padronizado', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  assert.match(app, /function scheduleCobblemonScrollMode\(\)/);
+  assert.match(app, /shopCreditMarkup\(box\.price, 'por cápsula'\)/);
+  assert.match(styles, /cobblemon-page\.is-scrolling \.cobblemon-scene-mon/);
 });

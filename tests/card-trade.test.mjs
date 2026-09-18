@@ -30,8 +30,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260918-301/);
-  assert.match(html, /app\.js\?v=20260918-321/);
+  assert.match(html, /styles\.css\?v=20260918-302/);
+  assert.match(html, /app\.js\?v=20260918-322/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -183,12 +183,13 @@ test('tabela de preços usa finais em centavos sem alterar recompensas e estorno
       assert.match(serverJs, /retailPriceWithCents\(90\) \* buyQuantity \/ 10/);
       assert.match(serverJs, /retailPriceWithCents\(90\) \* quantity \/ 10/);
       assert.match(appJs, /price: 899\.90/);
-      assert.match(appJs, /price\|\|259\.90/);
+      assert.match(appJs, /roulette\.price \|\| 259\.90/);
       assert.match(appJs, /buyPrice: 89\.90/);
       assert.match(appJs, /Roleta Cobblemon por \$\{formatCredits/);
-      assert.match(html, /Gire por <b>259,90 Cr[eé]ditos 51<\/b>/);
-      assert.match(html, /Girar por 259,90/);
-      assert.match(html, /Comprar \+10 por 89,90/);
+      assert.match(html, /id="cobblemonRoulettePrice"/);
+      assert.match(html, /shop-credit-value/);
+      assert.match(html, /id="cobblemonRouletteSpin"/);
+      assert.match(html, /id="cobblemonBuyBalls"/);
       assert.doesNotMatch(html, /Gire por <b>260 Cr[eé]ditos 51<\/b>/);
       assert.doesNotMatch(html, /Comprar \+10 por 90/);
 });
@@ -300,6 +301,17 @@ test('Pokédex espalha sprites Cobblemon decorativos sem bloquear a interface', 
   assert.match(appJs, /fetchpriority="low"/);
   assert.match(styles, /contain-intrinsic-size:72px/);
   assert.match(styles, /background-attachment:scroll!important/);
+  assert.match(appJs, /function scheduleCobblemonScrollMode\(\)/);
+  assert.match(appJs, /body\.classList\.add\('cobblemon-scrolling'\)/);
+  assert.match(styles, /body\.cobblemon-scrolling \.app\{background-attachment:scroll!important\}/);
+});
+
+test('Cobblemon padroniza preços com moeda e centavos em cápsulas, roleta e bolas', () => {
+  assert.match(appJs, /shopCreditMarkup\(box\.price, 'por cápsula'\)/);
+  assert.match(appJs, /const roulettePriceMarkup = shopCreditMarkup\(roulettePrice, 'por giro'\)/);
+  assert.match(appJs, /shopCreditMarkup\(balls\.buyPrice \|\| 89\.90, 'pacote'\)/);
+  assert.match(styles, /\.cobblemon-box-price/);
+  assert.match(styles, /\.cobblemon-roulette-copy \.button \.shop-credit-value/);
 });
 
 test('poder consumível usado não fica marcado como item da coleção', () => {
