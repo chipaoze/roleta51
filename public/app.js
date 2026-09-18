@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-bg-v50',
-  title: 'Pokédex e Feed da tripulação',
-  notes: 'O site ficou mais leve no desktop: listas longas renderizam sob demanda e imagens não são reprocessadas a cada atualização.'
+  version: '20260918-cobblemon-notice-v51',
+  title: 'Nova Pokédex Cobblemon',
+  notes: 'A Pokédex recebeu um bioma Cobblemon novo e mais leve, distribuído por toda a página. Os sprites decorativos ficam fixos nas laterais, o fundo não escurece durante a rolagem e a caça usa menos processamento.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
