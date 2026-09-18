@@ -347,6 +347,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.cobblemonRouletteSpins)) { db.economy.cobblemonRouletteSpins = []; changed = true; }
   if (!Array.isArray(db.economy.cobblemonCaptureAttempts)) { db.economy.cobblemonCaptureAttempts = []; changed = true; }
   if (!Array.isArray(db.economy.cobblemonBallPurchases)) { db.economy.cobblemonBallPurchases = []; changed = true; }
+  if (!db.economy.cobblemonBallInventory || typeof db.economy.cobblemonBallInventory !== 'object') { db.economy.cobblemonBallInventory = {}; changed = true; }
   if (!db.economy.cobblemonDexRecoveryV1) {
     const recovered = {};
     db.economy.cobblemonCaptureAttempts.filter((entry) => entry.captured).forEach((entry) => {
@@ -637,6 +638,23 @@ function retailPriceWithCents(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) return numeric;
   return Math.round((numeric - 0.1) * 100) / 100;
+}
+
+// Bolas especiais ficam no inventário até serem usadas. A Poké Ball básica
+// continua sendo o limite diário gratuito; as demais substituem o arremesso
+// escolhido pelo jogador e melhoram a chance calculada no servidor.
+const COBBLEMON_CAPTURE_BALLS = {
+  poke: { id: 'poke', name: 'Poké Ball', shortName: 'Básica', sprite: 'https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png', multiplier: 1, price: 0, daily: true },
+  great: { id: 'great', name: 'Great Ball', shortName: 'Melhor chance', sprite: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', multiplier: 1.35, price: 75 },
+  ultra: { id: 'ultra', name: 'Ultra Ball', shortName: 'Alta chance', sprite: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', multiplier: 1.7, price: 180 },
+};
+
+function cobblemonCaptureChance(tier, level, ballType = 'poke') {
+  const safeTier = Math.max(1, Math.min(4, Number(tier) || 1));
+  const safeLevel = Math.max(1, Math.min(100, Number(level) || safeTier * 20));
+  const baseChance = safeTier === 4 ? .26 : safeTier === 3 ? .55 : safeTier === 2 ? .76 : .94;
+  const multiplier = Number(COBBLEMON_CAPTURE_BALLS[ballType]?.multiplier || 1);
+  return Math.round(Math.max(.10, Math.min(.97, (baseChance - safeLevel * .0022) * multiplier)) * 100);
 }
 
 const SHOP_CATALOG = [
@@ -2323,11 +2341,13 @@ function profileFor(user, computed = {}) {
       balls: (() => {
         const dayKey = saoPauloDayKey();
         const used = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
-      const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-      const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
-      const total = 5 + extra;
+        const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
+        const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
+        const total = 5 + extra;
         const buyQuantity = Math.max(0, 10 - extra);
-        return { remaining: Math.max(0, total - used), total, used, daily: 5, extra, buyQuantity, canBuy: buyQuantity > 0, buyPrice: buyQuantity ? roundMoney(retailPriceWithCents(90) * buyQuantity / 10) : 0 };
+        const inventory = db.economy.cobblemonBallInventory[user.id] && typeof db.economy.cobblemonBallInventory[user.id] === 'object' ? db.economy.cobblemonBallInventory[user.id] : {};
+        const special = Object.fromEntries(Object.entries(COBBLEMON_CAPTURE_BALLS).filter(([id, ball]) => !ball.daily).map(([id, ball]) => [id, { id, name: ball.name, shortName: ball.shortName, sprite: ball.sprite, multiplier: ball.multiplier, unitPrice: ball.price, quantity: Math.max(0, Number(inventory[id] || 0)) }]));
+        return { remaining: Math.max(0, total - used), total, used, daily: 5, extra, buyQuantity, canBuy: buyQuantity > 0, buyPrice: buyQuantity ? roundMoney(retailPriceWithCents(90) * buyQuantity / 10) : 0, selected: COBBLEMON_CAPTURE_BALLS.poke.id, special };
       })(),
       roulette: (() => {
         const last = [...db.economy.cobblemonRouletteSpins].reverse().find((entry) => entry.userId === user.id);
@@ -3954,7 +3974,8 @@ async function handleApi(req, res, route) {
     const level = levelFloor + Math.floor(Math.random() * (levelCeiling - levelFloor + 1));
     const ownedEntry = (Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : []).find((entry) => Number(entry.id) === Number(pokemon.i));
     const ownedLevel = ownedEntry ? (Number(ownedEntry.level) > 0 ? Number(ownedEntry.level) : normalizedCobblemonLevel(ownedEntry.id, ownedEntry.tier)) : null;
-    json(res, 200, { encounterToken: createCobblemonEncounter(auth, pokemon, tier, level), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, alreadyOwned: Boolean(ownedEntry), ownedLevel, expiresIn: 60 }); return;
+    const captureChances = Object.fromEntries(Object.keys(COBBLEMON_CAPTURE_BALLS).map((ballType) => [ballType, cobblemonCaptureChance(tier, level, ballType)]));
+    json(res, 200, { encounterToken: createCobblemonEncounter(auth, pokemon, tier, level), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, captureChances, alreadyOwned: Boolean(ownedEntry), ownedLevel, expiresIn: 60 }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/capture') {
     const auth = requireAuth(req); const { user } = auth; const body = await readJson(req); const verified = verifyCobblemonEncounter(auth, body.encounterToken);
@@ -3971,14 +3992,23 @@ async function handleApi(req, res, route) {
     const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
     const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
     if (attempts >= 5 + extra) throw new HttpError(409, 'Suas Poké Balls acabaram por hoje.');
+    const ballType = String(body.ballType || 'poke').toLowerCase();
+    const ball = COBBLEMON_CAPTURE_BALLS[ballType];
+    if (!ball) throw new HttpError(400, 'Escolha uma Poké Ball válida.');
+    db.economy.cobblemonBallInventory[user.id] ||= {};
+    if (!ball.daily) {
+      const available = Math.max(0, Number(db.economy.cobblemonBallInventory[user.id][ballType] || 0));
+      if (available < 1) throw new HttpError(409, `Você não possui ${ball.name}. Compre uma antes do arremesso.`);
+      db.economy.cobblemonBallInventory[user.id][ballType] = available - 1;
+    }
     const tier = Math.max(1, Math.min(4, Number(verified.encounter.tier) || 1));
     const level = Math.max(1, Math.min(100, Number(verified.encounter.level) || tier * 20));
-    const baseChance = tier === 4 ? .26 : tier === 3 ? .55 : tier === 2 ? .76 : .94;
-    const chance = Math.max(.10, Math.min(.92, baseChance - level * .0022));
-    const deterministicRoll = parseInt(createHash('sha256').update('capture:' + auth.token + ':' + verified.payload).digest('hex').slice(0, 8), 16) / 0xffffffff;
+    const chance = cobblemonCaptureChance(tier, level, ballType) / 100;
+    const deterministicRoll = parseInt(createHash('sha256').update('capture:' + auth.token + ':' + verified.payload + ':' + ballType).digest('hex').slice(0, 8), 16) / 0xffffffff;
     const hit = body.hit !== false;
     const captured = hit && deterministicRoll < chance;
-    db.economy.cobblemonCaptureAttempts.push({ id: randomUUID(), userId: user.id, dayKey, encounterKey, pokemonId: Number(pokemon.i), tier, level, hit, captured, createdAt: new Date().toISOString() });
+    const createdAt = new Date().toISOString();
+    db.economy.cobblemonCaptureAttempts.push({ id: randomUUID(), userId: user.id, dayKey, encounterKey, pokemonId: Number(pokemon.i), tier, level, hit, captured, ballType, ballName: ball.name, createdAt });
     if (db.economy.cobblemonCaptureAttempts.length > 3000) db.economy.cobblemonCaptureAttempts = db.economy.cobblemonCaptureAttempts.slice(-3000);
     let replaced = false;
     let keptExisting = false;
@@ -3986,7 +4016,22 @@ async function handleApi(req, res, route) {
     else if (captured && alreadyOwned && level > ownedLevel) { Object.assign(ownedEntry, { tier, level, caughtAt: new Date().toISOString(), upgradedAt: new Date().toISOString() }); replaced = true; }
     else if (captured && alreadyOwned) keptExisting = true;
     await persist(); broadcastRefresh('economy');
-    json(res, 200, { captured, duplicate: captured && alreadyOwned, alreadyOwned, ownedLevel, replaced, keptExisting, missed: !hit, chance: Math.round(chance * 100), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, profile: profileFor(user) }); return;
+    json(res, 200, { captured, duplicate: captured && alreadyOwned, alreadyOwned, ownedLevel, replaced, keptExisting, missed: !hit, chance: Math.round(chance * 100), ballType, ballName: ball.name, ballSprite: ball.sprite, pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, profile: profileFor(user) }); return;
+  }
+  if (req.method === 'POST' && route === '/api/cobblemon/balls/buy-special') {
+    const { user } = requireAuth(req); const body = await readJson(req); const ballType = String(body.ballType || '').toLowerCase(); const ball = COBBLEMON_CAPTURE_BALLS[ballType];
+    const quantity = Number(body.quantity);
+    if (!ball || ball.daily) throw new HttpError(400, 'Escolha uma bola especial válida.');
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) throw new HttpError(400, 'Escolha entre 1 e 20 bolas.');
+    const price = roundMoney(ball.price * quantity); const before = walletFor(user.id);
+    if (before < price) throw new HttpError(409, 'Créditos 51 insuficientes para comprar estas bolas.');
+    db.economy.cobblemonBallInventory[user.id] ||= {};
+    const current = Math.max(0, Number(db.economy.cobblemonBallInventory[user.id][ballType] || 0));
+    if (current + quantity > 100) throw new HttpError(409, 'O estoque desta bola já está cheio (limite de 100).');
+    addCredits(user.id, -price); db.economy.cobblemonBallInventory[user.id][ballType] = current + quantity;
+    const createdAt = new Date().toISOString();
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-special-ball', amount: -price, before, after: roundMoney(before - price), reason: `Compra de ${quantity} ${ball.name}`, createdAt });
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), ballType, quantity, price }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/balls/buy') {
     const { user } = requireAuth(req); const dayKey = saoPauloDayKey();
