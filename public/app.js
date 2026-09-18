@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-chests-v60',
-  title: 'Baús Cobblemon reorganizados',
-  notes: 'Os baús agora mantêm ícone, identificação, preço e descrição no mesmo eixo de leitura; os botões ficam alinhados em uma faixa inferior consistente, inclusive na cápsula semanal.'
+  version: '20260918-cobblemon-roulette-v61',
+  title: 'Roleta Cobblemon corrigida',
+  notes: 'O giro da Roleta Cobblemon agora responde ao clique em qualquer parte do botão e mantém o status claro quando o próximo giro ainda não está disponível.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2929,6 +2929,26 @@ function spinCobblemonRouletteWheel(wheel, rewardIndex) {
   wheel.classList.add('spinning');
 }
 
+async function spinCobblemonRoulette(button = $('#cobblemonRouletteSpin')) {
+  if (!button || button.disabled) return;
+  const price = Number(appState?.profile?.cobblemon?.roulette?.price || 259.90);
+  if (!confirm(`Girar a Roleta Cobblemon por ${formatCredits(price)} Créditos 51? O próximo giro será liberado amanhã.`)) return;
+  button.disabled = true;
+  try {
+    const data = await api('/api/cobblemon/roulette/spin', { method: 'POST' });
+    const wheel = $('#cobblemonRouletteWheel');
+    const rewardIndex = Math.max(0, COBBLEMON_ROULETTE_REWARDS.findIndex(([name]) => name === data.reward.name));
+    spinCobblemonRouletteWheel(wheel, rewardIndex);
+    await new Promise((resolve) => setTimeout(resolve, 3200));
+    const decided = await showCobblemonOpening('Resultado da Roleta Cobblemon', { ...data.reward, profile: data.profile }, { skipCarousel: true });
+    appState.profile = decided.profile;
+    renderProfileEconomy(appState.profile);
+  } catch (error) {
+    showToast(error.message, 'error');
+    renderCobblemonDex(appState.profile);
+  }
+}
+
 async function showCobblemonOpening(title, reward, options = {}) {
   const dialog = $('#cobblemonOpeningDialog'), viewport = $('#cobblemonCarouselViewport'), track = $('#cobblemonCarouselTrack'), result = $('#cobblemonOpeningResult'), decision = $('#cobblemonOpeningDecision'), choicesBox = $('#cobblemonPokemonChoices'), continueButton = $('#continueCobblemonRoll');
   const skipCarousel = Boolean(options.skipCarousel);
@@ -3117,7 +3137,10 @@ function renderCobblemonDex(profile = {}) {
   const roulettePriceElement = $('#cobblemonRoulettePrice');
   if (roulettePriceElement) roulettePriceElement.innerHTML = roulettePriceMarkup;
   rouletteButton.disabled = !roulette.canSpin; rouletteButton.innerHTML = roulette.canSpin ? `Girar por ${roulettePriceMarkup}` : 'Roleta em recarga';
-  $('#cobblemonRouletteStatus').textContent = roulette.canSpin ? '✓ Disponível agora' : `Próximo giro: ${new Date(roulette.nextSpinAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
+  const rouletteStatus = roulette.canSpin ? '✓ Disponível agora' : `Próximo giro: ${new Date(roulette.nextSpinAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
+  rouletteButton.title = roulette.canSpin ? `Girar a Roleta Cobblemon por ${formatCredits(roulettePrice)} Créditos 51` : rouletteStatus;
+  rouletteButton.setAttribute('aria-label', rouletteButton.title);
+  $('#cobblemonRouletteStatus').textContent = rouletteStatus;
   const search = ($('#cobblemonDexSearch')?.value || '').trim().toLowerCase();
   const visible = catalog.filter((mon) => {
     const owned = caught.has(Number(mon.i));
@@ -6045,17 +6068,14 @@ document.addEventListener('click', async (event) => {
   }
   const oddsButton = event.target?.closest?.('[data-cobblemon-box-odds]');
   if (oddsButton) { const box = COBBLEMON_BOX_CATALOG[oddsButton.dataset.cobblemonBoxOdds]; if (box) showCobblemonOdds(box.name,box.rewards,'Veja todos os itens e a chance individual antes de abrir.'); return; }
-  if (event.target?.id === 'cobblemonRouletteOdds') { showCobblemonOdds('Roleta Cobblemon',COBBLEMON_ROULETTE_REWARDS,'Um giro por pessoa por dia. Itens Shiny e lendários são deliberadamente excepcionais.'); return; }
+  const rouletteOddsButton = event.target?.closest?.('#cobblemonRouletteOdds');
+  if (rouletteOddsButton) { showCobblemonOdds('Roleta Cobblemon',COBBLEMON_ROULETTE_REWARDS,'Um giro por pessoa por dia. Itens Shiny e lendários são deliberadamente excepcionais.'); return; }
   if (event.target?.id === 'cobblemonBuyBalls') {
     $('#cobblemonBallOptions [data-cobblemon-ball-buy="poke"]')?.click();
     return;
   }
-  if (event.target?.id === 'cobblemonRouletteSpin') {
-    const button = event.target; if (!confirm(`Girar a Roleta Cobblemon por ${formatCredits(appState.profile?.cobblemon?.roulette?.price || 259.90)} Créditos 51? O próximo giro será liberado amanhã.`)) return; button.disabled = true;
-    try { const data = await api('/api/cobblemon/roulette/spin',{method:'POST'}); const wheel = $('#cobblemonRouletteWheel'); const rewardIndex = Math.max(0, COBBLEMON_ROULETTE_REWARDS.findIndex(([name]) => name === data.reward.name)); spinCobblemonRouletteWheel(wheel,rewardIndex); await new Promise((resolve)=>setTimeout(resolve,3200)); const decided = await showCobblemonOpening('Resultado da Roleta Cobblemon',{...data.reward,profile:data.profile},{skipCarousel:true}); appState.profile = decided.profile; renderProfileEconomy(appState.profile); }
-    catch(error){ showToast(error.message,'error'); renderCobblemonDex(appState.profile); }
-    return;
-  }
+  const rouletteSpinButton = event.target?.closest?.('#cobblemonRouletteSpin');
+  if (rouletteSpinButton) { await spinCobblemonRoulette(rouletteSpinButton); return; }
   const boxButton = event.target?.closest?.('[data-cobblemon-box]');
   if (boxButton) {
     const boxId = boxButton.dataset.cobblemonBox, box = COBBLEMON_BOX_CATALOG[boxId], mode = boxButton.dataset.cobblemonBoxMode || 'open';
@@ -6124,4 +6144,14 @@ $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.ad
 $('#cobblemonCaptureButton')?.addEventListener('click', (event) => {
   event.preventDefault();
   void startCobblemonPageEncounter();
+});
+$('#cobblemonRouletteSpin')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  void spinCobblemonRoulette(event.currentTarget);
+});
+$('#cobblemonRouletteOdds')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  showCobblemonOdds('Roleta Cobblemon', COBBLEMON_ROULETTE_REWARDS, 'Um giro por pessoa por dia. Itens Shiny e lendários são deliberadamente excepcionais.');
 });

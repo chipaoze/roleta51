@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-chests-v60",
-  "title": "Baús Cobblemon reorganizados",
-  "notes": "Os baús agora mantêm ícone, identificação, preço e descrição no mesmo eixo de leitura; os botões ficam alinhados em uma faixa inferior consistente, inclusive na cápsula semanal."
+  "version": "20260918-cobblemon-roulette-v61",
+  "title": "Roleta Cobblemon corrigida",
+  "notes": "O giro da Roleta Cobblemon agora responde ao clique em qualquer parte do botão e mantém o status claro quando o próximo giro ainda não está disponível."
 }
