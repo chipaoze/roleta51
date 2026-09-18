@@ -31,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260918-344/);
-  assert.match(html, /app\.js\?v=20260918-344/);
+  assert.match(html, /styles\.css\?v=20260918-345/);
+  assert.match(html, /app\.js\?v=20260918-345/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -133,7 +133,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260918-cobblemon-roulette-v61/);
+  assert.match(appJs, /20260918-cobblemon-actions-v62/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -224,6 +224,28 @@ test('Roleta Cobblemon responde ao botão e aos elementos internos do preço', (
   assert.match(appJs, /\/api\/cobblemon\/roulette\/spin/);
 });
 
+test('controles da página Cobblemon não são bloqueados por efeitos de cursor', () => {
+  assert.match(appJs, /NATIVE_POINTER_SELECTOR = 'input,textarea,select,button,a,summary/);
+  assert.ok((appJs.match(/isNativeInteractiveTarget\(event\.target\)/g) || []).length >= 6);
+  assert.match(appJs, /cobblemonRewards'\)\?\.addEventListener\('click'[\s\S]*cobblemon-delivery-group > summary[\s\S]*group\.open = expanded/);
+  assert.match(appJs, /data-cobblemon-delivery-group=/);
+  assert.match(appJs, /cobblemonOpenDeliveryGroups/);
+  assert.match(styles, /\.cobblemon-delivery-group summary::after/);
+});
+
+test('fluxo Cobblemon mantém as ações de baú, roleta, entrega, caça e bolas conectadas ao servidor', () => {
+  ['/api/cobblemon/box/purchase', '/api/cobblemon/box/open', '/api/cobblemon/roulette/spin', '/api/cobblemon/reward/decision', '/api/cobblemon/encounter', '/api/cobblemon/capture', '/api/cobblemon/balls/buy-special', '/api/cobblemon/balls/buy'].forEach((route) => {
+    assert.match(appJs, new RegExp(route.replaceAll('/', '\\/')));
+    assert.match(serverJs, new RegExp(route.replaceAll('/', '\\/')));
+  });
+  assert.match(appJs, /data-cobblemon-box/);
+  assert.match(appJs, /data-cobblemon-delivered/);
+  assert.match(appJs, /data-cobblemon-ball-buy/);
+  assert.match(appJs, /data-cobblemon-ball-select/);
+  assert.match(appJs, /data-cobblemon-filter/);
+  assert.match(appJs, /data-cobblemon-candidate-sell/);
+});
+
 test('radar do mercado lista todos os ativos e o gráfico inclui a janela anterior', () => {
   assert.match(appJs, /function marketRadarMarkup\(assets\)/);
   assert.match(appJs, /marketRadarMarkup\(assets\)/);
@@ -282,7 +304,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260918-cobblemon-roulette-v61/);
+  assert.match(appJs, /20260918-cobblemon-actions-v62/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -290,7 +312,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260918-cobblemon-roulette-v61/);
+  assert.match(appJs, /20260918-cobblemon-actions-v62/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

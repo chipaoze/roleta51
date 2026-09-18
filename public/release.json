@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-roulette-v61",
-  "title": "Roleta Cobblemon corrigida",
-  "notes": "O giro da Roleta Cobblemon agora responde ao clique em qualquer parte do botão e mantém o status claro quando o próximo giro ainda não está disponível."
+  "version": "20260918-cobblemon-actions-v62",
+  "title": "Ações Cobblemon estabilizadas",
+  "notes": "Revisamos a página Cobblemon: entregas expandem normalmente, o estado aberto é preservado e cursores especiais não bloqueiam mais controles nativos."
 }

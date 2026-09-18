@@ -1,13 +1,15 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const NATIVE_POINTER_SELECTOR = 'input,textarea,select,button,a,summary,[role="button"],[contenteditable="true"]';
+const isNativeInteractiveTarget = (target) => Boolean(target?.closest?.(NATIVE_POINTER_SELECTOR));
 function formatCredits(value) {
   return Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-roulette-v61',
-  title: 'Roleta Cobblemon corrigida',
-  notes: 'O giro da Roleta Cobblemon agora responde ao clique em qualquer parte do botão e mantém o status claro quando o próximo giro ainda não está disponível.'
+  version: '20260918-cobblemon-actions-v62',
+  title: 'Ações Cobblemon estabilizadas',
+  notes: 'Revisamos a página Cobblemon: entregas expandem normalmente, o estado aberto é preservado e cursores especiais não bloqueiam mais controles nativos.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -568,7 +570,7 @@ function startThorCursorThrow() {
 
   document.addEventListener('keydown', (event) => {
     if (!isActive() || event.repeat || event.key.toLowerCase() !== 't') return;
-    if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
+    if (isNativeInteractiveTarget(event.target)) return;
     if (phase !== 'stuck') return;
     event.preventDefault();
     recallHammer();
@@ -589,7 +591,7 @@ function startThorCursorThrow() {
       event.stopImmediatePropagation();
       return;
     }
-    if (event.target?.matches?.('input,textarea,select,[contenteditable="true"]')) return;
+    if (isNativeInteractiveTarget(event.target)) return;
     event.preventDefault();
     window.getSelection()?.removeAllRanges();
     document.documentElement.classList.add('premium-pointer-gesture-active');
@@ -718,7 +720,7 @@ function startWolverineCursorSlash() {
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
     if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
-    if (event.target?.matches?.('input,textarea,select,[contenteditable="true"]')) return;
+    if (isNativeInteractiveTarget(event.target)) return;
     event.preventDefault();
     window.getSelection()?.removeAllRanges();
     document.documentElement.classList.add('premium-pointer-gesture-active');
@@ -934,7 +936,7 @@ function startCobblemonCaptureThrow() {
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || busy || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
     if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
-    if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
+    if (isNativeInteractiveTarget(event.target)) return;
     keepEffectsAboveDialog();
     event.preventDefault();
     window.getSelection()?.removeAllRanges();
@@ -1036,7 +1038,7 @@ function startWebSlingerCursor() {
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
     if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
-    if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
+    if (isNativeInteractiveTarget(event.target)) return;
     event.preventDefault();
     window.getSelection()?.removeAllRanges();
     document.documentElement.classList.add('premium-pointer-gesture-active');
@@ -1094,6 +1096,7 @@ function preventTextSelectionOnPremiumCursorDrag() {
 
   document.addEventListener('pointerdown', (event) => {
     if (!isEffectCursor() || (event.pointerType && event.pointerType !== 'mouse')) return;
+    if (isNativeInteractiveTarget(event.target)) return;
     start = { x: event.clientX, y: event.clientY };
   }, true);
 
@@ -3115,10 +3118,13 @@ function renderCobblemonDex(profile = {}) {
     if (!deliveryGroups.has(playerKey)) deliveryGroups.set(playerKey, { playerName, entries: [] });
     deliveryGroups.get(playerKey).entries.push(entry);
   });
-  $('#cobblemonRewards').innerHTML = [...deliveryGroups.values()].map((group, groupIndex) => {
+  if (cobblemonOpenDeliveryGroups === null) cobblemonOpenDeliveryGroups = new Set([...deliveryGroups.keys()].slice(0, 1));
+  else cobblemonOpenDeliveryGroups = new Set([...cobblemonOpenDeliveryGroups].filter((key) => deliveryGroups.has(key)));
+  $('#cobblemonRewards').innerHTML = [...deliveryGroups.entries()].map(([groupKey, group]) => {
     const pending = group.entries.filter((entry) => entry.status === 'awaiting-delivery').length;
-  const rows = group.entries.map((entry) => `<article class="cobblemon-reward-row">${entry.sprite ? `<img src="${escapeHtml(entry.sprite)}" alt="">` : ''}<p><strong>${escapeHtml(entry.name)}</strong><small>${entry.status === 'decision-pending' ? 'Escolha: vender ou receber no servidor' : entry.status === 'awaiting-delivery' ? 'Aguardando entrega do Davi' : entry.status === 'claimed-no-delivery' ? 'Escolhido · sem nova entrega (Pokémon já entregue)' : entry.status === 'replaced' ? 'Substituído por uma nova escolha' : 'Entregue'}</small></p>${entry.status === 'decision-pending' ? `<button data-cobblemon-decision="keep" data-id="${escapeHtml(entry.id)}">Receber no servidor</button><button data-cobblemon-decision="sell" data-id="${escapeHtml(entry.id)}">Vender por ${Number(entry.sellPrice)}</button>` : canDeliverCobblemon && entry.status === 'awaiting-delivery' ? `<button data-cobblemon-delivered="${escapeHtml(entry.id)}">Marcar entregue</button>` : ''}</article>`).join('');
-    return `<details class="cobblemon-delivery-group"${groupIndex === 0 ? ' open' : ''}><summary><span>👤</span><strong>${escapeHtml(group.playerName)}</strong><small>${group.entries.length} ${group.entries.length === 1 ? 'item' : 'itens'}${pending ? ` · ${pending} ${pending === 1 ? 'pendente' : 'pendentes'}` : ''}</small></summary><div>${rows}</div></details>`;
+    const rows = group.entries.map((entry) => `<article class="cobblemon-reward-row">${entry.sprite ? `<img src="${escapeHtml(entry.sprite)}" alt="">` : ''}<p><strong>${escapeHtml(entry.name)}</strong><small>${entry.status === 'decision-pending' ? 'Escolha: vender ou receber no servidor' : entry.status === 'awaiting-delivery' ? 'Aguardando entrega do Davi' : entry.status === 'claimed-no-delivery' ? 'Escolhido · sem nova entrega (Pokémon já entregue)' : entry.status === 'replaced' ? 'Substituído por uma nova escolha' : 'Entregue'}</small></p>${entry.status === 'decision-pending' ? `<button data-cobblemon-decision="keep" data-id="${escapeHtml(entry.id)}">Receber no servidor</button><button data-cobblemon-decision="sell" data-id="${escapeHtml(entry.id)}">Vender por ${Number(entry.sellPrice)}</button>` : canDeliverCobblemon && entry.status === 'awaiting-delivery' ? `<button data-cobblemon-delivered="${escapeHtml(entry.id)}">Marcar entregue</button>` : ''}</article>`).join('');
+    const expanded = cobblemonOpenDeliveryGroups.has(groupKey);
+    return `<details class="cobblemon-delivery-group" data-cobblemon-delivery-group="${escapeHtml(groupKey)}"${expanded ? ' open' : ''}><summary aria-expanded="${expanded}"><span>👤</span><strong>${escapeHtml(group.playerName)}</strong><small>${group.entries.length} ${group.entries.length === 1 ? 'item' : 'itens'}${pending ? ` · ${pending} ${pending === 1 ? 'pendente' : 'pendentes'}` : ''}</small></summary><div>${rows}</div></details>`;
   }).join('');
   const pendingDeliveries = deliveries.filter((entry) => entry.status === 'awaiting-delivery');
   $('#cobblemonDeliveryKicker').textContent = canDeliverCobblemon ? 'PAINEL DE ENTREGA · TODA A EQUIPE' : 'MEUS PEDIDOS';
@@ -5792,6 +5798,7 @@ let cobblemonPageEncounter = null;
 let cobblemonPageDrag = null;
 let cobblemonPageCaptureBusy = false;
 let cobblemonHuntInterval = null;
+let cobblemonOpenDeliveryGroups = null;
 const COBBLEMON_HUNT_SECTORS = ['memes','sorteio','inscricoes','agua','mentirometro','misterio','impostor','perfil','album','loja','jogos','classificacao'];
 
 function updateCobblemonHuntSector(page = currentPortalPage()) {
@@ -6030,6 +6037,22 @@ $('#cobblemonCapsuleResults')?.addEventListener('click', (event) => {
   event.preventDefault();
   event.stopPropagation();
   void sellCobblemonCandidate(candidateSellButton);
+});
+$('#cobblemonRewards')?.addEventListener('click', (event) => {
+  const summary = event.target?.closest?.('.cobblemon-delivery-group > summary');
+  if (!summary) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const group = summary.parentElement;
+  if (!group) return;
+  const expanded = !group.open;
+  group.open = expanded;
+  summary.setAttribute('aria-expanded', String(expanded));
+  const key = group.dataset.cobblemonDeliveryGroup;
+  if (!key) return;
+  cobblemonOpenDeliveryGroups ||= new Set();
+  if (expanded) cobblemonOpenDeliveryGroups.add(key);
+  else cobblemonOpenDeliveryGroups.delete(key);
 });
 document.addEventListener('click', async (event) => {
   const cobblemonTab = event.target?.closest?.('[data-cobblemon-tab]');
