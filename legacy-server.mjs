@@ -2685,10 +2685,8 @@ function buildStateFor(user) {
       // Apostas promocionais continuam no histórico, mas não inflacionam o valor real.
       const totalWagered = db.economy.casinoPlays.filter((item) => item.walletSource === 'shop').reduce((sum, item) => sum + Number(item.bet || 0), 0);
       const totalPlays = db.economy.casinoPlays.length;
-      const round = db.economy.globalFlight; const myFlightBet = round?.bets?.find((item) => item.userId === user.id);
-      const recentFlights = db.economy.flightHistory.slice(-12).reverse().map((item) => ({ multiplier: Number(item.multiplier || 0), createdAt: item.createdAt }));
       const myPlays = db.economy.casinoPlays.filter((item) => item.userId === user.id);
-      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday: plays.length, totalWagered, totalPlays, recentFlights, globalFlight: round && round.status !== 'crashed' ? { id: round.id, status: round.status, launchAt: round.launchAt, joined: Boolean(myFlightBet), betStatus: myFlightBet?.status || null, players: round.bets.length } : null, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette: myPlays.filter((item) => item.resultType !== 'flight').slice(-6).reverse(), recentFlight: myPlays.filter((item) => item.resultType === 'flight').slice(-6).reverse(), lottery: lotteryForUser(user) };
+      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday: plays.length, totalWagered, totalPlays, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette: myPlays.filter((item) => item.resultType !== 'flight').slice(-6).reverse(), lottery: lotteryForUser(user) };
     })(),
     visualTheme: activeVisualPenalty?.kind || 'user-choice', visualThemeEndsAt: activeVisualPenalty?.endsAt || null,
     themes: db.settings.themes.map((name) => ({ id: name, name })),
@@ -3044,6 +3042,11 @@ async function handleApi(req, res, route) {
     if (route === '/api/casino/play' || route === '/api/casino/flight/start' || route === '/api/lottery/entry') { requireAuth(req); requireFeature('casino'); }
     if (route === '/api/shop/purchase' || route === '/api/shop/free-purchase' || route === '/api/gifts/item' || route === '/api/loans/borrow' || route === '/api/loans/offer-item') { requireAuth(req); requireFeature('shop'); }
     if (route === '/api/uploads' || route === '/api/admin/uploads') { requireAuth(req); requireFeature('uploads'); }
+  }
+
+  if (route === '/api/casino/flight/start' || route === '/api/casino/flight/status' || route === '/api/casino/flight/cashout') {
+    requireAuth(req);
+    throw new HttpError(410, 'O Aviãozinho foi encerrado. A Roleta 51 continua disponível nos Jogos 51.');
   }
 
   // Duas voltas de dicas: a segunda começa somente depois de todos concluírem a primeira.

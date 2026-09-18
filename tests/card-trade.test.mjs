@@ -31,7 +31,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260917-288/);
-  assert.match(html, /app\.js\?v=20260917-307/);
+  assert.match(html, /app\.js\?v=20260918-308/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -87,15 +87,23 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.match(serverJs, /const amount = parseMoney\(body\.amount, \{ min: 0\.01, max: 100 \}\)/);
   assert.match(serverJs, /if \(!Number\.isInteger\(quantity\) \|\| quantity < 1 \|\| quantity > 20\)/);
   assert.match(html, /id="casinoBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
-  assert.match(html, /id="flightBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
+  assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260917-mercado-v37/);
+  assert.match(appJs, /20260918-jogos-v38/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
   assert.match(serverJs, /const totalWagered = db\.economy\.casinoPlays\.filter\(\(item\) => item\.walletSource === 'shop'\)\.reduce/);
   assert.match(html, /valor considera somente o saldo da Loja 51/);
+});
+
+test('Aviãozinho é retirado da interface e não aceita novas apostas', () => {
+  assert.doesNotMatch(html, /id="flight(Form|Bet|CashoutButton|Sky)"/);
+  assert.doesNotMatch(appJs, /\$\('#flightForm'\)\.addEventListener/);
+  assert.doesNotMatch(appJs, /casino\.globalFlight && !flightPollTimer/);
+  assert.match(serverJs, /O Aviãozinho foi encerrado/);
+  assert.match(serverJs, /route === '\/api\/casino\/flight\/status'/);
 });
 
 test('Loteria 51 semanal controla palpite, fechamento e prêmio sem inflação', () => {
@@ -222,7 +230,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260917-mercado-v37/);
+  assert.match(appJs, /20260918-jogos-v38/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -230,7 +238,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260917-mercado-v37/);
+  assert.match(appJs, /20260918-jogos-v38/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

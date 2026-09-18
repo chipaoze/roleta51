@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260917-mercado-v37',
-  title: 'Mercado 51: cotações no horário da plataforma',
-  notes: 'As oito atualizações diárias do Mercado 51 agora ficam concentradas entre 08h e 17h, no horário de Brasília, sem chamadas extras fora da janela.'
+  version: '20260918-jogos-v38',
+  title: 'Jogos 51: foco na Roleta',
+  notes: 'O Aviãozinho foi encerrado por baixa utilização. A Roleta 51 continua disponível, e o histórico financeiro anterior foi preservado.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -70,14 +70,6 @@ let votingDraft = { votingId: null, bestId: null, worstId: null };
 let notificationsReadAtLocal = null;
 let casinoWheelRotation = 0;
 let casinoSpinInProgress = false;
-let flightPollTimer = null;
-let flightInProgress = false;
-let flightCashoutReadyTimer = null;
-let flightCashoutLocallyReady = false;
-let flightPollGeneration = 0;
-let flightSnapshot=null;
-let flightAnimationFrame=null;
-let flightCurrentId=null;
 let lotteryGuessDraft = null;
 let lotteryReminderTimer = null;
 let lotteryDrawTimer = null;
@@ -2089,23 +2081,18 @@ function renderCasino(casino = {}) {
   $('#casinoPlays').textContent = String(Number(casino.playsToday || 0));
   $('#casinoTotalWagered').textContent = formatCredits(casino.totalWagered);
   $('#casinoTotalPlays').textContent = Number(casino.totalPlays || 0).toLocaleString('pt-BR');
-  const recentFlights = Array.isArray(casino.recentFlights) ? casino.recentFlights : [];
-  $('#flightPublicHistory').innerHTML = recentFlights.length ? recentFlights.map((flight) => `<span class="${Number(flight.multiplier) <= 1 ? 'crashed' : Number(flight.multiplier) >= 3 ? 'high' : ''}">x${Number(flight.multiplier || 1).toFixed(2).replace('.', ',')}</span>`).join('') : '<span>Aguardando voos</span>';
   const cashoutTarget = Number(casino.cashoutThreshold || 500); const cashoutBalance = Number(casino.wallet || 0); const cashoutButton = $('#casinoCashoutButton');
   $('#casinoCashoutText').textContent = casino.cashedOut ? 'Lucro de hoje já resgatado' : `${formatCredits(Math.min(cashoutBalance, cashoutTarget))} de ${formatCredits(cashoutTarget)}`;
   $('#casinoCashoutProgress').style.width = `${Math.min(100, Math.round(cashoutBalance / cashoutTarget * 100))}%`;
   cashoutButton.disabled = !casino.canCashOut; cashoutButton.textContent = casino.cashedOut ? 'Resgate realizado hoje' : casino.canCashOut ? `Resgatar ${formatCredits(casino.cashoutAmount || cashoutBalance)} créditos` : `Faltam ${formatCredits(Math.max(0, cashoutTarget - cashoutBalance))}`;
   const historyMarkup = (history, emptyText, flight = false) => history.length ? history.map((play) => { const source = play.walletSource === 'shop' ? 'Loja 51' : 'Bônus diário'; return play.resultType === 'mysteryBox' ? `<div class="casino-history-item jackpot"><span>${play.mysteryBox?.icon || '🎁'}</span><p><strong>${escapeHtml(play.mysteryBox?.name || 'Baú misterioso')}</strong><small>${source} · aposta ${formatCredits(play.bet)} devolvida · baú enviado ao perfil</small></p></div>` : `<div class="casino-history-item ${play.net > 0 ? 'win' : play.net < 0 ? 'loss' : 'draw'}"><span>${flight ? '🦄' : play.net > 0 ? '🚀' : play.net < 0 ? '🕳️' : '🛸'}</span><p><strong>x${String(play.multiplier).replace('.', ',')}</strong><small>${source} · aposta ${formatCredits(play.bet)} · retorno ${formatCredits(play.payout)} · saldo ${play.net > 0 ? '+' : ''}${formatCredits(play.net)}</small></p></div>`; }).join('') : `<p class="casino-empty">${emptyText}</p>`;
   const rouletteHistory = Array.isArray(casino.recentRoulette) ? casino.recentRoulette : [];
-  const flightHistory = Array.isArray(casino.recentFlight) ? casino.recentFlight : [];
   const compactHistory = (selector, history, emptyText, flight = false) => {
     const container = $(selector);
     const opened = Boolean(container.querySelector('details[open]'));
     container.innerHTML = historyMarkup(history.slice(0, 1), emptyText, flight) + (history.length > 1 ? `<details class="casino-history-more"${opened ? ' open' : ''}><summary>Ver mais ${history.length - 1} resultados recentes</summary><div>${historyMarkup(history.slice(1), '', flight)}</div></details>` : '');
   };
   compactHistory('#casinoRouletteHistory', rouletteHistory, 'Sua primeira rodada aparecerá aqui.');
-  compactHistory('#casinoFlightHistory', flightHistory, 'Seu primeiro voo aparecerá aqui.', true);
-  if (casino.globalFlight && !flightPollTimer) startFlightPolling();
   drawCasinoWheel();
 }
 
@@ -2210,88 +2197,6 @@ function renderLottery(lottery = {}) {
   const history = $('#lotteryHistory');
   const previous = Array.isArray(lottery.previous) ? lottery.previous : [];
   if (history) history.innerHTML = previous.length ? previous.map((round) => `<article class="lottery-history-row"><header><strong>${lotteryDateLabel(round.drawnAt)}</strong><span><span class="coin-51" aria-hidden="true">51</span>${formatCredits(round.prizePool || 0)}</span></header><div class="lottery-history-numbers">${(round.winningNumbers || []).map((number) => `<b>${number}</b>`).join('')}</div><p>${round.winners?.length ? round.winners.map((winner) => `${escapeHtml(winner.displayName)} · ${formatCredits(winner.amount)} créditos`).join(' · ') : 'Ninguém acertou; o prêmio acumulou.'}</p></article>`).join('') : '<p class="lottery-empty">A primeira rodada ainda está aberta.</p>';
-}
-
-function setFlightVisual(active, multiplier = 1, message = '', options = {}) {
-  const phase = options.phase || (active ? 'flying' : 'waiting'); flightInProgress = active; $('#flightSky').dataset.phase = phase; $('#flightSky').classList.toggle('flying', phase === 'flying');
-  const cashoutButton = $('#flightCashoutButton'); const cashoutReady = !cashoutButton.dataset.requesting && Boolean(options.canCashOut || flightCashoutLocallyReady); cashoutButton.disabled = !cashoutReady; cashoutButton.textContent = cashoutButton.dataset.requesting ? 'Resgatando…' : cashoutReady ? 'Resgatar agora' : 'Resgate em x1,25'; $('#flightStartButton').disabled = active && (phase !== 'countdown' || options.joined);
-  $('#flightStartButton').textContent = phase === 'flying' ? 'Voo em andamento' : phase === 'waiting' ? 'Iniciar nova contagem' : $('#flightStartButton').textContent;
-  $('#flightMultiplier').textContent = 'x' + Number(multiplier).toFixed(2).replace('.', ','); $('#flightMessage').textContent = message || (active ? 'A nave está subindo…' : 'Aguardando lançamento');
-}
-function scheduleFlightCashoutReady(delayMs, joined) {
-  clearTimeout(flightCashoutReadyTimer); flightCashoutReadyTimer = null;
-  if (!joined || delayMs < 0) return;
-  flightCashoutReadyTimer = setTimeout(() => {
-    const button = $('#flightCashoutButton');
-    if (flightInProgress && button && !button.dataset.requesting) { flightCashoutLocallyReady = true; button.disabled = false; button.textContent = 'Resgatar agora'; }
-  }, Math.max(0, delayMs));
-}
-function stopFlightPolling() { cancelAnimationFrame(flightAnimationFrame); flightAnimationFrame=null; flightSnapshot=null; flightPollGeneration++; clearTimeout(flightPollTimer); clearTimeout(flightCashoutReadyTimer); flightPollTimer = null; flightCashoutReadyTimer = null; flightCashoutLocallyReady = false; flightInProgress = false; }
-async function flightApi(url, options = {}, attempts = 4) {
-  try { return await api(url, options); }
-  catch (error) {
-    if (attempts > 1 && /outra pessoa atualizou/i.test(error.message)) { await new Promise((resolve) => setTimeout(resolve, 120 + Math.random() * 380)); return flightApi(url, options, attempts - 1); }
-    throw error;
-  }
-}
-function animateFlightClock() {
-  cancelAnimationFrame(flightAnimationFrame);
-  const tick=()=>{
-    if(!flightSnapshot)return;
-    const {data,received}=flightSnapshot,elapsed=performance.now()-received;
-    if(elapsed>600){
-      // Entre respostas, não inventamos novo multiplicador. O resgate manual,
-      // porém, continua habilitado quando já foi liberado pela última leitura.
-      const button=$('#flightCashoutButton');
-      const manualReady=Boolean(data.canCashOut || flightCashoutLocallyReady);
-      if(!button.dataset.requesting){button.disabled=!manualReady;button.textContent=manualReady?'Resgatar agora':'Resgate em x1,25';}
-    } else {
-      const remaining=Number(data.countdownMs||0)-elapsed;
-      if(data.phase==='countdown' && remaining>0)$('#flightMultiplier').textContent=String(Math.ceil(remaining/1000));
-      else {
-        const step=Number(data.stepMs)||3200;
-        const value=data.phase==='countdown'?1+Math.max(0,-remaining)/step:Number(data.multiplier||1)+elapsed/step;
-        $('#flightMultiplier').textContent='x'+value.toFixed(2).replace('.',',');
-        $('#flightSky').dataset.phase='flying';$('#flightSky').classList.add('flying');
-      }
-    }
-    flightAnimationFrame=requestAnimationFrame(tick);
-  };
-  tick();
-}
-function startFlightPolling() {
-  if(flightPollTimer)return;
-  const generation=++flightPollGeneration;
-  const poll=async()=>{
-    try{
-      const data=await api('/api/casino/flight/status',{},false);
-      if(generation!==flightPollGeneration)return;
-      flightCurrentId=data.id || null;
-      // Depois que o saque é liberado, mantenha o botão disponível entre duas
-      // leituras do servidor. Isso evita um pisca/trava visual sem estimar
-      // nenhum resultado novo localmente.
-      flightCashoutLocallyReady = data.phase === 'countdown' ? false : Boolean(data.canCashOut || flightCashoutLocallyReady);
-      if(data.active){
-        const countdown=data.phase==='countdown',step=Number(data.stepMs)||3200;
-        const automatic=data.autoCashout?' · Automático em x'+Number(data.autoCashout).toFixed(2).replace('.',','):' · Saque manual em x1,25';
-        setFlightVisual(true,data.multiplier||1,data.cashedOut?'Resgatado: '+data.payout+' créditos · aguardando queda':countdown?'Preparando decolagem'+automatic:data.players+' no mesmo voo'+automatic,{phase:data.phase,joined:data.joined,canCashOut:data.canCashOut});
-        scheduleFlightCashoutReady(data.cashedOut?-1:countdown?data.countdownMs+.25*step:Math.max(0,(1.25-Number(data.multiplier||1))*step),data.joined);
-        flightSnapshot={data,received:performance.now()};animateFlightClock();
-        $('#flightStartButton').textContent=countdown?(data.joined?'Aposta confirmada':'Entrar neste voo'):'Voo em andamento';
-        flightPollTimer=setTimeout(poll,750);
-      }else{
-        stopFlightPolling();
-        setFlightVisual(false,data.crashAt||1,data.crashed?'A nave caiu em x'+Number(data.crashAt||1).toFixed(2).replace('.',',')+(data.cashedOut?' · Você resgatou '+data.payout+' créditos':''):'Aguardando lançamento',{phase:data.crashed?'crashed':'waiting'});
-        try{applyState(await api('/api/state',{},false));}catch{showToast('Voo encerrado. Reconectando para atualizar o saldo.');}
-      }
-    }catch(error){
-      if(generation!==flightPollGeneration)return;
-      clearTimeout(flightCashoutReadyTimer);flightCashoutLocallyReady=false;$('#flightCashoutButton').disabled=true;
-      $('#flightMessage').textContent='Conexão instável. Reconectando sem repetir sua aposta…';
-      flightPollTimer=setTimeout(poll,2500);
-    }
-  };
-  flightPollTimer=setTimeout(poll,0);
 }
 
 function drawCasinoWheel() {
@@ -3514,7 +3419,6 @@ function renderFeatureAvailability(flags = {}) {
   });
   const form = $('#featureFlagsForm');
   if (form && document.activeElement?.form !== form) Object.entries(normalized).forEach(([key, enabled]) => { if (form.elements[key]) form.elements[key].checked = enabled; });
-  if (!normalized.casino && flightPollTimer) stopFlightPolling();
   const current = currentPortalPage(); const required = featurePageMap[current];
   if (required && normalized[required] === false) showPortalPage('memes', false, false);
   const giftItemButton = $('#giftItemForm button[type="submit"]');
@@ -4680,22 +4584,6 @@ $('#lotteryForm')?.addEventListener('submit', async (event) => {
   try { applyState(await api('/api/lottery/entry', { method: 'POST', body: { guess } })); lotteryGuessDraft = null; showToast(`Palpite ${guess} registrado para a Loteria 51! 🎟️`); }
   catch (error) { showToast(error.message, 'error'); }
   finally { setBusy(form, false); renderLottery(appState?.casino?.lottery || {}); }
-});
-
-$('#flightForm').addEventListener('submit', async (event) => {
-  event.preventDefault(); if ($('#flightSky').dataset.phase === 'flying') return; const form = event.currentTarget; const bet = Number($('#flightBet').value); const walletSource = $('#flightWalletSource').value;
-  if (!Number.isFinite(bet) || bet < 0.01 || Math.abs(Math.round(bet * 100) - bet * 100) > 0.000001) { showToast('Aposte um valor de pelo menos 0,01 crédito, com no máximo duas casas decimais.', 'error'); return; }
-  setBusy(form, true);
-  try { const data = await flightApi('/api/casino/flight/start', { method: 'POST', body: { bet, walletSource, autoCashout:Number($('#flightAutoCashout').value)||null } }); applyState(data); startFlightPolling(); showToast('Aposta confirmada. Todos decolam juntos ao fim da contagem!'); }
-  catch (error) { showToast(error.message, 'error'); }
-  finally { setBusy(form, false); }
-});
-$('#flightCashoutButton').addEventListener('click', async () => {
-  if (!flightInProgress) return; const button = $('#flightCashoutButton'); flightCashoutLocallyReady = false; button.disabled = true; button.dataset.requesting = 'true'; button.textContent = 'Resgatando…'; $('#flightMessage').textContent = 'Pedido de resgate enviado…';
-  flightPollGeneration++; clearTimeout(flightPollTimer); clearTimeout(flightCashoutReadyTimer); flightPollTimer = null;
-  try { const data = await flightApi('/api/casino/flight/cashout', { method: 'POST', body:{flightId:flightCurrentId,compact:true} }); setFlightVisual(true, data.flightResult.multiplier, `Você resgatou ${data.flightResult.payout} créditos · aguardando a queda global`, { phase: 'flying', joined: true, canCashOut: false }); startFlightPolling(); showToast(`Voo resgatado em x${Number(data.flightResult.multiplier || 1).toFixed(2).replace('.', ',')}! 🚀`); }
-  catch (error) { stopFlightPolling(); $('#flightMessage').textContent=error.message; showToast(error.message, 'error'); startFlightPolling(); }
-  finally { delete button.dataset.requesting; }
 });
 
 $('#stellarLoanCard').addEventListener('click', async (event) => {

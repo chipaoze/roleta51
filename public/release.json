@@ -1,5 +1,5 @@
 {
-  "version": "20260917-mercado-v37",
-  "title": "Mercado 51: cotações no horário da plataforma",
-  "notes": "As oito atualizações diárias do Mercado 51 agora ficam concentradas entre 08h e 17h, no horário de Brasília, sem chamadas extras fora da janela."
+  "version": "20260918-jogos-v38",
+  "title": "Jogos 51: foco na Roleta",
+  "notes": "O Aviãozinho foi encerrado por baixa utilização. A Roleta 51 continua disponível, e o histórico financeiro anterior foi preservado."
 }
