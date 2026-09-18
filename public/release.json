@@ -1,5 +1,5 @@
 {
-  "version": "20260918-feedback-v45",
+  "version": "20260918-performance-v46",
   "title": "Pokédex e Feed da tripulação",
-  "notes": "Módulos pausados agora ficam ocultos para todos, o perfil ganhou um menu compacto e o botão de volume redundante foi removido."
+  "notes": "O site ficou mais leve no desktop: listas longas renderizam sob demanda e imagens não são reprocessadas a cada atualização."
 }

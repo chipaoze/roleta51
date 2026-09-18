@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-feedback-v45',
+  version: '20260918-performance-v46',
   title: 'Pokédex e Feed da tripulação',
-  notes: 'Módulos pausados agora ficam ocultos para todos, o perfil ganhou um menu compacto e o botão de volume redundante foi removido.'
+  notes: 'O site ficou mais leve no desktop: listas longas renderizam sob demanda e imagens não são reprocessadas a cada atualização.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3665,10 +3665,15 @@ function renderInvestmentMarket(profile = {}) {
   $('#marketHistory').innerHTML = history.length ? history.map((row) => `<div class="market-history-row"><time>${new Date(row.createdAt).toLocaleString('pt-BR')}</time><span>${assets.map((asset) => `${escapeHtml(asset.name)}: ${marketMoney(row.prices?.[asset.id])}`).join(' · ')}</span></div>`).join('') : '<p class="market-empty">O histórico será formado na próxima atualização do servidor.</p>';
 }
 function optimizeRenderedImages() {
-  $$('img').forEach((image) => {
-    if (!image.closest('header, nav, .topbar')) image.loading = 'lazy';
-    image.decoding = 'async';
-  });
+  const apply = () => {
+    $$('img:not([data-render-optimized])').forEach((image) => {
+      if (!image.closest('header, nav, .topbar')) image.loading = 'lazy';
+      image.decoding = 'async';
+      image.dataset.renderOptimized = 'true';
+    });
+  };
+  if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(apply, { timeout: 180 });
+  else window.setTimeout(apply, 0);
 }
 
 // Atualiza somente a área aberta. As demais páginas continuam com os dados no

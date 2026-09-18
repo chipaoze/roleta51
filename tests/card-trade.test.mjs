@@ -31,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260918-329/);
-  assert.match(html, /app\.js\?v=20260918-329/);
+  assert.match(html, /styles\.css\?v=20260918-330/);
+  assert.match(html, /app\.js\?v=20260918-330/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -83,6 +83,12 @@ test('recursos pausados somem do menu e o perfil concentra suas ações', () => 
   assert.doesNotMatch(html, /id="volumeDownButton"/);
 });
 
+test('listas longas preservam a rolagem e otimizam imagens sem repetir trabalho', () => {
+  assert.match(appJs, /img:not\(\[data-render-optimized\]\)/);
+  assert.match(appJs, /requestIdleCallback\(apply/);
+  assert.match(styles, /\.shop-item,\.market-asset-card,\.album-card,\.cobblemon-dex-mon,\.feed-post,\.admin-feedback-item\{content-visibility:auto/);
+});
+
 test('Loja padroniza todos os preços com ícone e unidade de Créditos 51', () => {
   assert.match(appJs, /function shopCreditMarkup\(value, suffix = ''\)/);
   assert.match(appJs, /class="shop-credit-value"/);
@@ -127,7 +133,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260918-feedback-v45/);
+  assert.match(appJs, /20260918-performance-v46/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -269,7 +275,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260918-feedback-v45/);
+  assert.match(appJs, /20260918-performance-v46/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -277,7 +283,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260918-feedback-v45/);
+  assert.match(appJs, /20260918-performance-v46/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -422,4 +428,5 @@ test('punições do Gay e do Pior têm duração e temas adaptados', () => {
   assert.match(styles, /\.theme-punishment \.app/);
   assert.match(styles, /\.theme-punishment \.section/);
 });
+
 
