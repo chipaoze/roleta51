@@ -1935,3 +1935,10 @@ body.theme-light-override.profile-theme-cobblemon .app{background-image:linear-g
 body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) .cobblemon-page,
 body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(4,21,39,.78),rgba(6,38,58,.48) 52%,rgba(8,27,42,.42)),url('/theme-cobblemon-dex-v2.jpg') !important;background-size:cover !important;background-repeat:no-repeat !important;background-position:center center !important;background-attachment:fixed !important}
 body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(240,252,255,.82),rgba(218,244,250,.58) 54%,rgba(235,250,255,.50)),url('/theme-cobblemon-dex-v2.jpg') !important}
+/* Lendários reais já incorporados na arte; evita uma segunda camada de sprites no DOM. */
+body.profile-theme-cobblemon .app,
+body.theme-light-override.profile-theme-cobblemon .app{background-image:linear-gradient(90deg,rgba(6,27,54,.22),rgba(8,56,100,.05)),url('/theme-cobblemon-dex-v4.jpg') !important;background-size:cover !important;background-repeat:no-repeat !important;background-position:center center !important;background-attachment:fixed !important}
+body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) .cobblemon-page,
+body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(4,21,39,.78),rgba(6,38,58,.48) 52%,rgba(8,27,42,.42)),url('/theme-cobblemon-dex-v4.jpg') !important;background-size:cover !important;background-repeat:no-repeat !important;background-position:center center !important;background-attachment:fixed !important}
+body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(240,252,255,.82),rgba(218,244,250,.58) 54%,rgba(235,250,255,.50)),url('/theme-cobblemon-dex-v4.jpg') !important}
+.cobblemon-scene-sprites{display:none !important}

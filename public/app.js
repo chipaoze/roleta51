@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-scene-v52',
-  title: 'Novo cenário da Pokédex',
-  notes: 'A Pokédex agora usa uma única cena Cobblemon completa, com bioma e criaturas agrupados nas laterais. O fundo é fixo, não se repete ao rolar e o centro fica livre para os cards.'
+  version: '20260918-cobblemon-legendary-v53',
+  title: 'Pokédex com lendários',
+  notes: 'A Pokédex agora usa uma única arte fixa com sprites reais de lendários integrados nos biomas. A camada duplicada de sprites foi removida e o centro continua livre para os cards.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
