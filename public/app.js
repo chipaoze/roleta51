@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-scene-v41',
-  title: 'Cobblemon: cenário contínuo ao rolar',
-  notes: 'Os Pokémon decorativos da Pokédex agora permanecem visíveis durante a rolagem. A animação pausa brevemente para manter a navegação leve, sem sumirem da tela.'
+  version: '20260918-pokedex-feed-v43',
+  title: 'Pokédex e Feed da tripulação',
+  notes: 'A Pokédex ganhou cenário estático, compra padronizada de Poké Balls, shiny e recompensas de captura. O Feed agora exibe links válidos do YouTube em um player e permite selecionar o texto normalmente.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2882,6 +2882,30 @@ const COBBLEMON_CAPTURE_BALLS = {
   great: { id: 'great', name: 'Great Ball', shortName: 'Melhor chance', sprite: COBBLEMON_ITEM_SPRITES.great, multiplier: 1.35, price: 75 },
   ultra: { id: 'ultra', name: 'Ultra Ball', shortName: 'Alta chance', sprite: COBBLEMON_ITEM_SPRITES.ultra, multiplier: 1.7, price: 180 },
 };
+
+function cobblemonPreviewSprite(pokemonId, size = 'large') {
+  return `https://cobbledex.b-cdn.net/3dmons/previews/${size}/${Number(pokemonId)}.webp`;
+}
+
+function cobblemonShinyWikiSprite(pokemon = {}) {
+  const name = String(pokemon.name || pokemon.n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return `https://wiki.cobblemon.com/index.php/Special:FilePath/${encodeURIComponent(name + '_Shiny_(Model).png')}`;
+}
+
+function applyCobblemonSprite(image, pokemon = {}, size = 'large') {
+  if (!image) return;
+  const fallback = cobblemonPreviewSprite(pokemon.id || pokemon.i, size);
+  image.onerror = null;
+  image.src = pokemon.isShiny ? cobblemonShinyWikiSprite(pokemon) : fallback;
+  if (pokemon.isShiny) image.onerror = () => { image.onerror = null; image.src = fallback; };
+}
+
+function cobblemonSpriteMarkup(pokemon = {}, size = 'large', attributes = '') {
+  const fallback = cobblemonPreviewSprite(pokemon.id || pokemon.i, size);
+  const source = pokemon.isShiny ? cobblemonShinyWikiSprite(pokemon) : fallback;
+  const recovery = pokemon.isShiny ? ` onerror="this.onerror=null;this.src='${escapeHtml(fallback)}'"` : '';
+  return `<img src="${escapeHtml(source)}"${recovery} ${attributes}>`;
+}
 let cobblemonSelectedBall = 'poke';
 const COBBLEMON_BOX_CATALOG = {
   trainer: { name: 'Carga de Treinador', price: 179.90, accent: 'basic', cover: COBBLEMON_ITEM_SPRITES.poke, rewards: [['Poké Ball ×64',COBBLEMON_ITEM_SPRITES.poke,55],['Great Ball ×64',COBBLEMON_ITEM_SPRITES.great,25],['Ancient Poké Ball ×32',COBBLEMON_ITEM_SPRITES.ancient,12],['Quick Ball ×16',COBBLEMON_ITEM_SPRITES.quick,8]] },
@@ -2999,8 +3023,9 @@ function renderCobblemonBallOptions(balls = {}, encounter = cobblemonPageEncount
     const actionLabel = !encounterReady ? (quantity > 0 ? 'Disponível na caça' : 'Comprar para usar') : selected ? 'Selecionada' : quantity > 0 ? 'Usar esta bola' : 'Comprar para usar';
     const chance = Number(encounter?.captureChances?.[ball.id]);
     const chanceLabel = Number.isFinite(chance) ? `<small class="cobblemon-ball-chance">Chance de captura: <b>${chance}%</b></small>` : '<small class="cobblemon-ball-note">Encontre um Pokémon para ver a chance.</small>';
-    const emptyNote = quantity < 1 && ball.id !== 'poke' ? '<small class="cobblemon-ball-note">Sem estoque. Escolha a quantidade abaixo para comprar.</small>' : '';
-    const purchase = ball.id !== 'poke' ? `<div class="cobblemon-ball-purchase"><div class="cobblemon-ball-price">${shopCreditMarkup(ball.price, 'por unidade')}</div><div class="cobblemon-ball-buy"><label class="shop-quantity-picker"><span>Quantidade</span><input type="number" min="1" max="20" step="1" value="1" inputmode="numeric" data-cobblemon-ball-quantity="${ball.id}" aria-label="Quantidade de ${escapeHtml(ball.name)}"></label><button type="button" class="button button-primary" data-cobblemon-ball-buy="${ball.id}">Comprar</button></div></div>` : '<small class="cobblemon-ball-note">Sem custo · restaura todos os dias</small>';
+    const emptyNote = quantity < 1 ? '<small class="cobblemon-ball-note">Sem estoque. Escolha a quantidade abaixo para comprar.</small>' : ball.id === 'poke' ? '<small class="cobblemon-ball-note">5 gratuitas por dia. As extras valem somente para a caça de hoje.</small>' : '';
+    const unitPrice = ball.id === 'poke' ? Number(balls.unitPrice || 8.99) : Number(ball.price);
+    const purchase = `<div class="cobblemon-ball-purchase"><div class="cobblemon-ball-price">${shopCreditMarkup(unitPrice, 'por unidade')}</div><div class="cobblemon-ball-buy"><label class="shop-quantity-picker"><span>Quantidade</span><input type="number" min="1" max="20" step="1" value="1" inputmode="numeric" data-cobblemon-ball-quantity="${ball.id}" aria-label="Quantidade de ${escapeHtml(ball.name)}"></label><button type="button" class="button button-primary" data-cobblemon-ball-buy="${ball.id}">Comprar</button></div></div>`;
     const selectorAttributes = encounterReady ? `data-cobblemon-ball-select="${ball.id}" aria-pressed="${selected}" aria-disabled="${quantity < 1}"` : 'aria-disabled="true"';
     return `<article class="cobblemon-ball-option${selected ? ' selected' : ''}${quantity < 1 ? ' empty' : ''}"><button type="button" class="cobblemon-ball-select" ${selectorAttributes}><img src="${ball.sprite}" alt=""><span><strong>${escapeHtml(ball.name)}</strong><small>${escapeHtml(ball.shortName)} · ${escapeHtml(stockLabel)}</small>${chanceLabel}</span><b>${actionLabel}</b></button>${emptyNote}${purchase}</article>`;
   }).join('');
@@ -3082,20 +3107,29 @@ function renderCobblemonDex(profile = {}) {
   });
   const pageSize = 24, pages = Math.max(1, Math.ceil(visible.length / pageSize)); cobblemonDexPage = Math.min(cobblemonDexPage, pages - 1);
   $('#cobblemonDexProgress').textContent = caught.size + ' / ' + (profile.cobblemon?.total || catalog.length);
-  const balls = profile.cobblemon?.balls || { remaining: 5, total: 5, canBuy: true, buyPrice: 89.90, special: {} };
+  const balls = profile.cobblemon?.balls || { remaining: 5, total: 5, canBuy: true, unitPrice: 8.99, maxPurchase: 20, special: {} };
   $('#cobblemonBallCount').textContent = `${Number(balls.remaining)} / ${Number(balls.total)} Poké Balls`;
   renderCobblemonBallOptions(balls, cobblemonPageEncounter);
+  const captureBonus = profile.cobblemon?.captureBonus || { totalCaught: caught.size, rewards: { rare: 15, legendary: 100, shiny: 60 }, milestones: [] };
+  let bonusPanel = $('#cobblemonCaptureBonuses');
+  if (!bonusPanel) {
+    bonusPanel = document.createElement('section');
+    bonusPanel.id = 'cobblemonCaptureBonuses';
+    bonusPanel.className = 'cobblemon-capture-bonuses';
+    $('#cobblemonBallOptions')?.insertAdjacentElement('afterend', bonusPanel);
+  }
+  const milestoneMarkup = (captureBonus.milestones || []).map((entry) => `<li class="${entry.claimed ? 'claimed' : ''}"><b>${entry.claimed ? '✓' : `${Math.min(Number(captureBonus.totalCaught || 0), Number(entry.target))}/${Number(entry.target)}`}</b><span>${Number(entry.target)} Pokémon</span><em>+${formatCredits(entry.reward)}</em></li>`).join('');
+  bonusPanel.innerHTML = `<header><span>RECOMPENSAS DE CAPTURA</span><strong>${Number(captureBonus.totalCaught || 0)} Pokémon na Pokédex</strong></header><p>Créditos são liberados uma única vez pelo servidor ao registrar uma descoberta.</p><div class="cobblemon-capture-bonus-rules"><span>Raro novo <b>+${formatCredits(captureBonus.rewards?.rare || 15)}</b></span><span>Lendário novo <b>+${formatCredits(captureBonus.rewards?.legendary || 100)}</b></span><span>Shiny novo <b>+${formatCredits(captureBonus.rewards?.shiny || 60)}</b></span></div>${milestoneMarkup ? `<ol class="cobblemon-capture-milestones">${milestoneMarkup}</ol>` : ''}`;
   const buyBallsButton = $('#cobblemonBuyBalls');
-  buyBallsButton.disabled = !balls.canBuy;
-  buyBallsButton.innerHTML = balls.canBuy ? `Comprar +${Number(balls.buyQuantity || 10)} · ${shopCreditMarkup(balls.buyPrice || 89.90, 'pacote')}` : 'Pacote extra comprado hoje';
+  if (buyBallsButton) { buyBallsButton.disabled = true; buyBallsButton.textContent = 'Compra disponível no card da Poké Ball'; }
   if (!cobblemonPageEncounter) $('#cobblemonCaptureButton').disabled = !viewingMine || Number(balls.remaining) < 1;
   $('#cobblemonDexPage').textContent = 'Página ' + (cobblemonDexPage + 1) + ' de ' + pages;
   $('#cobblemonDexPrev').disabled = cobblemonDexPage === 0; $('#cobblemonDexNext').disabled = cobblemonDexPage >= pages - 1;
   $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.classList.toggle('active', button.dataset.cobblemonFilter === cobblemonDexFilter));
-  const dexGridKey = [cobblemonDexOwnerId, cobblemonDexFilter, search, cobblemonDexPage, visible.map((mon) => { const owned = caught.get(Number(mon.i)); return `${mon.i}:${owned?.level || 0}`; }).join(',')].join('|');
+  const dexGridKey = [cobblemonDexOwnerId, cobblemonDexFilter, search, cobblemonDexPage, visible.map((mon) => { const owned = caught.get(Number(mon.i)); return `${mon.i}:${owned?.level || 0}:${owned?.isShiny ? 1 : 0}`; }).join(',')].join('|');
   if (dexGridKey !== cobblemonDexGridKey) {
     cobblemonDexGridKey = dexGridKey;
-    $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}"><img loading="lazy" decoding="async" fetchpriority="low" width="52" height="52" src="https://cobbledex.b-cdn.net/3dmons/previews/small/${Number(mon.i)}.webp" alt="${owned ? escapeHtml(mon.n) : 'Silhueta'}"><p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
+    $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); const pokemon = { id: mon.i, name: mon.n, isShiny: Boolean(owned?.isShiny) }; return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}${pokemon.isShiny ? ' shiny' : ''}">${owned ? cobblemonSpriteMarkup(pokemon, 'small', `loading="lazy" decoding="async" fetchpriority="low" width="52" height="52" alt="${escapeHtml(mon.n)}"`) : `<img loading="lazy" decoding="async" fetchpriority="low" width="52" height="52" src="${cobblemonPreviewSprite(mon.i, 'small')}" alt="Silhueta">`}<p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (pokemon.isShiny ? '✨ shiny' : level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
   }
 }
 
@@ -3316,22 +3350,22 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
     const filteredOut = (shopFilter !== 'all' && shopFilter !== category) || (hideOwnedVisuals && isOwnedVisual);
     const label = isCobblemonBalls ? 'POKÉDEX 51 · CAPTURA' : item.cardPack ? 'PACOTE DE CARTAS' : item.service ? 'TROCA DE CONQUISTA' : item.mysteryBox ? 'CAIXA MISTERIOSA' : item.type === 'title' ? 'TÍTULO' : item.type === 'badge' ? 'EMBLEMA DO PERFIL' : item.type === 'frame' ? 'MOLDURA' : item.type === 'nameStyle' ? 'ESTILO DO NOME' : item.type === 'siteTheme' ? 'TEMA VISUAL' : item.type === 'cursorStyle' ? 'SKIN DO CURSOR' : item.type === 'trailStyle' ? 'RASTRO DO CURSOR' : 'PODER CONSUMÍVEL';
     const shieldWaiting = item.value === 'shieldGay' && Number(item.quantity || 0) > 0;
-    const action = isCobblemonBalls ? (balls.canBuy ? `Comprar +${Number(balls.buyQuantity || 10)} Poké Balls` : 'Comprado hoje') : item.cardPack ? 'Comprar pacote' : item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Comprar fechada' : shieldWaiting ? 'Aguardar sorteio' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
+    const action = isCobblemonBalls ? 'Comprar Poké Balls' : item.cardPack ? 'Comprar pacote' : item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Comprar fechada' : shieldWaiting ? 'Aguardar sorteio' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
     const shopAction = isCobblemonBalls ? 'cobblemon-balls' : item.cardPack ? 'purchase' : item.service ? 'sell-best-win' : item.mysteryBox ? 'mystery-purchase' : shieldWaiting ? 'shield-waiting' : item.consumable ? (item.quantity > 0 ? 'use' : 'purchase') : item.owned ? 'equip' : 'purchase';
-    const status = isCobblemonBalls ? shopCreditMarkup(balls.buyPrice || 0, `${Number(balls.remaining || 0)} restantes hoje`) : item.cardPack ? shopCreditMarkup(item.price, `${item.quantity} fechado(s)`) : item.service ? `<span class="shop-status-stack"><span>🏆 ${Number(item.availablePoints || 0)} disponível</span>${shopCreditMarkup(500, 'recebidos ao vender')}</span>` : item.mysteryBox ? `<span class="shop-status-stack">${Number(item.quantity || 0) ? `<span>🎁 ${item.quantity} fechado${Number(item.quantity) === 1 ? '' : 's'} no perfil</span>` : ''}${shopCreditMarkup(item.price)}</span>` : item.granted ? (item.equipped ? '★ Cursor oficial em uso' : '★ Concedido ao administrador') : item.consumable && item.quantity > 0 ? '🎟️ ' + item.quantity + ' disponível' : item.equipped ? (item.type === 'siteTheme' ? '✓ Tema aplicado em todo o site' : '● Em uso') : item.owned ? '✓ Na sua coleção' : shopCreditMarkup(item.price);
+    const status = isCobblemonBalls ? shopCreditMarkup(balls.unitPrice || item.price || 8.99, `${Number(balls.remaining || 0)} restantes hoje · por unidade`) : item.cardPack ? shopCreditMarkup(item.price, `${item.quantity} fechado(s)`) : item.service ? `<span class="shop-status-stack"><span>🏆 ${Number(item.availablePoints || 0)} disponível</span>${shopCreditMarkup(500, 'recebidos ao vender')}</span>` : item.mysteryBox ? `<span class="shop-status-stack">${Number(item.quantity || 0) ? `<span>🎁 ${item.quantity} fechado${Number(item.quantity) === 1 ? '' : 's'} no perfil</span>` : ''}${shopCreditMarkup(item.price)}</span>` : item.granted ? (item.equipped ? '★ Cursor oficial em uso' : '★ Concedido ao administrador') : item.consumable && item.quantity > 0 ? '🎟️ ' + item.quantity + ' disponível' : item.equipped ? (item.type === 'siteTheme' ? '✓ Tema aplicado em todo o site' : '● Em uso') : item.owned ? '✓ Na sua coleção' : shopCreditMarkup(item.price);
     const themeConfirmation = item.type === 'siteTheme' && item.equipped ? '<div class="theme-applied-confirmation"><span>✓</span><strong>ESTE TEMA ESTÁ ATIVO</strong><small>Você está vendo este visual em todo o site agora.</small></div>' : '';
     const previewButton = item.service || item.consumable || item.mysteryBox ? '' : `<button class="shop-test-button" type="button" data-shop-preview="${escapeHtml(item.id)}" data-preview-type="${escapeHtml(item.type)}" data-preview-value="${escapeHtml(item.value)}">Testar 20s</button>`;
     const freeVisualTypes = ['title', 'badge', 'frame', 'nameStyle', 'siteTheme', 'cursorStyle', 'trailStyle'];
     const canUseFree = freeShopAvailable && freeVisualTypes.includes(item.type) && !item.owned;
     const freeButton = canUseFree ? `<button class="shop-free-button" type="button" data-shop-free="${escapeHtml(item.id)}">Usar grátis</button>` : '';
     const featuredPower = item.id === 'power-force-gay-cursor';
-    const canBuyQuantity = Boolean(item.cardPack || item.mysteryBox || (item.type === 'power' && item.consumable));
+    const canBuyQuantity = Boolean(isCobblemonBalls || item.cardPack || item.mysteryBox || (item.type === 'power' && item.consumable));
     const quantityPicker = canBuyQuantity ? `<label class="shop-quantity-picker"><span>Quantidade</span><input type="number" min="1" max="20" step="1" value="1" inputmode="numeric" data-shop-quantity="${escapeHtml(item.id)}" aria-label="Quantidade de ${escapeHtml(item.name)}"></label>` : '';
     const buyMorePower = item.type === 'power' && item.consumable && Number(item.quantity || 0) > 0 ? `<button type="button" data-shop-action="purchase" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}">Comprar mais</button>` : '';
     const boxInfo = item.mysteryBox ? ` data-box-info="true" data-box-name="${escapeHtml(item.name)}" data-box-icon="${escapeHtml(item.icon)}" data-box-credit="${Math.round(Number(item.creditChance || 0) * 100)}" data-box-power="${Math.round(Number(item.powerChance || 0) * 100)}" data-box-min="${Number(item.creditMin || 0)}" data-box-max="${Number(item.creditMax || 0)}" data-box-reward-min="${Number(item.minRewardPrice || 0)}" data-box-reward-max="${Number(item.maxRewardPrice || 0)}" data-box-physical-chance="${Number(item.physicalKitChance || 0)}"` : '';
     const iconMarkup = isCobblemonBalls ? `<span class="shop-item-icon"><img src="${COBBLEMON_ITEM_SPRITES.poke}" alt="Poké Ball" style="width:52px;height:52px;object-fit:contain;image-rendering:pixelated"></span>` : item.mysteryBox ? `<button class="shop-item-icon" type="button" aria-label="Ver chances da ${escapeHtml(item.name)}">${item.icon}</button>` : `<span class="shop-item-icon">${item.icon}</span>`;
     const oddsButton = item.mysteryBox ? '<button type="button" data-box-odds>Ver chances</button>' : '';
-    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}"${boxInfo}>${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}${iconMarkup}<div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong>${quantityPicker}<span class="shop-card-actions">${oddsButton}${previewButton}${freeButton}${buyMorePower}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}" data-equipped="${item.equipped}"${shieldWaiting || (isCobblemonBalls ? (!balls.canBuy ? ' disabled' : '') : item.service && Number(item.availablePoints || 0) < 1 ? ' disabled' : '') ? ' disabled' : ''}>${action}</button></span></footer></article>`;
+    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}"${boxInfo}>${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}${iconMarkup}<div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong>${quantityPicker}<span class="shop-card-actions">${oddsButton}${previewButton}${freeButton}${buyMorePower}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}" data-equipped="${item.equipped}"${shieldWaiting || (!isCobblemonBalls && item.service && Number(item.availablePoints || 0) < 1) ? ' disabled' : ''}>${action}</button></span></footer></article>`;
   }).join('');
   const collectionCatalog = $('#collectionCatalog');
   collectionCatalog.innerHTML = '';
@@ -4827,11 +4861,14 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       applyState(data);
       showToast(data.mysteryReward ? 'Caixa aberta grátis! Você recebeu ' + data.mysteryReward.icon + ' ' + data.mysteryReward.name + '.' : 'Compra Grátis 51 utilizada: ' + itemName + ' é seu! 🎁');
     } else if (button.dataset.shopAction === 'cobblemon-balls') {
-      const balls = appState.profile?.cobblemon?.balls || { buyQuantity: 10, buyPrice: 89.90 };
-      const buyQuantity = Math.max(0, Number(balls.buyQuantity || 0));
-      const buyPrice = Number(balls.buyPrice || 0);
-      if (!confirm(`Comprar ${buyQuantity} Poké Ball${buyQuantity === 1 ? '' : 's'} extras para hoje por ${formatCredits(buyPrice)} Créditos 51?`)) return;
-      const data = await api('/api/cobblemon/balls/buy', { method: 'POST' });
+      const balls = appState.profile?.cobblemon?.balls || {};
+      const quantityInput = button.closest('.shop-item')?.querySelector('[data-shop-quantity]');
+      const buyQuantity = Number(quantityInput?.value || 1);
+      const maximum = Number(balls.maxPurchase || 20);
+      if (!Number.isInteger(buyQuantity) || buyQuantity < 1 || buyQuantity > maximum) { showToast(`Escolha uma quantidade inteira entre 1 e ${maximum}.`, 'error'); quantityInput?.focus(); return; }
+      const buyPrice = Math.round(Number(balls.unitPrice || 8.99) * buyQuantity * 100) / 100;
+      if (!confirm(`Comprar ${buyQuantity} Poké Ball${buyQuantity === 1 ? '' : 's'} extras para hoje por ${formatCredits(buyPrice)} Créditos 51?\n\nAs extras valem somente para a caça de hoje.`)) return;
+      const data = await api('/api/cobblemon/balls/buy', { method: 'POST', body: { quantity: buyQuantity } });
       applyState(data);
       const added = Number(data.quantity || buyQuantity);
       showToast(`${added} Poké Ball${added === 1 ? '' : 's'} adicionada${added === 1 ? '' : 's'} para a caça de hoje.`);
@@ -5554,7 +5591,7 @@ $('#currentYear').textContent = new Date().getFullYear();
 window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault(); deferredInstallPrompt = event; $('#installAppButton').classList.remove('hidden'); });
 $('#installAppButton').addEventListener('click', async () => { if (!deferredInstallPrompt) { showToast('No navegador, abra o menu ⋮ e escolha “Instalar aplicativo” ou “Adicionar à tela inicial”.'); return; } deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; });
 window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; $('#installAppButton').classList.add('hidden'); showToast('Área 51 instalada como aplicativo! 📲'); });
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js?v=20260918-3').catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js?v=20260918-5').catch(() => {}));
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && musicWanted && appState) startMusic();
 });
@@ -5712,7 +5749,7 @@ function showCobblemonCaptureOutcome(pokemon, data) {
   const captureText = data.replaced ? `${pokemon.name} nível ${pokemon.level} substituiu o nível ${data.ownedLevel}.` : data.keptExisting ? `${pokemon.name} foi capturado, mas seu nível ${data.ownedLevel} já é melhor.` : `${pokemon.name} entrou na sua Pokédex.`;
   const ballName = escapeHtml(data.ballName || 'Poké Ball');
   const escapedText = data.missed ? ` escapou porque a ${ballName} errou.` : ` conseguiu escapar da ${ballName}.`;
-  outcome.innerHTML = `<img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(pokemon.id)}.webp" alt="${escapeHtml(pokemon.name)}"><p><small>${data.captured ? 'CAPTURA CONFIRMADA' : data.missed ? 'ARREMESSO PERDIDO' : 'A BOLA ABRIU'}</small><strong>${data.captured ? 'CAPTURADO!' : 'FUGIU!'}</strong><span>${data.captured ? escapeHtml(captureText) : escapeHtml(pokemon.name) + escapedText}</span></p>`;
+  outcome.innerHTML = `${cobblemonSpriteMarkup(pokemon, 'large', `alt="${escapeHtml(pokemon.name)}"`)}<p><small>${pokemon.isShiny ? '✨ SHINY · ' : ''}${data.captured ? 'CAPTURA CONFIRMADA' : data.missed ? 'ARREMESSO PERDIDO' : 'A BOLA ABRIU'}</small><strong>${data.captured ? 'CAPTURADO!' : 'FUGIU!'}</strong><span>${data.captured ? escapeHtml(captureText) : escapeHtml(pokemon.name) + escapedText}</span></p>`;
   document.body.appendChild(outcome);
   requestAnimationFrame(() => outcome.classList.add('show'));
   setTimeout(() => { outcome.classList.remove('show'); setTimeout(() => outcome.remove(), 320); }, 3200);
@@ -5769,12 +5806,12 @@ async function startCobblemonPageEncounter() {
     const ball = $('#cobblemonPageBall');
     document.body.append(target, ball, $('#cobblemonHuntTimer'));
     document.body.classList.add('cobblemon-hunt-active');
-    target.querySelector('img').src = `https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(data.pokemon.id)}.webp`;
+    applyCobblemonSprite(target.querySelector('img'), data.pokemon);
     target.querySelector('img').alt = data.pokemon.name;
-    target.querySelector('strong').textContent = data.pokemon.name;
-    target.querySelector('small').textContent = `${data.pokemon.type} · nível ${Number(data.pokemon.level)} · ${cobblemonTierLabel(data.pokemon.tier)}`;
+    target.querySelector('strong').textContent = data.pokemon.isShiny ? `✨ ${data.pokemon.name} · SHINY` : data.pokemon.name;
+    target.querySelector('small').textContent = `${data.pokemon.type} · nível ${Number(data.pokemon.level)} · ${cobblemonTierLabel(data.pokemon.tier)}${data.pokemon.isShiny ? ' · SHINY' : ''}`;
     placeCobblemonEncounter();
-    target.className = `cobblemon-encounter-target hunting tier-${Number(data.pokemon.tier)}`;
+    target.className = `cobblemon-encounter-target hunting tier-${Number(data.pokemon.tier)}${data.pokemon.isShiny ? ' shiny' : ''}`;
     syncCobblemonSelectedBall(appState.profile?.cobblemon?.balls || {});
     ball.className = 'cobblemon-page-ball hunting ready';
     button.textContent = 'Caçada em andamento';
@@ -5818,10 +5855,13 @@ async function finishCobblemonPageThrow(event) {
     ball.className = `cobblemon-page-ball hunting ${data.captured ? 'caught' : data.missed ? 'lost' : 'failed'}`;
     showCobblemonCaptureFx({ x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 }, data.captured);
     showCobblemonCaptureOutcome(mon, data);
-    const outcome = data.captured ? (data.replaced ? `✓ ${escapeHtml(mon.name)} nível ${Number(mon.level)} substituiu seu nível ${Number(data.ownedLevel)}.` : data.keptExisting ? `✓ ${escapeHtml(mon.name)} foi capturado, mas seu nível ${Number(data.ownedLevel)} já era melhor.` : `✓ ${escapeHtml(mon.name)} foi capturado!`) : data.missed ? `Você errou ${escapeHtml(mon.name)} e gastou 1 ${escapeHtml(data.ballName || 'Poké Ball')}.` : `${escapeHtml(mon.name)} escapou. Chance desta tentativa com ${escapeHtml(data.ballName || 'Poké Ball')}: ${Number(data.chance)}%.`;
+    const bonus = Number(data.captureBonus?.total || 0);
+    const bonusText = bonus > 0 ? ` Bônus de captura: +${formatCredits(bonus)} Créditos 51.` : '';
+    const shinyLabel = mon.isShiny ? ' ✨ SHINY!' : '';
+    const outcome = data.captured ? (data.replaced ? `✓ ${escapeHtml(mon.name)} nível ${Number(mon.level)} substituiu seu nível ${Number(data.ownedLevel)}.` : data.shinyUpgraded ? `✓ ${escapeHtml(mon.name)} agora está registrado como SHINY na sua Pokédex.` : data.keptExisting ? `✓ ${escapeHtml(mon.name)} foi capturado, mas seu nível ${Number(data.ownedLevel)} já era melhor.` : `✓ ${escapeHtml(mon.name)} foi capturado!${shinyLabel}`) + bonusText : data.missed ? `Você errou ${escapeHtml(mon.name)} e gastou 1 ${escapeHtml(data.ballName || 'Poké Ball')}.` : `${escapeHtml(mon.name)} escapou. Chance desta tentativa com ${escapeHtml(data.ballName || 'Poké Ball')}: ${Number(data.chance)}%.`;
     const resultBox = $('#cobblemonCaptureResult');
     resultBox.className = 'cobblemon-capture-result ' + (data.captured ? 'capture-success' : 'capture-failed');
-    resultBox.innerHTML = `<span><img src="https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(mon.id)}.webp" alt="" style="width:48px;height:48px;object-fit:contain;vertical-align:middle"> ${outcome}</span>`;
+    resultBox.innerHTML = `<span>${cobblemonSpriteMarkup(mon, 'large', 'alt="" style="width:48px;height:48px;object-fit:contain;vertical-align:middle"')} ${outcome}</span>`;
     $('#cobblemonCaptureHint').textContent = data.captured ? `Captura confirmada com ${data.ballName || 'Poké Ball'} pelo servidor!` : data.missed ? `O Pokémon fugiu após o arremesso de ${data.ballName || 'Poké Ball'}.` : `A ${data.ballName || 'Poké Ball'} abriu e o Pokémon escapou.`;
     renderCobblemonDex(appState.profile);
     setTimeout(() => resetCobblemonPageCapture(false), 1700);
@@ -5878,12 +5918,16 @@ document.addEventListener('click', async (event) => {
   }
   const ballBuyButton = event.target?.closest?.('[data-cobblemon-ball-buy]');
   if (ballBuyButton) {
-    const ballType = ballBuyButton.dataset.cobblemonBallBuy; const ball = COBBLEMON_CAPTURE_BALLS[ballType]; const card = ballBuyButton.closest('.cobblemon-ball-option'); const quantityInput = card?.querySelector('[data-cobblemon-ball-quantity]'); const quantity = Number(quantityInput?.value || 1);
-    if (!ball || !Number.isInteger(quantity) || quantity < 1 || quantity > 20) { showToast('Escolha uma quantidade inteira entre 1 e 20.', 'error'); quantityInput?.focus(); return; }
-    const total = Number(ball.price) * quantity;
-    if (!confirm(`Comprar ${quantity} ${ball.name}${quantity === 1 ? '' : 's'} por ${formatCredits(total)} Créditos 51?\n\nVocê poderá selecionar a bola antes de cada arremesso.`)) return;
+    const ballType = ballBuyButton.dataset.cobblemonBallBuy; const ball = COBBLEMON_CAPTURE_BALLS[ballType]; const balls = appState.profile?.cobblemon?.balls || {}; const card = ballBuyButton.closest('.cobblemon-ball-option'); const quantityInput = card?.querySelector('[data-cobblemon-ball-quantity]'); const quantity = Number(quantityInput?.value || 1);
+    const maximum = ballType === 'poke' ? Number(balls.maxPurchase || 20) : 20;
+    if (!ball || !Number.isInteger(quantity) || quantity < 1 || quantity > maximum) { showToast(`Escolha uma quantidade inteira entre 1 e ${maximum}.`, 'error'); quantityInput?.focus(); return; }
+    const unitPrice = ballType === 'poke' ? Number(balls.unitPrice || 8.99) : Number(ball.price);
+    const total = Math.round(unitPrice * quantity * 100) / 100;
+    const dailyBall = ballType === 'poke';
+    const destination = dailyBall ? 'para a caça de hoje' : 'ao inventário';
+    if (!confirm(`Comprar ${quantity} ${ball.name}${quantity === 1 ? '' : 's'} por ${formatCredits(total)} Créditos 51?\n\n${dailyBall ? 'As Poké Balls extras valem somente para a caça de hoje.' : 'Você poderá selecionar a bola antes de cada arremesso.'}`)) return;
     ballBuyButton.disabled = true;
-    try { const data = await api('/api/cobblemon/balls/buy-special', { method: 'POST', body: { ballType, quantity } }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast(`${quantity} ${ball.name}${quantity === 1 ? '' : 's'} adicionada${quantity === 1 ? '' : 's'} ao inventário. Escolha a bola somente depois de encontrar um Pokémon.`); }
+    try { const data = await api(dailyBall ? '/api/cobblemon/balls/buy' : '/api/cobblemon/balls/buy-special', { method: 'POST', body: dailyBall ? { quantity } : { ballType, quantity } }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast(`${quantity} ${ball.name}${quantity === 1 ? '' : 's'} adicionada${quantity === 1 ? '' : 's'} ${destination}. ${dailyBall ? '' : 'Escolha a bola somente depois de encontrar um Pokémon.'}`.trim()); }
     catch (error) { showToast(error.message, 'error'); renderCobblemonDex(appState.profile); }
     return;
   }
@@ -5891,18 +5935,7 @@ document.addEventListener('click', async (event) => {
   if (oddsButton) { const box = COBBLEMON_BOX_CATALOG[oddsButton.dataset.cobblemonBoxOdds]; if (box) showCobblemonOdds(box.name,box.rewards,'Veja todos os itens e a chance individual antes de abrir.'); return; }
   if (event.target?.id === 'cobblemonRouletteOdds') { showCobblemonOdds('Roleta Cobblemon',COBBLEMON_ROULETTE_REWARDS,'Um giro por pessoa por dia. Itens Shiny e lendários são deliberadamente excepcionais.'); return; }
   if (event.target?.id === 'cobblemonBuyBalls') {
-    const balls = appState.profile?.cobblemon?.balls || { buyQuantity: 10, buyPrice: 89.90 };
-    const buyQuantity = Math.max(0, Number(balls.buyQuantity || 0));
-    const buyPrice = Number(balls.buyPrice || 0);
-    if (!confirm(`Comprar o pacote extra diário com ${buyQuantity} Poké Ball${buyQuantity === 1 ? '' : 's'} por ${formatCredits(buyPrice)} Créditos 51?`)) return;
-    event.target.disabled = true;
-    try {
-      const data = await api('/api/cobblemon/balls/buy', { method: 'POST' });
-      appState.profile = data.profile;
-      renderProfileEconomy(appState.profile);
-      const added = Number(data.quantity || buyQuantity);
-      showToast(`${added} Poké Ball${added === 1 ? '' : 's'} adicionada${added === 1 ? '' : 's'} para hoje.`);
-    } catch (error) { showToast(error.message, 'error'); renderCobblemonDex(appState.profile); }
+    $('#cobblemonBallOptions [data-cobblemon-ball-buy="poke"]')?.click();
     return;
   }
   if (event.target?.id === 'cobblemonRouletteSpin') {

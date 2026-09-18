@@ -52,6 +52,18 @@ function chooseMention(input, id) {
   if (value.length>300) {showToast('O comentário pode ter até 300 caracteres.','error');return;}
   input.value=value; input.focus(); input.setSelectionRange(query.start+insertion.length,query.start+insertion.length);refreshMentions(input,false);
 }
+
+function youtubeEmbedId(value = '') {
+  const match = String(value).match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?[^\s#]*\bv=|embed\/|shorts\/))([A-Za-z0-9_-]{11})(?:[^A-Za-z0-9_-]|$)/i);
+  return match?.[1] || '';
+}
+
+function youtubeEmbedMarkup(text = '') {
+  const videoId = youtubeEmbedId(text);
+  if (!videoId) return '';
+  return `<div class="feed-youtube"><iframe src="https://www.youtube-nocookie.com/embed/${videoId}?rel=0" title="Vídeo do YouTube compartilhado no feed" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+}
+
 function renderCommunityFeed(wall) {
   const container = document.querySelector('#communityFeed');
   if (!container) return;
@@ -71,6 +83,7 @@ function renderCommunityFeed(wall) {
     <header><div class="feed-author">${avatar}<div><strong>${anonymous ? '🕵️ Anônimo' : visualName({ id: post.userId, displayName: post.authorName })}</strong><time>${escapeHtml(formatDate(post.createdAt))}</time></div></div>
     <div class="feed-post-actions">${post.canEdit ? `<button type="button" data-feed-edit="${escapeHtml(post.id)}" data-feed-type="${post.type}">Editar</button>` : ''}${post.canDelete ? `<button type="button" data-feed-delete="${escapeHtml(post.id)}" data-feed-type="${post.type}">Excluir</button>` : ''}</div></header>
     <p class="feed-post-text">${escapeHtml(post.phrase || post.caption || '')}</p>
+    ${youtubeEmbedMarkup(post.phrase || post.caption || '')}
     ${post.imageUrl ? `<a href="${escapeHtml(post.imageUrl)}" target="_blank" rel="noopener"><img loading="lazy" src="${escapeHtml(post.imageUrl)}" alt="Publicação de ${escapeHtml(authorName)}"></a>` : ''}
     <div class="daily-reactions">${emojis.map((emoji) => `<button type="button" aria-label="Reagir com ${emoji}" aria-pressed="${post.reactions?.mine?.includes(emoji) ? 'true' : 'false'}" class="${post.reactions?.mine?.includes(emoji) ? 'active' : ''}" data-reaction-type="${post.type}" data-reaction-id="${escapeHtml(post.id)}" data-reaction-emoji="${emoji}">${emoji} ${Number(post.reactions?.counts?.[emoji] || 0)}</button>`).join('')}</div>
     <details class="feed-reaction-people"><summary>Quem reagiu (${post.reactions?.total || 0})</summary><ul>${(post.reactions?.people || []).map((person) => `<li>${escapeHtml(person.emoji)} ${escapeHtml(formatDisplayName(person.name))}</li>`).join('') || '<li>Nenhuma reação ainda.</li>'}</ul></details>

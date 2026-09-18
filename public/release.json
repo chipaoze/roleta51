@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-scene-v41",
-  "title": "Cobblemon: cenário contínuo ao rolar",
-  "notes": "Os Pokémon decorativos da Pokédex agora permanecem visíveis durante a rolagem. A animação pausa brevemente para manter a navegação leve, sem sumirem da tela."
+  "version": "20260918-pokedex-feed-v43",
+  "title": "Pokédex e Feed da tripulação",
+  "notes": "A Pokédex ganhou cenário estático, compra padronizada de Poké Balls, shiny e recompensas de captura. O Feed agora exibe links válidos do YouTube em um player e permite selecionar o texto normalmente."
 }

@@ -11,6 +11,7 @@ const marketLib = fs.readFileSync(path.join(root, 'lib', 'investment-market.mjs'
 const styles = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'public', 'styles.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
+const communityFeed = fs.readFileSync(path.join(root, 'public', 'community-feed.js'), 'utf8');
 
 test('troca direta seleciona cartas clicadas e evita clique após arraste', () => {
   assert.match(js, /pointerdown/);
@@ -30,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260918-325/);
-  assert.match(html, /app\.js\?v=20260918-325/);
+  assert.match(html, /styles\.css\?v=20260918-327/);
+  assert.match(html, /app\.js\?v=20260918-327/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -64,6 +65,15 @@ test('notificações navegam até o item exato depois da renderização', () => 
 
 test('notificação de carta usa ícone de carta e não confunde com saldo', () => {
   assert.match(serverJs, /id: 'card-drop:' \+ drop\.eventId,[\s\S]*?icon: '🎴',[\s\S]*?title: 'Você encontrou uma carta!'/);
+});
+
+test('Feed incorpora somente links válidos do YouTube e preserva seleção de texto', () => {
+  assert.match(communityFeed, /function youtubeEmbedId\(value = ''\)/);
+  assert.match(communityFeed, /youtube-nocookie\.com\/embed/);
+  assert.match(communityFeed, /youtubeEmbedMarkup\(post\.phrase \|\| post\.caption \|\| ''\)/);
+  assert.match(styles, /\.feed-post-text,\.feed-comment-text\{user-select:text!important/);
+  assert.match(serverJs, /frame-src https:\/\/www\.youtube-nocookie\.com/);
+  assert.match(html, /community-feed\.js\?v=20260918-196/);
 });
 
 test('Loja padroniza todos os preços com ícone e unidade de Créditos 51', () => {
@@ -110,7 +120,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260918-cobblemon-scene-v41/);
+  assert.match(appJs, /20260918-pokedex-feed-v43/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -180,11 +190,11 @@ test('tabela de preços usa finais em centavos sem alterar recompensas e estorno
   assert.match(serverJs, /price: 899\.90, monthlyPokemon: true/);
   assert.match(serverJs, /price: 259\.90,/);
       assert.match(serverJs, /entry\.purchasePrice \?\? entry\.price \?\? 900/);
-      assert.match(serverJs, /retailPriceWithCents\(90\) \* buyQuantity \/ 10/);
       assert.match(serverJs, /retailPriceWithCents\(90\) \* quantity \/ 10/);
+      assert.match(serverJs, /quantity < 1 \|\| quantity > 20/);
       assert.match(appJs, /price: 899\.90/);
       assert.match(appJs, /roulette\.price \|\| 259\.90/);
-      assert.match(appJs, /buyPrice: 89\.90/);
+      assert.match(appJs, /unitPrice: 8\.99/);
       assert.match(appJs, /Roleta Cobblemon por \$\{formatCredits/);
       assert.match(html, /id="cobblemonRoulettePrice"/);
       assert.match(html, /shop-credit-value/);
@@ -252,7 +262,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260918-cobblemon-scene-v41/);
+  assert.match(appJs, /20260918-pokedex-feed-v43/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -260,7 +270,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260918-cobblemon-scene-v41/);
+  assert.match(appJs, /20260918-pokedex-feed-v43/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -295,8 +305,9 @@ test('Pokédex espalha sprites Cobblemon decorativos sem bloquear a interface', 
   assert.match(html, /class="cobblemon-scene-sprites"/);
   assert.match(html, /class="cobblemon-scene-mon mon-pikachu"/);
   assert.match(styles, /\.cobblemon-scene-sprites\{position:absolute;inset:0;z-index:0;pointer-events:none/);
-  assert.match(styles, /@keyframes cobblemon-scene-float/);
-  assert.match(appJs, /previews\/small\/\$\{Number\(mon\.i\)\}\.webp/);
+  assert.match(styles, /\.cobblemon-scene-mon\{[^}]*animation:none/);
+  assert.doesNotMatch(styles, /cobblemon-scene-float/);
+  assert.match(appJs, /function cobblemonPreviewSprite/);
   assert.match(appJs, /cobblemonDexGridKey/);
   assert.match(appJs, /fetchpriority="low"/);
   assert.match(styles, /contain-intrinsic-size:72px/);
@@ -309,7 +320,7 @@ test('Pokédex espalha sprites Cobblemon decorativos sem bloquear a interface', 
 test('Cobblemon padroniza preços com moeda e centavos em cápsulas, roleta e bolas', () => {
   assert.match(appJs, /shopCreditMarkup\(box\.price, 'por cápsula'\)/);
   assert.match(appJs, /const roulettePriceMarkup = shopCreditMarkup\(roulettePrice, 'por giro'\)/);
-  assert.match(appJs, /shopCreditMarkup\(balls\.buyPrice \|\| 89\.90, 'pacote'\)/);
+  assert.match(appJs, /shopCreditMarkup\(unitPrice, 'por unidade'\)/);
   assert.match(styles, /\.cobblemon-box-price/);
   assert.match(styles, /\.cobblemon-roulette-copy \.button \.shop-credit-value/);
 });

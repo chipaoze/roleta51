@@ -348,6 +348,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.cobblemonCaptureAttempts)) { db.economy.cobblemonCaptureAttempts = []; changed = true; }
   if (!Array.isArray(db.economy.cobblemonBallPurchases)) { db.economy.cobblemonBallPurchases = []; changed = true; }
   if (!db.economy.cobblemonBallInventory || typeof db.economy.cobblemonBallInventory !== 'object') { db.economy.cobblemonBallInventory = {}; changed = true; }
+  if (!Array.isArray(db.economy.cobblemonCaptureRewardClaims)) { db.economy.cobblemonCaptureRewardClaims = []; changed = true; }
   if (!db.economy.cobblemonDexRecoveryV1) {
     const recovered = {};
     db.economy.cobblemonCaptureAttempts.filter((entry) => entry.captured).forEach((entry) => {
@@ -649,6 +650,23 @@ const COBBLEMON_CAPTURE_BALLS = {
   ultra: { id: 'ultra', name: 'Ultra Ball', shortName: 'Alta chance', sprite: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', multiplier: 1.7, price: 180 },
 };
 
+// Prêmios pequenos e únicos: dão fôlego à caça sem transformar a Pokédex em
+// uma fonte infinita de créditos. Todo pagamento tem uma chave imutável no
+// servidor, portanto repetir uma requisição nunca premia duas vezes.
+const COBBLEMON_CAPTURE_BONUSES = {
+  rare: 15,
+  legendary: 100,
+  shiny: 60,
+  milestones: [
+    { target: 10, reward: 20 },
+    { target: 25, reward: 45 },
+    { target: 50, reward: 75 },
+    { target: 100, reward: 150 },
+    { target: 150, reward: 250 },
+  ],
+};
+const COBBLEMON_SHINY_CHANCE = .01;
+
 function cobblemonCaptureChance(tier, level, ballType = 'poke') {
   const safeTier = Math.max(1, Math.min(4, Number(tier) || 1));
   const safeLevel = Math.max(1, Math.min(100, Number(level) || safeTier * 20));
@@ -658,7 +676,7 @@ function cobblemonCaptureChance(tier, level, ballType = 'poke') {
 }
 
 const SHOP_CATALOG = [
-  { id: 'service-cobblemon-balls', name: 'Pacote diário de Poké Balls', description: 'Adiciona até 10 arremessos à caça da Pokédex 51. As 5 Poké Balls básicas voltam automaticamente no dia seguinte.', price: 90, type: 'cobblemonBall', value: 'dailyBallPack', icon: '🔴', service: true },
+  { id: 'service-cobblemon-balls', name: 'Poké Balls extras para a caça', description: 'Escolha de 1 a 20 Poké Balls extras por compra para usar hoje na Pokédex 51. As 5 Poké Balls básicas voltam automaticamente no dia seguinte.', price: 8.99, type: 'cobblemonBall', value: 'dailyBallPack', icon: '🔴', service: true },
   { id: 'card-pack-cosmic', name: 'Pacotinho Cósmico', icon: '🎴', type: 'cardPack', value: 'cosmic', consumable: true, cardPack: true, price: 120, description: 'Guarde no Perfil e rasgue para revelar 3 cartas. Cada carta: 90% básica e 10% rara. Pode haver repetidas. Cada insígnia exige 4 básicas diferentes e 1 rara da coleção. Sem revenda por créditos.' },
   { id: 'card-pack-stellar', name: 'Pacotinho Estelar', icon: '🌠', type: 'cardPack', value: 'stellar', consumable: true, cardPack: true, price: 260, cardPackDailyLimit: 3, description: '3 cartas: 82% básica e 18% rara por carta. Chance de ao menos uma rara: cerca de 45%. Limite de 3 por dia; sem garantia de rara e sem revenda.' },
   { id: 'card-pack-legendary', name: 'Pacotinho Lendário', icon: '💎', type: 'cardPack', value: 'legendary', consumable: true, cardPack: true, price: 520, cardPackDailyLimit: 1, description: '3 cartas: 72% básica e 28% rara por carta. Chance de ao menos uma rara: cerca de 63%. Limite de 1 por dia; sem garantia de rara e sem revenda.' },
@@ -854,10 +872,44 @@ function normalizedCobblemonLevel(id, tier = 1) {
   return floor + ((Math.abs(Number(id) || 1) * 17) % (ceiling - floor + 1));
 }
 
-function createCobblemonEncounter(auth, pokemon, tier, level) {
-  const payload = Buffer.from(JSON.stringify({ userId: auth.user.id, pokemonId: Number(pokemon.i), tier, level, expiresAt: Date.now() + 60 * 1000, nonce: randomBytes(12).toString('hex') })).toString('base64url');
+function createCobblemonEncounter(auth, pokemon, tier, level, isShiny = false) {
+  const payload = Buffer.from(JSON.stringify({ userId: auth.user.id, pokemonId: Number(pokemon.i), tier, level, isShiny: Boolean(isShiny), expiresAt: Date.now() + 60 * 1000, nonce: randomBytes(12).toString('hex') })).toString('base64url');
   const signature = createHash('sha256').update(auth.token + '.' + payload).digest('base64url');
   return payload + '.' + signature;
+}
+
+function cobblemonCaptureBonusState(userId) {
+  const caught = Array.isArray(db.economy.cobblemonDex?.[userId]) ? db.economy.cobblemonDex[userId] : [];
+  const claimed = new Set((db.economy.cobblemonCaptureRewardClaims || []).filter((entry) => entry.userId === userId).map((entry) => entry.key));
+  return {
+    totalCaught: caught.length,
+    rewards: { rare: COBBLEMON_CAPTURE_BONUSES.rare, legendary: COBBLEMON_CAPTURE_BONUSES.legendary, shiny: COBBLEMON_CAPTURE_BONUSES.shiny },
+    milestones: COBBLEMON_CAPTURE_BONUSES.milestones.map((entry) => ({ ...entry, claimed: claimed.has(`milestone:${entry.target}`) })),
+  };
+}
+
+function grantCobblemonCaptureBonuses(user, { pokemonId, tier, isShiny }) {
+  db.economy.cobblemonCaptureRewardClaims ||= [];
+  const claimed = new Set(db.economy.cobblemonCaptureRewardClaims.filter((entry) => entry.userId === user.id).map((entry) => entry.key));
+  const grants = [];
+  const grant = (key, amount, reason) => {
+    if (claimed.has(key)) return;
+    const createdAt = new Date().toISOString();
+    const before = walletFor(user.id);
+    addCredits(user.id, amount);
+    db.economy.cobblemonCaptureRewardClaims.push({ id: randomUUID(), userId: user.id, key, amount, reason, createdAt });
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-capture-bonus', amount, before, after: roundMoney(before + amount), reason, createdAt });
+    claimed.add(key);
+    grants.push({ key, amount, reason });
+  };
+  if (tier === 4) grant(`legendary:${pokemonId}`, COBBLEMON_CAPTURE_BONUSES.legendary, 'Bônus de primeira captura lendária');
+  else if (tier === 3) grant(`rare:${pokemonId}`, COBBLEMON_CAPTURE_BONUSES.rare, 'Bônus de primeira captura rara');
+  if (isShiny) grant(`shiny:${pokemonId}`, COBBLEMON_CAPTURE_BONUSES.shiny, 'Bônus de primeira captura shiny');
+  const totalCaught = (Array.isArray(db.economy.cobblemonDex?.[user.id]) ? db.economy.cobblemonDex[user.id] : []).length;
+  COBBLEMON_CAPTURE_BONUSES.milestones.filter((entry) => totalCaught >= entry.target).forEach((entry) => grant(`milestone:${entry.target}`, entry.reward, `Marco de ${entry.target} Pokémon capturados`));
+  if (db.economy.cobblemonCaptureRewardClaims.length > 10000) db.economy.cobblemonCaptureRewardClaims = db.economy.cobblemonCaptureRewardClaims.slice(-10000);
+  if (db.economy.creditAdjustments.length > 12000) db.economy.creditAdjustments = db.economy.creditAdjustments.slice(-12000);
+  return { total: roundMoney(grants.reduce((sum, entry) => sum + entry.amount, 0)), grants, totalCaught };
 }
 
 function verifyCobblemonEncounter(auth, token) {
@@ -2296,6 +2348,7 @@ function profileFor(user, computed = {}) {
     cobblemon: {
       caught: Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : [],
       total: COBBLEMON_CATALOG.length,
+      captureBonus: cobblemonCaptureBonusState(user.id),
       collections: db.users.filter((person) => person.active && person.approved !== false).map((person) => ({
         id: person.id,
         displayName: person.displayName,
@@ -2342,12 +2395,12 @@ function profileFor(user, computed = {}) {
         const dayKey = saoPauloDayKey();
         const used = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
         const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-        const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
+        const extra = purchase ? Math.max(0, Math.floor(Number(purchase.quantity || 0))) : 0;
         const total = 5 + extra;
-        const buyQuantity = Math.max(0, 10 - extra);
+        const unitPrice = roundMoney(retailPriceWithCents(90) / 10);
         const inventory = db.economy.cobblemonBallInventory[user.id] && typeof db.economy.cobblemonBallInventory[user.id] === 'object' ? db.economy.cobblemonBallInventory[user.id] : {};
         const special = Object.fromEntries(Object.entries(COBBLEMON_CAPTURE_BALLS).filter(([id, ball]) => !ball.daily).map(([id, ball]) => [id, { id, name: ball.name, shortName: ball.shortName, sprite: ball.sprite, multiplier: ball.multiplier, unitPrice: ball.price, quantity: Math.max(0, Number(inventory[id] || 0)) }]));
-        return { remaining: Math.max(0, total - used), total, used, daily: 5, extra, buyQuantity, canBuy: buyQuantity > 0, buyPrice: buyQuantity ? roundMoney(retailPriceWithCents(90) * buyQuantity / 10) : 0, selected: COBBLEMON_CAPTURE_BALLS.poke.id, special };
+        return { remaining: Math.max(0, total - used), total, used, daily: 5, extra, maxPurchase: 20, canBuy: true, unitPrice, selected: COBBLEMON_CAPTURE_BALLS.poke.id, special };
       })(),
       roulette: (() => {
         const last = [...db.economy.cobblemonRouletteSpins].reverse().find((entry) => entry.userId === user.id);
@@ -3956,8 +4009,8 @@ async function handleApi(req, res, route) {
     const dayKey = saoPauloDayKey();
     const attempts = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
     const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-    const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
-    if (attempts >= 5 + extra) throw new HttpError(409, 'Suas Poké Balls acabaram. Elas voltam amanhã ou você pode comprar o pacote extra diário.');
+    const extra = purchase ? Math.max(0, Math.floor(Number(purchase.quantity || 0))) : 0;
+    if (attempts >= 5 + extra) throw new HttpError(409, 'Suas Poké Balls acabaram. Elas voltam amanhã ou você pode comprar Poké Balls extras para hoje.');
     const available = COBBLEMON_CATALOG;
     if (!available.length) throw new HttpError(409, 'Nenhum Pokémon disponível para encontrar.');
     const roll = Math.random();
@@ -3972,10 +4025,11 @@ async function handleApi(req, res, route) {
     const levelFloor = [0, 5, 25, 50, 70][tier];
     const levelCeiling = [0, 30, 50, 75, 100][tier];
     const level = levelFloor + Math.floor(Math.random() * (levelCeiling - levelFloor + 1));
+    const isShiny = Math.random() < COBBLEMON_SHINY_CHANCE;
     const ownedEntry = (Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : []).find((entry) => Number(entry.id) === Number(pokemon.i));
     const ownedLevel = ownedEntry ? (Number(ownedEntry.level) > 0 ? Number(ownedEntry.level) : normalizedCobblemonLevel(ownedEntry.id, ownedEntry.tier)) : null;
     const captureChances = Object.fromEntries(Object.keys(COBBLEMON_CAPTURE_BALLS).map((ballType) => [ballType, cobblemonCaptureChance(tier, level, ballType)]));
-    json(res, 200, { encounterToken: createCobblemonEncounter(auth, pokemon, tier, level), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, captureChances, alreadyOwned: Boolean(ownedEntry), ownedLevel, expiresIn: 60 }); return;
+    json(res, 200, { encounterToken: createCobblemonEncounter(auth, pokemon, tier, level, isShiny), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level, isShiny }, captureChances, alreadyOwned: Boolean(ownedEntry), ownedLevel, expiresIn: 60 }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/capture') {
     const auth = requireAuth(req); const { user } = auth; const body = await readJson(req); const verified = verifyCobblemonEncounter(auth, body.encounterToken);
@@ -3990,7 +4044,7 @@ async function handleApi(req, res, route) {
     if (db.economy.cobblemonCaptureAttempts.some((entry) => entry.encounterKey === encounterKey)) throw new HttpError(409, 'Esta Poké Ball já foi arremessada. Procure outro Pokémon.');
     const attempts = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
     const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-    const extra = purchase ? Math.min(10, Math.max(0, Number(purchase.quantity || 0))) : 0;
+    const extra = purchase ? Math.max(0, Math.floor(Number(purchase.quantity || 0))) : 0;
     if (attempts >= 5 + extra) throw new HttpError(409, 'Suas Poké Balls acabaram por hoje.');
     const ballType = String(body.ballType || 'poke').toLowerCase();
     const ball = COBBLEMON_CAPTURE_BALLS[ballType];
@@ -4003,20 +4057,26 @@ async function handleApi(req, res, route) {
     }
     const tier = Math.max(1, Math.min(4, Number(verified.encounter.tier) || 1));
     const level = Math.max(1, Math.min(100, Number(verified.encounter.level) || tier * 20));
+    const isShiny = Boolean(verified.encounter.isShiny);
     const chance = cobblemonCaptureChance(tier, level, ballType) / 100;
     const deterministicRoll = parseInt(createHash('sha256').update('capture:' + auth.token + ':' + verified.payload + ':' + ballType).digest('hex').slice(0, 8), 16) / 0xffffffff;
     const hit = body.hit !== false;
     const captured = hit && deterministicRoll < chance;
     const createdAt = new Date().toISOString();
-    db.economy.cobblemonCaptureAttempts.push({ id: randomUUID(), userId: user.id, dayKey, encounterKey, pokemonId: Number(pokemon.i), tier, level, hit, captured, ballType, ballName: ball.name, createdAt });
+    db.economy.cobblemonCaptureAttempts.push({ id: randomUUID(), userId: user.id, dayKey, encounterKey, pokemonId: Number(pokemon.i), tier, level, isShiny, hit, captured, ballType, ballName: ball.name, createdAt });
     if (db.economy.cobblemonCaptureAttempts.length > 3000) db.economy.cobblemonCaptureAttempts = db.economy.cobblemonCaptureAttempts.slice(-3000);
     let replaced = false;
     let keptExisting = false;
-    if (captured && !alreadyOwned) db.economy.cobblemonDex[user.id].push({ id: Number(pokemon.i), tier, level, caughtAt: new Date().toISOString() });
-    else if (captured && alreadyOwned && level > ownedLevel) { Object.assign(ownedEntry, { tier, level, caughtAt: new Date().toISOString(), upgradedAt: new Date().toISOString() }); replaced = true; }
-    else if (captured && alreadyOwned) keptExisting = true;
+    let shinyUpgraded = false;
+    if (captured && !alreadyOwned) db.economy.cobblemonDex[user.id].push({ id: Number(pokemon.i), tier, level, isShiny, caughtAt: new Date().toISOString() });
+    else if (captured && alreadyOwned && (level > ownedLevel || (isShiny && !ownedEntry.isShiny))) {
+      shinyUpgraded = isShiny && !ownedEntry.isShiny;
+      Object.assign(ownedEntry, { tier: level > ownedLevel ? tier : ownedEntry.tier, level: level > ownedLevel ? level : ownedEntry.level, isShiny: Boolean(ownedEntry.isShiny || isShiny), caughtAt: new Date().toISOString(), upgradedAt: new Date().toISOString() });
+      replaced = level > ownedLevel;
+    } else if (captured && alreadyOwned) keptExisting = true;
+    const captureBonus = captured ? grantCobblemonCaptureBonuses(user, { pokemonId: Number(pokemon.i), tier, isShiny }) : { total: 0, grants: [], totalCaught: db.economy.cobblemonDex[user.id].length };
     await persist(); broadcastRefresh('economy');
-    json(res, 200, { captured, duplicate: captured && alreadyOwned, alreadyOwned, ownedLevel, replaced, keptExisting, missed: !hit, chance: Math.round(chance * 100), ballType, ballName: ball.name, ballSprite: ball.sprite, pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level }, profile: profileFor(user) }); return;
+    json(res, 200, { captured, duplicate: captured && alreadyOwned, alreadyOwned, ownedLevel, replaced, keptExisting, shinyUpgraded, missed: !hit, chance: Math.round(chance * 100), ballType, ballName: ball.name, ballSprite: ball.sprite, captureBonus, pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level, isShiny }, profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/balls/buy-special') {
     const { user } = requireAuth(req); const body = await readJson(req); const ballType = String(body.ballType || '').toLowerCase(); const ball = COBBLEMON_CAPTURE_BALLS[ballType];
@@ -4034,11 +4094,11 @@ async function handleApi(req, res, route) {
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), ballType, quantity, price }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/balls/buy') {
-    const { user } = requireAuth(req); const dayKey = saoPauloDayKey();
+    const { user } = requireAuth(req); const body = await readJson(req); const dayKey = saoPauloDayKey();
+    const quantity = Number(body.quantity);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) throw new HttpError(400, 'Escolha entre 1 e 20 Poké Balls.');
     const existing = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-    const already = Math.min(10, Math.max(0, Number(existing?.quantity || 0)));
-    const quantity = 10 - already;
-    if (quantity <= 0) throw new HttpError(409, 'O pacote extra de hoje já foi comprado.');
+    const already = Math.max(0, Math.floor(Number(existing?.quantity || 0)));
     const price = roundMoney(retailPriceWithCents(90) * quantity / 10), before = walletFor(user.id);
     if (before < price) throw new HttpError(409, 'Créditos 51 insuficientes para comprar as Poké Balls.');
     addCredits(user.id, -price); const createdAt = new Date().toISOString();
@@ -4046,7 +4106,7 @@ async function handleApi(req, res, route) {
     else db.economy.cobblemonBallPurchases.push({ id: randomUUID(), userId: user.id, dayKey, quantity, price, createdAt });
     if (db.economy.cobblemonBallPurchases.length > 1500) db.economy.cobblemonBallPurchases = db.economy.cobblemonBallPurchases.slice(-1500);
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-balls', amount: -price, before, after: roundMoney(before - price), reason: 'Complemento diário de ' + quantity + ' Poké Balls', createdAt });
-    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), quantity, price }); return;
   }
 
   if (req.method === 'POST' && route === '/api/loans/offer-item') {
@@ -5267,7 +5327,7 @@ function canViewSubmission(user, submission) {
 }
 
 export async function requestHandler(req, res) {
-  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
   res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
   const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
   try {
