@@ -391,6 +391,34 @@ async function ensureDatabase(seedDatabase) {
     db.economy.cobblemonDexLevelsV1 = new Date().toISOString();
     changed = true;
   }
+  // Crédito único das recompensas de captura para Pokédexes existentes. A
+  // migração é marcada no banco para nunca repetir pagamentos nem aumentar o
+  // custo das requisições nas próximas sessões.
+  if (!db.economy.cobblemonCaptureRewardsBackfillV1) {
+    db.users.forEach((user) => {
+      const caught = Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : [];
+      const claimed = new Set(db.economy.cobblemonCaptureRewardClaims.filter((entry) => entry.userId === user.id).map((entry) => entry.key));
+      const grant = (key, amount, reason) => {
+        if (claimed.has(key)) return;
+        const createdAt = new Date().toISOString();
+        const before = walletFor(user.id);
+        addCredits(user.id, amount);
+        db.economy.cobblemonCaptureRewardClaims.push({ id: randomUUID(), userId: user.id, key, amount, reason, createdAt, backfill: true });
+        db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-capture-bonus', amount, before, after: roundMoney(before + amount), reason, createdAt, backfill: true });
+        claimed.add(key);
+      };
+      caught.forEach((entry) => {
+        const id = Number(entry.id);
+        const tier = Number(entry.tier || 1);
+        if (tier === 4) grant(`legendary:${id}`, COBBLEMON_CAPTURE_BONUSES.legendary, 'Bônus de primeira captura lendária');
+        else if (tier === 3) grant(`rare:${id}`, COBBLEMON_CAPTURE_BONUSES.rare, 'Bônus de primeira captura rara');
+        if (entry.isShiny) grant(`shiny:${id}`, COBBLEMON_CAPTURE_BONUSES.shiny, 'Bônus de primeira captura shiny');
+      });
+      COBBLEMON_CAPTURE_BONUSES.milestones.filter((entry) => caught.length >= entry.target).forEach((entry) => grant(`milestone:${entry.target}`, entry.reward, `Marco de ${entry.target} Pokémon capturados`));
+    });
+    db.economy.cobblemonCaptureRewardsBackfillV1 = new Date().toISOString();
+    changed = true;
+  }
   // Marcador legado mantido sem alterar inventário. Inicializar ou publicar o
   // site nunca deve apagar a Pokédex nem devolver Poké Balls já consumidas.
   if (!db.economy.cobblemonCaptureResetV2) { db.economy.cobblemonCaptureResetV2 = new Date().toISOString(); changed = true; }
