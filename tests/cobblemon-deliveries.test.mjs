@@ -33,6 +33,7 @@ test('Cobblemon mantém rolagem leve e preço de cápsula padronizado', () => {
   assert.match(app, /function scheduleCobblemonScrollMode\(\)/);
   assert.match(app, /shopCreditMarkup\(box\.price, 'por cápsula'\)/);
   assert.match(styles, /cobblemon-page\.is-scrolling \.cobblemon-scene-mon/);
+  assert.doesNotMatch(styles, /cobblemon-page\.is-scrolling \.cobblemon-scene-mon\{[^}]*visibility:hidden/);
 });
 
 test('Poké Ball só pode ser escolhida depois do encontro e exibe chance percentual', () => {

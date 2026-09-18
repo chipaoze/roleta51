@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-layout-v40",
-  "title": "Cobblemon: layout e rolagem corrigidos",
-  "notes": "Corrigimos os cards dos baús e da Cápsula Pokémon, eliminando o texto espremido, o espaço vazio e a rolagem horizontal. A imagem da cápsula agora tem fallback seguro."
+  "version": "20260918-cobblemon-scene-v41",
+  "title": "Cobblemon: cenário contínuo ao rolar",
+  "notes": "Os Pokémon decorativos da Pokédex agora permanecem visíveis durante a rolagem. A animação pausa brevemente para manter a navegação leve, sem sumirem da tela."
 }

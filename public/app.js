@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-layout-v40',
-  title: 'Cobblemon: layout e rolagem corrigidos',
-  notes: 'Corrigimos os cards dos baús e da Cápsula Pokémon, eliminando o texto espremido, o espaço vazio e a rolagem horizontal. A imagem da cápsula agora tem fallback seguro.'
+  version: '20260918-cobblemon-scene-v41',
+  title: 'Cobblemon: cenário contínuo ao rolar',
+  notes: 'Os Pokémon decorativos da Pokédex agora permanecem visíveis durante a rolagem. A animação pausa brevemente para manter a navegação leve, sem sumirem da tela.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -5554,7 +5554,7 @@ $('#currentYear').textContent = new Date().getFullYear();
 window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault(); deferredInstallPrompt = event; $('#installAppButton').classList.remove('hidden'); });
 $('#installAppButton').addEventListener('click', async () => { if (!deferredInstallPrompt) { showToast('No navegador, abra o menu ⋮ e escolha “Instalar aplicativo” ou “Adicionar à tela inicial”.'); return; } deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; });
 window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; $('#installAppButton').classList.add('hidden'); showToast('Área 51 instalada como aplicativo! 📲'); });
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js?v=20260918-2').catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js?v=20260918-3').catch(() => {}));
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && musicWanted && appState) startMusic();
 });
