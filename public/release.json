@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-capsule-purchase-v65",
-  "title": "Compra da Cápsula Pokémon corrigida",
-  "notes": "A compra da Cápsula Pokémon voltou a confirmar na tela corretamente. Também alinhamos a etapa de escolha pendente e mantivemos o limite semanal de sete cápsulas."
+  "version": "20260918-cobblemon-box-controls-v66",
+  "title": "Controles dos Baús Cobblemon corrigidos",
+  "notes": "Os botões Ver chances e Abrir agora receberam ação direta e ficaram acima da camada visual dos cards. A compra da Cápsula continua protegida pelo limite semanal."
 }

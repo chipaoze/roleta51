@@ -142,9 +142,13 @@ test('compra da Cápsula responde sem reutilizar campos da compra de Poké Balls
 
 test('Cápsula prioriza a escolha pendente no rótulo e no clique', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   assert.match(app, /const actionLabel = choiceMode \? \(monthlyBox\.choiceStage === 'weekly'/);
   assert.match(app, /const priceLabel = choiceMode \? `<b>\$\{monthlyBox\.choice\?\.choices/);
   assert.match(app, /data-cobblemon-box-mode="\$\{choiceMode \? 'choice' : readyToOpen \? 'open'/);
+  assert.match(app, /#cobblemonBoxShop'\)\?\.addEventListener\('click'/);
+  assert.match(app, /data-cobblemon-box-odds/);
+  assert.match(styles, /\.cobblemon-box-actions\{position:relative;z-index:6;pointer-events:auto\}/);
 });
 
 test('Poké Ball só pode ser escolhida depois do encontro e exibe chance percentual', () => {

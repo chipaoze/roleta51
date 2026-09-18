@@ -1976,6 +1976,8 @@ body.theme-light-override .cobblemon-page #cobblemonRouletteSpin.button-primary{
 .cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:198px!important}
 .cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions{grid-column:1/-1!important;grid-row:2!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px;align-self:end;width:100%;margin-top:2px}
 .cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions button{height:42px!important;min-height:42px!important;padding:8px 12px!important}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions{position:relative;z-index:6;pointer-events:auto}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions button{position:relative;z-index:7;pointer-events:auto}
 @media(max-width:1050px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{min-height:164px!important}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:186px!important}}
 @media(max-width:520px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{grid-template-columns:54px minmax(0,1fr)!important;padding:12px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span{width:54px;height:54px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span img{width:42px;height:42px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-copy>strong{font-size:14px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions{grid-template-columns:1fr!important}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:238px!important}}
 
