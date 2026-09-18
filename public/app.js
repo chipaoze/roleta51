@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-pokedex-feed-v44',
+  version: '20260918-feedback-v45',
   title: 'Pokédex e Feed da tripulação',
-  notes: 'A Pokédex ganhou cenário estático, compra padronizada de Poké Balls, shiny e recompensas de captura. O Feed agora exibe links válidos do YouTube em um player e permite selecionar o texto normalmente, mesmo com efeitos de cursor ativos.'
+  notes: 'Módulos pausados agora ficam ocultos para todos, o perfil ganhou um menu compacto e o botão de volume redundante foi removido.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3516,6 +3516,7 @@ function renderFeatureAvailability(flags = {}) {
   $$('#siteMenu a[data-page]').forEach((link) => {
     const feature = featurePageMap[link.dataset.page];
     link.classList.toggle('feature-paused', Boolean(feature && normalized[feature] === false));
+    link.hidden = Boolean(feature && normalized[feature] === false);
     link.setAttribute('aria-disabled', String(Boolean(feature && normalized[feature] === false)));
   });
   const form = $('#featureFlagsForm');
@@ -4167,11 +4168,12 @@ $('#registerForm').addEventListener('submit', async (event) => {
   finally { setBusy(form, false); }
 });
 
-$('#logoutButton').addEventListener('click', async () => {
+async function logoutSession() {
   await api('/api/logout', { method: 'POST' }).catch(() => {});
   showAuth();
-});
-$('#passwordButton').addEventListener('click', () => openPasswordDialog(false));
+}
+$('#logoutButton')?.addEventListener('click', logoutSession);
+$('#passwordButton')?.addEventListener('click', () => openPasswordDialog(false));
 $('#themeToggle').addEventListener('click', () => {
   if (rainbowThemeForced || !appState) return;
   const dark = !document.body.classList.contains('theme-dark');
@@ -4191,7 +4193,7 @@ $('#musicToggle').addEventListener('click', () => {
     if (!musicIsPlaying()) showToast('Não foi possível tocar a trilha agora. Verifique o som do navegador.', 'error');
   });
 });
-$('#volumeDownButton').addEventListener('click', () => {
+$('#volumeDownButton')?.addEventListener('click', () => {
   const dialog = $('#area51ProDialog');
   if (!dialog.open) dialog.showModal();
 });
@@ -5543,7 +5545,27 @@ $('#mercado').addEventListener('submit', async (event) => {
   catch (error) { showToast(error.message, 'error'); }
   finally { if (button.isConnected) button.disabled = false; }
 });
-$('#topProfileButton').addEventListener('click', () => showPortalPage('perfil', true));
+$('#topProfileButton').addEventListener('click', () => {
+  const menu = $('#profileQuickMenu');
+  if (!menu) return showPortalPage('perfil', true);
+  const open = menu.classList.toggle('hidden');
+  $('#topProfileButton').setAttribute('aria-expanded', String(!open));
+});
+document.addEventListener('click', (event) => {
+  const action = event.target.closest?.('[data-profile-action]');
+  if (action) {
+    $('#profileQuickMenu')?.classList.add('hidden');
+    $('#topProfileButton')?.setAttribute('aria-expanded', 'false');
+    if (action.dataset.profileAction === 'profile') showPortalPage('perfil', true);
+    else if (action.dataset.profileAction === 'password') openPasswordDialog(false);
+    else if (action.dataset.profileAction === 'logout') logoutSession();
+    return;
+  }
+  if (!event.target.closest?.('.profile-menu-wrap')) {
+    $('#profileQuickMenu')?.classList.add('hidden');
+    $('#topProfileButton')?.setAttribute('aria-expanded', 'false');
+  }
+});
 $('#profileAvatarInput').addEventListener('change', async (event) => {
   const input = event.currentTarget;
   const file = input.files?.[0];

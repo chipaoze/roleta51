@@ -8,7 +8,7 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260918-328">
+  <link rel="stylesheet" href="/styles.css?v=20260918-329">
   <link rel="stylesheet" href="/improvements.css?v=20260917-119">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260916-212">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
@@ -124,12 +124,9 @@
         <button id="notificationButton" class="icon-button notification-button" type="button" title="Abrir notificações" aria-label="Abrir notificações" aria-expanded="false">🔔<b id="notificationBadge" class="hidden">0</b></button>
         <button id="feedbackTopButton" class="feedback-top-button hidden" type="button" aria-controls="feedbackPanel" aria-expanded="false" title="Enviar melhoria ou bug">💬 <span>Feedback</span><b id="feedbackUnreadTop" class="feedback-unread hidden">0</b></button>
         <button id="musicToggle" class="icon-button music-toggle" title="Ativar som da rodada" aria-label="Ativar som da rodada">♫</button>
-        <button id="volumeDownButton" class="icon-button volume-down-button" title="Diminuir volume" aria-label="Diminuir volume">🔉</button>
         <span id="themePenaltyTimer" class="theme-penalty-timer hidden" aria-live="polite"></span><button id="themeToggle" class="icon-button theme-toggle" title="Ativar modo escuro" aria-label="Ativar modo escuro" aria-pressed="false">☾</button>
         <div class="weather-widget"><button id="weatherButton" class="weather-button" type="button" title="Clima em Americana, SP" aria-expanded="false" aria-controls="weatherPanel"><span id="weatherIcon" aria-hidden="true">☀️</span><span><strong id="weatherTemperature">--°</strong><small>Americana</small></span></button><aside id="weatherPanel" class="weather-panel hidden" aria-label="Previsão do tempo em Americana, São Paulo"><header><div><small>CLIMA LOCAL</small><h3>Americana, SP</h3></div><button id="weatherClose" type="button" aria-label="Fechar previsão">×</button></header><p id="weatherNow">Carregando previsão…</p><div id="weatherDays" class="weather-days"></div><small class="weather-source">Atualização local a cada 30 min</small></aside></div>
-        <button id="topProfileButton" class="top-profile-button" type="button" title="Abrir meu Perfil & Loja" aria-label="Abrir meu Perfil & Loja"><span class="avatar" id="userAvatar">M</span><span class="account-copy"><strong id="userName">Participante</strong><span id="userRole">Participante</span></span></button>
-        <button id="passwordButton" class="password-button" title="Alterar minha senha" aria-label="Alterar minha senha"><span aria-hidden="true">🔑</span><span class="password-button-label"><span class="password-button-long">Alterar </span>Senha</span></button>
-        <button id="logoutButton" class="logout-button" title="Sair da minha conta" aria-label="Sair da minha conta"><span aria-hidden="true">🚪</span><span class="logout-button-label">Sair</span></button>
+         <div class="profile-menu-wrap"><button id="topProfileButton" class="top-profile-button" type="button" title="Abrir menu do perfil" aria-label="Abrir menu do perfil" aria-expanded="false" aria-controls="profileQuickMenu"><span class="avatar" id="userAvatar">M</span><span class="account-copy"><strong id="userName">Participante</strong><span id="userRole">Participante</span></span><span class="profile-menu-chevron" aria-hidden="true">⌄</span></button><div id="profileQuickMenu" class="profile-quick-menu hidden" role="menu" aria-label="Menu do perfil"><button type="button" role="menuitem" data-profile-action="profile">👤 Exibir perfil</button><button type="button" role="menuitem" data-profile-action="password">🔑 Alterar senha</button><button type="button" role="menuitem" data-profile-action="logout">🚪 Sair</button></div></div>
       </div>
     </header>
 
@@ -888,6 +885,6 @@
   <script src="/card-album.js?v=20260917-237"></script>
   <script src="/weather.js?v=20260914-178"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-      <script src="/app.js?v=20260918-328"></script>
+      <script src="/app.js?v=20260918-329"></script>
 </body>
 </html>
