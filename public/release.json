@@ -1,5 +1,5 @@
 {
-  "version": "20260918-pokedex-feed-v43",
+  "version": "20260918-pokedex-feed-v44",
   "title": "Pokédex e Feed da tripulação",
-  "notes": "A Pokédex ganhou cenário estático, compra padronizada de Poké Balls, shiny e recompensas de captura. O Feed agora exibe links válidos do YouTube em um player e permite selecionar o texto normalmente."
+  "notes": "A Pokédex ganhou cenário estático, compra padronizada de Poké Balls, shiny e recompensas de captura. O Feed agora exibe links válidos do YouTube em um player e permite selecionar o texto normalmente, mesmo com efeitos de cursor ativos."
 }

@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-pokedex-feed-v43',
+  version: '20260918-pokedex-feed-v44',
   title: 'Pokédex e Feed da tripulação',
-  notes: 'A Pokédex ganhou cenário estático, compra padronizada de Poké Balls, shiny e recompensas de captura. O Feed agora exibe links válidos do YouTube em um player e permite selecionar o texto normalmente.'
+  notes: 'A Pokédex ganhou cenário estático, compra padronizada de Poké Balls, shiny e recompensas de captura. O Feed agora exibe links válidos do YouTube em um player e permite selecionar o texto normalmente, mesmo com efeitos de cursor ativos.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -577,6 +577,7 @@ function startThorCursorThrow() {
 
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || event.button !== 0) return;
+    if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
     if (phase === 'stuck') {
       suppressNextClick = true;
       event.preventDefault();
@@ -631,7 +632,7 @@ function startThorCursorThrow() {
     hint.innerHTML = '<b>🔨</b><span>Arraste e solte para arremessar</span>';
   }, true);
 
-  document.addEventListener('selectstart', (event) => { if (isActive() && (dragStart || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('selectstart', (event) => { if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return; if (isActive() && (dragStart || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('dragstart', (event) => { if (isActive() && (dragStart || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('contextmenu', (event) => { if (isActive() && (dragStart || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
 
@@ -717,6 +718,7 @@ function startWolverineCursorSlash() {
 
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
+    if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
     if (event.target?.matches?.('input,textarea,select,[contenteditable="true"]')) return;
     event.preventDefault();
     window.getSelection()?.removeAllRanges();
@@ -759,7 +761,7 @@ function startWolverineCursorSlash() {
   }, true);
 
   document.addEventListener('pointercancel', reset, true);
-  document.addEventListener('selectstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('selectstart', (event) => { if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return; if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('dragstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('contextmenu', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('click', (event) => {
@@ -932,6 +934,7 @@ function startCobblemonCaptureThrow() {
 
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || busy || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
+    if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
     if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
     keepEffectsAboveDialog();
     event.preventDefault();
@@ -970,7 +973,7 @@ function startCobblemonCaptureThrow() {
     launch(from, destination, hit);
   }, true);
   document.addEventListener('pointercancel', () => { start = null; dragging = false; document.documentElement.classList.remove('premium-pointer-gesture-active'); if (!busy) { ball.classList.remove('visible', 'aiming'); removeWildTarget(); } }, true);
-  document.addEventListener('selectstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('selectstart', (event) => { if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return; if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('dragstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('contextmenu', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('click', (event) => {
@@ -1033,6 +1036,7 @@ function startWebSlingerCursor() {
 
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || event.button !== 0 || (event.pointerType && event.pointerType !== 'mouse')) return;
+    if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
     if (event.target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]')) return;
     event.preventDefault();
     window.getSelection()?.removeAllRanges();
@@ -1065,7 +1069,7 @@ function startWebSlingerCursor() {
   }, true);
 
   document.addEventListener('pointercancel', reset, true);
-  document.addEventListener('selectstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
+  document.addEventListener('selectstart', (event) => { if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return; if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('dragstart', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('contextmenu', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('click', (event) => {
@@ -1111,6 +1115,7 @@ function preventTextSelectionOnPremiumCursorDrag() {
   }, true);
   document.addEventListener('pointercancel', clear, true);
   ['selectstart', 'dragstart', 'contextmenu'].forEach((type) => document.addEventListener(type, (event) => {
+    if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
     if (isEffectCursor() && (start || performance.now() < blockNativeUntil)) event.preventDefault();
   }, true));
 }
