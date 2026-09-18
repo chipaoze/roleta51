@@ -5,7 +5,7 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-scroll-v47',
+  version: '20260918-cobblemon-scroll-v48',
   title: 'Pokédex e Feed da tripulação',
   notes: 'O site ficou mais leve no desktop: listas longas renderizam sob demanda e imagens não são reprocessadas a cada atualização.'
 };
@@ -5847,7 +5847,7 @@ async function startCobblemonPageEncounter() {
       }
     };
     tick();
-    cobblemonHuntInterval = setInterval(tick, 250);
+    cobblemonHuntInterval = setInterval(tick, 1000);
   } catch (error) {
     resetCobblemonPageCapture(false);
     showToast(error.message, 'error');

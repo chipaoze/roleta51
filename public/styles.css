@@ -1563,11 +1563,11 @@ body.profile-theme-god-war .card { background:#102a38 !important; border-color:#
 
 /* Cenários premium: ilustração ao fundo e interface Área 51 preservada por superfícies opacas. */
 body.profile-theme-cobblemon .app {
-  background:linear-gradient(90deg,#061b3666 0%,#0838641c 48%,transparent 82%),url('/theme-cobblemon-ocean-v1.png') center/cover fixed !important;
+  background:linear-gradient(90deg,#061b3666 0%,#0838641c 48%,transparent 82%),url('/theme-cobblemon-ocean-v1.png') center/cover scroll !important;
 }
 body.profile-theme-cobblemon .app:before { content:none !important; }
 body.profile-theme-cobblemon .topbar { background:#061b36ee !important; border-color:#74dff5 !important; }
-body.profile-theme-cobblemon .section { background:rgba(11,37,64,.82) !important; border-color:#4b9fc1 !important; color:#eaf9ff !important; box-shadow:0 15px 34px #03122470 !important; backdrop-filter:blur(3px); }
+body.profile-theme-cobblemon .section { background:rgba(11,37,64,.94) !important; border-color:#4b9fc1 !important; color:#eaf9ff !important; box-shadow:0 15px 34px #03122470 !important; backdrop-filter:none !important; }
 body.profile-theme-cobblemon .app main :is(.card,.profile-identity-card,.profile-stats-card,.weekly-mission-card,.profile-wallet),
 body.profile-theme-cobblemon .shop-item,body.profile-theme-cobblemon .daily-meme-wall,body.profile-theme-cobblemon .anonymous-wall-wrap,body.profile-theme-cobblemon .hydration-team-wrap { background:rgba(16,47,75,.88) !important; border-color:#4e9abc !important; color:#ecfaff !important; }
 body.profile-theme-cobblemon :is(.section-heading h2,.section-heading p,.card h3,.shop-item h4,.daily-newspaper-head h3,.anonymous-wall-head h3,.hydration-team-head h3) { color:#effdff !important; }
@@ -1617,7 +1617,7 @@ body.profile-theme-sovereign :is(input,textarea,select) { background:#111226 !im
 /* Modo claro preserva a identidade de cada tema premium: a arte continua
    presente e as superfícies passam a ser claras, em vez de voltar ao azul padrão. */
 body.theme-light-override.profile-theme-gta-neon .app{background:radial-gradient(circle at 80% 9%,#ff76beaa 0,transparent 23%),radial-gradient(circle at 15% 20%,#58e9ff99 0,transparent 26%),linear-gradient(145deg,#fdf1ffdd,#f6e9ffbb 54%,#ffe1e6bb)!important}
-body.theme-light-override.profile-theme-cobblemon .app{background:linear-gradient(90deg,rgba(244,253,255,.34),rgba(231,250,255,.08)),url('/theme-cobblemon-ocean-v1.png') center/cover fixed!important}
+body.theme-light-override.profile-theme-cobblemon .app{background:linear-gradient(90deg,rgba(244,253,255,.34),rgba(231,250,255,.08)),url('/theme-cobblemon-ocean-v1.png') center/cover scroll!important}
 body.theme-light-override.profile-theme-wolverine .app{background:linear-gradient(90deg,rgba(255,249,211,.44),rgba(255,239,158,.10)),url('/theme-wolverine-comic-v1.png') center/cover fixed!important}
 body.theme-light-override.profile-theme-samurai .app{background:linear-gradient(90deg,rgba(255,247,250,.42),rgba(255,231,241,.09)),url('/theme-yotei-landscape-v1.png') center/cover fixed!important}
 body.theme-light-override.profile-theme-god-war .app{background:linear-gradient(90deg,rgba(242,251,255,.44),rgba(224,244,255,.10)),url('/theme-olympus-v1.png') center/cover fixed!important}
