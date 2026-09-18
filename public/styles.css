@@ -1923,3 +1923,9 @@ body.theme-light-override.profile-theme-cobblemon .app{background-image:linear-g
 body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) .cobblemon-page,
 body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(4,21,39,.86),rgba(6,38,58,.70) 52%,rgba(8,27,42,.60)),url('/theme-cobblemon-dex-v1.jpg') !important;background-position:center top !important;background-size:cover !important;background-attachment:scroll !important}
 body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(240,252,255,.90),rgba(218,244,250,.76) 54%,rgba(235,250,255,.64)),url('/theme-cobblemon-dex-v1.jpg') !important}
+/* Distribui o bioma ao longo da página sem usar fundo fixo ou repintura por frame. */
+body.profile-theme-cobblemon .app,
+body.theme-light-override.profile-theme-cobblemon .app{background-size:100% 980px !important;background-repeat:repeat-y !important;background-position:center top !important}
+body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) .cobblemon-page,
+body.theme-light-override .cobblemon-page{background-size:100% 980px !important;background-repeat:repeat-y !important;background-position:center top !important}
+@media(max-width:700px){body.profile-theme-cobblemon .app,body.theme-light-override.profile-theme-cobblemon .app,body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) .cobblemon-page,body.theme-light-override .cobblemon-page{background-size:auto 760px !important}}
