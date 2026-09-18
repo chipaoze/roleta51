@@ -1,4 +1,4 @@
-const CACHE_NAME = 'area51-static-v25';
+const CACHE_NAME = 'area51-static-v26';
 const STATIC_EXTENSIONS = /\.(?:js|css|png|jpe?g|webp|svg|ico|mp3|woff2?)(?:\?.*)?$/i;
 
 self.addEventListener('install', () => self.skipWaiting());

@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-actions-v62",
-  "title": "Ações Cobblemon estabilizadas",
-  "notes": "Revisamos a página Cobblemon: entregas expandem normalmente, o estado aberto é preservado e cursores especiais não bloqueiam mais controles nativos."
+  "version": "20260918-cobblemon-delivery-sprites-v63",
+  "title": "Sprites das entregas Cobblemon corrigidos",
+  "notes": "Os Pokémon do painel de entregas agora usam o sprite associado ao seu ID e têm uma alternativa automática caso a imagem original falhe."
 }

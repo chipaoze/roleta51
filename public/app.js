@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-actions-v62',
-  title: 'Ações Cobblemon estabilizadas',
-  notes: 'Revisamos a página Cobblemon: entregas expandem normalmente, o estado aberto é preservado e cursores especiais não bloqueiam mais controles nativos.'
+  version: '20260918-cobblemon-delivery-sprites-v63',
+  title: 'Sprites das entregas Cobblemon corrigidos',
+  notes: 'Os Pokémon do painel de entregas agora usam o sprite associado ao seu ID e têm uma alternativa automática caso a imagem original falhe.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2882,24 +2882,47 @@ function cobblemonPreviewSprite(pokemonId, size = 'large') {
   return `https://cobbledex.b-cdn.net/3dmons/previews/${size}/${Number(pokemonId)}.webp`;
 }
 
+function cobblemonFallbackSprite(pokemonId, isShiny = false) {
+  const id = Math.max(1, Math.floor(Number(pokemonId) || 25));
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${isShiny ? 'shiny/' : ''}${id}.png`;
+}
+
 function cobblemonShinyWikiSprite(pokemon = {}) {
   const name = String(pokemon.name || pokemon.n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   return `https://wiki.cobblemon.com/index.php/Special:FilePath/${encodeURIComponent(name + '_Shiny_(Model).png')}`;
 }
 
+function cobblemonSpriteSources(pokemon = {}, size = 'large') {
+  const id = pokemon.id || pokemon.i;
+  const preview = cobblemonPreviewSprite(id, size);
+  const fallback = cobblemonFallbackSprite(id, Boolean(pokemon.isShiny));
+  return pokemon.isShiny ? [cobblemonShinyWikiSprite(pokemon), fallback, preview] : [preview, fallback];
+}
+
 function applyCobblemonSprite(image, pokemon = {}, size = 'large') {
   if (!image) return;
-  const fallback = cobblemonPreviewSprite(pokemon.id || pokemon.i, size);
-  image.onerror = null;
-  image.src = pokemon.isShiny ? cobblemonShinyWikiSprite(pokemon) : fallback;
-  if (pokemon.isShiny) image.onerror = () => { image.onerror = null; image.src = fallback; };
+  const sources = cobblemonSpriteSources(pokemon, size);
+  const loadNext = () => {
+    const next = sources.shift();
+    if (!next) { image.onerror = null; return; }
+    image.src = next;
+  };
+  image.onerror = loadNext;
+  loadNext();
 }
 
 function cobblemonSpriteMarkup(pokemon = {}, size = 'large', attributes = '') {
-  const fallback = cobblemonPreviewSprite(pokemon.id || pokemon.i, size);
-  const source = pokemon.isShiny ? cobblemonShinyWikiSprite(pokemon) : fallback;
-  const recovery = pokemon.isShiny ? ` onerror="this.onerror=null;this.src='${escapeHtml(fallback)}'"` : '';
+  const [source, ...fallbacks] = cobblemonSpriteSources(pokemon, size);
+  const recovery = ` data-cobblemon-sprite-fallbacks="${escapeHtml(fallbacks.join('|'))}" onerror="const [next,...rest]=this.dataset.cobblemonSpriteFallbacks.split('|').filter(Boolean);if(next){this.dataset.cobblemonSpriteFallbacks=rest.join('|');this.src=next}else{this.onerror=null}"`;
   return `<img src="${escapeHtml(source)}"${recovery} ${attributes}>`;
+}
+
+function cobblemonDeliverySpriteMarkup(entry = {}) {
+  const pokemonId = Number(entry.pokemonId);
+  if (Number.isInteger(pokemonId) && pokemonId > 0) {
+    return cobblemonSpriteMarkup({ id: pokemonId, isShiny: Boolean(entry.isShiny) }, 'small', 'loading="lazy" decoding="async" alt=""');
+  }
+  return entry.sprite ? `<img src="${escapeHtml(entry.sprite)}" loading="lazy" decoding="async" alt="">` : '';
 }
 let cobblemonSelectedBall = 'poke';
 const COBBLEMON_BOX_CATALOG = {
@@ -3122,7 +3145,7 @@ function renderCobblemonDex(profile = {}) {
   else cobblemonOpenDeliveryGroups = new Set([...cobblemonOpenDeliveryGroups].filter((key) => deliveryGroups.has(key)));
   $('#cobblemonRewards').innerHTML = [...deliveryGroups.entries()].map(([groupKey, group]) => {
     const pending = group.entries.filter((entry) => entry.status === 'awaiting-delivery').length;
-    const rows = group.entries.map((entry) => `<article class="cobblemon-reward-row">${entry.sprite ? `<img src="${escapeHtml(entry.sprite)}" alt="">` : ''}<p><strong>${escapeHtml(entry.name)}</strong><small>${entry.status === 'decision-pending' ? 'Escolha: vender ou receber no servidor' : entry.status === 'awaiting-delivery' ? 'Aguardando entrega do Davi' : entry.status === 'claimed-no-delivery' ? 'Escolhido · sem nova entrega (Pokémon já entregue)' : entry.status === 'replaced' ? 'Substituído por uma nova escolha' : 'Entregue'}</small></p>${entry.status === 'decision-pending' ? `<button data-cobblemon-decision="keep" data-id="${escapeHtml(entry.id)}">Receber no servidor</button><button data-cobblemon-decision="sell" data-id="${escapeHtml(entry.id)}">Vender por ${Number(entry.sellPrice)}</button>` : canDeliverCobblemon && entry.status === 'awaiting-delivery' ? `<button data-cobblemon-delivered="${escapeHtml(entry.id)}">Marcar entregue</button>` : ''}</article>`).join('');
+    const rows = group.entries.map((entry) => `<article class="cobblemon-reward-row">${cobblemonDeliverySpriteMarkup(entry)}<p><strong>${escapeHtml(entry.name)}</strong><small>${entry.status === 'decision-pending' ? 'Escolha: vender ou receber no servidor' : entry.status === 'awaiting-delivery' ? 'Aguardando entrega do Davi' : entry.status === 'claimed-no-delivery' ? 'Escolhido · sem nova entrega (Pokémon já entregue)' : entry.status === 'replaced' ? 'Substituído por uma nova escolha' : 'Entregue'}</small></p>${entry.status === 'decision-pending' ? `<button data-cobblemon-decision="keep" data-id="${escapeHtml(entry.id)}">Receber no servidor</button><button data-cobblemon-decision="sell" data-id="${escapeHtml(entry.id)}">Vender por ${Number(entry.sellPrice)}</button>` : canDeliverCobblemon && entry.status === 'awaiting-delivery' ? `<button data-cobblemon-delivered="${escapeHtml(entry.id)}">Marcar entregue</button>` : ''}</article>`).join('');
     const expanded = cobblemonOpenDeliveryGroups.has(groupKey);
     return `<details class="cobblemon-delivery-group" data-cobblemon-delivery-group="${escapeHtml(groupKey)}"${expanded ? ' open' : ''}><summary aria-expanded="${expanded}"><span>👤</span><strong>${escapeHtml(group.playerName)}</strong><small>${group.entries.length} ${group.entries.length === 1 ? 'item' : 'itens'}${pending ? ` · ${pending} ${pending === 1 ? 'pendente' : 'pendentes'}` : ''}</small></summary><div>${rows}</div></details>`;
   }).join('');

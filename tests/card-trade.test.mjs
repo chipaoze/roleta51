@@ -31,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260918-345/);
-  assert.match(html, /app\.js\?v=20260918-345/);
+  assert.match(html, /styles\.css\?v=20260918-346/);
+  assert.match(html, /app\.js\?v=20260918-346/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -133,7 +133,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260918-cobblemon-actions-v62/);
+  assert.match(appJs, /20260918-cobblemon-delivery-sprites-v63/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -233,6 +233,18 @@ test('controles da página Cobblemon não são bloqueados por efeitos de cursor'
   assert.match(styles, /\.cobblemon-delivery-group summary::after/);
 });
 
+test('entregas de Pokémon usam o ID para exibir sprite e têm alternativa automática', () => {
+  assert.match(appJs, /function cobblemonDeliverySpriteMarkup\(entry = \{\}\)/);
+  assert.match(appJs, /cobblemonSpriteMarkup\(\{ id: pokemonId, isShiny: Boolean\(entry\.isShiny\) \}, 'small'/);
+  assert.match(appJs, /function cobblemonFallbackSprite\(pokemonId, isShiny = false\)/);
+  assert.match(appJs, /data-cobblemon-sprite-fallbacks=/);
+  const spriteCode = appJs.match(/function cobblemonPreviewSprite[\s\S]*?\nlet cobblemonSelectedBall/)[0].replace(/\nlet cobblemonSelectedBall$/, '');
+  const spriteHelpers = new Function('escapeHtml', `${spriteCode}; return { cobblemonDeliverySpriteMarkup };`)(value => String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;'));
+  const aerodactyl = spriteHelpers.cobblemonDeliverySpriteMarkup({ pokemonId: 142, isShiny: false });
+  assert.match(aerodactyl, /previews\/small\/142\.webp/);
+  assert.match(aerodactyl, /sprites\/pokemon\/142\.png/);
+});
+
 test('fluxo Cobblemon mantém as ações de baú, roleta, entrega, caça e bolas conectadas ao servidor', () => {
   ['/api/cobblemon/box/purchase', '/api/cobblemon/box/open', '/api/cobblemon/roulette/spin', '/api/cobblemon/reward/decision', '/api/cobblemon/encounter', '/api/cobblemon/capture', '/api/cobblemon/balls/buy-special', '/api/cobblemon/balls/buy'].forEach((route) => {
     assert.match(appJs, new RegExp(route.replaceAll('/', '\\/')));
@@ -304,7 +316,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260918-cobblemon-actions-v62/);
+  assert.match(appJs, /20260918-cobblemon-delivery-sprites-v63/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -312,7 +324,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260918-cobblemon-actions-v62/);
+  assert.match(appJs, /20260918-cobblemon-delivery-sprites-v63/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
