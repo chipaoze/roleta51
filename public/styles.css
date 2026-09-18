@@ -1942,3 +1942,21 @@ body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) 
 body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(4,21,39,.78),rgba(6,38,58,.48) 52%,rgba(8,27,42,.42)),url('/theme-cobblemon-dex-v4.jpg') !important;background-size:cover !important;background-repeat:no-repeat !important;background-position:center center !important;background-attachment:fixed !important}
 body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(240,252,255,.82),rgba(218,244,250,.58) 54%,rgba(235,250,255,.50)),url('/theme-cobblemon-dex-v4.jpg') !important}
 .cobblemon-scene-sprites{display:none !important}
+
+/* Cobblemon separado por contexto: caça leve e catálogo concentrado na Pokédex. */
+.cobblemon-tabs{display:flex;gap:10px;margin:0 0 16px;padding:6px;border:1px solid #4d8da8;border-radius:16px;background:linear-gradient(135deg,#0a2138dd,#102e46dd);box-shadow:inset 0 1px #c5f5ff1c}
+.cobblemon-tabs button{display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:8px;min-width:170px;padding:10px 14px;border:1px solid transparent;border-radius:11px;background:transparent;color:#c3dce8;text-align:left;cursor:pointer}
+.cobblemon-tabs button>span{grid-row:1 / span 2;font-size:22px}.cobblemon-tabs button b{font-size:13px}.cobblemon-tabs button small{color:#8db8ca;font-size:10px}.cobblemon-tabs button.active{border-color:#f0c958;background:linear-gradient(135deg,#9b6d18,#d09a27);color:#081725;box-shadow:0 7px 18px #07131e55}.cobblemon-tabs button.active small{color:#1a3442}
+.cobblemon-page[data-cobblemon-tab="catalog"] .cobblemon-main-column>article:not(#cobblemonDexCard){display:none}
+.cobblemon-dex-card .cobblemon-dex-toolbar,.cobblemon-dex-card .cobblemon-dex-search,.cobblemon-dex-card #cobblemonCaptureResult,.cobblemon-dex-card .cobblemon-dex-grid,.cobblemon-dex-card .cobblemon-dex-pages,.cobblemon-dex-card .cobblemon-capture-bonuses{display:none}
+.cobblemon-dex-card.catalog-view .cobblemon-hunt-launch,.cobblemon-dex-card.catalog-view .cobblemon-capture-stage,.cobblemon-dex-card.catalog-view .cobblemon-ball-wallet,.cobblemon-dex-card.catalog-view #cobblemonBallOptions,.cobblemon-dex-card.catalog-view .cobblemon-ball-help{display:none}
+.cobblemon-dex-card.catalog-view .cobblemon-dex-toolbar{display:flex}.cobblemon-dex-card.catalog-view .cobblemon-dex-search{display:grid}.cobblemon-dex-card.catalog-view #cobblemonCaptureResult,.cobblemon-dex-card.catalog-view .cobblemon-dex-grid,.cobblemon-dex-card.catalog-view .cobblemon-dex-pages{display:grid}.cobblemon-dex-card.catalog-view .cobblemon-capture-bonuses{display:grid}
+body.theme-light-override .cobblemon-tabs{background:linear-gradient(135deg,#edfaff,#d7eff5);border-color:#74a9bc}.theme-light-override .cobblemon-tabs button{color:#28536a}.theme-light-override .cobblemon-tabs button small{color:#5b7c8c}.theme-light-override .cobblemon-tabs button.active{color:#172b3c}
+@media(max-width:520px){.cobblemon-tabs{gap:6px}.cobblemon-tabs button{min-width:0;flex:1;padding:9px 10px}.cobblemon-tabs button>span{font-size:18px}.cobblemon-tabs button b{font-size:12px}}
+
+/* Ações da roleta: azul profundo legível, sem aparência de preto chapado. */
+.cobblemon-page #cobblemonRouletteOdds{border:1px solid #5f9fbd!important;background:linear-gradient(135deg,#1c4666,#285777)!important;color:#f2fbff!important;box-shadow:inset 0 1px #b9ecff26,0 7px 16px #06132355!important}
+.cobblemon-page #cobblemonRouletteOdds:hover{border-color:#8bd8ee!important;background:linear-gradient(135deg,#275a7b,#326b8e)!important;box-shadow:inset 0 1px #d5f8ff40,0 10px 22px #06132366!important}
+.cobblemon-page #cobblemonRouletteStatus{background:linear-gradient(135deg,#0d3048,#16435a)!important;border-color:#5caec6!important;color:#b8f5db!important;box-shadow:inset 0 1px #d2fbff22}
+body.theme-light-override .cobblemon-page #cobblemonRouletteOdds{border-color:#5c91aa!important;background:linear-gradient(135deg,#d9eef5,#c6e2ec)!important;color:#173a55!important;box-shadow:inset 0 1px #fff,0 7px 16px #426c7d24!important}
+body.theme-light-override .cobblemon-page #cobblemonRouletteOdds:hover{background:linear-gradient(135deg,#c9e9f2,#b4dae6)!important}

@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-legendary-v53',
-  title: 'Pokédex com lendários',
-  notes: 'A Pokédex agora usa uma única arte fixa com sprites reais de lendários integrados nos biomas. A camada duplicada de sprites foi removida e o centro continua livre para os cards.'
+  version: '20260918-cobblemon-tabs-v54',
+  title: 'Cobblemon dividido por áreas',
+  notes: 'A área Cobblemon agora separa Caça e Pokédex em abas leves, com catálogo concentrado, navegação mais clara e ações da roleta com contraste corrigido.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3023,8 +3023,23 @@ function renderCobblemonBallOptions(balls = {}, encounter = cobblemonPageEncount
   }).join('');
 }
 
+function setCobblemonTab(tab = 'hunt') {
+  const page = $('#cobblemon');
+  const dexCard = $('#cobblemonDexCard');
+  if (!page || !dexCard) return;
+  const nextTab = tab === 'catalog' ? 'catalog' : 'hunt';
+  page.dataset.cobblemonTab = nextTab;
+  dexCard.classList.toggle('catalog-view', nextTab === 'catalog');
+  $$('#cobblemonTabs [data-cobblemon-tab]').forEach((button) => {
+    const active = button.dataset.cobblemonTab === nextTab;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+}
+
 function renderCobblemonDex(profile = {}) {
   const card = $('#cobblemonDexCard'); if (!card) return;
+  if (!$('#cobblemon')?.dataset.cobblemonTab) setCobblemonTab('hunt');
   $('#cobblemonPageBall img').src = '/capture-ball-cobblemon.png';
   const catalog = Array.isArray(window.AREA51_COBBLEMON_CATALOG) ? window.AREA51_COBBLEMON_CATALOG : [];
   const ownEntries = Array.isArray(profile.cobblemon?.caught) ? profile.cobblemon.caught : [];
@@ -5918,6 +5933,8 @@ $('#cobblemonPageBall')?.addEventListener('pointercancel', (event) => {
   if (cobblemonPageDrag && event.pointerId === cobblemonPageDrag.pointerId) void finishCobblemonPageThrow(event);
 });
 document.addEventListener('click', async (event) => {
+  const cobblemonTab = event.target?.closest?.('[data-cobblemon-tab]');
+  if (cobblemonTab) { setCobblemonTab(cobblemonTab.dataset.cobblemonTab); return; }
   const dexFilterButton = event.target?.closest?.('[data-cobblemon-filter]');
   if (dexFilterButton) { cobblemonDexFilter = dexFilterButton.dataset.cobblemonFilter || 'all'; cobblemonDexPage = 0; renderCobblemonDex(appState.profile); return; }
   if (event.target?.id === 'cobblemonDexPrev' || event.target?.id === 'cobblemonDexNext') { cobblemonDexPage += event.target.id.endsWith('Next') ? 1 : -1; renderCobblemonDex(appState.profile); return; }

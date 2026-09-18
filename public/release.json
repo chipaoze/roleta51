@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-legendary-v53",
-  "title": "Pokédex com lendários",
-  "notes": "A Pokédex agora usa uma única arte fixa com sprites reais de lendários integrados nos biomas. A camada duplicada de sprites foi removida e o centro continua livre para os cards."
+  "version": "20260918-cobblemon-tabs-v54",
+  "title": "Cobblemon dividido por áreas",
+  "notes": "A área Cobblemon agora separa Caça e Pokédex em abas leves, com catálogo concentrado, navegação mais clara e ações da roleta com contraste corrigido."
 }
