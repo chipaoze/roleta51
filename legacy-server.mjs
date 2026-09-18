@@ -2500,7 +2500,9 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     const copies = Number(db.economy.cardAlbums?.[user.id]?.cards?.[drop.id] || 0);
     items.push({
       id: 'card-drop:' + drop.eventId,
-      icon: drop.icon,
+      // O ícone da carta pode ser 🪙 (Ficha 51), mas na central isso parece
+      // saldo. Use o verso de carta para deixar claro que é uma recompensa.
+      icon: '🎴',
       title: 'Você encontrou uma carta!',
       detail: drop.name + (copies ? ' · ' + copies + (copies === 1 ? ' cópia no Álbum.' : ' cópias no Álbum.') : ''),
       page: 'album',

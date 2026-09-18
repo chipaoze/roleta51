@@ -62,6 +62,10 @@ test('notificações navegam até o item exato depois da renderização', () => 
   assert.match(styles, /\.notification-target\{outline:3px solid/);
 });
 
+test('notificação de carta usa ícone de carta e não confunde com saldo', () => {
+  assert.match(serverJs, /id: 'card-drop:' \+ drop\.eventId,[\s\S]*?icon: '🎴',[\s\S]*?title: 'Você encontrou uma carta!'/);
+});
+
 test('cabeçalho exibe e atualiza o saldo de Créditos 51 em qualquer página', () => {
   assert.match(html, /id="topWallet"/);
   assert.match(html, /id="topWalletValue"/);
