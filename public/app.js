@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-delivery-specs-v64',
-  title: 'Entregas Cobblemon com nível e sexo',
-  notes: 'Cada Pokémon sorteado pela Cápsula agora mostra e mantém seu nível e sexo até a entrega. Onde houver spawn natural, o nível é o mínimo publicado pelo CobbleDex.'
+  version: '20260918-cobblemon-capsule-purchase-v65',
+  title: 'Compra da Cápsula Pokémon corrigida',
+  notes: 'A compra da Cápsula Pokémon voltou a confirmar na tela corretamente. Também alinhamos a etapa de escolha pendente e mantivemos o limite semanal de sete cápsulas.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3128,8 +3128,10 @@ function renderCobblemonDex(profile = {}) {
     const choicePending = box.monthly && monthlyBox.choicePending;
     const locked = box.monthly && !monthlyBox.canPurchase && !readyToOpen && !choicePending;
     const choiceMode = choicePending && monthlyBox.choice;
-    const actionLabel = readyToOpen ? `Sorteio ${Number(monthlyBox.openRollCount || 0) + 1}/3` : choiceMode ? (monthlyBox.choiceStage === 'weekly' ? 'Escolher entrega da semana' : 'Escolher 1 dos 3') : locked ? `Novo ciclo no sábado` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
-    const priceLabel = readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes nesta cápsula` : choiceMode ? `<b>${monthlyBox.choice?.choices?.length || (monthlyBox.choiceStage === 'weekly' ? monthlyBox.weeklyCandidates?.length || 7 : 3)} opções</b> para escolher` : shopCreditMarkup(box.price, 'por cápsula');
+    // Uma escolha de cápsula anterior precisa ser concluída antes de abrir a
+    // próxima. A prioridade visual deve coincidir com o modo enviado no clique.
+    const actionLabel = choiceMode ? (monthlyBox.choiceStage === 'weekly' ? 'Escolher entrega da semana' : 'Escolher 1 dos 3') : readyToOpen ? `Sorteio ${Number(monthlyBox.openRollCount || 0) + 1}/3` : locked ? `Novo ciclo no sábado` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
+    const priceLabel = choiceMode ? `<b>${monthlyBox.choice?.choices?.length || (monthlyBox.choiceStage === 'weekly' ? monthlyBox.weeklyCandidates?.length || 7 : 3)} opções</b> para escolher` : readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes nesta cápsula` : shopCreditMarkup(box.price, 'por cápsula');
     const deliveryNote = box.monthly ? `<small class="cobblemon-delivery-lock"><b>${Number(monthlyBox.weeklyPurchasesRemaining ?? 7)} de 7</b> cápsulas disponíveis nesta semana · 3 sorteios por cápsula · escolha da entrega na sexta · ciclo reinicia no sábado.</small>` : '';
     const purchaseMore = box.monthly && monthlyBox.canPurchase && (readyToOpen || choiceMode) ? `<button data-cobblemon-box="${id}" data-cobblemon-box-mode="purchase">Comprar outra cápsula · ${shopCreditMarkup(box.price)}</button>` : '';
     const coverFallback = escapeHtml('/capture-ball-cobblemon.png');

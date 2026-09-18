@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-delivery-specs-v64",
-  "title": "Entregas Cobblemon com nível e sexo",
-  "notes": "Cada Pokémon sorteado pela Cápsula agora mostra e mantém seu nível e sexo até a entrega. Onde houver spawn natural, o nível é o mínimo publicado pelo CobbleDex."
+  "version": "20260918-cobblemon-capsule-purchase-v65",
+  "title": "Compra da Cápsula Pokémon corrigida",
+  "notes": "A compra da Cápsula Pokémon voltou a confirmar na tela corretamente. Também alinhamos a etapa de escolha pendente e mantivemos o limite semanal de sete cápsulas."
 }

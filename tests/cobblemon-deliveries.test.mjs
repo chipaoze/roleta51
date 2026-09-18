@@ -100,6 +100,53 @@ test('Cobblemon mantém rolagem leve e preço de cápsula padronizado', () => {
   assert.doesNotMatch(styles, /cobblemon-scene-float/);
 });
 
+test('compra da Cápsula responde sem reutilizar campos da compra de Poké Balls', async () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const purchaseRoute = server.indexOf("route === '/api/cobblemon/box/purchase'");
+  const start = server.lastIndexOf('  if (req.method', purchaseRoute);
+  const nextRoute = server.indexOf("route === '/api/cobblemon/box/open'", start);
+  const end = server.lastIndexOf('  if (req.method', nextRoute);
+  const purchaseHandler = server.slice(start, end);
+  assert.ok(start >= 0 && end > start, 'handler de compra da cápsula localizado');
+  assert.match(purchaseHandler, /json\(res, 200, \{ profile: profileFor\(user\) \}\);/);
+  assert.doesNotMatch(purchaseHandler, /quantity, price, remaining/);
+  assert.doesNotMatch(purchaseHandler, /\balready\b|\bdayKey\b/);
+  assert.doesNotMatch(purchaseHandler, /'reset-refunded', 'sold'/);
+
+  const db = { economy: { cobblemonDeliveries: [], creditAdjustments: [] } };
+  let wallet = 1000;
+  let persisted = false;
+  const purchase = vm.runInNewContext(`async (req, res, route) => { ${purchaseHandler} }`, {
+    db,
+    requireAuth: () => ({ user: { id: 'user-1', displayName: 'Tripulante' } }),
+    readJson: async () => ({ boxId: 'pokemon' }),
+    COBBLEMON_BOXES: { pokemon: { monthlyPokemon: true, price: 899.90, name: 'Cápsula Pokémon' } },
+    pokemonCapsuleCycleKey: () => 'capsule-week:2026-09-12',
+    walletFor: () => wallet,
+    roundMoney: (value) => Math.round(value * 100) / 100,
+    addCredits: (_userId, amount) => { wallet = Math.round((wallet + amount) * 100) / 100; },
+    randomUUID: () => 'capsule-id',
+    persist: async () => { persisted = true; },
+    broadcastRefresh: () => {},
+    profileFor: () => ({ wallet }),
+    json: (res, status, payload) => { res.status = status; res.payload = payload; },
+  });
+  const response = {};
+  await purchase({ method: 'POST' }, response, '/api/cobblemon/box/purchase');
+  assert.equal(persisted, true);
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.profile.wallet, 100.1);
+  assert.equal(db.economy.cobblemonDeliveries[0].status, 'box-closed');
+  assert.equal(db.economy.creditAdjustments[0].amount, -899.9);
+});
+
+test('Cápsula prioriza a escolha pendente no rótulo e no clique', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(app, /const actionLabel = choiceMode \? \(monthlyBox\.choiceStage === 'weekly'/);
+  assert.match(app, /const priceLabel = choiceMode \? `<b>\$\{monthlyBox\.choice\?\.choices/);
+  assert.match(app, /data-cobblemon-box-mode="\$\{choiceMode \? 'choice' : readyToOpen \? 'open'/);
+});
+
 test('Poké Ball só pode ser escolhida depois do encontro e exibe chance percentual', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
