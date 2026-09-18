@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-pokedex-v58",
-  "title": "Caçada Cobblemon responsiva",
-  "notes": "O botão Iniciar caçada agora responde diretamente ao clique e informa quando a sessão ainda carrega, quando outra coleção está selecionada ou quando não há Poké Balls disponíveis."
+  "version": "20260918-cobblemon-pokedex-v59",
+  "title": "Pokédex e caça mais rápidas",
+  "notes": "Os filtros Todos, Capturados e Bloqueados agora respondem diretamente ao clique, e a navegação fica leve enquanto você procura o Pokémon. A página volta a renderizar normalmente ao terminar a caça. A venda de candidatos da cápsula também foi reforçada."
 }

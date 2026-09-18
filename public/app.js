@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-pokedex-v58',
-  title: 'Caçada Cobblemon responsiva',
-  notes: 'O botão Iniciar caçada agora responde diretamente ao clique e informa quando a sessão ainda carrega, quando outra coleção está selecionada ou quando não há Poké Balls disponíveis.'
+  version: '20260918-cobblemon-pokedex-v59',
+  title: 'Pokédex e caça mais rápidas',
+  notes: 'Os filtros Todos, Capturados e Bloqueados agora respondem diretamente ao clique, e a navegação fica leve enquanto você procura o Pokémon. A página volta a renderizar normalmente ao terminar a caça.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3152,6 +3152,18 @@ function renderCobblemonDex(profile = {}) {
   }
 }
 
+function setCobblemonDexFilter(filter = 'all') {
+  const nextFilter = ['all', 'caught', 'locked'].includes(filter) ? filter : 'all';
+  cobblemonDexFilter = nextFilter;
+  cobblemonDexPage = 0;
+  $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => {
+    const active = button.dataset.cobblemonFilter === nextFilter;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  if (appState?.profile) renderCobblemonDex(appState.profile);
+}
+
 function renderProfileEconomy(profile = {}, globalOnly = false) {
   const profilePage = currentPortalPage();
   // applyState() chama esta função em modo global para atualizar apenas o
@@ -3697,6 +3709,14 @@ function renderActivePortalPage(data = appState) {
   renderingActivePortalPage = true;
   try {
     const page = currentPortalPage();
+    // Durante uma caçada, o encontro já está montado no body. Evite reconstruir
+    // galerias e cards pesados a cada setor visitado; a página normal volta a
+    // ser renderizada assim que o encontro termina.
+    if (cobblemonPageEncounter && page !== 'cobblemon') {
+      optimizeRenderedImages();
+      renderedPortalPage = page;
+      return;
+    }
     if (page === 'memes') {
       renderGallery(); renderDailyWall(data.dailyWall); renderAnonymousWall(data.anonymousWall);
     } else if (page === 'sorteio') {
@@ -5824,6 +5844,10 @@ function resetCobblemonPageCapture(clearResult = false) {
   $('#cobblemonCaptureHint').textContent = 'Clique em “Iniciar caçada” para procurar um Pokémon selvagem.';
   renderCobblemonBallOptions(appState.profile?.cobblemon?.balls || {}, null);
   if (clearResult) { $('#cobblemonCaptureResult').textContent = ''; $('#cobblemonCaptureResult').className = 'cobblemon-capture-result'; }
+  if (appState && currentPortalPage() !== 'cobblemon') {
+    renderedPortalPage = null;
+    requestAnimationFrame(() => { if (!cobblemonPageEncounter) renderActivePortalPage(appState); });
+  }
 }
 
 function placeCobblemonEncounter() {
@@ -5961,11 +5985,34 @@ $('#cobblemonPageBall')?.addEventListener('pointerup', (event) => {
 $('#cobblemonPageBall')?.addEventListener('pointercancel', (event) => {
   if (cobblemonPageDrag && event.pointerId === cobblemonPageDrag.pointerId) void finishCobblemonPageThrow(event);
 });
+async function sellCobblemonCandidate(button) {
+  if (!button || button.disabled) return;
+  const amount = Number(button.dataset.cobblemonCandidatePrice || 300);
+  if (!confirm(`Vender este Pokémon por ${formatCredits(amount)} Créditos 51? Ele será removido da lista e não poderá ser recuperado.`)) return;
+  button.disabled = true;
+  try {
+    const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: { id: button.dataset.cobblemonCandidateSell, action: 'sell-candidate' } });
+    appState.profile = data.profile;
+    renderProfileEconomy(appState.profile);
+    showToast(`Pokémon vendido por ${formatCredits(amount)} Créditos 51.`);
+  } catch (error) {
+    showToast(error.message, 'error');
+    button.disabled = false;
+  }
+}
+
+$('#cobblemonCapsuleResults')?.addEventListener('click', (event) => {
+  const candidateSellButton = event.target?.closest?.('[data-cobblemon-candidate-sell]');
+  if (!candidateSellButton) return;
+  event.preventDefault();
+  event.stopPropagation();
+  void sellCobblemonCandidate(candidateSellButton);
+});
 document.addEventListener('click', async (event) => {
   const cobblemonTab = event.target?.closest?.('[data-cobblemon-tab]');
   if (cobblemonTab) { setCobblemonTab(cobblemonTab.dataset.cobblemonTab); return; }
   const dexFilterButton = event.target?.closest?.('#cobblemonDexFilters [data-cobblemon-filter]');
-  if (dexFilterButton) { event.preventDefault(); cobblemonDexFilter = dexFilterButton.dataset.cobblemonFilter || 'all'; cobblemonDexPage = 0; $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.classList.toggle('active', button === dexFilterButton)); renderCobblemonDex(appState.profile); return; }
+  if (dexFilterButton) { event.preventDefault(); setCobblemonDexFilter(dexFilterButton.dataset.cobblemonFilter); return; }
   if (event.target?.id === 'cobblemonDexPrev' || event.target?.id === 'cobblemonDexNext') { cobblemonDexPage += event.target.id.endsWith('Next') ? 1 : -1; renderCobblemonDex(appState.profile); return; }
   const ballSelectButton = event.target?.closest?.('[data-cobblemon-ball-select]');
   if (ballSelectButton) {
@@ -6060,10 +6107,7 @@ document.addEventListener('click', async (event) => {
   }
   const candidateSellButton = event.target?.closest?.('[data-cobblemon-candidate-sell]');
   if (candidateSellButton) {
-    const amount = Number(candidateSellButton.dataset.cobblemonCandidatePrice || 300);
-    if (!confirm(`Vender este Pokémon por ${amount} coins? Ele será removido da lista e não poderá ser recuperado.`)) return;
-    candidateSellButton.disabled = true;
-    try { const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: JSON.stringify({ id: candidateSellButton.dataset.cobblemonCandidateSell, action: 'sell-candidate' }) }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast(`Pokémon vendido por ${amount} coins.`); } catch (error) { showToast(error.message, 'error'); candidateSellButton.disabled = false; }
+    await sellCobblemonCandidate(candidateSellButton);
     return;
   }
   const decision = event.target?.closest?.('[data-cobblemon-decision]');
@@ -6072,6 +6116,11 @@ document.addEventListener('click', async (event) => {
   if (delivered) { try { applyState(await api('/api/admin/cobblemon/delivered', { method: 'POST', body: JSON.stringify({ id: delivered.dataset.cobblemonDelivered }) })); } catch (error) { showToast(error.message); } return; }
 });
 $('#cobblemonDexOwner')?.addEventListener('change', (event) => { cobblemonDexOwnerId = event.target.value; cobblemonDexPage = 0; renderCobblemonDex(appState.profile); });
+$$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  setCobblemonDexFilter(button.dataset.cobblemonFilter);
+}));
 $('#cobblemonCaptureButton')?.addEventListener('click', (event) => {
   event.preventDefault();
   void startCobblemonPageEncounter();

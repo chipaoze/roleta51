@@ -31,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260918-341/);
-  assert.match(html, /app\.js\?v=20260918-341/);
+  assert.match(html, /styles\.css\?v=20260918-342/);
+  assert.match(html, /app\.js\?v=20260918-342/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -133,7 +133,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260918-cobblemon-pokedex-v58/);
+  assert.match(appJs, /20260918-cobblemon-pokedex-v59/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -275,7 +275,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260918-cobblemon-pokedex-v58/);
+  assert.match(appJs, /20260918-cobblemon-pokedex-v59/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -283,7 +283,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260918-cobblemon-pokedex-v58/);
+  assert.match(appJs, /20260918-cobblemon-pokedex-v59/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -305,6 +305,8 @@ test('Cobblemon separa Caça e Pokédex em abas sem duplicar consultas', () => {
   assert.match(appJs, /function setCobblemonTab\(tab = 'hunt'\)/);
   assert.match(appJs, /nextTab === 'hunt' && appState\?\.me\?\.id/);
   assert.match(appJs, /\$\('#cobblemonCaptureButton'\)\?\.addEventListener\('click'/);
+  assert.match(appJs, /function setCobblemonDexFilter\(filter = 'all'\)/);
+  assert.match(appJs, /button\.addEventListener\('click', \(event\) =>/);
   assert.match(appJs, /Sua sessão ainda está carregando/);
   assert.match(appJs, /Você está sem Poké Balls disponíveis hoje/);
   assert.match(appJs, /page\.dataset\.cobblemonTab = nextTab/);
@@ -325,6 +327,8 @@ test('caçada troca de setor antes da renderização pesada da página', () => {
   assert.match(appJs, /updateCobblemonHuntSector\(page\);/);
   assert.match(appJs, /const needsFirstPaint = cobblemonPageEncounter \|\| page === 'perfil' \|\| page === 'loja';/);
   assert.match(appJs, /if \(needsFirstPaint\) requestAnimationFrame\(\(\) => requestAnimationFrame\(renderPage\)\)/);
+  assert.match(appJs, /if \(cobblemonPageEncounter && page !== 'cobblemon'\)/);
+  assert.match(appJs, /renderedPortalPage = null;\s*requestAnimationFrame\(\(\) => \{ if \(!cobblemonPageEncounter\) renderActivePortalPage\(appState\); \}\)/);
 });
 
 test('Perfil e Loja não são reconstruídos duas vezes durante a sincronização global', () => {
@@ -434,11 +438,14 @@ test('Pokémon não escolhido pode ser vendido pelo valor da raridade', () => {
   assert.match(serverJs, /common: 300, shiny: 400, rare: 450/);
   assert.match(serverJs, /cobblemon-candidate-sale/);
   assert.match(appJs, /data-cobblemon-candidate-sell/);
+  assert.match(appJs, /function sellCobblemonCandidate\(button\)/);
+  assert.match(appJs, /cobblemonCapsuleResults.*addEventListener\('click'/s);
   assert.match(appJs, /Vender por: \$\{sellAmount\} coins/);
   assert.match(serverJs, /Registros vendidos continuam contando como compras/);
   assert.doesNotMatch(serverJs, /cycleEntries = cycleId \? db\.economy\.cobblemonDeliveries\.filter\([^\n]+sold/);
   assert.match(serverJs, /weeklyChoiceClosed/);
   assert.match(serverJs, /soldFromWeeklyChoice/);
+  assert.match(serverJs, /entry\.rewardId === body\.id/);
 });
 
 test('reset da cápsula é idempotente e devolve o preço de cada compra antiga', () => {

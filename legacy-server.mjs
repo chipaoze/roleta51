@@ -3986,7 +3986,7 @@ async function handleApi(req, res, route) {
     await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/reward/decision') {
-    const { user } = requireAuth(req); const body = await readJson(req); const wantsWeeklyImmediate = body.action === 'choose-weekly-now'; const wantsCandidateSale = body.action === 'sell-candidate'; const reward = db.economy.cobblemonDeliveries.find((entry) => entry.id === body.id && entry.userId === user.id && (['decision-pending', 'box-open', 'choice-pending', 'weekly-choice-pending'].includes(entry.status) || ((wantsWeeklyImmediate || wantsCandidateSale) && entry.status === 'cycle-candidate')));
+    const { user } = requireAuth(req); const body = await readJson(req); const wantsWeeklyImmediate = body.action === 'choose-weekly-now'; const wantsCandidateSale = body.action === 'sell-candidate'; const reward = db.economy.cobblemonDeliveries.find((entry) => entry.userId === user.id && (entry.id === body.id || (wantsCandidateSale && entry.rewardId === body.id)) && (['decision-pending', 'box-open', 'choice-pending', 'weekly-choice-pending'].includes(entry.status) || ((wantsWeeklyImmediate || wantsCandidateSale) && entry.status === 'cycle-candidate')));
     if (!reward) throw new HttpError(404, 'Este prêmio já teve sua decisão concluída.');
     if (wantsCandidateSale) {
       if (!['cycle-candidate', 'weekly-choice-pending'].includes(reward.status) || reward.deliveryLocked) throw new HttpError(409, 'Este Pokémon já foi escolhido para entrega e não pode ser vendido.');
