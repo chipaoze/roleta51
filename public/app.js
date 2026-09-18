@@ -3,10 +3,6 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 function formatCredits(value) {
   return Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function shopCreditMarkup(value, suffix = '') {
-  const detail = suffix ? `<em>${escapeHtml(suffix)}</em>` : '';
-  return `<span class="shop-credit-value"><span class="coin-51 shop-credit-icon" aria-hidden="true">51</span><b>${formatCredits(value)}</b><small>Créditos 51</small>${detail}</span>`;
-}
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
   version: '20260918-mercado-v39',
@@ -1123,6 +1119,11 @@ function escapeHtml(value) {
   return String(value == null ? '' : value)
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+
+function shopCreditMarkup(value, suffix = '') {
+  const detail = suffix ? `<em>${String(suffix)}</em>` : '';
+  return `<span class="shop-credit-value"><span class="coin-51 shop-credit-icon" aria-hidden="true">51</span><b>${formatCredits(value)}</b><small>Créditos 51</small>${detail}</span>`;
 }
 
 function formatDate(value) {
