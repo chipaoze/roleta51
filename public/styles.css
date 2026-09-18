@@ -1962,3 +1962,19 @@ body.theme-light-override .cobblemon-page #cobblemonRouletteOdds:hover{backgroun
 .cobblemon-page #cobblemonRouletteSpin.button-primary{border:1px solid #f5d264!important;background:linear-gradient(135deg,#d29a25,#f0bd3e)!important;color:#111d2a!important;box-shadow:0 9px 24px #c9962738,inset 0 1px #fff3a044!important}
 .cobblemon-page #cobblemonRouletteSpin.button-primary:hover{background:linear-gradient(135deg,#e3ad32,#ffd15b)!important;box-shadow:0 12px 28px #c9962755,inset 0 1px #fff8c466!important}
 body.theme-light-override .cobblemon-page #cobblemonRouletteSpin.button-primary{background:linear-gradient(135deg,#c58a19,#e7b536)!important;color:#172b3c!important}
+
+/* Baús: o conteúdo forma uma coluna de leitura; os dois controles ficam em
+   uma faixa inferior fixa, sem disputar espaço com a descrição da cápsula. */
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{grid-template-columns:62px minmax(0,1fr)!important;grid-template-rows:minmax(78px,auto) auto!important;align-content:space-between;gap:12px;padding:14px;min-height:170px!important}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span{grid-column:1!important;grid-row:1!important;align-self:start;width:62px;height:62px}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span img{width:48px;height:48px}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-copy{grid-column:2!important;grid-row:1!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center;gap:5px;min-width:0;min-height:62px}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-copy>small{display:block;max-width:100%;line-height:1.35;white-space:normal}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-copy>strong{display:block;font-size:16px;line-height:1.2}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-price{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-height:23px;margin:0}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-delivery-lock{display:block;width:100%;margin-top:2px;line-height:1.4}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:198px!important}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions{grid-column:1/-1!important;grid-row:2!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px;align-self:end;width:100%;margin-top:2px}
+.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions button{height:42px!important;min-height:42px!important;padding:8px 12px!important}
+@media(max-width:1050px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{min-height:164px!important}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:186px!important}}
+@media(max-width:520px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{grid-template-columns:54px minmax(0,1fr)!important;padding:12px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span{width:54px;height:54px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span img{width:42px;height:42px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-copy>strong{font-size:14px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions{grid-template-columns:1fr!important}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:238px!important}}

@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-pokedex-v59',
-  title: 'Pokédex e caça mais rápidas',
-  notes: 'Os filtros Todos, Capturados e Bloqueados agora respondem diretamente ao clique, e a navegação fica leve enquanto você procura o Pokémon. A página volta a renderizar normalmente ao terminar a caça.'
+  version: '20260918-cobblemon-chests-v60',
+  title: 'Baús Cobblemon reorganizados',
+  notes: 'Os baús agora mantêm ícone, identificação, preço e descrição no mesmo eixo de leitura; os botões ficam alinhados em uma faixa inferior consistente, inclusive na cápsula semanal.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
