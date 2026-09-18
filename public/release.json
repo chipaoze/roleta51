@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-delivery-sprites-v63",
-  "title": "Sprites das entregas Cobblemon corrigidos",
-  "notes": "Os Pokémon do painel de entregas agora usam o sprite associado ao seu ID e têm uma alternativa automática caso a imagem original falhe."
+  "version": "20260918-cobblemon-delivery-specs-v64",
+  "title": "Entregas Cobblemon com nível e sexo",
+  "notes": "Cada Pokémon sorteado pela Cápsula agora mostra e mantém seu nível e sexo até a entrega. Onde houver spawn natural, o nível é o mínimo publicado pelo CobbleDex."
 }

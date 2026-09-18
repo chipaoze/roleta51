@@ -4,6 +4,7 @@ import { CARD_COLLECTIONS, CARD_PACK_RULES, albumFor, updateAlbum, awardEngageme
 import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
 import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, marketForUser, transactMarket } from './lib/investment-market.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
+import { cobblemonDeliveryMinimumLevel, cobblemonDeliverySpec, rollCobblemonDeliveryGender } from './lib/cobblemon-delivery-metadata.mjs';
 import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
 const SESSION_TTL = 12 * 60 * 60 * 1000;
@@ -94,7 +95,6 @@ let databaseBytes = 0;
 // um instante quando várias abas fazem a mesma leitura em sequência.
 const stateResponseCache = new Map();
 const DEFAULT_FEATURE_FLAGS = Object.freeze({ casino: true, impostor: true, mystery: true, shop: true, uploads: true });
-
 function featureFlags() {
   return { ...DEFAULT_FEATURE_FLAGS, ...db?.settings?.featureFlags };
 }
@@ -349,6 +349,16 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.cobblemonBallPurchases)) { db.economy.cobblemonBallPurchases = []; changed = true; }
   if (!db.economy.cobblemonBallInventory || typeof db.economy.cobblemonBallInventory !== 'object') { db.economy.cobblemonBallInventory = {}; changed = true; }
   if (!Array.isArray(db.economy.cobblemonCaptureRewardClaims)) { db.economy.cobblemonCaptureRewardClaims = []; changed = true; }
+  // Registros já sorteados também precisam carregar a ficha que o Davi usa
+  // para gerar o Pokémon no servidor. Não toca em saldo, status, escolha ou
+  // entrega — apenas preenche nível/sexo quando o CobbleDex tem esse nível.
+  if (!db.economy.cobblemonDeliverySpecsV1) {
+    db.economy.cobblemonDeliveries.filter((entry) => entry.boxId === 'pokemon').forEach((entry) => {
+      if (ensureCobblemonDeliverySpec(entry)) changed = true;
+    });
+    db.economy.cobblemonDeliverySpecsV1 = new Date().toISOString();
+    changed = true;
+  }
   if (!db.economy.cobblemonDexRecoveryV1) {
     const recovered = {};
     db.economy.cobblemonCaptureAttempts.filter((entry) => entry.captured).forEach((entry) => {
@@ -606,6 +616,25 @@ function pokemonCapsuleIsFriday(date = new Date()) {
   return new Date(day + 'T12:00:00Z').getUTCDay() === 5;
 }
 
+function ensureCobblemonDeliverySpec(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  let changed = false;
+  const pokemonId = Number(entry.pokemonId);
+  if (pokemonId > 0) {
+    const level = cobblemonDeliveryMinimumLevel(pokemonId);
+    if (level && Number(entry.level) !== level) { entry.level = level; changed = true; }
+    if (level && !['male', 'female', 'genderless'].includes(entry.gender)) {
+      entry.gender = cobblemonDeliverySpec(pokemonId).gender;
+      entry.levelSource = 'cobbledex-minimum';
+      changed = true;
+    }
+  }
+  if (entry.roll && ensureCobblemonDeliverySpec(entry.roll)) changed = true;
+  if (Array.isArray(entry.rolls)) entry.rolls.forEach((roll) => { if (ensureCobblemonDeliverySpec(roll)) changed = true; });
+  if (Array.isArray(entry.choices)) entry.choices.forEach((choice) => { if (ensureCobblemonDeliverySpec(choice)) changed = true; });
+  return changed;
+}
+
 function pokemonCapsuleChoiceForEntry(entry) {
   const history = entry.roll || {};
   return {
@@ -616,6 +645,9 @@ function pokemonCapsuleChoiceForEntry(entry) {
     pokemonId: entry.pokemonId || history.pokemonId,
     rarity: entry.rarity || history.rarity,
     isShiny: Boolean(entry.isShiny ?? history.isShiny),
+    level: Number(entry.level || history.level) || null,
+    gender: entry.gender || history.gender || null,
+    levelSource: entry.levelSource || history.levelSource || null,
     deliveryLocked: Boolean(entry.deliveryLocked),
     entryId: entry.id,
   };
@@ -880,6 +912,17 @@ function weightedCobblemonReward(box) {
   return box.rewards.find((entry) => ((roll -= entry.weight) <= 0)) || box.rewards[0];
 }
 
+function cobblemonCapsuleDeliverySpec(pokemonId, rarity) {
+  const sourced = cobblemonDeliverySpec(pokemonId);
+  if (sourced) return sourced;
+  // Algumas espécies não têm spawn natural listado no CobbleDex atual —
+  // sobretudo lendários. Mantemos a chance e a espécie sorteada intactas e
+  // usamos apenas para esses casos o nível de entrega já configurado pela
+  // cápsula, identificado separadamente para não fingir que veio da fonte.
+  const fallbackLevel = ({ legendary: 70, shiny: 40, rare: 30, common: 5 })[rarity] || 5;
+  return { level: fallbackLevel, gender: rollCobblemonDeliveryGender(pokemonId), levelSource: 'capsule-no-natural-spawn' };
+}
+
 function monthlyCobblemonPokemonReward() {
   const roll = Math.random();
   const rarity = roll < .01 ? 'legendary' : roll < .05 ? 'shiny' : roll < .20 ? 'rare' : 'common';
@@ -888,9 +931,10 @@ function monthlyCobblemonPokemonReward() {
   const common = COBBLEMON_CATALOG.filter((entry) => !/legendary|mythical|starter|powerhouse|fossil|baby|paradox|ultra_beast/.test(String(entry.l)));
   const pool = rarity === 'legendary' ? legendary : rarity === 'rare' ? rare : rarity === 'shiny' ? COBBLEMON_CATALOG.filter((entry) => !/legendary|mythical/.test(String(entry.l))) : common;
   const pokemon = pool[Math.floor(Math.random() * pool.length)] || COBBLEMON_CATALOG[0];
+  const specification = cobblemonCapsuleDeliverySpec(pokemon.i, rarity);
   const suffix = rarity === 'legendary' ? ' · LENDÁRIO' : rarity === 'shiny' ? ' · SHINY' : rarity === 'rare' ? ' · RARO' : '';
   const sellPrices = { common: 180, rare: 320, shiny: 600, legendary: 800 };
-  return { id: `monthly-pokemon-${pokemon.i}-${rarity}`, name: `${pokemon.n}${suffix}`, sprite: `https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(pokemon.i)}.webp`, sellPrice: sellPrices[rarity], pokemonId: Number(pokemon.i), rarity, isShiny: rarity === 'shiny' };
+  return { id: `monthly-pokemon-${pokemon.i}-${rarity}`, name: `${pokemon.n}${suffix}`, sprite: `https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(pokemon.i)}.webp`, sellPrice: sellPrices[rarity], pokemonId: Number(pokemon.i), rarity, isShiny: rarity === 'shiny', ...specification };
 }
 
 function normalizedCobblemonLevel(id, tier = 1) {
@@ -3961,7 +4005,7 @@ async function handleApi(req, res, route) {
       const finalDailyRound = closedBox.rolls.length >= 3;
       closedBox.status = finalDailyRound ? 'choice-pending' : 'box-open';
       if (finalDailyRound) closedBox.choices = closedBox.rolls.map((item, index) => ({ ...item, entryId: `${closedBox.id}:${index}` }));
-      const responseReward = { id: closedBox.id, boxId: 'pokemon', name: roll.name, sprite: roll.sprite, pokemonId: roll.pokemonId, rarity: roll.rarity, isShiny: Boolean(roll.isShiny), sellPrice: roll.sellPrice, profile: profileFor(user), rollNumber: closedBox.rolls.length, rollsRemaining: 3 - closedBox.rolls.length, rollOnly: !finalDailyRound, canChooseNow: false, choiceStage: finalDailyRound ? 'daily' : null, choices: finalDailyRound ? closedBox.choices : undefined };
+      const responseReward = { id: closedBox.id, boxId: 'pokemon', name: roll.name, sprite: roll.sprite, pokemonId: roll.pokemonId, rarity: roll.rarity, isShiny: Boolean(roll.isShiny), sellPrice: roll.sellPrice, level: roll.level, gender: roll.gender, levelSource: roll.levelSource, profile: profileFor(user), rollNumber: closedBox.rolls.length, rollsRemaining: 3 - closedBox.rolls.length, rollOnly: !finalDailyRound, canChooseNow: false, choiceStage: finalDailyRound ? 'daily' : null, choices: finalDailyRound ? closedBox.choices : undefined };
       await persist(); broadcastRefresh('economy'); json(res, 200, { reward: responseReward, profile: responseReward.profile }); return;
     }
     const price = roundMoney(box.price);
@@ -4008,9 +4052,9 @@ async function handleApi(req, res, route) {
         const chosenEntry = db.economy.cobblemonDeliveries.find((entry) => entry.id === choice.entryId && entry.userId === user.id && entry.cycleId === reward.cycleId && ['cycle-candidate', 'weekly-choice-pending'].includes(entry.status));
         if (!chosenEntry) throw new HttpError(400, 'Essa opção semanal não está mais disponível.');
         db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === reward.cycleId && entry.id !== chosenEntry.id && !['reset-refunded', 'delivered', 'sold'].includes(entry.status)).forEach((entry) => { entry.status = 'cycle-discarded'; entry.discardedAt = now; entry.discardReason = 'Outra opção foi escolhida para a entrega semanal'; });
-        Object.assign(chosenEntry, { rewardId: choice.id, name: choice.name, sprite: choice.sprite, sellPrice: choice.sellPrice, pokemonId: choice.pokemonId, rarity: choice.rarity, isShiny: Boolean(choice.isShiny), decidedAt: now, chosenAt: now, deliveryLocked: true, lockReason: 'Escolha semanal para entrega do Davi' });
+        Object.assign(chosenEntry, { rewardId: choice.id, name: choice.name, sprite: choice.sprite, sellPrice: choice.sellPrice, pokemonId: choice.pokemonId, rarity: choice.rarity, isShiny: Boolean(choice.isShiny), level: choice.level, gender: choice.gender, levelSource: choice.levelSource, decidedAt: now, chosenAt: now, deliveryLocked: true, lockReason: 'Escolha semanal para entrega do Davi' });
       } else {
-        Object.assign(reward, { rewardId: choice.id, name: choice.name, sprite: choice.sprite, sellPrice: choice.sellPrice, pokemonId: choice.pokemonId, rarity: choice.rarity, isShiny: Boolean(choice.isShiny), status: 'cycle-candidate', decidedAt: now, chosenAt: now, dailyChoiceAt: now });
+        Object.assign(reward, { rewardId: choice.id, name: choice.name, sprite: choice.sprite, sellPrice: choice.sellPrice, pokemonId: choice.pokemonId, rarity: choice.rarity, isShiny: Boolean(choice.isShiny), level: choice.level, gender: choice.gender, levelSource: choice.levelSource, status: 'cycle-candidate', decidedAt: now, chosenAt: now, dailyChoiceAt: now });
         const candidates = db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === reward.cycleId && entry.status === 'cycle-candidate');
         if (candidates.length >= 7 || (pokemonCapsuleIsFriday() && candidates.length > 0)) {
           reward.status = 'weekly-choice-pending';
