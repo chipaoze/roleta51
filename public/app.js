@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-pokedex-v57',
-  title: 'Caçada dentro da Pokédex',
-  notes: 'O bloco de caça permanece disponível na aba Pokédex, porque cada encontro alimenta diretamente o catálogo e o progresso da coleção.'
+  version: '20260918-cobblemon-pokedex-v58',
+  title: 'Caçada Cobblemon responsiva',
+  notes: 'O botão Iniciar caçada agora responde diretamente ao clique e informa quando a sessão ainda carrega, quando outra coleção está selecionada ou quando não há Poké Balls disponíveis.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3055,7 +3055,17 @@ function renderCobblemonDex(profile = {}) {
   const caught = new Map(entries.map((entry) => [Number(entry.id), entry]));
   ownerSelect.innerHTML = [{ id: appState.me.id, displayName: 'Minha Pokédex' }, ...collections.filter((entry) => entry.id !== appState.me.id)].map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === cobblemonDexOwnerId ? ' selected' : ''}>${escapeHtml(entry.displayName)}</option>`).join('');
   $('#cobblemonDexTitle').textContent = viewingMine ? 'Minha Pokédex' : `Pokédex de ${selectedOwner?.displayName || 'participante'}`;
-  $('#cobblemonCaptureButton').classList.toggle('hidden', !viewingMine);
+  const captureButton = $('#cobblemonCaptureButton');
+  if (captureButton) {
+    captureButton.classList.toggle('hidden', !viewingMine);
+    const ballsRemaining = Number(profile.cobblemon?.balls?.remaining || 0);
+    captureButton.title = !viewingMine
+      ? 'Troque para Minha Pokédex para iniciar uma caçada.'
+      : ballsRemaining < 1
+        ? 'Sem Poké Balls disponíveis hoje.'
+        : 'Iniciar uma nova caçada';
+    captureButton.setAttribute('aria-label', captureButton.title);
+  }
   const deliveries = Array.isArray(profile.cobblemon?.deliveries) ? profile.cobblemon.deliveries : [];
   const canDeliverCobblemon = appState.me.role === 'admin' || /^davi\b/i.test(String(appState.me.displayName || ''));
   const monthlyBox = profile.cobblemon?.monthlyPokemonBox || { canPurchase: true, canOpen: false, openCount: 0, openRollCount: 0, rollsRemaining: 7, dailyRollsRemaining: 3, weeklyPurchaseCount: 0, weeklyPurchasesRemaining: 7, price: 899.90 };
@@ -5828,6 +5838,23 @@ function placeCobblemonEncounter() {
 
 async function startCobblemonPageEncounter() {
   const button = $('#cobblemonCaptureButton');
+  if (!button || button.disabled) return;
+  if (!appState?.me?.id || !appState?.profile) {
+    const message = 'Sua sessão ainda está carregando. Tente novamente em alguns segundos.';
+    showToast(message, 'error');
+    $('#cobblemonCaptureResult').textContent = message;
+    return;
+  }
+  if (cobblemonDexOwnerId && cobblemonDexOwnerId !== appState.me.id) {
+    cobblemonDexOwnerId = appState.me.id;
+    renderCobblemonDex(appState.profile);
+  }
+  if (Number(appState.profile.cobblemon?.balls?.remaining || 0) < 1) {
+    const message = 'Você está sem Poké Balls disponíveis hoje.';
+    showToast(message, 'error');
+    $('#cobblemonCaptureResult').textContent = message;
+    return;
+  }
   resetCobblemonPageCapture(true);
   button.disabled = true;
   button.textContent = 'Procurando…';
@@ -6043,7 +6070,9 @@ document.addEventListener('click', async (event) => {
   if (decision) { try { const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: JSON.stringify({ id: decision.dataset.id, action: decision.dataset.cobblemonDecision }) }); appState.profile = data.profile; renderProfileEconomy(appState.profile); } catch (error) { showToast(error.message); } return; }
   const delivered = event.target?.closest?.('[data-cobblemon-delivered]');
   if (delivered) { try { applyState(await api('/api/admin/cobblemon/delivered', { method: 'POST', body: JSON.stringify({ id: delivered.dataset.cobblemonDelivered }) })); } catch (error) { showToast(error.message); } return; }
-  const captureButton = event.target?.closest?.('#cobblemonCaptureButton');
-  if (captureButton) await startCobblemonPageEncounter();
 });
 $('#cobblemonDexOwner')?.addEventListener('change', (event) => { cobblemonDexOwnerId = event.target.value; cobblemonDexPage = 0; renderCobblemonDex(appState.profile); });
+$('#cobblemonCaptureButton')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  void startCobblemonPageEncounter();
+});

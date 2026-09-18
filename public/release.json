@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-pokedex-v57",
-  "title": "Caçada dentro da Pokédex",
-  "notes": "O bloco de caça permanece disponível na aba Pokédex, porque cada encontro alimenta diretamente o catálogo e o progresso da coleção."
+  "version": "20260918-cobblemon-pokedex-v58",
+  "title": "Caçada Cobblemon responsiva",
+  "notes": "O botão Iniciar caçada agora responde diretamente ao clique e informa quando a sessão ainda carrega, quando outra coleção está selecionada ou quando não há Poké Balls disponíveis."
 }
