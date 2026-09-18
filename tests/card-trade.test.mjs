@@ -31,7 +31,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260917-288/);
-  assert.match(html, /app\.js\?v=20260918-308/);
+  assert.match(html, /app\.js\?v=20260918-309/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -90,7 +90,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260918-jogos-v38/);
+  assert.match(appJs, /20260918-mercado-v39/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -177,7 +177,7 @@ test('radar do mercado lista todos os ativos e o gráfico inclui a janela anteri
   assert.match(appJs, /function marketRadarMarkup\(assets\)/);
   assert.match(appJs, /marketRadarMarkup\(assets\)/);
   assert.match(appJs, /const previous = Number\(asset\.previousPrice \|\| current\)/);
-  assert.match(html, /8 atualizações por dia/);
+  assert.match(html, /12 atualizações por dia/);
 });
 
 test('Mercado mostra tooltip por ponto e resultado desde o custo médio', () => {
@@ -194,15 +194,16 @@ test('Mercado mostra tooltip por ponto e resultado desde o custo médio', () => 
   assert.match(html, /id="marketUnrealizedPnlPercent"/);
 });
 
-test('Mercado usa oito janelas fixas sem API externa', () => {
+test('Mercado usa doze janelas fixas sem API externa', () => {
   assert.match(marketLib, /MARKET_UPDATE_TIMES/);
   assert.match(marketLib, /MARKET_UPDATE_MINUTES/);
-  assert.match(marketLib, /As oito sincronizações/);
+  assert.match(marketLib, /As doze sincronizações/);
 });
 
 test('Mercado oferece liquidez controlada sem substituir a valorização', () => {
   assert.match(serverJs, /const MARKET_DAILY_INCOME = 40/);
-  assert.match(serverJs, /MARKET_DIVIDEND_RATE_PER_UPDATE = 0\.0002/);
+  assert.match(serverJs, /MARKET_DIVIDEND_DAILY_RATE = 0\.0016/);
+  assert.match(serverJs, /MARKET_DIVIDEND_RATE_PER_UPDATE = MARKET_DIVIDEND_DAILY_RATE \/ MARKET_UPDATE_TIMES\.length/);
   assert.match(serverJs, /MARKET_DIVIDEND_DAILY_CAP = 20/);
   assert.match(serverJs, /route === '\/api\/market\/daily-income'/);
   assert.match(serverJs, /mode: 'market-dividend'/);
@@ -230,7 +231,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260918-jogos-v38/);
+  assert.match(appJs, /20260918-mercado-v39/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -238,7 +239,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260918-jogos-v38/);
+  assert.match(appJs, /20260918-mercado-v39/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

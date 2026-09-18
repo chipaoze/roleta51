@@ -2,7 +2,7 @@ import path from 'node:path';
 import { FLIGHT_STEP_MS, flightStepMs, flightMultiplier, settleFlight } from './lib/flight-engine.mjs';
 import { CARD_COLLECTIONS, CARD_PACK_RULES, albumFor, updateAlbum, awardEngagementCard, updateCardTrade, openCardPack } from './lib/card-album.mjs';
 import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
-import { MARKET_ASSETS, ensureMarketState, advanceMarket, marketForUser, transactMarket } from './lib/investment-market.mjs';
+import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, marketForUser, transactMarket } from './lib/investment-market.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
@@ -871,7 +871,8 @@ const DAILY_MISSIONS = [
 // recompensas só criam liquidez controlada para que o usuário não precise
 // liquidar uma posição por falta de saldo para uma nova oportunidade.
 const MARKET_DAILY_INCOME = 40;
-const MARKET_DIVIDEND_RATE_PER_UPDATE = 0.0002; // 0,02% por atualização = até ~0,10% ao dia
+const MARKET_DIVIDEND_DAILY_RATE = 0.0016; // mantém o mesmo alvo diário mesmo com mais janelas
+const MARKET_DIVIDEND_RATE_PER_UPDATE = MARKET_DIVIDEND_DAILY_RATE / MARKET_UPDATE_TIMES.length;
 const MARKET_DIVIDEND_DAILY_CAP = 20;
 const MARKET_MISSIONS = [
   { id: 'market-order', icon: '📈', title: 'Primeira ordem do dia', description: 'Compre ou venda pelo menos uma unidade hoje.', reward: 10 },
@@ -3209,7 +3210,7 @@ async function handleApi(req, res, route) {
     const auth = requireAuth(req); const { user } = auth;
     // As cotações avançam no servidor, o polling normal também precisa
     // perceber a virada da janela sem exigir que o usuário recarregue a tela.
-    // A função só altera o estado oito vezes por dia; portanto, não cria
+    // A função só altera o estado doze vezes por dia; portanto, não cria
     // gravações extras durante os demais ciclos de presença.
     let lotteryReminder = null;
     try {

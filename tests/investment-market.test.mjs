@@ -28,6 +28,15 @@ test('cotação só avança uma vez por janela e carteira compra/vende por preç
   assert.equal(Number(snapshot.assets.find((asset) => asset.id === 'nebula').price.toFixed(2)), snapshot.assets.find((asset) => asset.id === 'nebula').price);
 });
 
+test('troca de cadência migra a sessão sem voltar para uma janela antiga', () => {
+  const economy = { investmentMarket: { prices: Object.fromEntries(MARKET_ASSETS.map((asset) => [asset.id, asset.initialPrice])), portfolios: {}, ledger: [], history: [], dividendSlots: [], previousPrices: {}, slotKey: '2026-09-18:u7' } };
+  const changed = advanceMarket(economy, new Date('2026-09-18T11:30:00Z')); // 08h30 BRT, primeira janela nova
+  assert.equal(changed, true);
+  assert.equal(economy.investmentMarket.scheduleVersion, 12);
+  assert.equal(economy.investmentMarket.slotKey, '2026-09-18:u0');
+  assert.equal(economy.investmentMarket.history.length, 0);
+});
+
 test('venda não permite quantidade maior que a carteira', () => {
   const economy = {}; ensureMarketState(economy);
   assert.throws(() => transactMarket(economy, 'user', 'void', 1, 'sell'), /não possui/);

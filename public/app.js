@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-jogos-v38',
-  title: 'Jogos 51: foco na Roleta',
-  notes: 'O Aviãozinho foi encerrado por baixa utilização. A Roleta 51 continua disponível, e o histórico financeiro anterior foi preservado.'
+  version: '20260918-mercado-v39',
+  title: 'Mercado 51: mais janelas de cotação',
+  notes: 'O Mercado 51 agora consolida doze atualizações entre 08h e 17h, no horário de Brasília. O alvo diário dos dividendos foi preservado.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3530,7 +3530,7 @@ function marketRadarMarkup(assets) {
 }
 function renderInvestmentMarket(profile = {}) {
   const market = profile.investmentMarket || {}; const assets = Array.isArray(market.assets) ? market.assets : [];
-  const fallbackTimes = ['08:00', '09:15', '10:30', '11:45', '13:00', '14:15', '15:30', '16:45'];
+  const fallbackTimes = ['08:00', '08:45', '09:30', '10:15', '11:00', '11:45', '12:30', '13:15', '14:00', '14:45', '15:30', '16:15'];
   const schedule = market.updateSchedule || { timeZone: 'America/Sao_Paulo', times: fallbackTimes };
   const scheduleTimes = Array.isArray(schedule.times) && schedule.times.length ? schedule.times : (Array.isArray(schedule.hours) && schedule.hours.length ? schedule.hours.map((hour) => `${String(Number(hour)).padStart(2, '0')}:00`) : fallbackTimes);
   const scheduleLabels = scheduleTimes.map((time) => { const [hour, minute = '00'] = String(time).split(':'); return minute === '00' ? `${String(Number(hour)).padStart(2, '0')}h` : `${String(Number(hour)).padStart(2, '0')}h${String(Number(minute)).padStart(2, '0')}`; });
