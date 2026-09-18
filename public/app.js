@@ -5,7 +5,7 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-performance-v46',
+  version: '20260918-cobblemon-scroll-v47',
   title: 'Pokédex e Feed da tripulação',
   notes: 'O site ficou mais leve no desktop: listas longas renderizam sob demanda e imagens não são reprocessadas a cada atualização.'
 };
@@ -57,7 +57,6 @@ let releaseNoticeLoaded = false;
 let releaseCheckPromise = null;
 let releaseNoticeRequiresUpdate = false;
 let navigationFrame = null;
-let cobblemonScrollTimer = null;
 let visiblePortalPage = null;
 let portalRenderRequest = 0;
 let shopPreviewItemId = null;
@@ -1435,18 +1434,6 @@ function updateActiveNavigation() {
 
 function scheduleActiveNavigation() {
   if (navigationFrame === null) navigationFrame = requestAnimationFrame(updateActiveNavigation);
-}
-
-function scheduleCobblemonScrollMode() {
-  const page = $('#cobblemon');
-  if (!page || currentPortalPage() !== 'cobblemon') return;
-  page.classList.add('is-scrolling');
-  document.body.classList.add('cobblemon-scrolling');
-  clearTimeout(cobblemonScrollTimer);
-  cobblemonScrollTimer = setTimeout(() => {
-    page.classList.remove('is-scrolling');
-    document.body.classList.remove('cobblemon-scrolling');
-  }, 140);
 }
 
 function showToast(message, type = 'ok') {
@@ -5506,7 +5493,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && $('#siteMenu').classList.contains('open')) setMenuOpen(false);
   else if (event.key === 'Escape' && feedbackPanelOpen) closeFeedbackPanel();
 });
-window.addEventListener('scroll', () => { scheduleActiveNavigation(); scheduleCobblemonScrollMode(); }, { passive: true });
+window.addEventListener('scroll', scheduleActiveNavigation, { passive: true });
 window.addEventListener('resize', scheduleActiveNavigation, { passive: true });
 document.addEventListener('click', (event) => {
   const link = event.target.closest('a[data-page]');

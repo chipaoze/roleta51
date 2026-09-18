@@ -1,5 +1,5 @@
 {
-  "version": "20260918-performance-v46",
+  "version": "20260918-cobblemon-scroll-v47",
   "title": "Pokédex e Feed da tripulação",
   "notes": "O site ficou mais leve no desktop: listas longas renderizam sob demanda e imagens não são reprocessadas a cada atualização."
 }
