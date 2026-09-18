@@ -1,5 +1,5 @@
 {
-  "version": "20260918-mercado-v39",
-  "title": "Mercado 51: mais janelas de cotação",
-  "notes": "O Mercado 51 agora consolida doze atualizações entre 08h e 17h, no horário de Brasília. O alvo diário dos dividendos foi preservado."
+  "version": "20260918-cobblemon-layout-v40",
+  "title": "Cobblemon: layout e rolagem corrigidos",
+  "notes": "Corrigimos os cards dos baús e da Cápsula Pokémon, eliminando o texto espremido, o espaço vazio e a rolagem horizontal. A imagem da cápsula agora tem fallback seguro."
 }

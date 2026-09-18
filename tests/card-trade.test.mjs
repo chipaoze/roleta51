@@ -30,8 +30,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260918-302/);
-  assert.match(html, /app\.js\?v=20260918-323/);
+  assert.match(html, /styles\.css\?v=20260918-324/);
+  assert.match(html, /app\.js\?v=20260918-324/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -110,7 +110,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260918-mercado-v39/);
+  assert.match(appJs, /20260918-cobblemon-layout-v40/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -252,7 +252,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260918-mercado-v39/);
+  assert.match(appJs, /20260918-cobblemon-layout-v40/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -260,7 +260,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260918-mercado-v39/);
+  assert.match(appJs, /20260918-cobblemon-layout-v40/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -358,6 +358,14 @@ test('cápsula separa limite semanal, sorteios por baú e entrega antecipada ap�
   assert.match(appJs, /do \{/);
   assert.match(styles, /cobblemon-box-card>div button.*height:42px/);
   assert.match(html, /Continuar sorteios/);
+});
+
+test('baús Cobblemon mantêm conteúdo e ações no grid sem quebrar a rolagem', () => {
+  assert.match(appJs, /class="cobblemon-box-copy"/);
+  assert.match(appJs, /class="cobblemon-box-actions"/);
+  assert.match(appJs, /capture-ball-cobblemon\.png/);
+  assert.match(styles, /cobblemon-box-copy\{grid-column:2!important/);
+  assert.match(styles, /cobblemon-box-actions\{grid-column:1\/-1!important;grid-row:3!important/);
 });
 
 test('resultado semanal não vaza candidatos para a fila de entregas', () => {
