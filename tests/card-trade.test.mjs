@@ -31,7 +31,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260918-290/);
-  assert.match(html, /app\.js\?v=20260918-309/);
+  assert.match(html, /app\.js\?v=20260918-310/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -64,6 +64,15 @@ test('notificações navegam até o item exato depois da renderização', () => 
 
 test('notificação de carta usa ícone de carta e não confunde com saldo', () => {
   assert.match(serverJs, /id: 'card-drop:' \+ drop\.eventId,[\s\S]*?icon: '🎴',[\s\S]*?title: 'Você encontrou uma carta!'/);
+});
+
+test('Loja padroniza todos os preços com ícone e unidade de Créditos 51', () => {
+  assert.match(appJs, /function shopCreditMarkup\(value, suffix = ''\)/);
+  assert.match(appJs, /class="shop-credit-value"/);
+  assert.match(appJs, /item\.cardPack \? shopCreditMarkup\(item\.price/);
+  assert.match(appJs, /item\.mysteryBox \? `<span class="shop-status-stack">/);
+  assert.match(styles, /\.shop-credit-value\{display:inline-flex/);
+  assert.match(styles, /\.shop-credit-value \.shop-credit-icon/);
 });
 
 test('sistema de ícones moderno preserva os estados dos temas', () => {
