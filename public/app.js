@@ -2990,17 +2990,19 @@ function syncCobblemonSelectedBall(balls = {}) {
 function renderCobblemonBallOptions(balls = {}, encounter = cobblemonPageEncounter) {
   const container = $('#cobblemonBallOptions'); if (!container) return;
   const inventory = balls.special || {};
+  const encounterReady = Boolean(encounter?.encounterToken && encounter?.captureChances);
   syncCobblemonSelectedBall(balls);
   container.innerHTML = Object.values(COBBLEMON_CAPTURE_BALLS).map((ball) => {
     const quantity = ball.id === 'poke' ? Number(balls.remaining || 0) : Number(inventory[ball.id]?.quantity || 0);
-    const selected = cobblemonSelectedBall === ball.id;
+    const selected = encounterReady && cobblemonSelectedBall === ball.id;
     const stockLabel = ball.id === 'poke' ? `${quantity} disponíveis hoje` : `${quantity} no inventário`;
-    const actionLabel = selected ? 'Selecionada' : quantity > 0 ? 'Usar esta bola' : 'Comprar para usar';
+    const actionLabel = !encounterReady ? (quantity > 0 ? 'Disponível na caça' : 'Comprar para usar') : selected ? 'Selecionada' : quantity > 0 ? 'Usar esta bola' : 'Comprar para usar';
     const chance = Number(encounter?.captureChances?.[ball.id]);
-    const chanceLabel = Number.isFinite(chance) ? `<small class="cobblemon-ball-chance">Chance nesta aparição: <b>${chance}%</b></small>` : '';
+    const chanceLabel = Number.isFinite(chance) ? `<small class="cobblemon-ball-chance">Chance de captura: <b>${chance}%</b></small>` : '<small class="cobblemon-ball-note">Encontre um Pokémon para ver a chance.</small>';
     const emptyNote = quantity < 1 && ball.id !== 'poke' ? '<small class="cobblemon-ball-note">Sem estoque. Escolha a quantidade abaixo para comprar.</small>' : '';
     const purchase = ball.id !== 'poke' ? `<div class="cobblemon-ball-purchase"><div class="cobblemon-ball-price">${shopCreditMarkup(ball.price, 'por unidade')}</div><div class="cobblemon-ball-buy"><label class="shop-quantity-picker"><span>Quantidade</span><input type="number" min="1" max="20" step="1" value="1" inputmode="numeric" data-cobblemon-ball-quantity="${ball.id}" aria-label="Quantidade de ${escapeHtml(ball.name)}"></label><button type="button" class="button button-primary" data-cobblemon-ball-buy="${ball.id}">Comprar</button></div></div>` : '<small class="cobblemon-ball-note">Sem custo · restaura todos os dias</small>';
-    return `<article class="cobblemon-ball-option${selected ? ' selected' : ''}${quantity < 1 ? ' empty' : ''}"><button type="button" class="cobblemon-ball-select" data-cobblemon-ball-select="${ball.id}" aria-pressed="${selected}" aria-disabled="${quantity < 1}"><img src="${ball.sprite}" alt=""><span><strong>${escapeHtml(ball.name)}</strong><small>${escapeHtml(ball.shortName)} · ${escapeHtml(stockLabel)}</small>${chanceLabel}</span><b>${actionLabel}</b></button>${emptyNote}${purchase}</article>`;
+    const selectorAttributes = encounterReady ? `data-cobblemon-ball-select="${ball.id}" aria-pressed="${selected}" aria-disabled="${quantity < 1}"` : 'aria-disabled="true"';
+    return `<article class="cobblemon-ball-option${selected ? ' selected' : ''}${quantity < 1 ? ' empty' : ''}"><button type="button" class="cobblemon-ball-select" ${selectorAttributes}><img src="${ball.sprite}" alt=""><span><strong>${escapeHtml(ball.name)}</strong><small>${escapeHtml(ball.shortName)} · ${escapeHtml(stockLabel)}</small>${chanceLabel}</span><b>${actionLabel}</b></button>${emptyNote}${purchase}</article>`;
   }).join('');
 }
 
@@ -5723,6 +5725,7 @@ function resetCobblemonPageCapture(clearResult = false) {
   clearInterval(cobblemonHuntInterval);
   cobblemonHuntInterval = null;
   cobblemonPageEncounter = null;
+  cobblemonSelectedBall = 'poke';
   cobblemonPageDrag = null;
   cobblemonPageCaptureBusy = false;
   document.body.classList.remove('cobblemon-hunt-active');
@@ -5879,7 +5882,7 @@ document.addEventListener('click', async (event) => {
     const total = Number(ball.price) * quantity;
     if (!confirm(`Comprar ${quantity} ${ball.name}${quantity === 1 ? '' : 's'} por ${formatCredits(total)} Créditos 51?\n\nVocê poderá selecionar a bola antes de cada arremesso.`)) return;
     ballBuyButton.disabled = true;
-    try { const data = await api('/api/cobblemon/balls/buy-special', { method: 'POST', body: { ballType, quantity } }); appState.profile = data.profile; cobblemonSelectedBall = ballType; renderProfileEconomy(appState.profile); showToast(`${quantity} ${ball.name}${quantity === 1 ? '' : 's'} adicionada${quantity === 1 ? '' : 's'} ao inventário e selecionada para o próximo arremesso.`); }
+    try { const data = await api('/api/cobblemon/balls/buy-special', { method: 'POST', body: { ballType, quantity } }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast(`${quantity} ${ball.name}${quantity === 1 ? '' : 's'} adicionada${quantity === 1 ? '' : 's'} ao inventário. Escolha a bola somente depois de encontrar um Pokémon.`); }
     catch (error) { showToast(error.message, 'error'); renderCobblemonDex(appState.profile); }
     return;
   }

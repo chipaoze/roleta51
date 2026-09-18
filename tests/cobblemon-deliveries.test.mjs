@@ -23,7 +23,7 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /shopCreditMarkup\(ball\.price/);
   assert.match(app, /shopCreditMarkup\(balls\.buyPrice \|\| 89\.90, 'pacote'\)/);
   assert.match(app, /ballType: cobblemonSelectedBall/);
-  assert.match(app, /Chance nesta aparição/);
+  assert.match(app, /Chance de captura/);
   assert.match(html, /id="cobblemonBallOptions"/);
 });
 
@@ -33,4 +33,15 @@ test('Cobblemon mantém rolagem leve e preço de cápsula padronizado', () => {
   assert.match(app, /function scheduleCobblemonScrollMode\(\)/);
   assert.match(app, /shopCreditMarkup\(box\.price, 'por cápsula'\)/);
   assert.match(styles, /cobblemon-page\.is-scrolling \.cobblemon-scene-mon/);
+});
+
+test('Poké Ball só pode ser escolhida depois do encontro e exibe chance percentual', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(app, /const encounterReady = Boolean\(encounter\?\.encounterToken && encounter\?\.captureChances\)/);
+  assert.match(app, /const selectorAttributes = encounterReady \?/);
+  assert.match(app, /Chance de captura: <b>\$\{chance\}%<\/b>/);
+  assert.doesNotMatch(app, /appState\.profile = data\.profile; cobblemonSelectedBall = ballType;/);
+  assert.match(app, /Escolha a bola somente depois de encontrar um Pokémon/);
+  assert.match(html, /cada opção mostrará a chance percentual desta captura/);
 });

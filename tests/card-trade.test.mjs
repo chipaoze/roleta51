@@ -31,7 +31,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260918-302/);
-  assert.match(html, /app\.js\?v=20260918-322/);
+  assert.match(html, /app\.js\?v=20260918-323/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
