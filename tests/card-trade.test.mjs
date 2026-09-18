@@ -30,7 +30,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260917-288/);
+  assert.match(html, /styles\.css\?v=20260918-290/);
   assert.match(html, /app\.js\?v=20260918-309/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
@@ -64,6 +64,13 @@ test('notificações navegam até o item exato depois da renderização', () => 
 
 test('notificação de carta usa ícone de carta e não confunde com saldo', () => {
   assert.match(serverJs, /id: 'card-drop:' \+ drop\.eventId,[\s\S]*?icon: '🎴',[\s\S]*?title: 'Você encontrou uma carta!'/);
+});
+
+test('sistema de ícones moderno preserva os estados dos temas', () => {
+  assert.match(styles, /Modern icon system/);
+  assert.match(styles, /\.site-menu nav a>span,\.site-menu-user>span,\.notification-item>span/);
+  assert.match(styles, /body\.theme-dark[^\{]*\{[^}]*--icon-surface/);
+  assert.match(styles, /prefers-reduced-motion:reduce/);
 });
 
 test('cabeçalho exibe e atualiza o saldo de Créditos 51 em qualquer página', () => {
