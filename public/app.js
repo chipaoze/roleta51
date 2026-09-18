@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-tabs-v54',
-  title: 'Cobblemon dividido por áreas',
-  notes: 'A área Cobblemon agora separa Caça e Pokédex em abas leves, com catálogo concentrado, navegação mais clara e ações da roleta com contraste corrigido.'
+  version: '20260918-cobblemon-flow-v55',
+  title: 'Fluxo Cobblemon corrigido',
+  notes: 'Cápsulas e vendas voltaram a ficar acessíveis na aba Pokédex, os filtros respondem corretamente e o contraste da roleta foi preservado.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -5935,8 +5935,8 @@ $('#cobblemonPageBall')?.addEventListener('pointercancel', (event) => {
 document.addEventListener('click', async (event) => {
   const cobblemonTab = event.target?.closest?.('[data-cobblemon-tab]');
   if (cobblemonTab) { setCobblemonTab(cobblemonTab.dataset.cobblemonTab); return; }
-  const dexFilterButton = event.target?.closest?.('[data-cobblemon-filter]');
-  if (dexFilterButton) { cobblemonDexFilter = dexFilterButton.dataset.cobblemonFilter || 'all'; cobblemonDexPage = 0; renderCobblemonDex(appState.profile); return; }
+  const dexFilterButton = event.target?.closest?.('#cobblemonDexFilters [data-cobblemon-filter]');
+  if (dexFilterButton) { event.preventDefault(); cobblemonDexFilter = dexFilterButton.dataset.cobblemonFilter || 'all'; cobblemonDexPage = 0; $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.classList.toggle('active', button === dexFilterButton)); renderCobblemonDex(appState.profile); return; }
   if (event.target?.id === 'cobblemonDexPrev' || event.target?.id === 'cobblemonDexNext') { cobblemonDexPage += event.target.id.endsWith('Next') ? 1 : -1; renderCobblemonDex(appState.profile); return; }
   const ballSelectButton = event.target?.closest?.('[data-cobblemon-ball-select]');
   if (ballSelectButton) {
