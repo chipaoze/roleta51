@@ -5,9 +5,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-hunt-v56',
-  title: 'Caçada Cobblemon reativada',
-  notes: 'O botão Iniciar caçada voltou a responder mesmo após trocar de aba ou coleção; a aba Caça retorna automaticamente à sua própria Pokédex.'
+  version: '20260918-cobblemon-pokedex-v57',
+  title: 'Caçada dentro da Pokédex',
+  notes: 'O bloco de caça permanece disponível na aba Pokédex, porque cada encontro alimenta diretamente o catálogo e o progresso da coleção.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;

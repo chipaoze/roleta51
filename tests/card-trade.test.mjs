@@ -31,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260918-339/);
-  assert.match(html, /app\.js\?v=20260918-339/);
+  assert.match(html, /styles\.css\?v=20260918-340/);
+  assert.match(html, /app\.js\?v=20260918-340/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -133,7 +133,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260918-cobblemon-hunt-v56/);
+  assert.match(appJs, /20260918-cobblemon-pokedex-v57/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -275,7 +275,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260918-cobblemon-hunt-v56/);
+  assert.match(appJs, /20260918-cobblemon-pokedex-v57/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -283,7 +283,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260918-cobblemon-hunt-v56/);
+  assert.match(appJs, /20260918-cobblemon-pokedex-v57/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -308,6 +308,7 @@ test('Cobblemon separa Caça e Pokédex em abas sem duplicar consultas', () => {
   assert.match(appJs, /page\.dataset\.cobblemonTab = nextTab/);
   assert.match(styles, /cobblemon-page\[data-cobblemon-tab="catalog"\]/);
   assert.match(styles, /cobblemonRouletteOdds\{border:1px solid #5f9fbd/);
+  assert.match(styles, /cobblemonRouletteSpin\.button-primary\{border:1px solid #f5d264/);
 });
 
 test('rolagem da Pokédex não altera iluminação nem cria trabalho por frame', () => {
