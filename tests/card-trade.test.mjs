@@ -133,7 +133,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260918-cobblemon-box-controls-v66/);
+  assert.match(appJs, /20260918-cobblemon-capsule-final-slot-v67/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -316,7 +316,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260918-cobblemon-box-controls-v66/);
+  assert.match(appJs, /20260918-cobblemon-capsule-final-slot-v67/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -324,7 +324,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260918-cobblemon-box-controls-v66/);
+  assert.match(appJs, /20260918-cobblemon-capsule-final-slot-v67/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -487,8 +487,9 @@ test('Pokémon não escolhido pode ser vendido pelo valor da raridade', () => {
   assert.match(appJs, /Vender por: \$\{sellAmount\} coins/);
   assert.match(serverJs, /Registros vendidos continuam contando como compras/);
   assert.doesNotMatch(serverJs, /cycleEntries = cycleId \? db\.economy\.cobblemonDeliveries\.filter\([^\n]+sold/);
-  assert.match(serverJs, /weeklyChoiceClosed/);
   assert.match(serverJs, /soldFromWeeklyChoice/);
+  assert.match(serverJs, /const canPurchase = !deliveryLocked && !weeklyChoice && weeklyPurchaseCount < 7;/);
+  assert.doesNotMatch(serverJs, /weeklyChoiceClosed/);
   assert.match(serverJs, /entry\.rewardId === body\.id/);
 });
 

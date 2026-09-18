@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260918-cobblemon-box-controls-v66',
-  title: 'Controles dos Baús Cobblemon corrigidos',
-  notes: 'Os botões Ver chances e Abrir agora receberam ação direta e ficaram acima da camada visual dos cards. A compra da Cápsula continua protegida pelo limite semanal.'
+  version: '20260918-cobblemon-capsule-final-slot-v67',
+  title: 'Última cápsula semanal liberada',
+  notes: 'Vender uma escolha final continua contando no limite de sete cápsulas, mas não bloqueia uma vaga que ainda esteja disponível no ciclo.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;

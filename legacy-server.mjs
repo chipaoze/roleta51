@@ -2449,8 +2449,10 @@ function profileFor(user, computed = {}) {
         const canOpen = Boolean(openEntry && !deliveryLocked && openRollCount < 3);
         const cycleStart = cycleId ? cycleId.slice('capsule-week:'.length) : null;
         const nextOpenAt = cycleStart ? new Date(Date.parse(cycleStart + 'T03:00:00Z') + 7 * 86400000).toISOString() : null;
-        const weeklyChoiceClosed = cycleEntries.some((entry) => entry.soldFromWeeklyChoice);
-        const canPurchase = !deliveryLocked && !weeklyChoice && !weeklyChoiceClosed && weeklyPurchaseCount < 7;
+        // A venda da escolha final encerra somente aquela escolha. Ela segue
+        // contando como compra paga, mas não pode consumir uma vaga que ainda
+        // existe no teto semanal de sete cápsulas.
+        const canPurchase = !deliveryLocked && !weeklyChoice && weeklyPurchaseCount < 7;
         const toChoice = (entry) => entry ? { id: entry.id, name: entry.name, sprite: entry.sprite, choices: entry.choices || [], choiceStage: weeklyChoice ? 'weekly' : 'daily' } : null;
         // The weekly list must reflect the Pokémon selected from the three
         // rolls, not the last raw roll stored on the capsule.  `entry.roll`

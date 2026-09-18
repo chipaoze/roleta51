@@ -140,6 +140,13 @@ test('compra da Cápsula responde sem reutilizar campos da compra de Poké Balls
   assert.equal(db.economy.creditAdjustments[0].amount, -899.9);
 });
 
+test('venda da escolha final conserva a compra no teto semanal, sem bloquear uma vaga restante', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  assert.match(server, /venda da escolha final encerra somente aquela escolha/);
+  assert.match(server, /const canPurchase = !deliveryLocked && !weeklyChoice && weeklyPurchaseCount < 7;/);
+  assert.doesNotMatch(server, /!weeklyChoiceClosed && weeklyPurchaseCount/);
+});
+
 test('Cápsula prioriza a escolha pendente no rótulo e no clique', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
