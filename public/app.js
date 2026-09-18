@@ -2982,10 +2982,12 @@ function renderCobblemonBallOptions(balls = {}, encounter = cobblemonPageEncount
     const quantity = ball.id === 'poke' ? Number(balls.remaining || 0) : Number(inventory[ball.id]?.quantity || 0);
     const selected = cobblemonSelectedBall === ball.id;
     const stockLabel = ball.id === 'poke' ? `${quantity} disponíveis hoje` : `${quantity} no inventário`;
-    const actionLabel = selected ? 'Selecionada' : 'Usar esta bola';
+    const actionLabel = selected ? 'Selecionada' : quantity > 0 ? 'Usar esta bola' : 'Comprar para usar';
     const chance = Number(encounter?.captureChances?.[ball.id]);
     const chanceLabel = Number.isFinite(chance) ? `<small class="cobblemon-ball-chance">Chance nesta aparição: <b>${chance}%</b></small>` : '';
-    return `<article class="cobblemon-ball-option${selected ? ' selected' : ''}${quantity < 1 ? ' empty' : ''}"><button type="button" class="cobblemon-ball-select" data-cobblemon-ball-select="${ball.id}"${quantity < 1 ? ' disabled' : ''} aria-pressed="${selected}"><img src="${ball.sprite}" alt=""><span><strong>${escapeHtml(ball.name)}</strong><small>${escapeHtml(ball.shortName)} · ${escapeHtml(stockLabel)}</small>${chanceLabel}</span><b>${actionLabel}</b></button>${ball.id !== 'poke' ? `<div class="cobblemon-ball-buy"><select aria-label="Quantidade de ${escapeHtml(ball.name)}" data-cobblemon-ball-quantity="${ball.id}"><option value="1">1</option><option value="5">5</option><option value="10">10</option></select><button type="button" data-cobblemon-ball-buy="${ball.id}">Comprar · ${formatCredits(ball.price)} cada</button></div>` : '<small class="cobblemon-ball-note">Sem custo · restaura todos os dias</small>'}</article>`;
+    const emptyNote = quantity < 1 && ball.id !== 'poke' ? '<small class="cobblemon-ball-note">Sem estoque. Escolha a quantidade abaixo para comprar.</small>' : '';
+    const purchase = ball.id !== 'poke' ? `<div class="cobblemon-ball-purchase"><div class="cobblemon-ball-price">${shopCreditMarkup(ball.price, 'por unidade')}</div><div class="cobblemon-ball-buy"><label class="shop-quantity-picker"><span>Quantidade</span><input type="number" min="1" max="20" step="1" value="1" inputmode="numeric" data-cobblemon-ball-quantity="${ball.id}" aria-label="Quantidade de ${escapeHtml(ball.name)}"></label><button type="button" class="button button-primary" data-cobblemon-ball-buy="${ball.id}">Comprar</button></div></div>` : '<small class="cobblemon-ball-note">Sem custo · restaura todos os dias</small>';
+    return `<article class="cobblemon-ball-option${selected ? ' selected' : ''}${quantity < 1 ? ' empty' : ''}"><button type="button" class="cobblemon-ball-select" data-cobblemon-ball-select="${ball.id}" aria-pressed="${selected}" aria-disabled="${quantity < 1}"><img src="${ball.sprite}" alt=""><span><strong>${escapeHtml(ball.name)}</strong><small>${escapeHtml(ball.shortName)} · ${escapeHtml(stockLabel)}</small>${chanceLabel}</span><b>${actionLabel}</b></button>${emptyNote}${purchase}</article>`;
   }).join('');
 }
 
@@ -5843,19 +5845,24 @@ document.addEventListener('click', async (event) => {
   if (ballSelectButton) {
     const ballType = ballSelectButton.dataset.cobblemonBallSelect; const ball = COBBLEMON_CAPTURE_BALLS[ballType]; const balls = appState.profile?.cobblemon?.balls || {};
     const quantity = ballType === 'poke' ? Number(balls.remaining || 0) : Number(balls.special?.[ballType]?.quantity || 0);
-    if (!ball || quantity < 1) { showToast(`Você não possui ${ball?.name || 'esta bola'}.`, 'error'); return; }
+    if (!ball) return;
+    if (quantity < 1) {
+      showToast(`${ball.name} sem estoque. Escolha a quantidade abaixo para comprar.`, 'error');
+      ballSelectButton.closest('.cobblemon-ball-option')?.querySelector('[data-cobblemon-ball-quantity]')?.focus();
+      return;
+    }
     cobblemonSelectedBall = ballType; syncCobblemonSelectedBall(balls); renderCobblemonBallOptions(balls);
     if (cobblemonPageEncounter) $('#cobblemonCaptureHint').textContent = `${ball.name} selecionada. Mire no Pokémon e solte para tentar capturar.`;
     return;
   }
   const ballBuyButton = event.target?.closest?.('[data-cobblemon-ball-buy]');
   if (ballBuyButton) {
-    const ballType = ballBuyButton.dataset.cobblemonBallBuy; const ball = COBBLEMON_CAPTURE_BALLS[ballType]; const card = ballBuyButton.closest('.cobblemon-ball-option'); const quantity = Number(card?.querySelector(`[data-cobblemon-ball-quantity="${CSS.escape(ballType)}"]`)?.value || 1);
-    if (!ball || !Number.isInteger(quantity) || quantity < 1) return;
+    const ballType = ballBuyButton.dataset.cobblemonBallBuy; const ball = COBBLEMON_CAPTURE_BALLS[ballType]; const card = ballBuyButton.closest('.cobblemon-ball-option'); const quantityInput = card?.querySelector('[data-cobblemon-ball-quantity]'); const quantity = Number(quantityInput?.value || 1);
+    if (!ball || !Number.isInteger(quantity) || quantity < 1 || quantity > 20) { showToast('Escolha uma quantidade inteira entre 1 e 20.', 'error'); quantityInput?.focus(); return; }
     const total = Number(ball.price) * quantity;
     if (!confirm(`Comprar ${quantity} ${ball.name}${quantity === 1 ? '' : 's'} por ${formatCredits(total)} Créditos 51?\n\nVocê poderá selecionar a bola antes de cada arremesso.`)) return;
     ballBuyButton.disabled = true;
-    try { const data = await api('/api/cobblemon/balls/buy-special', { method: 'POST', body: { ballType, quantity } }); appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast(`${quantity} ${ball.name}${quantity === 1 ? '' : 's'} adicionada${quantity === 1 ? '' : 's'} ao inventário.`); }
+    try { const data = await api('/api/cobblemon/balls/buy-special', { method: 'POST', body: { ballType, quantity } }); appState.profile = data.profile; cobblemonSelectedBall = ballType; renderProfileEconomy(appState.profile); showToast(`${quantity} ${ball.name}${quantity === 1 ? '' : 's'} adicionada${quantity === 1 ? '' : 's'} ao inventário e selecionada para o próximo arremesso.`); }
     catch (error) { showToast(error.message, 'error'); renderCobblemonDex(appState.profile); }
     return;
   }

@@ -19,6 +19,8 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(server, /cobblemonBallInventory/);
   assert.match(app, /data-cobblemon-ball-select/);
   assert.match(app, /data-cobblemon-ball-buy/);
+  assert.match(app, /shop-quantity-picker/);
+  assert.match(app, /shopCreditMarkup\(ball\.price/);
   assert.match(app, /ballType: cobblemonSelectedBall/);
   assert.match(app, /Chance nesta aparição/);
   assert.match(html, /id="cobblemonBallOptions"/);
