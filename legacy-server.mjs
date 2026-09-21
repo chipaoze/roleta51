@@ -94,6 +94,12 @@ let databaseBytes = 0;
 // revisão só muda após uma gravação, reaproveitamos respostas idênticas por
 // um instante quando várias abas fazem a mesma leitura em sequência.
 const stateResponseCache = new Map();
+// Respostas completas são caras para montar e serializar. Reaproveitamos o
+// JSON pronto enquanto a revisão não mudou, sem deixar dados de uma alteração
+// anterior escaparem para o cliente.
+const serializedJsonCache = new WeakMap();
+const STATE_RESPONSE_CACHE_MS = 5000;
+const STATE_RESPONSE_CACHE_MAX = 16;
 const DEFAULT_FEATURE_FLAGS = Object.freeze({ casino: true, impostor: true, mystery: true, shop: true, uploads: true });
 function featureFlags() {
   return { ...DEFAULT_FEATURE_FLAGS, ...db?.settings?.featureFlags };
@@ -1966,12 +1972,17 @@ function consumePower(userId, itemId, details = {}) {
 }
 
 function json(res, status, data, headers = {}) {
-  const body = JSON.stringify(data);
+  let serialized = data && typeof data === 'object' ? serializedJsonCache.get(data) : null;
+  if (!serialized) {
+    const body = JSON.stringify(data);
+    serialized = { body, bytes: Buffer.byteLength(body) };
+    if (data && typeof data === 'object') serializedJsonCache.set(data, serialized);
+  }
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'no-store', ...headers,
+    'Content-Length': serialized.bytes, 'Cache-Control': 'no-store', ...headers,
   });
-  res.end(body);
+  res.end(serialized.body);
 }
 
 function parseCookies(req) {
@@ -3150,10 +3161,12 @@ function stateFor(user) {
   const key = stateRevision + ':' + user.id;
   const cached = stateResponseCache.get(key);
   const now = Date.now();
-  if (cached && now - cached.createdAt < 1500) return cached.value;
+  if (cached && now - cached.createdAt < STATE_RESPONSE_CACHE_MS) return cached.value;
   const value = buildStateFor(user);
+  const body = JSON.stringify(value);
+  serializedJsonCache.set(value, { body, bytes: Buffer.byteLength(body) });
   stateResponseCache.set(key, { createdAt: now, value });
-  if (stateResponseCache.size > 32) {
+  if (stateResponseCache.size > STATE_RESPONSE_CACHE_MAX) {
     const oldestKey = stateResponseCache.keys().next().value;
     if (oldestKey) stateResponseCache.delete(oldestKey);
   }

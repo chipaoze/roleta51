@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-round-participants-v96',
-  title: 'Participantes da rodada mais claros',
-  notes: 'Na rodada aberta, a administração pode adicionar ou remover quem ainda não enviou. Ao incluir alguém, a pessoa já vê o tema atual e pode enviar normalmente; depois do envio, a participação fica protegida.'
+  version: '20260921-state-cache-v97',
+  title: 'Portal mais leve',
+  notes: 'Reduzimos o trabalho repetido do portal ao reutilizar, por poucos segundos, o estado já pronto quando nada mudou. A rodada, o tema, os saldos e os históricos seguem iguais.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
