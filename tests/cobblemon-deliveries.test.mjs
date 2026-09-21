@@ -210,6 +210,30 @@ test('ciclo local de cápsulas mantém a sétima vaga aberta e só fecha a lista
   assert.equal(weekly.choices.length, 7);
 });
 
+test('fechamento semanal não mistura candidatos de usuários diferentes', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const start = server.indexOf('function settlePokemonCapsules()');
+  const end = server.indexOf('function retailPriceWithCents(', start);
+  const entry = (userId, id) => ({
+    id: `${userId}-${id}`, userId, boxId: 'pokemon', cycleId: 'capsule-week:2026-09-12',
+    status: 'cycle-candidate', name: `${userId} Pokémon`, pokemonId: id,
+  });
+  const db = { economy: { cobblemonDeliveries: [entry('alan', 409), entry('pastel', 355)] } };
+  const settle = vm.runInNewContext(`${server.slice(start, end)}; settlePokemonCapsules`, {
+    db,
+    pokemonCapsuleCycleKey: () => 'capsule-week:2026-09-19',
+    pokemonCapsuleIsFriday: () => false,
+    finalizePokemonCapsuleCycle: (entries, chosenEntry) => entries.forEach((item) => {
+      item.status = item.id === chosenEntry.id ? 'awaiting-delivery' : 'cycle-discarded';
+    }),
+    Math,
+    Date,
+  });
+  assert.equal(settle(), true);
+  assert.equal(db.economy.cobblemonDeliveries.find((item) => item.userId === 'alan').status, 'awaiting-delivery');
+  assert.equal(db.economy.cobblemonDeliveries.find((item) => item.userId === 'pastel').status, 'awaiting-delivery');
+});
+
 test('Cápsula prioriza a escolha pendente no rótulo e no clique', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');

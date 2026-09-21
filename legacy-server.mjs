@@ -671,9 +671,16 @@ function finalizePokemonCapsuleCycle(entries, chosenEntry, reason) {
 function settlePokemonCapsules() {
   const currentCycleId = pokemonCapsuleCycleKey();
   let changed = false;
-  const cycleIds = new Set(db.economy.cobblemonDeliveries.filter((entry) => entry.boxId === 'pokemon' && entry.cycleId).map((entry) => entry.cycleId));
-  for (const cycleId of cycleIds) {
-    const entries = db.economy.cobblemonDeliveries.filter((entry) => entry.boxId === 'pokemon' && entry.cycleId === cycleId);
+  // Cada participante possui sua própria lista de sete cápsulas dentro do
+  // ciclo. Nunca misture candidatos de pessoas diferentes ao fechar a semana:
+  // isso podia deixar um Pokémon escolhido como `cycle-candidate` para sempre
+  // ou entregar a escolha de outra pessoa.
+  const cycleKeys = new Set(db.economy.cobblemonDeliveries.filter((entry) => entry.boxId === 'pokemon' && entry.cycleId && entry.userId).map((entry) => `${entry.userId}:${entry.cycleId}`));
+  for (const cycleKey of cycleKeys) {
+    const separator = cycleKey.indexOf(':');
+    const userId = cycleKey.slice(0, separator);
+    const cycleId = cycleKey.slice(separator + 1);
+    const entries = db.economy.cobblemonDeliveries.filter((entry) => entry.boxId === 'pokemon' && entry.userId === userId && entry.cycleId === cycleId);
     const active = entries.filter((entry) => ['cycle-candidate', 'weekly-choice-pending'].includes(entry.status));
     const deliveryLocked = entries.some((entry) => ['awaiting-delivery', 'delivered', 'claimed-no-delivery'].includes(entry.status));
     if (cycleId !== currentCycleId) {

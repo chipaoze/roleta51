@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-delivery-history-v72',
-  title: 'Histórico de entregas Cobblemon',
-  notes: 'Corrigimos a escolha e o envio da Poké Ball na caça e organizamos as entregas: pendentes continuam acionáveis e os registros já concluídos aparecem no histórico, sem alterar saldo ou dados existentes.'
+  version: '20260921-cobblemon-delivery-history-v73',
+  title: 'Entrega semanal Cobblemon corrigida',
+  notes: 'Corrigimos o fechamento semanal por participante: cada Pokémon escolhido segue para a entrega correta, sem misturar candidatos de pessoas diferentes. O histórico continua preservado, sem alterar saldo.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
