@@ -31,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260921-355/);
-  assert.match(html, /app\.js\?v=20260921-355/);
+  assert.match(html, /styles\.css\?v=20260921-356/);
+  assert.match(html, /app\.js\?v=20260921-356/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -133,7 +133,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260921-cobblemon-delivery-history-v76/);
+  assert.match(appJs, /20260921-cobblemon-capture-polish-v77/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -325,7 +325,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260921-cobblemon-delivery-history-v76/);
+  assert.match(appJs, /20260921-cobblemon-capture-polish-v77/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -333,7 +333,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260921-cobblemon-delivery-history-v76/);
+  assert.match(appJs, /20260921-cobblemon-capture-polish-v77/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -379,6 +379,24 @@ test('caçada troca de setor antes da renderização pesada da página', () => {
   assert.match(appJs, /if \(needsFirstPaint\) requestAnimationFrame\(\(\) => requestAnimationFrame\(renderPage\)\)/);
   assert.match(appJs, /if \(cobblemonPageEncounter && page !== 'cobblemon'\)/);
   assert.match(appJs, /renderedPortalPage = null;\s*requestAnimationFrame\(\(\) => \{ if \(!cobblemonPageEncounter\) renderActivePortalPage\(appState\); \}\)/);
+});
+
+test('caçada ignora menus pausados e centraliza a bola antes do arremesso', () => {
+  assert.match(appJs, /function cobblemonHuntEnabledSectors\(flags = appState\?\.settings\?\.featureFlags \|\| \{\}\)/);
+  assert.match(appJs, /const enabledSectors = cobblemonHuntEnabledSectors\(\);/);
+  assert.match(appJs, /const encounterPageEnabled = !encounterFeature \|\| appState\?\.settings\?\.featureFlags\?\.\[encounterFeature\] !== false/);
+  assert.match(appJs, /const launchPoint = \{/);
+  assert.match(appJs, /ball\.animate\(\[/);
+  assert.match(styles, /\.cobblemon-page-ball\.hunting\{left:50%;right:auto/);
+  assert.match(styles, /\.cobblemon-page-ball\.selected:not\(\.dragging\):not\(\.throwing\)/);
+});
+
+test('preferência de música permanece desligada depois de recarregar', () => {
+  assert.match(appJs, /function hydrateMusicPreference\(userId\)/);
+  assert.match(appJs, /function persistMusicPreference\(value\)/);
+  assert.match(appJs, /hydrateMusicPreference\(data\.me\?\.id\)/);
+  assert.match(appJs, /primeMusicFromGesture\(activate = false\)/);
+  assert.match(appJs, /primeMusicFromGesture\(false\)/);
 });
 
 test('Perfil e Loja não são reconstruídos duas vezes durante a sincronização global', () => {

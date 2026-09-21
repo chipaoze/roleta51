@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-delivery-history-v76",
-  "title": "Ciclos Cobblemon isolados",
-  "notes": "Desculpe pelos erros anteriores. O botão de entrega e o Pokémon pendente do Davi foram corrigidos, e escolhas pendentes de ciclos antigos também ficam fora do novo sorteio. Histórico e saldo foram preservados."
+  "version": "20260921-cobblemon-capture-polish-v77",
+  "title": "Captura Cobblemon mais clara",
+  "notes": "A bola agora aparece centralizada e faz um arremesso visual previsível. A preferência da música é preservada após recarregar e a caçada não escolhe menus pausados. Saldo, histórico e regras de captura foram preservados."
 }

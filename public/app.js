@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-delivery-history-v76',
-  title: 'Ciclos Cobblemon isolados',
-  notes: 'Desculpe pelos erros anteriores. O botão de entrega e o Pokémon pendente do Davi foram corrigidos, e escolhas pendentes de ciclos antigos também ficam fora do novo sorteio. Histórico e saldo foram preservados.'
+  version: '20260921-cobblemon-capture-polish-v77',
+  title: 'Captura Cobblemon mais clara',
+  notes: 'A bola agora aparece centralizada e faz um arremesso visual previsível. A preferência da música é preservada após recarregar e a caçada não escolhe menus pausados. Saldo, histórico e regras de captura foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -80,6 +80,25 @@ let mysteryOpeningInProgress = false;
 let forcedCursorExpiryTimer = null;
 let pendingShieldDialogIdShown = null;
 let seasonCountdownTimer = null;
+
+function musicPreferenceKey(userId) {
+  return userId ? `roundMusic:${userId}` : 'roundMusic';
+}
+
+function hydrateMusicPreference(userId) {
+  const stored = userId ? localStorage.getItem(musicPreferenceKey(userId)) : null;
+  if (stored === 'on' || stored === 'off') musicWanted = stored === 'on';
+  else {
+    musicWanted = localStorage.getItem('roundMusic') !== 'off';
+    if (userId) localStorage.setItem(musicPreferenceKey(userId), musicWanted ? 'on' : 'off');
+  }
+}
+
+function persistMusicPreference(value) {
+  musicWanted = Boolean(value);
+  localStorage.setItem('roundMusic', musicWanted ? 'on' : 'off');
+  if (appState?.me?.id) localStorage.setItem(musicPreferenceKey(appState.me.id), musicWanted ? 'on' : 'off');
+}
 const casinoWheelValues = [
   0,.5,1,1.5,'box-sonda',.5,1,2,1.5,.5,0,1,3,1.5,'box-cosmic',0,1,2,1.5,1,
   0,.5,'box-sonda',1.5,0,.5,1,'box-area51',1.5,.5,0,1,3,'box-cosmic',.5,0,1,2,'box-sonda',1,
@@ -1637,8 +1656,10 @@ function pauseMusic() {
   updateMusicButton();
 }
 
-function primeMusicFromGesture() {
-  musicWanted = true; localStorage.setItem('roundMusic', 'on');
+function primeMusicFromGesture(activate = false) {
+  // Preparar o áudio após um gesto não significa ligar a música. A preferência
+  // de silêncio precisa sobreviver ao reload e a qualquer clique pela página.
+  if (activate) persistMusicPreference(true);
   const context = ensureMusicContext();
   if (context) {
     context.resume().catch(() => {});
@@ -1656,7 +1677,7 @@ function primeMusicFromGesture() {
 function unlockRoundMusicFromAnyGesture() {
   if (!musicPrimedByGesture) {
     musicPrimedByGesture = true;
-    primeMusicFromGesture();
+    primeMusicFromGesture(false);
   }
   // O primeiro gesto pode ocorrer antes de a sessão terminar de carregar;
   // tente novamente em cada gesto até o áudio realmente iniciar.
@@ -1693,6 +1714,7 @@ function showApp(data) {
   stopAuthCarousel();
   authView.classList.add('hidden');
   appView.classList.remove('hidden');
+  hydrateMusicPreference(data.me?.id);
   applyState(data);
   if (typeof optimizeLegacyAvatar === 'function') optimizeLegacyAvatar(data);
   showPortalPage(currentPortalPage());
@@ -3054,7 +3076,12 @@ function syncCobblemonSelectedBall(balls = {}) {
   if (cobblemonSelectedBall !== 'poke' && Number(inventory[cobblemonSelectedBall]?.quantity || 0) < 1) cobblemonSelectedBall = 'poke';
   const ball = COBBLEMON_CAPTURE_BALLS[cobblemonSelectedBall] || COBBLEMON_CAPTURE_BALLS.poke;
   const element = $('#cobblemonPageBall');
-  if (element) { const image = element.querySelector('img'); if (image) { image.src = ball.sprite; image.alt = ball.name; } element.setAttribute('aria-label', `Segure, mire e solte a ${ball.name}`); }
+  if (element) {
+    const image = element.querySelector('img');
+    if (image) { image.src = ball.sprite; image.alt = ball.name; }
+    element.classList.toggle('selected', Boolean(cobblemonPageEncounter && !cobblemonPageCaptureBusy));
+    element.setAttribute('aria-label', `Segure, mire e solte a ${ball.name}`);
+  }
   return ball;
 }
 
@@ -4326,7 +4353,7 @@ $('#rememberMe').addEventListener('change', () => {
 restoreRememberedLogin();
 
 $('#loginForm').addEventListener('submit', async (event) => {
-  event.preventDefault(); primeMusicFromGesture(); const form = event.currentTarget; $('#loginError').textContent = ''; setBusy(form, true);
+  event.preventDefault(); primeMusicFromGesture(false); const form = event.currentTarget; $('#loginError').textContent = ''; setBusy(form, true);
   try {
     const values = Object.fromEntries(new FormData(form));
     showApp(await api('/api/login', { method: 'POST', body: values }));
@@ -4339,7 +4366,7 @@ $('#loginForm').addEventListener('submit', async (event) => {
 });
 
 $('#registerForm').addEventListener('submit', async (event) => {
-  event.preventDefault(); primeMusicFromGesture(); const form = event.currentTarget; $('#registerError').textContent = ''; setBusy(form, true);
+  event.preventDefault(); primeMusicFromGesture(false); const form = event.currentTarget; $('#registerError').textContent = ''; setBusy(form, true);
   try {
     const values = Object.fromEntries(new FormData(form));
     const data = await api('/api/register', { method: 'POST', body: values });
@@ -4365,12 +4392,12 @@ $('#themeToggle').addEventListener('click', () => {
 });
 $('#musicToggle').addEventListener('click', () => {
   if (musicIsPlaying() && !isMusicLockedForDrawDay() && !isMusicFixedForDrawPage()) {
-    musicWanted = false; localStorage.setItem('roundMusic', 'off'); pauseMusic();
+    persistMusicPreference(false); pauseMusic();
     showToast('Música da rodada desativada.');
     return;
   }
   musicPrimedByGesture = true;
-  primeMusicFromGesture();
+  primeMusicFromGesture(true);
   startMusic(true).then(() => {
     if (!musicIsPlaying()) showToast('Não foi possível tocar a trilha agora. Verifique o som do navegador.', 'error');
   });
@@ -5922,10 +5949,19 @@ let cobblemonHuntInterval = null;
 let cobblemonOpenDeliveryGroups = null;
 const COBBLEMON_HUNT_SECTORS = ['memes','sorteio','inscricoes','agua','mentirometro','misterio','impostor','perfil','album','loja','jogos','classificacao'];
 
+function cobblemonHuntEnabledSectors(flags = appState?.settings?.featureFlags || {}) {
+  return COBBLEMON_HUNT_SECTORS.filter((page) => {
+    const feature = featurePageMap[page];
+    return !feature || flags[feature] !== false;
+  });
+}
+
 function updateCobblemonHuntSector(page = currentPortalPage()) {
   const target = $('#cobblemonEncounterTarget');
   if (!target || !cobblemonPageEncounter) return;
-  const visible = !cobblemonPageEncounter.huntPage || cobblemonPageEncounter.huntPage === page;
+  const encounterFeature = featurePageMap[cobblemonPageEncounter.huntPage];
+  const encounterPageEnabled = !encounterFeature || appState?.settings?.featureFlags?.[encounterFeature] !== false;
+  const visible = encounterPageEnabled && (!cobblemonPageEncounter.huntPage || cobblemonPageEncounter.huntPage === page);
   target.classList.toggle('sector-hidden', !visible);
   const ball = $('#cobblemonPageBall');
   if (ball && !cobblemonPageCaptureBusy) ball.classList.toggle('hidden', !visible);
@@ -5935,7 +5971,7 @@ function updateCobblemonHuntSector(page = currentPortalPage()) {
     const title = panel.querySelector('strong');
     const hint = panel.querySelector('small');
     if (title) title.textContent = visible ? 'Escolha a bola pela chance de captura' : 'Encontre o Pokémon para escolher a bola';
-    if (hint) hint.textContent = visible ? 'Clique na bola desejada e arraste a Poké Ball que aparece até o Pokémon.' : 'As chances aparecem quando você abrir a página onde ele está escondido.';
+    if (hint) hint.textContent = visible ? 'Clique na bola desejada. Ela fica centralizada; arraste a Poké Ball que aparece até o Pokémon e solte.' : 'As chances aparecem quando você abrir a página onde ele está escondido.';
     syncCobblemonHuntBallPosition();
   }
   if (visible) {
@@ -6048,7 +6084,7 @@ async function startCobblemonPageEncounter() {
   $('#cobblemonCaptureHint').textContent = 'Procurando no bioma…';
   try {
     const data = await api('/api/cobblemon/encounter', { method: 'POST' });
-    const enabledSectors = COBBLEMON_HUNT_SECTORS.filter((page) => !featurePageMap[page] || appState?.settings?.featureFlags?.[featurePageMap[page]] !== false);
+    const enabledSectors = cobblemonHuntEnabledSectors();
     const huntPage = enabledSectors[Math.floor(Math.random() * enabledSectors.length)] || 'memes';
     cobblemonPageEncounter = { ...data, huntPage, expiresAt: Date.now() + Number(data.expiresIn || 60) * 1000 };
     renderCobblemonBallOptions(appState.profile?.cobblemon?.balls || {}, cobblemonPageEncounter);
@@ -6095,10 +6131,31 @@ async function finishCobblemonPageThrow(event) {
   const hit = event.clientX >= targetRect.left - 28 && event.clientX <= targetRect.right + 28 && event.clientY >= targetRect.top - 28 && event.clientY <= targetRect.bottom + 28;
   cobblemonPageDrag = null;
   cobblemonPageCaptureBusy = true;
-  ball.className = `cobblemon-page-ball hunting ${hit ? 'impacting' : 'missed'}`;
+  ball.className = `cobblemon-page-ball hunting throwing ${hit ? 'aimed' : 'missed'}`;
   $('#cobblemonCaptureHint').textContent = hit ? 'Acertou! A Poké Ball está tentando capturar…' : 'A Poké Ball passou longe…';
   try {
-    await new Promise((resolve) => setTimeout(resolve, hit ? 650 : 420));
+    const targetPoint = { x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 };
+    const impactPoint = hit ? targetPoint : { x: event.clientX, y: event.clientY };
+    // A bola sempre parte de um ponto previsível à esquerda do alvo. O arraste
+    // continua definindo a mira, mas a apresentação deixa de parecer um salto
+    // aleatório a partir do canto da tela.
+    const launchPoint = {
+      x: Math.max(56, targetRect.left - Math.min(220, window.innerWidth * .24)),
+      y: Math.min(window.innerHeight - 76, targetPoint.y + 58),
+    };
+    ball.style.left = `${launchPoint.x}px`;
+    ball.style.top = `${launchPoint.y}px`;
+    const arcPoint = { x: (launchPoint.x + impactPoint.x) / 2, y: Math.min(impactPoint.y, launchPoint.y) - 96 };
+    const throwAnimation = ball.animate([
+      { transform: 'translate(-50%,-50%) rotate(-18deg) scale(1.08)', offset: 0 },
+      { transform: `translate(-50%,-50%) translate(${arcPoint.x - launchPoint.x}px,${arcPoint.y - launchPoint.y}px) rotate(310deg) scale(1.12)`, offset: .55 },
+      { transform: `translate(-50%,-50%) translate(${impactPoint.x - launchPoint.x}px,${impactPoint.y - launchPoint.y}px) rotate(720deg) scale(.82)`, offset: 1 },
+    ], { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : 620, easing: 'cubic-bezier(.2,.76,.24,1)', fill: 'forwards' });
+    await throwAnimation.finished.catch(() => {});
+    ball.style.left = `${impactPoint.x}px`;
+    ball.style.top = `${impactPoint.y}px`;
+    ball.className = `cobblemon-page-ball hunting ${hit ? 'impacting' : 'missed'}`;
+    await new Promise((resolve) => setTimeout(resolve, hit ? 480 : 260));
     const data = await api('/api/cobblemon/capture', { method: 'POST', body: { encounterToken: cobblemonPageEncounter.encounterToken, hit, ballType: cobblemonSelectedBall } });
     const mon = data.pokemon;
     appState.profile = data.profile;
