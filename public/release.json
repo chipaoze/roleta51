@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-quantity-input-v90",
-  "title": "Quantidade das bolas com digitação confiável",
-  "notes": "Os campos de compra agora recebem foco normalmente mesmo com efeitos de cursor ativos. Ao tocar no campo, o valor atual é selecionado para digitação direta; a quantidade continua validada entre 1 e 20 e a compra usa exatamente o número informado. Estoque, saldos e regras da caça foram preservados."
+  "version": "20260921-cobblemon-quantity-input-v91",
+  "title": "Clique simples no campo de quantidade",
+  "notes": "O clique simples agora conclui o foco nativo do campo de quantidade sem exigir que o botão do mouse fique pressionado. O valor atual é selecionado para digitação direta, com validação entre 1 e 20; estoque, saldos e regras da caça foram preservados."
 }

@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-quantity-input-v90',
-  title: 'Quantidade das bolas com digitação confiável',
-  notes: 'Os campos de compra agora recebem foco normalmente mesmo com efeitos de cursor ativos. Ao tocar no campo, o valor atual é selecionado para digitação direta; a quantidade continua validada entre 1 e 20 e a compra usa exatamente o número informado. Estoque, saldos e regras da caça foram preservados.'
+  version: '20260921-cobblemon-quantity-input-v91',
+  title: 'Clique simples no campo de quantidade',
+  notes: 'O clique simples agora conclui o foco nativo do campo de quantidade sem exigir que o botão do mouse fique pressionado. O valor atual é selecionado para digitação direta, com validação entre 1 e 20; estoque, saldos e regras da caça foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -600,7 +600,12 @@ function startThorCursorThrow() {
     if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
     // Native controls must remain usable even while Mjölnir is stuck on the
     // page. In particular, quantity fields need to receive focus and typing.
-    if (isNativeInteractiveTarget(event.target)) return;
+    if (isNativeInteractiveTarget(event.target)) {
+      // A arremessada anterior pode ter deixado um clique de retorno pendente;
+      // nunca consuma o próximo clique de um controle nativo.
+      suppressNextClick = false;
+      return;
+    }
     if (phase === 'stuck') {
       suppressNextClick = true;
       event.preventDefault();
@@ -5994,7 +5999,6 @@ $('#cobblemonBallOptions')?.addEventListener('pointerdown', (event) => {
   if (!input || input.readOnly || input.disabled) return;
   // Keep the field usable when a premium cursor effect is active and make a
   // click on its label behave exactly like a click on the input itself.
-  event.stopPropagation();
   input.focus({ preventScroll: true });
   requestAnimationFrame(() => input.select());
 }, true);
