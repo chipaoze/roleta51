@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-state-cache-v97',
-  title: 'Portal mais leve',
-  notes: 'Reduzimos o trabalho repetido do portal ao reutilizar, por poucos segundos, o estado já pronto quando nada mudou. A rodada, o tema, os saldos e os históricos seguem iguais.'
+  version: '20260921-legendary-sides-v98',
+  title: 'Lendários nas laterais',
+  notes: 'Os lendários da Central Cobblemon agora ficam visíveis nos corredores laterais em telas grandes, sem cobrir formulários e sem usar fundo fixo na rolagem.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
