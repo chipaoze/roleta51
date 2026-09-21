@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-hunt-ball-panel-v70',
-  title: 'Compra de Poké Balls corrigida',
-  notes: 'As bolas especiais ficam ativas na caçada, com chances visíveis no painel flutuante; a Pokédex mantém compra e quantidade sem confundir a seleção.'
+  version: '20260921-cobblemon-delivery-history-v72',
+  title: 'Histórico de entregas Cobblemon',
+  notes: 'Corrigimos a escolha e o envio da Poké Ball na caça e organizamos as entregas: pendentes continuam acionáveis e os registros já concluídos aparecem no histórico, sem alterar saldo ou dados existentes.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3088,7 +3088,12 @@ function confirmCobblemonAction(message, button) {
 function renderCobblemonBallOptions(balls = {}, encounter = cobblemonPageEncounter) {
   const container = $('#cobblemonBallOptions'); if (!container) return;
   const inventory = balls.special || {};
-  const encounterReady = Boolean(encounter?.encounterToken && encounter?.captureChances);
+  // A caçada só libera a escolha quando o Pokémon está na página atual. O
+  // encontro já existe no servidor antes disso, mas a bola não deve ser
+  // escolhida antecipadamente (o jogador decide ao encontrar o alvo).
+  const encounterTarget = $('#cobblemonEncounterTarget');
+  const encounterVisible = Boolean(encounterTarget && !encounterTarget.classList.contains('sector-hidden') && !encounterTarget.classList.contains('hidden'));
+  const encounterReady = Boolean(encounter?.encounterToken && encounter?.captureChances && encounterVisible);
   syncCobblemonSelectedBall(balls);
   container.innerHTML = Object.values(COBBLEMON_CAPTURE_BALLS).map((ball) => {
     const quantity = ball.id === 'poke' ? Number(balls.remaining || 0) : Number(inventory[ball.id]?.quantity || 0);
@@ -3176,7 +3181,7 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonCapsuleResults').innerHTML = resultCards ? `<div class="cobblemon-capsule-result-grid">${resultCards}</div><p class="cobblemon-capsule-result-note">${monthlyBox.weeklyChoicePending ? 'As sete vagas foram preenchidas: escolha um deles para a entrega de sexta.' : 'Suas opções ficam guardadas até você preencher as sete vagas ou até o fechamento automático de sábado.'}</p>${resultAction}` : '<p class="cobblemon-delivery-empty">Nenhum Pokémon escolhido neste ciclo. Abra uma cápsula para começar.</p>';
   $('#cobblemonCapsuleResultCount').textContent = `${weeklyCandidates.length} selecionado${weeklyCandidates.length === 1 ? '' : 's'}`;
   $('#cobblemonCapsuleResultHelp').textContent = monthlyBox.weeklyChoicePending ? 'Escolha um Pokémon desta lista para ficar aguardando o envio do Davi na sexta.' : 'A cada cápsula, faça os 3 sorteios e escolha 1 Pokémon. As vagas restantes seguem abertas; o que sobrar é fechado automaticamente no sábado.';
-  const visibleDeliveries = deliveries.filter((entry) => !['sold', 'box-closed', 'box-open', 'choice-pending', 'cycle-candidate', 'weekly-choice-pending', 'cycle-discarded', 'cycle-expired', 'reset-refunded'].includes(entry.status));
+  const visibleDeliveries = deliveries.filter((entry) => !['sold', 'box-closed', 'box-open', 'choice-pending', 'cycle-candidate', 'weekly-choice-pending', 'cycle-discarded', 'cycle-expired', 'reset-refunded', 'delivered'].includes(entry.status));
   const deliveryGroups = new Map();
   visibleDeliveries.forEach((entry) => {
     const playerName = entry.userName || appState.me.displayName;
@@ -3192,10 +3197,22 @@ function renderCobblemonDex(profile = {}) {
     const expanded = cobblemonOpenDeliveryGroups.has(groupKey);
     return `<details class="cobblemon-delivery-group" data-cobblemon-delivery-group="${escapeHtml(groupKey)}"${expanded ? ' open' : ''}><summary aria-expanded="${expanded}"><span>👤</span><strong>${escapeHtml(group.playerName)}</strong><small>${group.entries.length} ${group.entries.length === 1 ? 'item' : 'itens'}${pending ? ` · ${pending} ${pending === 1 ? 'pendente' : 'pendentes'}` : ''}</small></summary><div>${rows}</div></details>`;
   }).join('');
+  const deliveredHistory = deliveries.filter((entry) => entry.status === 'delivered').sort((a, b) => Date.parse(b.deliveredAt || b.createdAt || 0) - Date.parse(a.deliveredAt || a.createdAt || 0));
+  const history = $('#cobblemonDeliveryHistory');
+  if (history) {
+    const historyRows = deliveredHistory.map((entry) => {
+      const deliveredDate = entry.deliveredAt ? new Date(entry.deliveredAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'data não registrada';
+      const recipient = canDeliverCobblemon ? ` · ${escapeHtml(entry.userName || 'participante')}` : '';
+      const by = entry.deliveredBy ? ` por ${escapeHtml(entry.deliveredBy)}` : '';
+      const spec = cobblemonDeliverySpecLabel(entry);
+      return `<article class="cobblemon-delivery-history-row">${cobblemonDeliverySpriteMarkup(entry)}<p><strong>${escapeHtml(entry.name || 'Recompensa Cobblemon')}</strong><small>Entregue em ${escapeHtml(deliveredDate)}${by}${recipient}</small>${spec ? `<small class="cobblemon-delivery-spec">${escapeHtml(spec)}</small>` : ''}</p><b>✓ Entregue</b></article>`;
+    }).join('');
+    history.innerHTML = `<header><strong>Histórico de entregas</strong><span>${deliveredHistory.length} concluída${deliveredHistory.length === 1 ? '' : 's'}</span></header>${historyRows || '<p class="cobblemon-delivery-history-empty">Nenhuma entrega concluída ainda.</p>'}`;
+  }
   const pendingDeliveries = deliveries.filter((entry) => entry.status === 'awaiting-delivery');
   $('#cobblemonDeliveryKicker').textContent = canDeliverCobblemon ? 'PAINEL DE ENTREGA · TODA A EQUIPE' : 'MEUS PEDIDOS';
   $('#cobblemonDeliveryHelp').textContent = canDeliverCobblemon ? 'Davi e administradores podem confirmar aqui a entrega dos itens mantidos por qualquer participante.' : 'Acompanhe aqui os itens que você decidiu manter e aguarde a confirmação do Davi.';
-  $('#cobblemonDeliveryCount').textContent = pendingDeliveries.length + (pendingDeliveries.length === 1 ? ' pendente' : ' pendentes');
+  $('#cobblemonDeliveryCount').textContent = `${pendingDeliveries.length} ${pendingDeliveries.length === 1 ? 'pendente' : 'pendentes'} · ${deliveredHistory.length} entregues`;
   if (!visibleDeliveries.length) $('#cobblemonRewards').innerHTML = '<p class="cobblemon-delivery-empty">Nenhuma recompensa aguardando decisão ou entrega.</p>';
   const roulette = profile.cobblemon?.roulette || {}; const rouletteButton = $('#cobblemonRouletteSpin');
   $('#cobblemonRouletteCard .cobblemon-roulette-copy>small').textContent = 'RODADA ESPECIAL · 1 VEZ POR DIA';
@@ -3256,11 +3273,18 @@ function mountCobblemonHuntBallPanel() {
     panel.id = 'cobblemonHuntBallPanel';
     panel.className = 'cobblemon-hunt-ball-panel';
     panel.setAttribute('aria-label', 'Escolha a Poké Ball da captura');
-    panel.innerHTML = '<strong>Escolha a bola pela chance de captura</strong><small>Você pode selecionar qualquer bola disponível sem voltar à Pokédex.</small>';
+    panel.innerHTML = '<strong>Encontre o Pokémon para escolher a bola</strong><small>As chances aparecem quando você abrir a página onde ele está escondido.</small>';
     document.body.append(panel);
   }
   if (options.parentElement !== panel) panel.append(options);
   panel.classList.add('is-visible');
+  syncCobblemonHuntBallPosition();
+}
+
+function syncCobblemonHuntBallPosition() {
+  const panel = $('#cobblemonHuntBallPanel');
+  if (!panel) return;
+  document.documentElement.style.setProperty('--cobblemon-hunt-panel-height', `${Math.ceil(panel.getBoundingClientRect().height)}px`);
 }
 
 function restoreCobblemonBallPanel() {
@@ -5903,6 +5927,17 @@ function updateCobblemonHuntSector(page = currentPortalPage()) {
   if (!target || !cobblemonPageEncounter) return;
   const visible = !cobblemonPageEncounter.huntPage || cobblemonPageEncounter.huntPage === page;
   target.classList.toggle('sector-hidden', !visible);
+  const ball = $('#cobblemonPageBall');
+  if (ball && !cobblemonPageCaptureBusy) ball.classList.toggle('hidden', !visible);
+  renderCobblemonBallOptions(appState.profile?.cobblemon?.balls || {}, cobblemonPageEncounter);
+  const panel = $('#cobblemonHuntBallPanel');
+  if (panel) {
+    const title = panel.querySelector('strong');
+    const hint = panel.querySelector('small');
+    if (title) title.textContent = visible ? 'Escolha a bola pela chance de captura' : 'Encontre o Pokémon para escolher a bola';
+    if (hint) hint.textContent = visible ? 'Clique na bola desejada e arraste a Poké Ball que aparece até o Pokémon.' : 'As chances aparecem quando você abrir a página onde ele está escondido.';
+    syncCobblemonHuntBallPosition();
+  }
   if (visible) {
     placeCobblemonEncounter();
     if (cobblemonPageEncounter.alreadyOwned && !cobblemonPageEncounter.duplicateNoticeShown) {
@@ -6029,7 +6064,7 @@ async function startCobblemonPageEncounter() {
     placeCobblemonEncounter();
     target.className = `cobblemon-encounter-target hunting tier-${Number(data.pokemon.tier)}${data.pokemon.isShiny ? ' shiny' : ''}`;
     syncCobblemonSelectedBall(appState.profile?.cobblemon?.balls || {});
-    ball.className = 'cobblemon-page-ball hunting ready';
+    ball.className = `cobblemon-page-ball hunting ready${cobblemonPageEncounter.huntPage && cobblemonPageEncounter.huntPage !== currentPortalPage() ? ' hidden' : ''}`;
     button.textContent = 'Caçada em andamento';
     $('#cobblemonHuntTimer').classList.remove('hidden');
     updateCobblemonHuntSector(currentPortalPage());
@@ -6095,6 +6130,8 @@ $('#cobblemonPageBall')?.addEventListener('pointerdown', (event) => {
   cobblemonPageDrag = { pointerId: event.pointerId };
   ball.setPointerCapture?.(event.pointerId);
   ball.classList.add('dragging');
+  ball.style.bottom = 'auto';
+  ball.style.right = 'auto';
   ball.style.left = `${event.clientX}px`;
   ball.style.top = `${event.clientY}px`;
   $('#cobblemonCaptureHint').textContent = `Mire no Pokémon e solte a ${COBBLEMON_CAPTURE_BALLS[cobblemonSelectedBall]?.name || 'Poké Ball'}.`;

@@ -70,6 +70,14 @@ test('painel de entregas não trunca itens antigos não-Pokémon', () => {
   assert.doesNotMatch(source, /deliveries:\s*db\.economy\.cobblemonDeliveries\.filter\([^\n]+\)\.slice\(-30\)/);
 });
 
+test('histórico de entregas usa os registros existentes sem truncar a produção', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  assert.match(server, /deliveries:\s*db\.economy\.cobblemonDeliveries\.filter\(/);
+  assert.match(server, /route === '\/api\/admin\/cobblemon\/delivered'/);
+  assert.match(server, /reward\.status = 'delivered'/);
+  assert.doesNotMatch(server, /cobblemonDeliveryHistoryV1/);
+});
+
 test('Pokédex permite comprar e escolher bolas especiais com chance calculada no servidor', () => {
   const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
@@ -99,6 +107,8 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(styles, /\.cobblemon-ball-option\.empty\{opacity:1\}/);
   assert.match(styles, /\.cobblemon-ball-purchase\{[^}]*opacity:1/);
   assert.match(styles, /\.cobblemon-hunt-ball-panel \.cobblemon-ball-price\{display:none\}/);
+  assert.match(styles, /\.cobblemon-hunt-ball-panel \.cobblemon-ball-select>b\{display:none\}/);
+  assert.match(app, /arraste a Poké Ball que aparece até o Pokémon/);
 });
 
 test('Cobblemon mantém rolagem leve e preço de cápsula padronizado', () => {
@@ -214,7 +224,7 @@ test('Cápsula prioriza a escolha pendente no rótulo e no clique', () => {
 test('Poké Ball só pode ser escolhida depois do encontro e exibe chance percentual', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(app, /const encounterReady = Boolean\(encounter\?\.encounterToken && encounter\?\.captureChances\)/);
+  assert.match(app, /const encounterReady = Boolean\(encounter\?\.encounterToken && encounter\?\.captureChances &&/);
   assert.match(app, /const selectorAttributes = encounterReady \?/);
   assert.match(app, /Chance de captura: <b>\$\{chance\}%<\/b>/);
   assert.doesNotMatch(app, /appState\.profile = data\.profile; cobblemonSelectedBall = ballType;/);
