@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-quantity-input-v95',
-  title: 'Quantidade e sessão mais estáveis',
-  notes: 'O campo de quantidade continua editável com um clique e a verificação inicial da sessão aguarda a resposta completa em conexões lentas. O salvamento de temas e a limpeza visual também recebem tempo suficiente para concluir, sem alterar sorteios, saldos ou históricos.'
+  version: '20260921-round-participants-v96',
+  title: 'Participantes da rodada mais claros',
+  notes: 'Na rodada aberta, a administração pode adicionar ou remover quem ainda não enviou. Ao incluir alguém, a pessoa já vê o tema atual e pode enviar normalmente; depois do envio, a participação fica protegida.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3708,7 +3708,11 @@ function renderAdmin() {
     $('#useReadyParticipantsButton').classList.toggle('hidden', !readiness.canStartWithReady);
     const participantManager = $('#roundParticipantManager');
     participantManager.classList.toggle('hidden', !readiness.canManageParticipants);
-    if (readiness.canManageParticipants) $('#roundParticipantList').innerHTML = (readiness.participants || []).map((person) => '<div class="round-participant-row"><span>' + escapeHtml(formatDisplayName(person.displayName)) + (person.hasSubmission ? ' <small>já enviou</small>' : '') + '</span><button type="button" class="tiny-toggle ' + (person.included ? 'on' : 'off') + '" data-round-participant="' + escapeHtml(person.id) + '" data-round-included="' + (!person.included) + '" ' + (person.hasSubmission ? 'disabled' : '') + '>' + (person.included ? 'Participa' : 'Adicionar') + '</button></div>').join('');
+    if (readiness.canManageParticipants) $('#roundParticipantList').innerHTML = (readiness.participants || []).map((person) => {
+      const action = person.hasSubmission ? 'Protegido' : person.included ? 'Remover' : 'Adicionar';
+      const actionLabel = person.hasSubmission ? `${formatDisplayName(person.displayName)} já enviou e não pode ser alterado` : person.included ? `Remover ${formatDisplayName(person.displayName)} da rodada` : `Adicionar ${formatDisplayName(person.displayName)} à rodada`;
+      return '<div class="round-participant-row"><span>' + escapeHtml(formatDisplayName(person.displayName)) + (person.hasSubmission ? ' <small>já enviou</small>' : '') + '</span><button type="button" class="tiny-toggle ' + (person.included ? 'on' : 'off') + '" data-round-participant="' + escapeHtml(person.id) + '" data-round-included="' + (!person.included) + '" aria-label="' + escapeHtml(actionLabel) + '" title="' + escapeHtml(actionLabel) + '" ' + (person.hasSubmission ? 'disabled' : '') + '>' + action + '</button></div>';
+    }).join('');
   }
   const assistedCard = $('#adminAssistedUploadForm');
   const uploadOptions = appState.adminUploadOptions || [];

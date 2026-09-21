@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-quantity-input-v95",
-  "title": "Quantidade e sessão mais estáveis",
-  "notes": "O campo de quantidade continua editável com um clique e a verificação inicial da sessão aguarda a resposta completa em conexões lentas. O salvamento de temas e a limpeza visual também recebem tempo suficiente para concluir, sem alterar sorteios, saldos ou históricos."
+  "version": "20260921-round-participants-v96",
+  "title": "Participantes da rodada mais claros",
+  "notes": "Na rodada aberta, a administração pode adicionar ou remover quem ainda não enviou. Ao incluir alguém, a pessoa já vê o tema atual e pode enviar normalmente; depois do envio, a participação fica protegida."
 }
