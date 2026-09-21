@@ -31,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260921-357/);
-  assert.match(html, /app\.js\?v=20260921-357/);
+  assert.match(html, /styles\.css\?v=20260921-358/);
+  assert.match(html, /app\.js\?v=20260921-358/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -133,7 +133,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260921-cobblemon-capture-centered-v78/);
+  assert.match(appJs, /20260921-cobblemon-capture-forbes-v79/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -325,7 +325,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260921-cobblemon-capture-centered-v78/);
+  assert.match(appJs, /20260921-cobblemon-capture-forbes-v79/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -333,7 +333,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260921-cobblemon-capture-centered-v78/);
+  assert.match(appJs, /20260921-cobblemon-capture-forbes-v79/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -387,6 +387,8 @@ test('caçada ignora menus pausados e centraliza a bola antes do arremesso', () 
   assert.match(appJs, /const encounterPageEnabled = !encounterFeature \|\| appState\?\.settings\?\.featureFlags\?\.\[encounterFeature\] !== false/);
   assert.match(appJs, /const launchPoint = \{/);
   assert.match(appJs, /target\.style\.left = `\$\{Math\.round\(window\.innerWidth \/ 2\)\}px`/);
+  assert.match(appJs, /let cobblemonPageThrowSequence = 0/);
+  assert.match(appJs, /throwSequence !== cobblemonPageThrowSequence/);
   assert.match(appJs, /ball\.animate\(\[/);
   assert.match(styles, /\.cobblemon-page-ball\.hunting\{left:50%;right:auto/);
   assert.match(styles, /\.cobblemon-page-ball\.selected:not\(\.dragging\):not\(\.throwing\)/);
@@ -398,6 +400,15 @@ test('preferência de música permanece desligada depois de recarregar', () => {
   assert.match(appJs, /hydrateMusicPreference\(data\.me\?\.id\)/);
   assert.match(appJs, /primeMusicFromGesture\(activate = false\)/);
   assert.match(appJs, /primeMusicFromGesture\(false\)/);
+});
+
+test('Forbes 51 mostra patrimônio sem alterar saldo ou histórico', () => {
+  assert.match(serverJs, /const financeRanking = db\.users\.filter\(\(item\) => item\.active\)/);
+  assert.match(serverJs, /fortune: roundMoney\(cash \+ invested\)/);
+  assert.match(serverJs, /rankings: \{ best: bestRanking, worst: worstRanking, gay: gayRanking \}, financeRanking/);
+  assert.match(appJs, /const finance = Array\.isArray\(appState\.financeRanking\)/);
+  assert.match(html, /id="financeRanking"/);
+  assert.match(html, /FORBES 51/);
 });
 
 test('Perfil e Loja não são reconstruídos duas vezes durante a sincronização global', () => {

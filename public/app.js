@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-capture-centered-v78',
-  title: 'Captura Cobblemon centralizada',
-  notes: 'O Pokémon e a Poké Ball agora ficam centralizados quando a caçada é encontrada, com arremesso visual previsível. A preferência da música é preservada e menus pausados continuam fora da caça. Saldo, histórico e regras de captura foram preservados.'
+  version: '20260921-cobblemon-capture-forbes-v79',
+  title: 'Captura centralizada e Forbes 51',
+  notes: 'O Pokémon e a Poké Ball ficam centralizados quando a caçada é encontrada, e uma sequência de arremesso nunca é repetida após o envio. O novo placar Forbes 51 mostra caixa, valor investido e patrimônio sem alterar saldos ou histórico. A preferência da música e as regras de captura foram preservadas.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2355,6 +2355,14 @@ function renderRankings() {
   $('#bestRanking').innerHTML = rankingRows(best, 'best');
   $('#worstRanking').innerHTML = rankingRows(worst, 'worst');
   $('#gayRanking').innerHTML = rankingRows(gay, 'gay');
+  const finance = Array.isArray(appState.financeRanking) ? appState.financeRanking : [];
+  $('#financeRanking').innerHTML = finance.length ? finance.map((person, index) => {
+    const podiumClass = index < 3 ? ' rank-' + (index + 1) : '';
+    return '<article class="finance-row' + podiumClass + '"><span class="finance-position">' + (index + 1) + '</span>' +
+      personAvatar(person, 'finance-avatar') +
+      '<div class="finance-person"><strong>' + visualName(person) + '</strong><span class="ranking-live-titles">' + liveTitleChips(person.liveTitles) + '</span><small>Caixa: ' + formatCredits(person.cash) + ' · Investido: ' + formatCredits(person.invested) + ' Créditos 51</small></div>' +
+      '<b class="finance-fortune"><span class="coin-51" aria-hidden="true">51</span> ' + formatCredits(person.fortune) + '</b></article>';
+  }).join('') : '<div class="ranking-empty">O placar financeiro será preenchido conforme a equipe movimentar a economia.</div>';
 }
 
 let openedPublicProfileId='';
@@ -5945,6 +5953,7 @@ $('#cobblemonOpeningDialog')?.addEventListener('close', (event) => { if (cobblem
 let cobblemonPageEncounter = null;
 let cobblemonPageDrag = null;
 let cobblemonPageCaptureBusy = false;
+let cobblemonPageThrowSequence = 0;
 let cobblemonHuntInterval = null;
 let cobblemonOpenDeliveryGroups = null;
 const COBBLEMON_HUNT_SECTORS = ['memes','sorteio','inscricoes','agua','mentirometro','misterio','impostor','perfil','album','loja','jogos','classificacao'];
@@ -6024,6 +6033,8 @@ function resetCobblemonPageCapture(clearResult = false) {
   const target = $('#cobblemonEncounterTarget');
   const timer = $('#cobblemonHuntTimer');
   const stage = $('.cobblemon-capture-stage');
+  cobblemonPageThrowSequence += 1;
+  ball?.getAnimations?.().forEach((animation) => animation.cancel());
   clearInterval(cobblemonHuntInterval);
   cobblemonHuntInterval = null;
   cobblemonPageEncounter = null;
@@ -6127,12 +6138,15 @@ async function startCobblemonPageEncounter() {
 
 async function finishCobblemonPageThrow(event) {
   if (!cobblemonPageDrag || cobblemonPageCaptureBusy || !cobblemonPageEncounter) return;
+  const throwSequence = ++cobblemonPageThrowSequence;
   const ball = $('#cobblemonPageBall');
   const target = $('#cobblemonEncounterTarget');
   const targetRect = target.getBoundingClientRect();
   const hit = event.clientX >= targetRect.left - 28 && event.clientX <= targetRect.right + 28 && event.clientY >= targetRect.top - 28 && event.clientY <= targetRect.bottom + 28;
   cobblemonPageDrag = null;
   cobblemonPageCaptureBusy = true;
+  ball.releasePointerCapture?.(event.pointerId);
+  ball.getAnimations?.().forEach((animation) => animation.cancel());
   ball.className = `cobblemon-page-ball hunting throwing ${hit ? 'aimed' : 'missed'}`;
   $('#cobblemonCaptureHint').textContent = hit ? 'Acertou! A Poké Ball está tentando capturar…' : 'A Poké Ball passou longe…';
   try {
@@ -6154,11 +6168,15 @@ async function finishCobblemonPageThrow(event) {
       { transform: `translate(-50%,-50%) translate(${impactPoint.x - launchPoint.x}px,${impactPoint.y - launchPoint.y}px) rotate(720deg) scale(.82)`, offset: 1 },
     ], { duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : 620, easing: 'cubic-bezier(.2,.76,.24,1)', fill: 'forwards' });
     await throwAnimation.finished.catch(() => {});
+    if (throwSequence !== cobblemonPageThrowSequence || !cobblemonPageEncounter) return;
+    ball.getAnimations?.().forEach((animation) => animation.cancel());
     ball.style.left = `${impactPoint.x}px`;
     ball.style.top = `${impactPoint.y}px`;
     ball.className = `cobblemon-page-ball hunting ${hit ? 'impacting' : 'missed'}`;
     await new Promise((resolve) => setTimeout(resolve, hit ? 480 : 260));
+    if (throwSequence !== cobblemonPageThrowSequence || !cobblemonPageEncounter) return;
     const data = await api('/api/cobblemon/capture', { method: 'POST', body: { encounterToken: cobblemonPageEncounter.encounterToken, hit, ballType: cobblemonSelectedBall } });
+    if (throwSequence !== cobblemonPageThrowSequence) return;
     const mon = data.pokemon;
     appState.profile = data.profile;
     target.classList.add(data.captured ? 'captured' : data.missed ? 'missed-target' : 'escaped');

@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-capture-centered-v78",
-  "title": "Captura Cobblemon centralizada",
-  "notes": "O Pokémon e a Poké Ball agora ficam centralizados quando a caçada é encontrada, com arremesso visual previsível. A preferência da música é preservada e menus pausados continuam fora da caça. Saldo, histórico e regras de captura foram preservados."
+  "version": "20260921-cobblemon-capture-forbes-v79",
+  "title": "Captura centralizada e Forbes 51",
+  "notes": "O Pokémon e a Poké Ball ficam centralizados quando a caçada é encontrada, e uma sequência de arremesso nunca é repetida após o envio. O novo placar Forbes 51 mostra caixa, valor investido e patrimônio sem alterar saldos ou histórico. A preferência da música e as regras de captura foram preservadas."
 }
