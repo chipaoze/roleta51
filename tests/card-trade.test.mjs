@@ -32,7 +32,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260921-379/);
-  assert.match(html, /app\.js\?v=20260921-379/);
+  assert.match(html, /app\.js\?v=20260921-380/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -41,6 +41,14 @@ test('wallpapers podem ser ampliados antes do voto sem revelar autoria', () => {
   assert.match(appJs, /data-wallpaper-preview-url/);
   assert.match(appJs, /Autoria secreta · visualização para análise/);
   assert.match(styles, /\.wallpaper-preview-dialog/);
+});
+
+test('presente secreto aceita até 500 créditos por semana com limite validado no servidor', () => {
+  assert.match(serverJs, /const WEEKLY_CREDIT_GIFT_LIMIT = 500/);
+  assert.match(serverJs, /max: WEEKLY_CREDIT_GIFT_LIMIT/);
+  assert.match(serverJs, /roundMoney\(sent \+ amount\) > WEEKLY_CREDIT_GIFT_LIMIT/);
+  assert.match(html, /id="giftCreditsAmount"[^>]*max="500"/);
+  assert.match(appJs, /weeklyCreditLimit/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
@@ -140,11 +148,11 @@ test('campos numéricos têm largura e altura para centavos em todos os temas', 
 test('valores financeiros aceitam centavos, mas quantidades continuam inteiras', () => {
   assert.match(serverJs, /function parseMoney\(value, \{ min = 0, max = Number\.MAX_SAFE_INTEGER \} = \{\}\)/);
   assert.match(serverJs, /const bet = parseMoney\(body\.bet, \{ min: 0\.01 \}\)/);
-  assert.match(serverJs, /const amount = parseMoney\(body\.amount, \{ min: 0\.01, max: 100 \}\)/);
+  assert.match(serverJs, /const amount = parseMoney\(body\.amount, \{ min: 0\.01, max: WEEKLY_CREDIT_GIFT_LIMIT \}\)/);
   assert.match(serverJs, /if \(!Number\.isInteger\(quantity\) \|\| quantity < 1 \|\| quantity > 20\)/);
   assert.match(html, /id="casinoBet" type="number" min="0\.01" step="0\.01" inputmode="decimal"/);
   assert.doesNotMatch(html, /id="flightBet"/);
-  assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
+  assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="500" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /20260921-legendary-sides-v98/);
 });

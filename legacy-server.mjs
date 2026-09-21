@@ -32,6 +32,7 @@ const MUSIC_LOOP_MS = 8000;
 // restante do portal; a própria rota de voto continua liberada para não criar
 // um bloqueio impossível de resolver.
 const LIE_VOTE_GRACE_MS = 10 * 60 * 1000;
+const WEEKLY_CREDIT_GIFT_LIMIT = 500;
 const liveClients = new Map();
 let sharedOnlinePeople = [];
 const PRESENCE_TTL = 60000;
@@ -2661,7 +2662,8 @@ function profileFor(user, computed = {}) {
     giftOptions: {
       people: db.users.filter((item) => item.active && item.approved !== false && item.id !== user.id).map((item) => ({ id: item.id, displayName: item.displayName })),
       items: SHOP_CATALOG.filter((item) => !item.adminOnly && !item.mysteryBox && !item.service).map(({ id, name, price, type, consumable }) => ({ id, name, price, type, consumable: Boolean(consumable) })),
-      weeklyCreditRemaining: Math.max(0, 100 - db.economy.gifts.filter((item) => item.type === 'credits' && item.fromUserId === user.id && item.createdAt.slice(0, 10) >= saoPauloWeekKey()).reduce((sum, item) => sum + item.amount, 0)),
+      weeklyCreditLimit: WEEKLY_CREDIT_GIFT_LIMIT,
+      weeklyCreditRemaining: Math.max(0, WEEKLY_CREDIT_GIFT_LIMIT - db.economy.gifts.filter((item) => item.type === 'credits' && item.fromUserId === user.id && item.createdAt.slice(0, 10) >= saoPauloWeekKey()).reduce((sum, item) => sum + item.amount, 0)),
     },
   };
 }
@@ -4495,11 +4497,11 @@ async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/gifts/credits') {
     const { user } = requireAuth(req); const body = await readJson(req);
     const target = db.users.find((item) => item.id === body.targetId && item.active && item.approved !== false);
-    const amount = parseMoney(body.amount, { min: 0.01, max: 100 }); const weekKey = saoPauloWeekKey();
+    const amount = parseMoney(body.amount, { min: 0.01, max: WEEKLY_CREDIT_GIFT_LIMIT }); const weekKey = saoPauloWeekKey();
     if (!target || target.id === user.id) throw new HttpError(404, 'Participante escolhido não encontrado.');
-    if (amount === null) throw new HttpError(400, 'Envie um valor entre 0,01 e 100 créditos, com no máximo duas casas decimais.');
+    if (amount === null) throw new HttpError(400, 'Envie um valor entre 0,01 e ' + WEEKLY_CREDIT_GIFT_LIMIT + ' créditos, com no máximo duas casas decimais.');
     const sent = db.economy.gifts.filter((item) => item.type === 'credits' && item.fromUserId === user.id && item.createdAt.slice(0, 10) >= weekKey).reduce((sum, item) => sum + item.amount, 0);
-    if (roundMoney(sent + amount) > 100) throw new HttpError(409, 'Seu limite semanal restante é de ' + roundMoney(Math.max(0, 100 - sent)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' créditos.');
+    if (roundMoney(sent + amount) > WEEKLY_CREDIT_GIFT_LIMIT) throw new HttpError(409, 'Seu limite semanal restante é de ' + roundMoney(Math.max(0, WEEKLY_CREDIT_GIFT_LIMIT - sent)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' créditos.');
     if (walletFor(user.id) < amount) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const now = new Date().toISOString(); addCredits(user.id, -amount); addCredits(target.id, amount);
     db.economy.gifts.push({ id: randomUUID(), type: 'credits', fromUserId: user.id, toUserId: target.id, amount, createdAt: now });

@@ -3614,12 +3614,14 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   $('#medalCount').textContent = unlocked + ' de ' + medals.length + ' desbloqueadas';
   $('#profileMedals').innerHTML = medals.map((medal) => `<article class="profile-medal${medal.unlocked ? ' unlocked' : ' locked'}${medal.secret ? ' secret-medal' : ''}"><span>${medal.unlocked ? medal.icon : '🔒'}</span><div><strong>${medal.unlocked || !medal.secret ? escapeHtml(medal.name) : 'Sinal desconhecido'}</strong><small>${escapeHtml(medal.unlocked || !medal.secret ? medal.description : 'Conquista secreta — explore a Área 51 para revelar.')}</small></div></article>`).join('');
   renderTrophyRoom(profile);
-  const gifts = profile.giftOptions || { people: [], items: [], weeklyCreditRemaining: 0 };
+  const gifts = profile.giftOptions || { people: [], items: [], weeklyCreditLimit: 500, weeklyCreditRemaining: 0 };
+  const weeklyCreditLimit = Number(gifts.weeklyCreditLimit || 500);
   const peopleOptions = (gifts.people || []).map((person) => `<option value="${escapeHtml(person.id)}">${escapeHtml(formatDisplayName(person.displayName))}</option>`).join('');
   $('#giftCreditsUser').innerHTML = peopleOptions || '<option value="">Nenhuma pessoa disponível</option>';
   $('#giftItemUser').innerHTML = peopleOptions || '<option value="">Nenhuma pessoa disponível</option>';
     $('#giftShopItem').innerHTML = (gifts.items || []).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${formatCredits(item.price)} créditos</option>`).join('');
-  $('#giftCreditLimit').textContent = 'Limite restante nesta semana: ' + Number(gifts.weeklyCreditRemaining || 0) + ' créditos';
+  $('#giftCreditsAmount').max = String(weeklyCreditLimit);
+  $('#giftCreditLimit').textContent = 'Limite restante nesta semana: ' + Number(gifts.weeklyCreditRemaining || 0) + ' de ' + weeklyCreditLimit + ' créditos';
   $('.gift-center-card').classList.toggle('hidden', !(gifts.people || []).length);
   const freeShopAvailable = Boolean(profile.freeShopPurchaseAvailable);
   $('#freeShopPass').classList.toggle('used', !freeShopAvailable);
