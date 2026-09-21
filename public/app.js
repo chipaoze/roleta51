@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-delivery-history-v74',
-  title: 'Cápsulas semanais sem repetição',
-  notes: 'Pokémon já pertencentes ao participante não voltam a ser sorteados nas cápsulas do novo ciclo. As entregas semanais continuam separadas por participante, com histórico e saldo preservados.'
+  version: '20260921-cobblemon-delivery-history-v75',
+  title: 'Entregas Cobblemon acionáveis',
+  notes: 'O botão de marcar entrega voltou a responder diretamente na fila, inclusive para o Pokémon pendente do Davi. O ciclo semanal sem repetição e o histórico continuam preservados, sem alterar saldo.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -6174,7 +6174,26 @@ $('#cobblemonCapsuleResults')?.addEventListener('click', (event) => {
   event.stopPropagation();
   void sellCobblemonCandidate(candidateSellButton);
 });
+async function markCobblemonDelivered(button) {
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  try {
+    const state = await api('/api/admin/cobblemon/delivered', { method: 'POST', body: { id: button.dataset.cobblemonDelivered } });
+    applyState(state);
+    showToast('Entrega marcada como concluída.');
+  } catch (error) {
+    showToast(error.message, 'error');
+    if (button.isConnected) button.disabled = false;
+  }
+}
 $('#cobblemonRewards')?.addEventListener('click', (event) => {
+  const delivered = event.target?.closest?.('[data-cobblemon-delivered]');
+  if (delivered) {
+    event.preventDefault();
+    event.stopPropagation();
+    void markCobblemonDelivered(delivered);
+    return;
+  }
   const summary = event.target?.closest?.('.cobblemon-delivery-group > summary');
   if (!summary) return;
   event.preventDefault();
