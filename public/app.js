@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-quantity-input-v89',
-  title: 'Quantidade das bolas com edição direta',
-  notes: 'Ao tocar no campo de compra, o valor atual é selecionado para você digitar a quantidade diretamente. O valor continua validado entre 1 e 20 e a compra usa exatamente o número informado; estoque, saldos e regras da caça foram preservados.'
+  version: '20260921-cobblemon-quantity-input-v90',
+  title: 'Quantidade das bolas com digitação confiável',
+  notes: 'Os campos de compra agora recebem foco normalmente mesmo com efeitos de cursor ativos. Ao tocar no campo, o valor atual é selecionado para digitação direta; a quantidade continua validada entre 1 e 20 e a compra usa exatamente o número informado. Estoque, saldos e regras da caça foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -598,6 +598,9 @@ function startThorCursorThrow() {
   document.addEventListener('pointerdown', (event) => {
     if (!isActive() || event.button !== 0) return;
     if (event.target?.closest?.('.feed-post-text,.feed-comment-text')) return;
+    // Native controls must remain usable even while Mjölnir is stuck on the
+    // page. In particular, quantity fields need to receive focus and typing.
+    if (isNativeInteractiveTarget(event.target)) return;
     if (phase === 'stuck') {
       suppressNextClick = true;
       event.preventDefault();
@@ -610,7 +613,6 @@ function startThorCursorThrow() {
       event.stopImmediatePropagation();
       return;
     }
-    if (isNativeInteractiveTarget(event.target)) return;
     event.preventDefault();
     window.getSelection()?.removeAllRanges();
     document.documentElement.classList.add('premium-pointer-gesture-active');
@@ -5987,6 +5989,15 @@ document.addEventListener('focusin', (event) => {
     if (document.activeElement === input) input.select();
   });
 });
+$('#cobblemonBallOptions')?.addEventListener('pointerdown', (event) => {
+  const input = event.target?.closest?.('[data-cobblemon-ball-quantity]');
+  if (!input || input.readOnly || input.disabled) return;
+  // Keep the field usable when a premium cursor effect is active and make a
+  // click on its label behave exactly like a click on the input itself.
+  event.stopPropagation();
+  input.focus({ preventScroll: true });
+  requestAnimationFrame(() => input.select());
+}, true);
 $('#closeCobblemonOddsDialog')?.addEventListener('click', () => $('#cobblemonOddsDialog').close());
 $('#cobblemonOpeningDialog')?.addEventListener('cancel', (event) => event.preventDefault());
 $('#cobblemonOpeningDialog')?.addEventListener('click', (event) => { if (event.target === event.currentTarget) { event.preventDefault(); event.stopPropagation(); } });
