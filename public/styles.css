@@ -1948,11 +1948,11 @@ body.theme-light-override .cobblemon-page{background-image:linear-gradient(100de
 body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(240,252,255,.82),rgba(218,244,250,.58) 54%,rgba(235,250,255,.50)),url('/theme-cobblemon-dex-v2.jpg') !important}
 /* Fundo único, com lendários em sprites separados nos corredores laterais. */
 body.profile-theme-cobblemon .app,
-body.theme-light-override.profile-theme-cobblemon .app{background-image:linear-gradient(90deg,rgba(6,27,54,.22),rgba(8,56,100,.05)),url('/theme-cobblemon-dex-v4.jpg') !important;background-size:cover !important;background-repeat:no-repeat !important;background-position:center center !important;background-attachment:fixed !important}
+body.theme-light-override.profile-theme-cobblemon .app{background-image:linear-gradient(90deg,rgba(6,27,54,.22),rgba(8,56,100,.05)),url('/theme-cobblemon-dex-v5.webp') !important;background-size:100% auto !important;background-repeat:no-repeat !important;background-position:center top !important;background-attachment:scroll !important}
 body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) .cobblemon-page,
-body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(4,21,39,.78),rgba(6,38,58,.48) 52%,rgba(8,27,42,.42)),url('/theme-cobblemon-dex-v4.jpg') !important;background-size:cover !important;background-repeat:no-repeat !important;background-position:center center !important;background-attachment:fixed !important}
-body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(240,252,255,.82),rgba(218,244,250,.58) 54%,rgba(235,250,255,.50)),url('/theme-cobblemon-dex-v4.jpg') !important}
-.cobblemon-scene-sprites{display:block!important;z-index:2;overflow:visible}
+body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(4,21,39,.78),rgba(6,38,58,.48) 52%,rgba(8,27,42,.42)),url('/theme-cobblemon-dex-v5.webp') !important;background-size:100% auto !important;background-repeat:no-repeat !important;background-position:center top !important;background-attachment:scroll !important}
+body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(240,252,255,.82),rgba(218,244,250,.58) 54%,rgba(235,250,255,.50)),url('/theme-cobblemon-dex-v5.webp') !important}
+.cobblemon-scene-sprites{display:none!important}
 .cobblemon-page>:not(.cobblemon-scene-sprites){z-index:3}
 .cobblemon-scene-mon{display:none!important}
 .cobblemon-scene-mon.mon-legendary{display:block!important;width:clamp(118px,10vw,178px);max-width:178px;opacity:.98;filter:drop-shadow(0 10px 12px rgba(1,12,28,.72));transform:none}
@@ -1965,7 +1965,8 @@ body.theme-light-override .cobblemon-page{background-image:linear-gradient(100de
 @media(max-width:980px){.cobblemon-scene-sprites{display:none!important}}
 /* Mantém o scroll leve: fundo e sprites acompanham o documento, sem repaint de camadas fixas. */
 body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) .cobblemon-page,
-body.theme-light-override .cobblemon-page{background-attachment:scroll!important}
+body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(4,21,39,.78),rgba(6,38,58,.48) 52%,rgba(8,27,42,.42)),url('/theme-cobblemon-dex-v5.webp') !important;background-size:100% auto!important;background-repeat:no-repeat!important;background-position:center top!important;background-attachment:scroll!important;background-color:#0a2135}
+body.theme-light-override .cobblemon-page{background-image:linear-gradient(100deg,rgba(240,252,255,.82),rgba(218,244,250,.58) 54%,rgba(235,250,255,.50)),url('/theme-cobblemon-dex-v5.webp') !important;background-color:#e8f7fb}
 
 /* Cobblemon separado por contexto: caça leve e catálogo concentrado na Pokédex. */
 .cobblemon-tabs{display:flex;gap:10px;margin:0 0 16px;padding:6px;border:1px solid #4d8da8;border-radius:16px;background:linear-gradient(135deg,#0a2138dd,#102e46dd);box-shadow:inset 0 1px #c5f5ff1c}
