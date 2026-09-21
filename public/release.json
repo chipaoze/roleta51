@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-quantity-input-v92",
-  "title": "Campo de quantidade sem bloqueio do cursor",
-  "notes": "O controle inteiro da quantidade agora permanece nativo, inclusive ao clicar no rótulo, e bloqueios residuais do efeito de cursor não cancelam a edição. O valor atual é selecionado para digitação direta, com validação entre 1 e 20; estoque, saldos e regras da caça foram preservados."
+  "version": "20260921-cobblemon-quantity-input-v95",
+  "title": "Quantidade e sessão mais estáveis",
+  "notes": "O campo de quantidade continua editável com um clique e a verificação inicial da sessão aguarda a resposta completa em conexões lentas. O salvamento de temas e a limpeza visual também recebem tempo suficiente para concluir, sem alterar sorteios, saldos ou históricos."
 }

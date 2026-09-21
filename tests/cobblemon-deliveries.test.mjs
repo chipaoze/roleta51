@@ -134,7 +134,15 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /if \(document\.activeElement === input\) input\.select\(\)/);
   assert.match(app, /\$\('#cobblemonBallOptions'\)\?\.addEventListener\('pointerdown'/);
   assert.match(app, /NATIVE_POINTER_SELECTOR = 'input,textarea,select,button,a,summary,label,/);
+  assert.match(app, /cobblemonQuantityInputFromEvent/);
+  assert.match(app, /focusCobblemonQuantityFromEvent/);
+  assert.match(app, /window\.addEventListener\('pointerdown', \(event\) => focusCobblemonQuantityFromEvent\(event\), true\)/);
+  assert.match(app, /window\.addEventListener\('click', \(event\) => focusCobblemonQuantityFromEvent\(event\), true\)/);
   assert.match(app, /input\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(app, /api\('\/api\/admin\/settings', \{ method: 'PATCH', timeoutMs: 60000/);
+  assert.match(app, /api\('\/api\/admin\/visual-theme\/clear', \{ method: 'POST', timeoutMs: 60000/);
+  assert.match(app, /setButtonBusy\(button, true\)/);
+  assert.match(app, /showApp\(await api\('\/api\/state', \{ timeoutMs: 60000 \}\)\)/);
   assert.doesNotMatch(app, /cobblemonBallOptions'\)\?\.addEventListener\('pointerdown',[\s\S]{0,300}event\.stopPropagation\(\)/);
   assert.match(app, /if \(isNativeInteractiveTarget\(event\.target\)\) \{\s*suppressClick = false;\s*return;\s*\}/);
   assert.match(app, /replace\(\/\\D\/g, ''\)/);

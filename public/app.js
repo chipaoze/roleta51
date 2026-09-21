@@ -2,14 +2,38 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const NATIVE_POINTER_SELECTOR = 'input,textarea,select,button,a,summary,label,[role="button"],[contenteditable="true"]';
 const isNativeInteractiveTarget = (target) => Boolean(target?.closest?.(NATIVE_POINTER_SELECTOR));
+// O campo de quantidade precisa vencer qualquer efeito global de cursor.
+// O foco é reaplicado depois da sequência nativa do clique para continuar
+// editável ao soltar o mouse, mesmo se algum efeito tiver tentado restaurar o
+// foco na página.
+const cobblemonQuantityInputFromEvent = (event) => {
+  const target = event.target;
+  if (target?.matches?.('[data-cobblemon-ball-quantity]')) return target;
+  return target?.closest?.('label.shop-quantity-picker')?.querySelector?.('[data-cobblemon-ball-quantity]') || null;
+};
+const focusCobblemonQuantityFromEvent = (event, select = true) => {
+  const input = cobblemonQuantityInputFromEvent(event);
+  if (!input || input.readOnly || input.disabled) return;
+  const focus = () => {
+    const current = input.isConnected ? input : document.querySelector(`[data-cobblemon-ball-quantity="${input.dataset.cobblemonBallQuantity}"]`);
+    if (!current || current.readOnly || current.disabled) return;
+    current.focus({ preventScroll: true });
+    if (select && document.activeElement === current) current.select();
+  };
+  focus();
+  requestAnimationFrame(focus);
+  setTimeout(focus, 0);
+};
+window.addEventListener('pointerdown', (event) => focusCobblemonQuantityFromEvent(event), true);
+window.addEventListener('click', (event) => focusCobblemonQuantityFromEvent(event), true);
 function formatCredits(value) {
   return Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-quantity-input-v92',
-  title: 'Campo de quantidade sem bloqueio do cursor',
-  notes: 'O controle inteiro da quantidade agora permanece nativo, inclusive ao clicar no rótulo, e bloqueios residuais do efeito de cursor não cancelam a edição. O valor atual é selecionado para digitação direta, com validação entre 1 e 20; estoque, saldos e regras da caça foram preservados.'
+  version: '20260921-cobblemon-quantity-input-v95',
+  title: 'Quantidade e sessão mais estáveis',
+  notes: 'O campo de quantidade continua editável com um clique e a verificação inicial da sessão aguarda a resposta completa em conexões lentas. O salvamento de temas e a limpeza visual também recebem tempo suficiente para concluir, sem alterar sorteios, saldos ou históricos.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -1496,6 +1520,13 @@ function setBusy(form, busy) {
   if (!button.dataset.label) button.dataset.label = button.innerHTML;
   button.disabled = busy;
   button.innerHTML = busy ? 'Aguarde…' : button.dataset.label;
+}
+
+function setButtonBusy(button, busy, label = 'Aguarde…') {
+  if (!button) return;
+  if (!button.dataset.label) button.dataset.label = button.innerHTML;
+  button.disabled = busy;
+  button.innerHTML = busy ? label : button.dataset.label;
 }
 
 function setAuthTab(name) {
@@ -5365,15 +5396,19 @@ $('#settingsForm').addEventListener('submit', async (event) => {
   try {
     const themes = $('#themesInput').value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
     if (!themes.length) throw new Error('Cadastre ao menos um tema para a roleta.');
-    const data = await api('/api/admin/settings', { method: 'PATCH', body: { roundName: $('#roundInput').value, themes, excludeLastGayWinner: $('#excludeLast').checked } });
+    const data = await api('/api/admin/settings', { method: 'PATCH', timeoutMs: 60000, body: { roundName: $('#roundInput').value, themes, excludeLastGayWinner: $('#excludeLast').checked } });
     applyState(data); showToast('Configurações salvas.');
   } catch (error) { showToast(error.message, 'error'); }
   finally { setBusy(form, false); }
 });
-$('#clearVisualThemesButton')?.addEventListener('click', async () => {
+$('#clearVisualThemesButton')?.addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  if (button.disabled) return;
   if (!confirm('Encerrar agora os temas e cursores de punição de quem perdeu ou foi sorteado? O histórico continua salvo.')) return;
-  try { applyState(await api('/api/admin/visual-theme/clear', { method: 'POST' })); showToast('Punições visuais encerradas. Temas e cursores voltaram ao normal.'); }
+  setButtonBusy(button, true);
+  try { applyState(await api('/api/admin/visual-theme/clear', { method: 'POST', timeoutMs: 60000 })); showToast('Punições visuais encerradas. Temas e cursores voltaram ao normal.'); }
   catch (error) { showToast(error.message, 'error'); }
+  finally { if (button.isConnected) setButtonBusy(button, false); }
 });
 $('#scheduleForm').addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.currentTarget; setBusy(form, true);
@@ -5885,7 +5920,7 @@ let sessionBootRetryTimer = null;
 async function initialize() {
   drawWheel();
   clearTimeout(sessionBootRetryTimer);
-  try { showApp(await api('/api/state')); sessionBootAttempts = 0; }
+  try { showApp(await api('/api/state', { timeoutMs: 60000 })); sessionBootAttempts = 0; }
   catch(error) {
     if(error.status===401) { showAuth(); return; }
     sessionBootAttempts += 1;
