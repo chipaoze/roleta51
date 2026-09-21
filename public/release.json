@@ -1,5 +1,5 @@
 {
-  "version": "20260921-forbes-investment-order-v82",
-  "title": "Forbes 51 ordenado por investimento",
-  "notes": "O Forbes 51 agora ordena do maior para o menor valor atual investido em ativos, exatamente como o valor exibido. O saldo em caixa permanece privado; a captura centralizada, a música e as regras existentes foram preservadas."
+  "version": "20260921-lottery-minimum-apostometer-v83",
+  "title": "Loteria 51 com prêmio mínimo garantido",
+  "notes": "A Loteria 51 agora garante prêmio mínimo de 1.500 Créditos 51 por rodada. Quando a movimentação semanal fica abaixo desse valor, a diferença é complementada pelo Apostômetro e aparece na transparência da rodada. Saldos, históricos, captura e demais regras foram preservados."
 }

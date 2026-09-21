@@ -31,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260921-361/);
-  assert.match(html, /app\.js\?v=20260921-361/);
+  assert.match(html, /styles\.css\?v=20260921-362/);
+  assert.match(html, /app\.js\?v=20260921-362/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -133,7 +133,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="100" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260921-forbes-investment-order-v82/);
+  assert.match(appJs, /20260921-lottery-minimum-apostometer-v83/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
@@ -149,13 +149,17 @@ test('Aviãozinho é retirado da interface e não aceita novas apostas', () => {
   assert.match(serverJs, /route === '\/api\/casino\/flight\/status'/);
 });
 
-test('Loteria 51 semanal controla palpite, fechamento e prêmio sem inflação', () => {
+test('Loteria 51 semanal controla palpite, fechamento e prêmio mínimo do Apostômetro', () => {
   assert.match(serverJs, /const LOTTERY_NUMBER_MAX = 20/);
   assert.match(serverJs, /const LOTTERY_DRAW_COUNT = 5/);
   assert.match(serverJs, /const LOTTERY_PRIZE_RATE = 0\.10/);
+  assert.match(serverJs, /const LOTTERY_MIN_POOL = 1500/);
   assert.match(serverJs, /const LOTTERY_MAX_POOL = 1500/);
   assert.match(serverJs, /const cappedContribution = carryOver > 0 \? contribution : Math\.min\(LOTTERY_MAX_POOL, contribution\)/);
-  assert.match(serverJs, /prizePool: roundMoney\(carryOver \+ cappedContribution\)/);
+  assert.match(serverJs, /const basePrizePool = roundMoney\(carryOver \+ cappedContribution\)/);
+  assert.match(serverJs, /const apostometerTopUp = roundMoney\(Math\.max\(0, LOTTERY_MIN_POOL - basePrizePool\)\)/);
+  assert.match(serverJs, /prizePool: roundMoney\(basePrizePool \+ apostometerTopUp\)/);
+  assert.match(serverJs, /apostometerTopUp: projection\.apostometerTopUp/);
   assert.match(serverJs, /const LOTTERY_DRAW_HOUR = 16/);
   assert.match(serverJs, /LOTTERY_ONE_OFF_CLOSE_AT = '2026-09-17T20:00:00\.000Z'/);
   assert.match(serverJs, /LOTTERY_ONE_OFF_ROUND_ID = 'lottery:2026-09-10T19:00:00\.000Z'/);
@@ -193,7 +197,8 @@ test('Loteria 51 semanal controla palpite, fechamento e prêmio sem inflação',
   assert.match(html, /id="lotteryNumbers"/);
   assert.match(html, /id="lotteryPrizePool"/);
   assert.match(html, /id="lotteryLiveDraw"/);
-  assert.match(html, /quando há rollover/);
+  assert.match(html, /saldo interno do Apostômetro/);
+  assert.match(html, /id="lotteryApostometerTopUp"/);
   assert.match(html, /data-page="loteria"/);
 });
 
@@ -325,7 +330,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260921-forbes-investment-order-v82/);
+  assert.match(appJs, /20260921-lottery-minimum-apostometer-v83/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -333,7 +338,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260921-forbes-investment-order-v82/);
+  assert.match(appJs, /20260921-lottery-minimum-apostometer-v83/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {

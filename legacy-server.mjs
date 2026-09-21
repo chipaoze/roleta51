@@ -1080,6 +1080,7 @@ const LOTTERY_NUMBER_MAX = 20;
 const LOTTERY_DRAW_COUNT = 5;
 const LOTTERY_PRIZE_RATE = 0.10;
 const LOTTERY_MARGIN_SHARE = 0.50;
+const LOTTERY_MIN_POOL = 1500;
 const LOTTERY_MAX_POOL = 1500;
 const LOTTERY_DRAW_HOUR = 16;
 const LOTTERY_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1144,7 +1145,15 @@ function lotteryProjectionForRound(round) {
   // há acúmulo, o rollover é preservado e a contribuição da nova rodada é
   // somada sem cortar o valor acumulado.
   const cappedContribution = carryOver > 0 ? contribution : Math.min(LOTTERY_MAX_POOL, contribution);
-  return { realWagered, houseMargin, contribution, prizePool: roundMoney(carryOver + cappedContribution) };
+  const basePrizePool = roundMoney(carryOver + cappedContribution);
+  // O Apostômetro garante o piso semanal sem mexer no saldo de nenhum
+  // participante. O complemento é registrado na rodada para manter a
+  // transparência do valor que veio do fundo interno.
+  const apostometerTopUp = roundMoney(Math.max(0, LOTTERY_MIN_POOL - basePrizePool));
+  return {
+    realWagered, houseMargin, contribution, basePrizePool, apostometerTopUp,
+    prizePool: roundMoney(basePrizePool + apostometerTopUp),
+  };
 }
 
 function lotterySplitPrize(pool, winnerIds) {
@@ -1165,7 +1174,7 @@ function createLotteryRound(window, carryOver = 0) {
   const round = {
     id: window.id, startAt: window.startAt, closeAt: window.closeAt, status: 'open',
     secret, commitHash: createHash('sha256').update(secret).digest('hex'), carryOver: roundMoney(carryOver),
-    realWagered: 0, houseMargin: 0, contribution: 0, prizePool: 0, winningNumbers: [], winnerIds: [], payouts: [],
+    realWagered: 0, houseMargin: 0, contribution: 0, basePrizePool: 0, apostometerTopUp: 0, prizePool: 0, winningNumbers: [], winnerIds: [], payouts: [],
     createdAt: new Date().toISOString(), drawnAt: null,
   };
   db.economy.lottery.rounds.push(round);
@@ -1328,7 +1337,8 @@ function settleLotteryRounds(now = new Date()) {
     const winnerIds = [...new Set(entries.filter((item) => winningNumbers.includes(Number(item.guess))).map((item) => item.userId))].sort((a, b) => String(a).localeCompare(String(b)));
     const payouts = lotterySplitPrize(projection.prizePool, winnerIds);
     round.status = 'drawn'; round.realWagered = projection.realWagered; round.houseMargin = projection.houseMargin;
-    round.contribution = projection.contribution; round.prizePool = projection.prizePool; round.winningNumbers = winningNumbers;
+    round.contribution = projection.contribution; round.basePrizePool = projection.basePrizePool; round.apostometerTopUp = projection.apostometerTopUp;
+    round.prizePool = projection.prizePool; round.winningNumbers = winningNumbers;
     round.winnerIds = winnerIds; round.payouts = payouts; round.rolloverAmount = winnerIds.length ? 0 : projection.prizePool;
     round.drawnAt = now.toISOString(); round.revealedSecret = round.secret;
     for (const payout of payouts) {
@@ -1348,7 +1358,7 @@ function settleLotteryRounds(now = new Date()) {
 function lotteryForUser(user) {
   ensureLotteryState();
   const round = currentLotteryRound(new Date());
-  const projection = round.status === 'open' ? lotteryProjectionForRound(round) : { realWagered: round.realWagered, houseMargin: round.houseMargin, contribution: round.contribution, prizePool: round.prizePool };
+  const projection = round.status === 'open' ? lotteryProjectionForRound(round) : { realWagered: round.realWagered, houseMargin: round.houseMargin, contribution: round.contribution, basePrizePool: round.basePrizePool ?? round.prizePool, apostometerTopUp: round.apostometerTopUp || 0, prizePool: round.prizePool };
   const entries = db.economy.lottery.entries.filter((item) => item.roundId === round.id);
   const myEntry = entries.find((item) => item.userId === user.id) || null;
   const names = new Map(db.users.map((item) => [item.id, item.displayName]));
@@ -1359,8 +1369,8 @@ function lotteryForUser(user) {
   return {
     id: round.id, status: round.status, startAt: round.startAt, closeAt: round.closeAt, commitHash: round.commitHash,
     numbers: Array.from({ length: LOTTERY_NUMBER_MAX }, (_, index) => index + 1), drawCount: LOTTERY_DRAW_COUNT,
-    prizeRate: LOTTERY_PRIZE_RATE, maxPool: LOTTERY_MAX_POOL, prizePool: projection.prizePool, realWagered: projection.realWagered,
-    contribution: projection.contribution, entryCount: entries.length, myEntry: myEntry ? { id: myEntry.id, guess: Number(myEntry.guess), createdAt: myEntry.createdAt } : null,
+    prizeRate: LOTTERY_PRIZE_RATE, minPool: LOTTERY_MIN_POOL, maxPool: LOTTERY_MAX_POOL, prizePool: projection.prizePool, realWagered: projection.realWagered,
+    contribution: projection.contribution, basePrizePool: projection.basePrizePool, apostometerTopUp: projection.apostometerTopUp, entryCount: entries.length, myEntry: myEntry ? { id: myEntry.id, guess: Number(myEntry.guess), createdAt: myEntry.createdAt } : null,
     winningNumbers: round.status === 'drawn' ? round.winningNumbers : [], revealedSecret: round.status === 'drawn' ? round.revealedSecret : null,
     winners: round.status === 'drawn' ? (round.payouts || []).map((payout) => ({ displayName: names.get(payout.userId) || 'Conta removida', amount: Number(payout.amount || 0) })) : [], previous,
   };

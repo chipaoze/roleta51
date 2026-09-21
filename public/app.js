@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-forbes-investment-order-v82',
-  title: 'Forbes 51 ordenado por investimento',
-  notes: 'O Forbes 51 agora ordena do maior para o menor valor atual investido em ativos, exatamente como o valor exibido. O saldo em caixa permanece privado; a captura centralizada, a música e as regras existentes foram preservadas.'
+  version: '20260921-lottery-minimum-apostometer-v83',
+  title: 'Loteria 51 com prêmio mínimo garantido',
+  notes: 'A Loteria 51 agora garante prêmio mínimo de 1.500 Créditos 51 por rodada. Quando a movimentação semanal fica abaixo desse valor, a diferença é complementada pelo Apostômetro e aparece na transparência da rodada. Saldos, históricos, captura e demais regras foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2221,6 +2221,10 @@ function renderLottery(lottery = {}) {
   if (closeAt) closeAt.textContent = lotteryDateLabel(lottery.closeAt);
   if (countdown) countdown.textContent = open ? `Fechamento às ${lotteryTimeLabel(lottery.closeAt)} · 5 números serão sorteados · semente ${String(lottery.commitHash || '').slice(0, 10)}` : 'Rodada encerrada · resultado publicado';
   if (prize) prize.textContent = formatCredits(lottery.prizePool || 0);
+  const topUp = $('#lotteryApostometerTopUp');
+  if (topUp) topUp.textContent = Number(lottery.apostometerTopUp || 0) > 0
+    ? `Complemento do Apostômetro: ${formatCredits(lottery.apostometerTopUp)} Créditos 51`
+    : 'Sem complemento: a rodada já atingiu o mínimo.';
   if ($('#lotteryEntryCount')) $('#lotteryEntryCount').textContent = Number(lottery.entryCount || 0).toLocaleString('pt-BR');
   if ($('#lotteryRealWagered')) $('#lotteryRealWagered').textContent = formatCredits(lottery.realWagered || 0);
   const grid = $('#lotteryNumbers');

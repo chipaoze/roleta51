@@ -8,7 +8,7 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260921-361">
+  <link rel="stylesheet" href="/styles.css?v=20260921-362">
   <link rel="stylesheet" href="/improvements.css?v=20260917-119">
   <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260916-212">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
@@ -447,7 +447,7 @@
           <div class="lottery-draw-badge"><span>PRÓXIMO FECHAMENTO</span><strong id="lotteryCloseAt">Carregando…</strong><small id="lotteryCountdown">Aguardando a rodada</small></div>
         </header>
         <div class="lottery-summary-grid">
-          <article class="lottery-stat-card"><small>PRÊMIO ATUAL DA RODADA</small><strong><span class="coin-51" aria-hidden="true">51</span><b id="lotteryPrizePool">0,00</b></strong><span>Valor acumulado exibido em tempo real; pode crescer até o fechamento indicado na rodada.</span></article>
+          <article class="lottery-stat-card"><small>PRÊMIO ATUAL DA RODADA</small><strong><span class="coin-51" aria-hidden="true">51</span><b id="lotteryPrizePool">0,00</b></strong><span id="lotteryApostometerTopUp">Complemento do Apostômetro: calculando…</span></article>
           <article class="lottery-stat-card"><small>PALPITES REGISTRADOS</small><strong id="lotteryEntryCount">0</strong><span>Uma chance por participante nesta rodada.</span></article>
           <article class="lottery-stat-card"><small>MOVIMENTO DA RODADA</small><strong><span class="coin-51" aria-hidden="true">51</span><b id="lotteryRealWagered">0,00</b></strong><span>Somente apostas pagas com saldo da Loja 51.</span></article>
         </div>
@@ -459,7 +459,7 @@
           <div id="lotteryResult" class="lottery-result" aria-live="polite">Escolha um número para participar.</div>
         </article>
         <div class="lottery-columns">
-          <article class="lottery-info-card"><h3>Como o prêmio é formado</h3><p>O prêmio atual é recalculado pelo servidor: movimento real pago da rodada × 10%, limitado a 50% das perdas líquidas reais da casa. Em uma rodada sem acúmulo, o limite é de 1.500 Créditos 51; quando há rollover, o valor acumulado é preservado e a nova contribuição é somada, podendo superar esse limite. Bônus promocionais não entram.</p><ul><li>5 números sorteados entre 1 e 20;</li><li>um palpite gratuito por usuário;</li><li>um vencedor recebe tudo ou vários dividem;</li><li>sem acerto, o prêmio acumula para a próxima rodada.</li></ul></article>
+          <article class="lottery-info-card"><h3>Como o prêmio é formado</h3><p>O prêmio atual é recalculado pelo servidor: movimento real pago da rodada × 10%, limitado a 50% das perdas líquidas reais da casa. O piso semanal é de <strong>1.500 Créditos 51</strong>; se a rodada ficar abaixo desse valor, a diferença é complementada pelo saldo interno do Apostômetro e registrada na transparência. Quando há rollover, o valor acumulado é preservado e a nova contribuição é somada, podendo superar o piso. Bônus promocionais não entram.</p><ul><li>5 números sorteados entre 1 e 20;</li><li>um palpite gratuito por usuário;</li><li>um vencedor recebe tudo ou vários dividem;</li><li>sem acerto, o prêmio acumula para a próxima rodada.</li></ul></article>
           <article class="lottery-history-card"><div class="lottery-board-heading"><div><span class="eyebrow">TRANSPARÊNCIA</span><h3>Rodadas anteriores</h3></div><span id="lotteryProofStatus">Resultado verificável</span></div><div id="lotteryHistory"><p class="lottery-empty">A primeira rodada ainda está aberta.</p></div></article>
         </div>
       </div>
@@ -887,6 +887,6 @@
   <script src="/card-album.js?v=20260917-237"></script>
   <script src="/weather.js?v=20260914-178"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-  <script src="/app.js?v=20260921-361"></script>
+  <script src="/app.js?v=20260921-362"></script>
 </body>
 </html>
