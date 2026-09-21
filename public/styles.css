@@ -1988,6 +1988,16 @@ body.theme-light-override .cobblemon-page #cobblemonRouletteOdds:hover{backgroun
 .cobblemon-page #cobblemonRouletteSpin.button-primary:hover{background:linear-gradient(135deg,#e3ad32,#ffd15b)!important;box-shadow:0 12px 28px #c9962755,inset 0 1px #fff8c466!important}
 body.theme-light-override .cobblemon-page #cobblemonRouletteSpin.button-primary{background:linear-gradient(135deg,#c58a19,#e7b536)!important;color:#172b3c!important}
 
+/* Cenário contínuo da Pokédex: cores leves até o fim da rolagem e uma única
+   camada local de lendários nas laterais. Não há fundo fixo ou requisição de
+   sprites durante a navegação. */
+body.profile-theme-cobblemon .app,
+body.theme-light-override.profile-theme-cobblemon .app{background-color:#071b2d!important;background-image:radial-gradient(ellipse at 50% 0%,#174769 0%,#0b2942 42%,#071b2d 100%)!important;background-size:auto!important;background-repeat:repeat-y!important;background-position:center top!important;background-attachment:scroll!important}
+body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) .cobblemon-page,
+body.theme-light-override .cobblemon-page{background-color:#071b2d!important;background-image:url('/cobblemon-legendary-sides-v1.webp'),radial-gradient(ellipse at 50% 0%,#174769 0%,#0b2942 42%,#071b2d 100%)!important;background-size:100% auto,auto!important;background-repeat:no-repeat,repeat-y!important;background-position:center top,center top!important;background-attachment:scroll,scroll!important}
+body.theme-light-override .cobblemon-page{background-color:#dceff4!important;background-image:url('/cobblemon-legendary-sides-v1.webp'),radial-gradient(ellipse at 50% 0%,#f6fdff 0%,#d8edf3 44%,#c8e2ea 100%)!important}
+@media(max-width:980px){body:is(.theme-rainbow,.theme-punishment,.theme-dark,[class*="profile-theme-"]) .cobblemon-page,body.theme-light-override .cobblemon-page{background-image:radial-gradient(ellipse at 50% 0%,#174769 0%,#0b2942 42%,#071b2d 100%)!important;background-size:auto!important;background-repeat:repeat-y!important}body.theme-light-override .cobblemon-page{background-image:radial-gradient(ellipse at 50% 0%,#f6fdff 0%,#d8edf3 44%,#c8e2ea 100%)!important}}
+
 /* Baús: o conteúdo forma uma coluna de leitura; os dois controles ficam em
    uma faixa inferior fixa, sem disputar espaço com a descrição da cápsula. */
 .cobblemon-page .cobblemon-box-shop .cobblemon-box-card{grid-template-columns:62px minmax(0,1fr)!important;grid-template-rows:minmax(78px,auto) auto!important;align-content:space-between;gap:12px;padding:14px;min-height:170px!important}
