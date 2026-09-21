@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-quantity-input-v88',
-  title: 'Quantidade de bolas digitável',
-  notes: 'Os campos de compra das Poké Balls agora aceitam digitação direta, além das setas. O valor é validado entre 1 e 20 e a compra usa exatamente a quantidade informada; estoque, saldos e regras da caça foram preservados.'
+  version: '20260921-cobblemon-quantity-input-v89',
+  title: 'Quantidade das bolas com edição direta',
+  notes: 'Ao tocar no campo de compra, o valor atual é selecionado para você digitar a quantidade diretamente. O valor continua validado entre 1 e 20 e a compra usa exatamente o número informado; estoque, saldos e regras da caça foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -5980,6 +5980,13 @@ function normalizeCobblemonBallQuantityInput(input, commit = false) {
 }
 document.addEventListener('input', (event) => normalizeCobblemonBallQuantityInput(event.target?.closest?.('[data-cobblemon-ball-quantity]')));
 document.addEventListener('blur', (event) => normalizeCobblemonBallQuantityInput(event.target?.closest?.('[data-cobblemon-ball-quantity]'), true), true);
+document.addEventListener('focusin', (event) => {
+  const input = event.target?.closest?.('[data-cobblemon-ball-quantity]');
+  if (!input || input.readOnly || input.disabled) return;
+  requestAnimationFrame(() => {
+    if (document.activeElement === input) input.select();
+  });
+});
 $('#closeCobblemonOddsDialog')?.addEventListener('click', () => $('#cobblemonOddsDialog').close());
 $('#cobblemonOpeningDialog')?.addEventListener('cancel', (event) => event.preventDefault());
 $('#cobblemonOpeningDialog')?.addEventListener('click', (event) => { if (event.target === event.currentTarget) { event.preventDefault(); event.stopPropagation(); } });

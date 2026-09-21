@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-quantity-input-v88",
-  "title": "Quantidade de bolas digitável",
-  "notes": "Os campos de compra das Poké Balls agora aceitam digitação direta, além das setas. O valor é validado entre 1 e 20 e a compra usa exatamente a quantidade informada; estoque, saldos e regras da caça foram preservados."
+  "version": "20260921-cobblemon-quantity-input-v89",
+  "title": "Quantidade das bolas com edição direta",
+  "notes": "Ao tocar no campo de compra, o valor atual é selecionado para você digitar a quantidade diretamente. O valor continua validado entre 1 e 20 e a compra usa exatamente o número informado; estoque, saldos e regras da caça foram preservados."
 }
