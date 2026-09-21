@@ -268,6 +268,45 @@ test('ciclo local de cápsulas mantém a sétima vaga aberta e só fecha a lista
   assert.equal(weekly.choices.length, 7);
 });
 
+test('ao escolher a entrega semanal, as demais opções são vendidas e creditadas', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const start = server.indexOf('function cobblemonCandidateSellPrice(');
+  const end = server.indexOf('function finalizePokemonCapsuleCycle(', start);
+  const db = { economy: { creditAdjustments: [] } };
+  let wallet = 100;
+  const sellCandidates = vm.runInNewContext(`${server.slice(start, end)}; sellPokemonCapsuleCandidates`, {
+    db,
+    roundMoney: (value) => Math.round(Number(value) * 100) / 100,
+    walletFor: () => wallet,
+    addCredits: (_userId, amount) => { wallet = Math.round((wallet + amount) * 100) / 100; },
+    randomUUID: (() => { let sequence = 0; return () => `sale-${++sequence}`; })(),
+  });
+  const entries = [
+    { id: 'chosen', status: 'weekly-choice-pending', name: 'Escolhido', rarity: 'common' },
+    { id: 'other-common', status: 'cycle-candidate', name: 'Comum', rarity: 'common' },
+    { id: 'other-rare', status: 'cycle-candidate', name: 'Raro', rarity: 'rare' },
+    { id: 'already-sold', status: 'sold', name: 'Já vendido', rarity: 'common' },
+  ];
+  const result = sellCandidates(entries, entries[0], 'user-1', '2026-09-21T12:00:00.000Z');
+  assert.equal(result.count, 2);
+  assert.equal(result.total, 750);
+  assert.equal(wallet, 850);
+  assert.equal(entries[0].status, 'weekly-choice-pending');
+  assert.equal(entries[1].status, 'sold');
+  assert.equal(entries[2].status, 'sold');
+  assert.equal(entries[3].status, 'sold');
+  assert.ok(entries[1].soldAutomatically);
+  assert.equal(db.economy.creditAdjustments.length, 2);
+  assert.equal(db.economy.creditAdjustments[1].amount, 450);
+});
+
+test('escolha semanal aceita o estado pendente e persiste a opção como entrega', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  assert.match(server, /!\['cycle-candidate', 'weekly-choice-pending'\]\.includes\(reward\.status\)/);
+  assert.match(server, /status: 'awaiting-delivery', decidedAt: now, chosenAt: now/);
+  assert.match(server, /sellPokemonCapsuleCandidates\(db\.economy\.cobblemonDeliveries\.filter/);
+});
+
 test('fechamento semanal não mistura candidatos de usuários diferentes', () => {
   const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
   const start = server.indexOf('function settlePokemonCapsules()');

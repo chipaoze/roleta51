@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-special-ball-hunt-v85",
-  "title": "Caçada liberada com Great e Ultra Ball",
-  "notes": "A caçada agora pode começar quando houver qualquer bola disponível no inventário, mesmo sem Poké Balls gratuitas. Great e Ultra Ball continuam sendo consumidas somente no arremesso; chances, saldos e regras foram preservados."
+  "version": "20260921-cobblemon-weekly-choice-v86",
+  "title": "Escolha semanal da cápsula corrigida",
+  "notes": "As opções da semana continuam vendáveis antes da escolha. Ao escolher um Pokémon, ele passa para aguardando entrega e as demais opções são vendidas automaticamente, com o valor creditado no saldo, inclusive após recarregar a página. A regra das sete cápsulas, saldos e entregas foi preservada."
 }

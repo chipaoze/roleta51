@@ -658,6 +658,26 @@ function cobblemonCandidateSellPrice(rarity) {
   return ({ common: 300, shiny: 400, rare: 450 })[String(rarity || '').toLowerCase()] || 300;
 }
 
+function sellPokemonCapsuleCandidates(entries, chosenEntry, userId, now, reason = 'Venda automática das opções não escolhidas') {
+  let count = 0;
+  let total = 0;
+  entries.filter((entry) => entry.id !== chosenEntry.id && ['cycle-candidate', 'weekly-choice-pending'].includes(entry.status)).forEach((entry) => {
+    const amount = roundMoney(cobblemonCandidateSellPrice(entry.rarity || entry.roll?.rarity));
+    const before = walletFor(userId);
+    addCredits(userId, amount);
+    entry.status = 'sold';
+    entry.soldFromWeeklyChoice = true;
+    entry.soldAutomatically = true;
+    entry.decidedAt = now;
+    entry.soldAt = now;
+    entry.saleAmount = amount;
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId, mode: 'cobblemon-candidate-sale', amount, before, after: roundMoney(before + amount), reason: `${reason}: ${entry.name}`, createdAt: now });
+    total = roundMoney(total + amount);
+    count += 1;
+  });
+  return { count, total };
+}
+
 function finalizePokemonCapsuleCycle(entries, chosenEntry, reason) {
   const now = new Date().toISOString();
   entries.filter((entry) => ['cycle-candidate', 'weekly-choice-pending'].includes(entry.status)).forEach((entry) => {
@@ -4125,15 +4145,17 @@ async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/cobblemon/reward/decision') {
     const { user } = requireAuth(req); const body = await readJson(req); const wantsWeeklyImmediate = body.action === 'choose-weekly-now'; const wantsCandidateSale = body.action === 'sell-candidate'; const reward = db.economy.cobblemonDeliveries.find((entry) => entry.userId === user.id && (entry.id === body.id || (wantsCandidateSale && entry.rewardId === body.id)) && (['decision-pending', 'box-open', 'choice-pending', 'weekly-choice-pending'].includes(entry.status) || ((wantsWeeklyImmediate || wantsCandidateSale) && entry.status === 'cycle-candidate')));
     if (!reward) throw new HttpError(404, 'Este prêmio já teve sua decisão concluída.');
+    let automaticWeeklySales = null;
     if (wantsCandidateSale) {
       if (!['cycle-candidate', 'weekly-choice-pending'].includes(reward.status) || reward.deliveryLocked) throw new HttpError(409, 'Este Pokémon já foi escolhido para entrega e não pode ser vendido.');
       const amount = cobblemonCandidateSellPrice(reward.rarity || reward.roll?.rarity); const before = walletFor(user.id); const now = new Date().toISOString(); addCredits(user.id, amount); reward.soldFromWeeklyChoice = reward.status === 'weekly-choice-pending'; reward.status = 'sold'; reward.decidedAt = now; reward.soldAt = now;
       db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-candidate-sale', amount: roundMoney(amount), before, after: roundMoney(before + amount), reason: 'Venda de Pokémon não escolhido: ' + reward.name, createdAt: now });
     } else if (wantsWeeklyImmediate) {
-      if (reward.status !== 'cycle-candidate') throw new HttpError(409, 'Este Pokémon já não está disponível para a entrega semanal.');
+      if (!['cycle-candidate', 'weekly-choice-pending'].includes(reward.status)) throw new HttpError(409, 'Este Pokémon já não está disponível para a entrega semanal.');
       const now = new Date().toISOString();
-      db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === reward.cycleId && entry.id !== reward.id && !['reset-refunded', 'delivered', 'sold'].includes(entry.status)).forEach((entry) => { entry.status = 'cycle-discarded'; entry.discardedAt = now; entry.discardReason = 'Outra opção foi escolhida para a entrega semanal'; });
+      automaticWeeklySales = sellPokemonCapsuleCandidates(db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === reward.cycleId), reward, user.id, now);
       Object.assign(reward, { status: 'awaiting-delivery', decidedAt: now, chosenAt: now, deliveryLocked: true, lockReason: 'Escolha antecipada para entrega do Davi' });
+      reward.autoSoldCandidates = automaticWeeklySales;
     } else if (body.action === 'choose' || body.action === 'choose-now') {
       if (body.action === 'choose-now' || reward.status === 'box-open') throw new HttpError(409, 'Faça os três sorteios antes de escolher um Pokémon para a lista semanal.');
       if (!['choice-pending', 'weekly-choice-pending'].includes(reward.status)) throw new HttpError(409, 'Esta cápsula não está aguardando uma escolha.');
@@ -4144,8 +4166,9 @@ async function handleApi(req, res, route) {
       if (weeklyChoice) {
         const chosenEntry = db.economy.cobblemonDeliveries.find((entry) => entry.id === choice.entryId && entry.userId === user.id && entry.cycleId === reward.cycleId && ['cycle-candidate', 'weekly-choice-pending'].includes(entry.status));
         if (!chosenEntry) throw new HttpError(400, 'Essa opção semanal não está mais disponível.');
-        db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === reward.cycleId && entry.id !== chosenEntry.id && !['reset-refunded', 'delivered', 'sold'].includes(entry.status)).forEach((entry) => { entry.status = 'cycle-discarded'; entry.discardedAt = now; entry.discardReason = 'Outra opção foi escolhida para a entrega semanal'; });
-        Object.assign(chosenEntry, { rewardId: choice.id, name: choice.name, sprite: choice.sprite, sellPrice: choice.sellPrice, pokemonId: choice.pokemonId, rarity: choice.rarity, isShiny: Boolean(choice.isShiny), level: choice.level, gender: choice.gender, levelSource: choice.levelSource, decidedAt: now, chosenAt: now, deliveryLocked: true, lockReason: 'Escolha semanal para entrega do Davi' });
+        automaticWeeklySales = sellPokemonCapsuleCandidates(db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === reward.cycleId), chosenEntry, user.id, now);
+        Object.assign(chosenEntry, { rewardId: choice.id, name: choice.name, sprite: choice.sprite, sellPrice: choice.sellPrice, pokemonId: choice.pokemonId, rarity: choice.rarity, isShiny: Boolean(choice.isShiny), level: choice.level, gender: choice.gender, levelSource: choice.levelSource, status: 'awaiting-delivery', decidedAt: now, chosenAt: now, deliveryLocked: true, lockReason: 'Escolha semanal para entrega do Davi' });
+        chosenEntry.autoSoldCandidates = automaticWeeklySales;
       } else {
         Object.assign(reward, { rewardId: choice.id, name: choice.name, sprite: choice.sprite, sellPrice: choice.sellPrice, pokemonId: choice.pokemonId, rarity: choice.rarity, isShiny: Boolean(choice.isShiny), level: choice.level, gender: choice.gender, levelSource: choice.levelSource, status: 'cycle-candidate', decidedAt: now, chosenAt: now, dailyChoiceAt: now });
         const candidates = db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === reward.cycleId && entry.status === 'cycle-candidate');
@@ -4165,7 +4188,7 @@ async function handleApi(req, res, route) {
         reward.status = 'awaiting-delivery'; reward.decidedAt = new Date().toISOString(); reward.deliveryLocked = true;
       }
     }
-    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), nextChoice: reward.status === 'weekly-choice-pending' ? { id: reward.id, name: reward.name, sprite: reward.sprite, choices: reward.choices, choiceStage: 'weekly' } : null }); return;
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), autoSold: automaticWeeklySales || reward.autoSoldCandidates || null, nextChoice: reward.status === 'weekly-choice-pending' ? { id: reward.id, name: reward.name, sprite: reward.sprite, choices: reward.choices, choiceStage: 'weekly' } : null }); return;
   }
   if (req.method === 'POST' && route === '/api/admin/cobblemon/delivered') {
     const { user } = requireAuth(req); if (user.role !== 'admin' && !/^davi\b/i.test(String(user.displayName || ''))) throw new HttpError(403, 'Apenas Davi ou administradores.'); const body = await readJson(req); const reward = db.economy.cobblemonDeliveries.find((entry) => entry.id === body.id && entry.status === 'awaiting-delivery');
