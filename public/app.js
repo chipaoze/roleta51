@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-lottery-minimum-apostometer-v83',
-  title: 'Loteria 51 com prêmio mínimo garantido',
-  notes: 'A Loteria 51 agora garante prêmio mínimo de 1.500 Créditos 51 por rodada. Quando a movimentação semanal fica abaixo desse valor, a diferença é complementada pelo Apostômetro e aparece na transparência da rodada. Saldos, históricos, captura e demais regras foram preservados.'
+  version: '20260921-cobblemon-throw-origin-v84',
+  title: 'Arremesso Cobblemon acompanha o arraste',
+  notes: 'A animação da Poké Ball agora começa exatamente no ponto onde ela foi segurada e arrastada até o Pokémon, sem reaparecer no canto esquerdo. A captura, as chances, a loteria e as demais regras foram preservadas.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -6142,6 +6142,7 @@ async function startCobblemonPageEncounter() {
 
 async function finishCobblemonPageThrow(event) {
   if (!cobblemonPageDrag || cobblemonPageCaptureBusy || !cobblemonPageEncounter) return;
+  const dragState = cobblemonPageDrag;
   const throwSequence = ++cobblemonPageThrowSequence;
   const ball = $('#cobblemonPageBall');
   const target = $('#cobblemonEncounterTarget');
@@ -6156,12 +6157,11 @@ async function finishCobblemonPageThrow(event) {
   try {
     const targetPoint = { x: targetRect.left + targetRect.width / 2, y: targetRect.top + targetRect.height / 2 };
     const impactPoint = hit ? targetPoint : { x: event.clientX, y: event.clientY };
-    // A bola sempre parte de um ponto previsível à esquerda do alvo. O arraste
-    // continua definindo a mira, mas a apresentação deixa de parecer um salto
-    // aleatório a partir do canto da tela.
+    // A bola parte do ponto onde o participante começou o arraste. Assim, a
+    // animação acompanha a ação real em vez de reaparecer em um canto fixo.
     const launchPoint = {
-      x: Math.max(56, targetRect.left - Math.min(220, window.innerWidth * .24)),
-      y: Math.min(window.innerHeight - 76, targetPoint.y + 58),
+      x: Math.max(34, Math.min(window.innerWidth - 34, Number(dragState.origin?.x || event.clientX))),
+      y: Math.max(34, Math.min(window.innerHeight - 34, Number(dragState.origin?.y || event.clientY))),
     };
     ball.style.left = `${launchPoint.x}px`;
     ball.style.top = `${launchPoint.y}px`;
@@ -6208,7 +6208,7 @@ $('#cobblemonPageBall')?.addEventListener('pointerdown', (event) => {
   if (!cobblemonPageEncounter || cobblemonPageCaptureBusy) return;
   event.preventDefault();
   const ball = event.currentTarget;
-  cobblemonPageDrag = { pointerId: event.pointerId };
+  cobblemonPageDrag = { pointerId: event.pointerId, origin: { x: event.clientX, y: event.clientY } };
   ball.setPointerCapture?.(event.pointerId);
   ball.classList.add('dragging');
   ball.style.bottom = 'auto';
