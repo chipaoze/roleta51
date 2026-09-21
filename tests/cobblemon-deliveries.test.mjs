@@ -113,6 +113,11 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(server, /body\.ballType/);
   assert.match(server, /captureChances/);
   assert.match(server, /cobblemonBallInventory/);
+  assert.match(server, /function cobblemonDailyCaptureLimit\(userId, dayKey/);
+  assert.match(server, /specialAttempts/);
+  assert.match(server, /grantCobblemonDailyBallBonus\(user\.id/);
+  assert.match(server, /COBBLEMON_DAILY_SPECIAL_BALL_BONUS/);
+  assert.match(server, /cobblemonDailyCaptureLimit\(user\.id, dayKey\)/);
   assert.match(app, /data-cobblemon-ball-select/);
   assert.match(app, /data-cobblemon-ball-buy/);
   assert.match(app, /shop-quantity-picker/);
@@ -128,6 +133,9 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /const actionLabel = !encounterReady \? \(quantity > 0 \? 'Disponível na caça' : 'Sem estoque'\)/);
   assert.match(app, /ballType: cobblemonSelectedBall/);
   assert.match(app, /Chance de captura/);
+  assert.match(app, /function cobblemonHasAvailableBall\(balls = \{\}\)/);
+  assert.match(app, /Object\.values\(balls\.special \|\| \{\}\)\.some/);
+  assert.match(app, /!cobblemonHasAvailableBall\(balls\)/);
   assert.match(html, /id="cobblemonBallOptions"/);
   const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   assert.match(styles, /\.cobblemon-ball-option\.empty\{opacity:1\}/);
@@ -135,6 +143,30 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(styles, /\.cobblemon-hunt-ball-panel \.cobblemon-ball-price\{display:none\}/);
   assert.match(styles, /\.cobblemon-hunt-ball-panel \.cobblemon-ball-select>b\{display:none\}/);
   assert.match(app, /arraste a Poké Ball que aparece até o Pokémon/);
+});
+
+test('bônus diário libera uma Great e uma Ultra e a caçada usa o estoque especial', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const start = server.indexOf('const COBBLEMON_CAPTURE_BALLS =');
+  const end = server.indexOf('function cobblemonCaptureChance(', start);
+  const context = {
+    db: { economy: {
+      cobblemonBallInventory: { 'user-1': { great: 0, ultra: 0 } },
+      cobblemonDailyBallBonuses: {},
+      cobblemonCaptureAttempts: Array.from({ length: 5 }, (_, index) => ({ userId: 'user-1', dayKey: '2026-09-21', ballType: 'poke', id: String(index) })),
+      cobblemonBallPurchases: [],
+    } },
+    saoPauloDayKey: () => '2026-09-21',
+    randomUUID: () => 'daily-bonus-id',
+  };
+  const helpers = vm.runInNewContext(server.slice(start, end) + ';({ grantCobblemonDailyBallBonus, cobblemonDailyCaptureLimit })', context);
+  assert.equal(helpers.grantCobblemonDailyBallBonus('user-1', '2026-09-21'), true);
+  assert.equal(helpers.grantCobblemonDailyBallBonus('user-1', '2026-09-21'), false);
+  assert.deepEqual(context.db.economy.cobblemonBallInventory['user-1'], { great: 1, ultra: 1 });
+  assert.equal(helpers.cobblemonDailyCaptureLimit('user-1', '2026-09-21'), 7);
+  context.db.economy.cobblemonBallInventory['user-1'].great = 0;
+  context.db.economy.cobblemonCaptureAttempts.push({ userId: 'user-1', dayKey: '2026-09-21', ballType: 'great' });
+  assert.equal(helpers.cobblemonDailyCaptureLimit('user-1', '2026-09-21'), 7);
 });
 
 test('Cobblemon mantém rolagem leve e preço de cápsula padronizado', () => {

@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-throw-origin-v84",
-  "title": "Arremesso Cobblemon acompanha o arraste",
-  "notes": "A animação da Poké Ball agora começa exatamente no ponto onde ela foi segurada e arrastada até o Pokémon, sem reaparecer no canto esquerdo. A captura, as chances, a loteria e as demais regras foram preservadas."
+  "version": "20260921-cobblemon-special-ball-hunt-v85",
+  "title": "Caçada liberada com Great e Ultra Ball",
+  "notes": "A caçada agora pode começar quando houver qualquer bola disponível no inventário, mesmo sem Poké Balls gratuitas. Great e Ultra Ball continuam sendo consumidas somente no arremesso; chances, saldos e regras foram preservados."
 }

@@ -348,6 +348,7 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.cobblemonCaptureAttempts)) { db.economy.cobblemonCaptureAttempts = []; changed = true; }
   if (!Array.isArray(db.economy.cobblemonBallPurchases)) { db.economy.cobblemonBallPurchases = []; changed = true; }
   if (!db.economy.cobblemonBallInventory || typeof db.economy.cobblemonBallInventory !== 'object') { db.economy.cobblemonBallInventory = {}; changed = true; }
+  if (!db.economy.cobblemonDailyBallBonuses || typeof db.economy.cobblemonDailyBallBonuses !== 'object') { db.economy.cobblemonDailyBallBonuses = {}; changed = true; }
   if (!Array.isArray(db.economy.cobblemonCaptureRewardClaims)) { db.economy.cobblemonCaptureRewardClaims = []; changed = true; }
   // Registros já sorteados também precisam carregar a ficha que o Davi usa
   // para gerar o Pokémon no servidor. Não toca em saldo, status, escolha ou
@@ -718,6 +719,40 @@ const COBBLEMON_CAPTURE_BALLS = {
   great: { id: 'great', name: 'Great Ball', shortName: 'Melhor chance', sprite: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', multiplier: 1.35, price: 75 },
   ultra: { id: 'ultra', name: 'Ultra Ball', shortName: 'Alta chance', sprite: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', multiplier: 1.7, price: 180 },
 };
+
+const COBBLEMON_DAILY_SPECIAL_BALL_BONUS = Object.freeze({ great: 1, ultra: 1 });
+
+function grantCobblemonDailyBallBonus(userId, dayKey = saoPauloDayKey()) {
+  db.economy.cobblemonDailyBallBonuses ||= {};
+  const key = `${userId}:${dayKey}`;
+  if (db.economy.cobblemonDailyBallBonuses[key]) return false;
+  db.economy.cobblemonBallInventory ||= {};
+  db.economy.cobblemonBallInventory[userId] ||= {};
+  const quantities = {};
+  Object.entries(COBBLEMON_DAILY_SPECIAL_BALL_BONUS).forEach(([ballType, quantity]) => {
+    const current = Math.max(0, Number(db.economy.cobblemonBallInventory[userId][ballType] || 0));
+    const next = Math.min(100, current + quantity);
+    db.economy.cobblemonBallInventory[userId][ballType] = next;
+    quantities[ballType] = next - current;
+  });
+  db.economy.cobblemonDailyBallBonuses[key] = { userId, dayKey, quantities, createdAt: new Date().toISOString() };
+  const keys = Object.keys(db.economy.cobblemonDailyBallBonuses);
+  if (keys.length > 10000) keys.slice(0, keys.length - 10000).forEach((oldKey) => { delete db.economy.cobblemonDailyBallBonuses[oldKey]; });
+  return true;
+}
+
+function cobblemonDailyCaptureLimit(userId, dayKey = saoPauloDayKey()) {
+  const attempts = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === userId && entry.dayKey === dayKey);
+  const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === userId && entry.dayKey === dayKey);
+  const extra = purchase ? Math.max(0, Math.floor(Number(purchase.quantity || 0))) : 0;
+  const inventory = db.economy.cobblemonBallInventory?.[userId] && typeof db.economy.cobblemonBallInventory[userId] === 'object' ? db.economy.cobblemonBallInventory[userId] : {};
+  const specialStock = Object.keys(COBBLEMON_DAILY_SPECIAL_BALL_BONUS).reduce((sum, ballType) => sum + Math.max(0, Math.floor(Number(inventory[ballType] || 0))), 0);
+  const specialAttempts = attempts.filter((entry) => entry.ballType && entry.ballType !== 'poke').length;
+  // Every special ball in stock represents one additional daily attempt. A
+  // used special ball moves from stock into specialAttempts, so it remains
+  // counted exactly once and cannot be used to create unlimited encounters.
+  return 5 + extra + specialAttempts + specialStock;
+}
 
 // Prêmios pequenos e únicos: dão fôlego à caça sem transformar a Pokédex em
 // uma fonte infinita de créditos. Todo pagamento tem uma chave imutável no
@@ -3230,7 +3265,8 @@ async function handleApi(req, res, route) {
     const settledLottery = settleLotteryRounds();
     const settledLieVotes = settlePendingLieVotes();
     const marketAdvanced = syncMarketEconomy();
-    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules || settledLottery || settledLieVotes || marketAdvanced) await persist();
+    const dailyCobblemonBonus = grantCobblemonDailyBallBonus(user.id);
+    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules || settledLottery || settledLieVotes || marketAdvanced || dailyCobblemonBonus) await persist();
     json(res, 200, stateFor(user)); return;
   }
 
@@ -3416,8 +3452,9 @@ async function handleApi(req, res, route) {
       const marketAdvanced = syncMarketEconomy();
       const lotterySettled = settleLotteryRounds();
       const lieVotesSettled = settlePendingLieVotes();
+      const dailyCobblemonBonus = grantCobblemonDailyBallBonus(user.id);
       lotteryReminder = lotteryReminderForUser(user);
-      if (marketAdvanced || lotterySettled || lieVotesSettled) {
+      if (marketAdvanced || lotterySettled || lieVotesSettled || dailyCobblemonBonus) {
         await persist();
         if (lotterySettled) broadcastRefresh('lottery');
       }
@@ -4138,9 +4175,9 @@ async function handleApi(req, res, route) {
     const auth = requireAuth(req); const { user } = auth;
     const dayKey = saoPauloDayKey();
     const attempts = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
-    const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-    const extra = purchase ? Math.max(0, Math.floor(Number(purchase.quantity || 0))) : 0;
-    if (attempts >= 5 + extra) throw new HttpError(409, 'Suas Poké Balls acabaram. Elas voltam amanhã ou você pode comprar Poké Balls extras para hoje.');
+    const dailyCobblemonBonus = grantCobblemonDailyBallBonus(user.id, dayKey);
+    if (dailyCobblemonBonus) await persist();
+    if (attempts >= cobblemonDailyCaptureLimit(user.id, dayKey)) throw new HttpError(409, 'Você não possui nenhuma Poké Ball disponível para a caça.');
     const available = COBBLEMON_CATALOG;
     if (!available.length) throw new HttpError(409, 'Nenhum Pokémon disponível para encontrar.');
     const roll = Math.random();
@@ -4173,9 +4210,9 @@ async function handleApi(req, res, route) {
     const encounterKey = createHash('sha256').update(verified.payload).digest('hex').slice(0, 24);
     if (db.economy.cobblemonCaptureAttempts.some((entry) => entry.encounterKey === encounterKey)) throw new HttpError(409, 'Esta Poké Ball já foi arremessada. Procure outro Pokémon.');
     const attempts = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === user.id && entry.dayKey === dayKey).length;
-    const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === user.id && entry.dayKey === dayKey);
-    const extra = purchase ? Math.max(0, Math.floor(Number(purchase.quantity || 0))) : 0;
-    if (attempts >= 5 + extra) throw new HttpError(409, 'Suas Poké Balls acabaram por hoje.');
+    const dailyCobblemonBonus = grantCobblemonDailyBallBonus(user.id, dayKey);
+    if (dailyCobblemonBonus) await persist();
+    if (attempts >= cobblemonDailyCaptureLimit(user.id, dayKey)) throw new HttpError(409, 'Você não possui nenhuma Poké Ball disponível para a caça.');
     const ballType = String(body.ballType || 'poke').toLowerCase();
     const ball = COBBLEMON_CAPTURE_BALLS[ballType];
     if (!ball) throw new HttpError(400, 'Escolha uma Poké Ball válida.');

@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-throw-origin-v84',
-  title: 'Arremesso Cobblemon acompanha o arraste',
-  notes: 'A animação da Poké Ball agora começa exatamente no ponto onde ela foi segurada e arrastada até o Pokémon, sem reaparecer no canto esquerdo. A captura, as chances, a loteria e as demais regras foram preservadas.'
+  version: '20260921-cobblemon-special-ball-hunt-v85',
+  title: 'Caçada liberada com Great e Ultra Ball',
+  notes: 'A caçada agora pode começar quando houver qualquer bola disponível no inventário, mesmo sem Poké Balls gratuitas. Great e Ultra Ball continuam sendo consumidas somente no arremesso; chances, saldos e regras foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3097,6 +3097,11 @@ function syncCobblemonSelectedBall(balls = {}) {
   return ball;
 }
 
+function cobblemonHasAvailableBall(balls = {}) {
+  if (Number(balls.remaining || 0) > 0) return true;
+  return Object.values(balls.special || {}).some((entry) => Number(entry?.quantity || 0) > 0);
+}
+
 // Alguns navegadores embutidos (incluindo o ambiente local de validação) não
 // expõem window.confirm. As ações Cobblemon não podem ficar mudas nesse caso:
 // usamos uma confirmação em dois cliques no próprio botão, preservando a
@@ -3189,11 +3194,11 @@ function renderCobblemonDex(profile = {}) {
   const captureButton = $('#cobblemonCaptureButton');
   if (captureButton) {
     captureButton.classList.toggle('hidden', !viewingMine);
-    const ballsRemaining = Number(profile.cobblemon?.balls?.remaining || 0);
+    const hasAvailableBall = cobblemonHasAvailableBall(profile.cobblemon?.balls);
     captureButton.title = !viewingMine
       ? 'Troque para Minha Pokédex para iniciar uma caçada.'
-      : ballsRemaining < 1
-        ? 'Sem Poké Balls disponíveis hoje.'
+      : !hasAvailableBall
+        ? 'Nenhuma Poké Ball disponível para a caça.'
         : 'Iniciar uma nova caçada';
     captureButton.setAttribute('aria-label', captureButton.title);
   }
@@ -3279,6 +3284,8 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonDexProgress').textContent = caught.size + ' / ' + (profile.cobblemon?.total || catalog.length);
   const balls = profile.cobblemon?.balls || { remaining: 5, total: 5, canBuy: true, unitPrice: 8.99, maxPurchase: 20, special: {} };
   $('#cobblemonBallCount').textContent = `${Number(balls.remaining)} / ${Number(balls.total)} Poké Balls`;
+  const ballWalletNote = $('#cobblemonBallCount')?.parentElement?.querySelector('small');
+  if (ballWalletNote) ballWalletNote.textContent = 'Restauração diária: 5 Poké Balls + 1 Great Ball + 1 Ultra Ball';
   renderCobblemonBallOptions(balls, cobblemonPageEncounter);
   const captureBonus = profile.cobblemon?.captureBonus || { totalCaught: caught.size, rewards: { rare: 15, legendary: 100, shiny: 60 }, milestones: [] };
   let bonusPanel = $('#cobblemonCaptureBonuses');
@@ -3292,7 +3299,7 @@ function renderCobblemonDex(profile = {}) {
   bonusPanel.innerHTML = `<header><span>RECOMPENSAS DE CAPTURA</span><strong>${Number(captureBonus.totalCaught || 0)} Pokémon na Pokédex</strong></header><p>Créditos são liberados uma única vez pelo servidor ao registrar uma descoberta.</p><div class="cobblemon-capture-bonus-rules"><span>Raro novo <b>+${formatCredits(captureBonus.rewards?.rare || 15)}</b></span><span>Lendário novo <b>+${formatCredits(captureBonus.rewards?.legendary || 100)}</b></span><span>Shiny novo <b>+${formatCredits(captureBonus.rewards?.shiny || 60)}</b></span></div>${milestoneMarkup ? `<ol class="cobblemon-capture-milestones">${milestoneMarkup}</ol>` : ''}`;
   const buyBallsButton = $('#cobblemonBuyBalls');
   if (buyBallsButton) { buyBallsButton.disabled = true; buyBallsButton.textContent = 'Compra disponível no card da Poké Ball'; }
-  if (!cobblemonPageEncounter) $('#cobblemonCaptureButton').disabled = !viewingMine || Number(balls.remaining) < 1;
+  if (!cobblemonPageEncounter) $('#cobblemonCaptureButton').disabled = !viewingMine || !cobblemonHasAvailableBall(balls);
   $('#cobblemonDexPage').textContent = 'Página ' + (cobblemonDexPage + 1) + ' de ' + pages;
   $('#cobblemonDexPrev').disabled = cobblemonDexPage === 0; $('#cobblemonDexNext').disabled = cobblemonDexPage >= pages - 1;
   $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.classList.toggle('active', button.dataset.cobblemonFilter === cobblemonDexFilter));
@@ -6053,7 +6060,7 @@ function resetCobblemonPageCapture(clearResult = false) {
   ball.removeAttribute('style');
   target.removeAttribute('style');
   timer.classList.add('hidden');
-  $('#cobblemonCaptureButton').disabled = Number(appState.profile?.cobblemon?.balls?.remaining || 0) < 1;
+  $('#cobblemonCaptureButton').disabled = !cobblemonHasAvailableBall(appState.profile?.cobblemon?.balls);
   $('#cobblemonCaptureButton').textContent = 'Iniciar caçada';
   $('#cobblemonCaptureHint').textContent = 'Clique em “Iniciar caçada” para procurar um Pokémon selvagem.';
   renderCobblemonBallOptions(appState.profile?.cobblemon?.balls || {}, null);
@@ -6089,8 +6096,8 @@ async function startCobblemonPageEncounter() {
     cobblemonDexOwnerId = appState.me.id;
     renderCobblemonDex(appState.profile);
   }
-  if (Number(appState.profile.cobblemon?.balls?.remaining || 0) < 1) {
-    const message = 'Você está sem Poké Balls disponíveis hoje.';
+  if (!cobblemonHasAvailableBall(appState.profile.cobblemon?.balls)) {
+    const message = 'Você não possui nenhuma Poké Ball disponível para a caça.';
     showToast(message, 'error');
     $('#cobblemonCaptureResult').textContent = message;
     return;
