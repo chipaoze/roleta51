@@ -31,7 +31,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260921-384/);
+  assert.match(html, /styles\.css\?v=20260921-385/);
   assert.match(html, /app\.js\?v=20260921-381/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
@@ -381,7 +381,7 @@ test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativo
   assert.match(styles, /theme-cobblemon-ocean-v1\.png'\) center\/cover scroll/);
   assert.match(styles, /body\.profile-theme-cobblemon \.section[^}]*backdrop-filter:none/);
   assert.match(appJs, /cobblemonHuntInterval = setInterval\(tick, 1000\)/);
-  assert.match(styles, /cobblemon-legendary-sides-v2\.webp/);
+  assert.match(styles, /cobblemon-legendary-sides-v3\.webp/);
   assert.match(styles, /background-repeat:repeat-y,repeat-y!important/);
   assert.doesNotMatch(html, /cobbledex\.b-cdn\.net/);
   assert.match(styles, /background-attachment:scroll!important/);
@@ -478,8 +478,8 @@ test('Pokédex usa uma única arte local com lendários sem chamadas extras', ()
   assert.match(html, /class="cobblemon-scene-sprites"/);
   assert.match(styles, /\.cobblemon-scene-sprites\{position:absolute;inset:0;z-index:0;pointer-events:none/);
   assert.match(styles, /\.cobblemon-scene-sprites\{display:none!important\}/);
-  assert.match(styles, /cobblemon-legendary-sides-v2\.webp/);
-  assert.equal(fs.existsSync(path.join(root, 'public', 'cobblemon-legendary-sides-v2.webp')), true);
+  assert.match(styles, /cobblemon-legendary-sides-v3\.webp/);
+  assert.equal(fs.existsSync(path.join(root, 'public', 'cobblemon-legendary-sides-v3.webp')), true);
   assert.match(appJs, /function cobblemonPreviewSprite/);
   assert.match(appJs, /cobblemonDexGridKey/);
   assert.match(appJs, /fetchpriority="low"/);
