@@ -84,9 +84,21 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /shop-quantity-picker/);
   assert.match(app, /const unitPrice = ball\.id === 'poke' \? Number\(balls\.unitPrice \|\| 8\.99\)/);
   assert.match(app, /dailyBall \? '\/api\/cobblemon\/balls\/buy'/);
+  assert.match(app, /confirmCobblemonAction\(/);
+  assert.match(app, /dataset\.confirming === 'true'/);
+  assert.match(app, /cobblemonBallPurchaseQuantities/);
+  assert.match(app, /data-cobblemon-ball-quantity/);
+  assert.match(app, /value="\$\{savedQuantity\}"/);
+  assert.match(app, /mountCobblemonHuntBallPanel\(/);
+  assert.match(app, /restoreCobblemonBallPanel\(/);
+  assert.match(app, /const actionLabel = !encounterReady \? \(quantity > 0 \? 'Disponível na caça' : 'Sem estoque'\)/);
   assert.match(app, /ballType: cobblemonSelectedBall/);
   assert.match(app, /Chance de captura/);
   assert.match(html, /id="cobblemonBallOptions"/);
+  const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  assert.match(styles, /\.cobblemon-ball-option\.empty\{opacity:1\}/);
+  assert.match(styles, /\.cobblemon-ball-purchase\{[^}]*opacity:1/);
+  assert.match(styles, /\.cobblemon-hunt-ball-panel \.cobblemon-ball-price\{display:none\}/);
 });
 
 test('Cobblemon mantém rolagem leve e preço de cápsula padronizado', () => {
