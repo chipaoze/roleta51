@@ -505,6 +505,11 @@ test('cápsula Pokémon faz três sorteios por compra e escolha semanal', () => 
   assert.match(appJs, /Escolher entrega da semana/);
 });
 
+test('Agiota autentica a venda de item antes de consultar o inventário', () => {
+  assert.match(serverJs, /route === '\/api\/loans\/offer-item'\) \{\s+const \{ user \} = requireAuth\(req\);/);
+  assert.match(serverJs, /entry\.id === body\.purchaseId && entry\.userId === user\.id/);
+});
+
 test('cápsula separa limite semanal, sorteios por baú e entrega antecipada após a escolha', () => {
   assert.match(serverJs, /weeklyPurchasesRemaining/);
   assert.match(serverJs, /weeklyOpeningsUsed/);

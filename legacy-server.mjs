@@ -4326,7 +4326,7 @@ async function handleApi(req, res, route) {
   }
 
   if (req.method === 'POST' && route === '/api/loans/offer-item') {
-    const body = await readJson(req); const purchase = db.economy.purchases.find((entry) => entry.id === body.purchaseId && entry.userId === user.id && !entry.mysteryDecisionPending);
+    const { user } = requireAuth(req); const body = await readJson(req); const purchase = db.economy.purchases.find((entry) => entry.id === body.purchaseId && entry.userId === user.id && !entry.mysteryDecisionPending);
     const allowed = stellarItemOffers(user.id).find((entry) => entry.purchaseId === body.purchaseId);
     if (!purchase || !allowed) throw new HttpError(404, 'Esse item não está disponível para a oferta do Agiota.');
     const loan = activeLoanFor(user.id); const before = walletFor(user.id); const now = new Date().toISOString();
