@@ -3083,7 +3083,7 @@ async function showCobblemonOpening(title, reward, options = {}) {
   const selected = [reward.name, reward.noPrize ? '' : (reward.sprite || COBBLEMON_ITEM_SPRITES.poke), 0]; const winningIndex = 27;
   const entries = Array.from({length:32},(_,index) => index === winningIndex ? selected : pool[Math.floor(Math.random()*pool.length)]);
   viewport.classList.toggle('hidden', skipCarousel);
-  $('#cobblemonOpeningTitle').textContent = title; $('#cobblemonOpeningIcon').src = skipCarousel ? (reward.sprite || COBBLEMON_ITEM_SPRITES.poke) : '/capture-ball-cobblemon.png'; $('#keepCobblemonReward').disabled = false; $('#sellCobblemonReward').disabled = false;
+  $('#cobblemonOpeningTitle').textContent = title; $('#cobblemonOpeningIcon').src = skipCarousel ? (reward.sprite || COBBLEMON_ITEM_SPRITES.poke) : '/capture-ball-cobblemon.png'; $('#keepCobblemonReward').disabled = false; delete $('#keepCobblemonReward').dataset.cobblemonChoiceId; $('#sellCobblemonReward').disabled = false;
   result.classList.remove('revealed'); result.innerHTML = '<span>◉</span><strong>Aguarde a roleta parar</strong>'; decision.classList.add('hidden'); choicesBox?.classList.add('hidden'); continueButton?.classList.add('hidden'); if (choicesBox) choicesBox.innerHTML = '';
   track.innerHTML = entries.map(([name,sprite]) => `<article><span>${sprite ? `<img src="${sprite}" alt="">` : '<b class="roulette-loss">×</b>'}</span><strong>${escapeHtml(name)}</strong></article>`).join('');
   track.style.transition = 'none'; track.style.transform = 'translateX(0)'; dialog.showModal();
@@ -3127,9 +3127,15 @@ async function showCobblemonOpening(title, reward, options = {}) {
       return;
     }
     let selectedChoiceId = null;
-    $('#keepCobblemonReward').onclick = (event) => finalChoices ? decide('choose', event.currentTarget, selectedChoiceId) : decide('keep',event.currentTarget);
+    // Guarda a escolha também no próprio botão. Assim o clique de confirmação
+    // não perde a opção já marcada caso outro efeito global de cursor rode.
+    $('#keepCobblemonReward').onclick = (event) => {
+      const choiceId = event.currentTarget.dataset.cobblemonChoiceId || selectedChoiceId;
+      if (finalChoices && !choiceId) { showToast('Escolha um Pokémon antes de confirmar.', 'error'); return; }
+      return finalChoices ? decide('choose', event.currentTarget, choiceId) : decide('keep',event.currentTarget);
+    };
     $('#sellCobblemonReward').onclick = (event) => decide('sell',event.currentTarget);
-    choicesBox?.querySelectorAll('[data-cobblemon-choice]').forEach((button) => { button.onclick = () => { selectedChoiceId = button.dataset.cobblemonChoice; choicesBox.querySelectorAll('[data-cobblemon-choice]').forEach((item) => { const selected = item === button; item.classList.toggle('selected', selected); item.setAttribute('aria-pressed', String(selected)); }); keepButton.disabled = false; }; });
+    choicesBox?.querySelectorAll('[data-cobblemon-choice]').forEach((button) => { button.onclick = () => { selectedChoiceId = button.dataset.cobblemonChoice; keepButton.dataset.cobblemonChoiceId = selectedChoiceId; choicesBox.querySelectorAll('[data-cobblemon-choice]').forEach((item) => { const selected = item === button; item.classList.toggle('selected', selected); item.setAttribute('aria-pressed', String(selected)); }); keepButton.disabled = false; keepButton.removeAttribute('aria-disabled'); }; });
   });
 }
 
