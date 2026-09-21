@@ -2838,19 +2838,17 @@ function buildStateFor(user) {
   const bestRanking = [...rankingUsers].sort((a, b) => b.bestWins - a.bestWins || a.displayName.localeCompare(b.displayName));
   const worstRanking = [...rankingUsers].sort((a, b) => b.worstWins - a.worstWins || a.displayName.localeCompare(b.displayName));
   const gayRanking = [...rankingUsers].sort((a, b) => b.gayWins - a.gayWins || a.displayName.localeCompare(b.displayName));
-  // Forbes 51 é somente de leitura: ordena pelo patrimônio (caixa + investimentos),
-  // mas publica apenas o valor atual dos ativos investidos. O caixa nunca sai no payload.
+  // Forbes 51 é somente de leitura: ordena pelo valor atual investido
+  // e nunca publica o saldo em caixa.
   const financeRanking = db.users.filter((item) => item.active).map((item) => {
-    const cash = walletFor(item.id);
     const invested = roundMoney(marketForUser(db.economy, item.id).holdingsValue);
     return {
       id: item.id,
       displayName: item.displayName,
       liveTitles: liveTitleMap.get(item.id) || [],
       invested,
-      sortValue: roundMoney(cash + invested),
     };
-  }).sort((a, b) => b.sortValue - a.sortValue || b.invested - a.invested || a.displayName.localeCompare(b.displayName)).map(({ sortValue, ...person }) => person);
+  }).sort((a, b) => b.invested - a.invested || a.displayName.localeCompare(b.displayName));
   const hydrationDay = saoPauloDayKey();
   const todayWaterEntries = db.waterEntries.filter((item) => item.dayKey === hydrationDay);
   const hydrationPeople = db.users.filter((item) => item.active).map((person) => ({

@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-forbes-investments-v81',
-  title: 'Forbes 51 com investimentos públicos',
-  notes: 'O Forbes 51 ordena pelo patrimônio total (caixa + investimentos), mas exibe somente o valor atual investido em ativos. O saldo em caixa permanece privado; a captura centralizada, a música e as regras existentes foram preservadas.'
+  version: '20260921-forbes-investment-order-v82',
+  title: 'Forbes 51 ordenado por investimento',
+  notes: 'O Forbes 51 agora ordena do maior para o menor valor atual investido em ativos, exatamente como o valor exibido. O saldo em caixa permanece privado; a captura centralizada, a música e as regras existentes foram preservadas.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
