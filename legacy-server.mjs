@@ -932,14 +932,34 @@ function cobblemonCapsuleDeliverySpec(pokemonId, rarity) {
   return { level: fallbackLevel, gender: rollCobblemonDeliveryGender(pokemonId), levelSource: 'capsule-no-natural-spawn' };
 }
 
-function monthlyCobblemonPokemonReward() {
+function monthlyCobblemonPokemonReward(userId = null, cycleId = null) {
   const roll = Math.random();
   const rarity = roll < .01 ? 'legendary' : roll < .05 ? 'shiny' : roll < .20 ? 'rare' : 'common';
   const legendary = COBBLEMON_CATALOG.filter((entry) => /legendary|mythical/.test(String(entry.l)));
   const rare = COBBLEMON_CATALOG.filter((entry) => /starter|powerhouse|fossil|baby|paradox|ultra_beast/.test(String(entry.l)) && !/legendary|mythical/.test(String(entry.l)));
   const common = COBBLEMON_CATALOG.filter((entry) => !/legendary|mythical|starter|powerhouse|fossil|baby|paradox|ultra_beast/.test(String(entry.l)));
   const pool = rarity === 'legendary' ? legendary : rarity === 'rare' ? rare : rarity === 'shiny' ? COBBLEMON_CATALOG.filter((entry) => !/legendary|mythical/.test(String(entry.l))) : common;
-  const pokemon = pool[Math.floor(Math.random() * pool.length)] || COBBLEMON_CATALOG[0];
+  // Um Pokémon que o participante já possui (capturado ou recebido em uma
+  // cápsula anterior) não pode voltar a ser sorteado no ciclo atual. Isso
+  // mantém o catálogo semanal independente dos ciclos anteriores e evita,
+  // por exemplo, oferecer novamente um Metagross já entregue.
+  const ownedIds = new Set();
+  if (userId && typeof db !== 'undefined') {
+    const dex = Array.isArray(db.economy?.cobblemonDex?.[userId]) ? db.economy.cobblemonDex[userId] : [];
+    dex.forEach((entry) => {
+      const id = Number(entry?.id ?? entry?.pokemonId);
+      if (Number.isInteger(id) && id > 0) ownedIds.add(id);
+    });
+    const deliveries = Array.isArray(db.economy?.cobblemonDeliveries) ? db.economy.cobblemonDeliveries : [];
+    const activeStatuses = new Set(['awaiting-delivery', 'delivered', 'claimed-no-delivery', 'cycle-candidate', 'weekly-choice-pending']);
+    deliveries.filter((entry) => entry.userId === userId && entry.boxId === 'pokemon' && activeStatuses.has(entry.status) && (!cycleId || entry.cycleId === cycleId || ['awaiting-delivery', 'delivered', 'claimed-no-delivery'].includes(entry.status))).forEach((entry) => {
+      const id = Number(entry?.pokemonId ?? entry?.roll?.pokemonId);
+      if (Number.isInteger(id) && id > 0) ownedIds.add(id);
+    });
+  }
+  const eligiblePool = pool.filter((entry) => !ownedIds.has(Number(entry.i)));
+  const pokemonPool = eligiblePool.length ? eligiblePool : pool;
+  const pokemon = pokemonPool[Math.floor(Math.random() * pokemonPool.length)] || pool[0] || COBBLEMON_CATALOG[0];
   const specification = cobblemonCapsuleDeliverySpec(pokemon.i, rarity);
   const suffix = rarity === 'legendary' ? ' · LENDÁRIO' : rarity === 'shiny' ? ' · SHINY' : rarity === 'rare' ? ' · RARO' : '';
   const sellPrices = { common: 180, rare: 320, shiny: 600, legendary: 800 };
@@ -4014,7 +4034,7 @@ async function handleApi(req, res, route) {
       if (selectedCount >= 7) throw new HttpError(409, 'Os sete Pokémon desta semana já foram escolhidos.');
       const dailyRollCount = Number(closedBox.rolls?.length || closedBox.openCount || 0);
       if (dailyRollCount >= 3) throw new HttpError(409, 'Os três sorteios desta cápsula já foram feitos. Escolha um Pokémon.');
-      const roll = monthlyCobblemonPokemonReward();
+      const roll = monthlyCobblemonPokemonReward(user.id, closedBox.cycleId);
       closedBox.rolls = Array.isArray(closedBox.rolls) ? closedBox.rolls : (closedBox.roll ? [closedBox.roll] : []);
       closedBox.rolls.push(roll); closedBox.roll = roll; closedBox.openedAt = new Date().toISOString(); closedBox.openCount = closedBox.rolls.length;
       const finalDailyRound = closedBox.rolls.length >= 3;

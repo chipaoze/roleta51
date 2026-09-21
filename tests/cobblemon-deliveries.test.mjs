@@ -49,6 +49,31 @@ test('sorteio mantém a tabela de raridade e gera ficha de entrega também para 
   assert.deepEqual({ id: common.pokemonId, level: common.level, gender: common.gender, rarity: common.rarity }, { id: 6, level: 36, gender: 'female', rarity: 'common' });
 });
 
+test('cápsula não oferece novamente um Pokémon já pertencente ao participante', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const start = server.indexOf('function cobblemonCapsuleDeliverySpec(');
+  const end = server.indexOf('function normalizedCobblemonLevel(', start);
+  const context = {
+    COBBLEMON_CATALOG: [
+      { n: 'Metagross', i: 376, l: '' },
+      { n: 'Pikachu', i: 25, l: '' },
+    ],
+    db: {
+      economy: {
+        cobblemonDex: { davi: [{ id: 376 }] },
+        cobblemonDeliveries: [],
+      },
+    },
+    cobblemonDeliverySpec: (id) => ({ level: Number(id) === 376 ? 45 : 5, gender: 'genderless', levelSource: 'cobbledex-minimum' }),
+    rollCobblemonDeliveryGender: () => 'genderless',
+    Math: { random: () => 0.9, floor: Math.floor },
+  };
+  const monthlyReward = vm.runInNewContext(server.slice(start, end) + ';monthlyCobblemonPokemonReward', context);
+  const reward = monthlyReward('davi', 'capsule-week:2026-09-19');
+  assert.equal(reward.pokemonId, 25);
+  assert.notEqual(reward.pokemonId, 376);
+});
+
 test('migração preenche uma entrega já existente sem mudar seu status ou a escolha', () => {
   const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
   const start = server.indexOf('function ensureCobblemonDeliverySpec(');
