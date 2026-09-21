@@ -2838,21 +2838,18 @@ function buildStateFor(user) {
   const bestRanking = [...rankingUsers].sort((a, b) => b.bestWins - a.bestWins || a.displayName.localeCompare(b.displayName));
   const worstRanking = [...rankingUsers].sort((a, b) => b.worstWins - a.worstWins || a.displayName.localeCompare(b.displayName));
   const gayRanking = [...rankingUsers].sort((a, b) => b.gayWins - a.gayWins || a.displayName.localeCompare(b.displayName));
-  // Forbes 51 é um placar somente de leitura: não cria nem altera saldo.
+  // Forbes 51 é um placar somente de leitura: mostra apenas o caixa atual.
+  // Compras históricas não são patrimônio disponível e não entram no ranking.
   const financeRanking = db.users.filter((item) => item.active).map((item) => {
     const cash = walletFor(item.id);
-    const invested = roundMoney((db.economy.purchases || [])
-      .filter((purchase) => purchase.userId === item.id)
-      .reduce((sum, purchase) => sum + Math.max(0, Number(purchase.price || 0)), 0));
     return {
       id: item.id,
       displayName: item.displayName,
       liveTitles: liveTitleMap.get(item.id) || [],
       cash,
-      invested,
-      fortune: roundMoney(cash + invested),
+      fortune: cash,
     };
-  }).sort((a, b) => b.fortune - a.fortune || b.cash - a.cash || a.displayName.localeCompare(b.displayName));
+  }).sort((a, b) => b.cash - a.cash || a.displayName.localeCompare(b.displayName));
   const hydrationDay = saoPauloDayKey();
   const todayWaterEntries = db.waterEntries.filter((item) => item.dayKey === hydrationDay);
   const hydrationPeople = db.users.filter((item) => item.active).map((person) => ({
