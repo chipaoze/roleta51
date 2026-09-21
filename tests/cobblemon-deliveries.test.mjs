@@ -133,8 +133,10 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /document\.addEventListener\('focusin', \(event\) =>/);
   assert.match(app, /if \(document\.activeElement === input\) input\.select\(\)/);
   assert.match(app, /\$\('#cobblemonBallOptions'\)\?\.addEventListener\('pointerdown'/);
+  assert.match(app, /NATIVE_POINTER_SELECTOR = 'input,textarea,select,button,a,summary,label,/);
   assert.match(app, /input\.focus\(\{ preventScroll: true \}\)/);
   assert.doesNotMatch(app, /cobblemonBallOptions'\)\?\.addEventListener\('pointerdown',[\s\S]{0,300}event\.stopPropagation\(\)/);
+  assert.match(app, /if \(isNativeInteractiveTarget\(event\.target\)\) \{\s*suppressClick = false;\s*return;\s*\}/);
   assert.match(app, /replace\(\/\\D\/g, ''\)/);
   assert.match(app, /mountCobblemonHuntBallPanel\(/);
   assert.match(app, /restoreCobblemonBallPanel\(/);

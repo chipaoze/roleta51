@@ -1,15 +1,15 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const NATIVE_POINTER_SELECTOR = 'input,textarea,select,button,a,summary,[role="button"],[contenteditable="true"]';
+const NATIVE_POINTER_SELECTOR = 'input,textarea,select,button,a,summary,label,[role="button"],[contenteditable="true"]';
 const isNativeInteractiveTarget = (target) => Boolean(target?.closest?.(NATIVE_POINTER_SELECTOR));
 function formatCredits(value) {
   return Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-quantity-input-v91',
-  title: 'Clique simples no campo de quantidade',
-  notes: 'O clique simples agora conclui o foco nativo do campo de quantidade sem exigir que o botão do mouse fique pressionado. O valor atual é selecionado para digitação direta, com validação entre 1 e 20; estoque, saldos e regras da caça foram preservados.'
+  version: '20260921-cobblemon-quantity-input-v92',
+  title: 'Campo de quantidade sem bloqueio do cursor',
+  notes: 'O controle inteiro da quantidade agora permanece nativo, inclusive ao clicar no rótulo, e bloqueios residuais do efeito de cursor não cancelam a edição. O valor atual é selecionado para digitação direta, com validação entre 1 e 20; estoque, saldos e regras da caça foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -665,6 +665,10 @@ function startThorCursorThrow() {
 
   document.addEventListener('click', (event) => {
     if (!suppressNextClick) return;
+    if (isNativeInteractiveTarget(event.target)) {
+      suppressNextClick = false;
+      return;
+    }
     suppressNextClick = false;
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -793,6 +797,10 @@ function startWolverineCursorSlash() {
   document.addEventListener('contextmenu', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('click', (event) => {
     if (!suppressClick) return;
+    if (isNativeInteractiveTarget(event.target)) {
+      suppressClick = false;
+      return;
+    }
     suppressClick = false;
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -1005,6 +1013,10 @@ function startCobblemonCaptureThrow() {
   document.addEventListener('contextmenu', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('click', (event) => {
     if (!suppressClick) return;
+    if (isNativeInteractiveTarget(event.target)) {
+      suppressClick = false;
+      return;
+    }
     suppressClick = false;
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -1101,6 +1113,10 @@ function startWebSlingerCursor() {
   document.addEventListener('contextmenu', (event) => { if (isActive() && (start || performance.now() < blockNativeUntil)) event.preventDefault(); }, true);
   document.addEventListener('click', (event) => {
     if (!suppressClick) return;
+    if (isNativeInteractiveTarget(event.target)) {
+      suppressClick = false;
+      return;
+    }
     suppressClick = false;
     event.preventDefault();
     event.stopImmediatePropagation();
