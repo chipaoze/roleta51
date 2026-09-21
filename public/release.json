@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-capture-polish-v77",
-  "title": "Captura Cobblemon mais clara",
-  "notes": "A bola agora aparece centralizada e faz um arremesso visual previsível. A preferência da música é preservada após recarregar e a caçada não escolhe menus pausados. Saldo, histórico e regras de captura foram preservados."
+  "version": "20260921-cobblemon-capture-centered-v78",
+  "title": "Captura Cobblemon centralizada",
+  "notes": "O Pokémon e a Poké Ball agora ficam centralizados quando a caçada é encontrada, com arremesso visual previsível. A preferência da música é preservada e menus pausados continuam fora da caça. Saldo, histórico e regras de captura foram preservados."
 }

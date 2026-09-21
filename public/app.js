@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-capture-polish-v77',
-  title: 'Captura Cobblemon mais clara',
-  notes: 'A bola agora aparece centralizada e faz um arremesso visual previsível. A preferência da música é preservada após recarregar e a caçada não escolhe menus pausados. Saldo, histórico e regras de captura foram preservados.'
+  version: '20260921-cobblemon-capture-centered-v78',
+  title: 'Captura Cobblemon centralizada',
+  notes: 'O Pokémon e a Poké Ball agora ficam centralizados quando a caçada é encontrada, com arremesso visual previsível. A preferência da música é preservada e menus pausados continuam fora da caça. Saldo, histórico e regras de captura foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -6051,12 +6051,14 @@ function resetCobblemonPageCapture(clearResult = false) {
 
 function placeCobblemonEncounter() {
   const target = $('#cobblemonEncounterTarget');
-  const margin = Math.min(100, Math.max(58, window.innerWidth * .07));
-  const minY = Math.min(145, window.innerHeight * .2);
-  const maxX = Math.max(margin, window.innerWidth - margin);
-  const maxY = Math.max(minY, window.innerHeight - 150);
-  target.style.left = `${Math.round(margin + Math.random() * (maxX - margin))}px`;
-  target.style.top = `${Math.round(minY + Math.random() * (maxY - minY))}px`;
+  // O encontro pode continuar sendo descoberto ao trocar de setor, mas, ao
+  // aparecer, fica no eixo central para que o alvo e a bola não caiam em
+  // cantos diferentes da tela.
+  const minY = Math.min(220, Math.max(150, window.innerHeight * .28));
+  const maxY = Math.max(minY, window.innerHeight - 300);
+  const centerY = Math.min(maxY, Math.max(minY, window.innerHeight * .42));
+  target.style.left = `${Math.round(window.innerWidth / 2)}px`;
+  target.style.top = `${Math.round(centerY)}px`;
 }
 
 async function startCobblemonPageEncounter() {
