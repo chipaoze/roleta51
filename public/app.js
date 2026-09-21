@@ -5343,6 +5343,17 @@ $('#copyRoundRecapButton')?.addEventListener('click', async () => {
   }
 });
 
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-cobblemon-server-copy]');
+  if (!button) return;
+  try {
+    await navigator.clipboard.writeText(button.dataset.cobblemonServerCopy);
+    showToast(button.dataset.cobblemonServerCopy.includes('@') ? 'PIX copiado.' : 'IP do MKCobblemon copiado.');
+  } catch {
+    showToast('O navegador bloqueou a cópia. Copie o valor exibido manualmente.', 'error');
+  }
+});
+
 $('#shareProfileCardButton')?.addEventListener('click', async () => {
   const profile = appState?.profile; if (!profile) return;
   const button = $('#shareProfileCardButton'); button.disabled = true;

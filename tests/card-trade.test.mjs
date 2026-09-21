@@ -31,8 +31,8 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260921-379/);
-  assert.match(html, /app\.js\?v=20260921-380/);
+  assert.match(html, /styles\.css\?v=20260921-381/);
+  assert.match(html, /app\.js\?v=20260921-381/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -49,6 +49,17 @@ test('presente secreto aceita até 500 créditos por semana com limite validado 
   assert.match(serverJs, /roundMoney\(sent \+ amount\) > WEEKLY_CREDIT_GIFT_LIMIT/);
   assert.match(html, /id="giftCreditsAmount"[^>]*max="500"/);
   assert.match(appJs, /weeklyCreditLimit/);
+});
+
+test('central Cobblemon mostra instalação, conexão e apoio do servidor', () => {
+  assert.match(html, /id="mkcobblemonServerTitle"/);
+  assert.match(html, /mkcobblemon\.jogar\.io/);
+  assert.match(html, /Fabric 0\.19\.5/);
+  assert.match(html, /Java 1\.21\.1/);
+  assert.match(html, /daivees@hotmail\.com/);
+  assert.match(html, /1oYyYAfzyTuueCucG2xL1MrLLc82pl_Qc/);
+  assert.match(appJs, /data-cobblemon-server-copy/);
+  assert.match(styles, /\.mkcobblemon-server-card/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {
