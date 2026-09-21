@@ -31,9 +31,16 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260921-377/);
-  assert.match(html, /app\.js\?v=20260921-378/);
+  assert.match(html, /styles\.css\?v=20260921-379/);
+  assert.match(html, /app\.js\?v=20260921-379/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
+});
+
+test('wallpapers podem ser ampliados antes do voto sem revelar autoria', () => {
+  assert.match(html, /id="wallpaperPreviewDialog"/);
+  assert.match(appJs, /data-wallpaper-preview-url/);
+  assert.match(appJs, /Autoria secreta · visualização para análise/);
+  assert.match(styles, /\.wallpaper-preview-dialog/);
 });
 
 test('aviso de versão pede atualização e exibe notas uma vez por versão', () => {

@@ -1401,6 +1401,24 @@ document.addEventListener('click', async (event) => {
 });
 $('#closeFeedbackImageDialog').addEventListener('click', () => $('#feedbackImageDialog').close());
 
+// A ampliação permite comparar detalhes antes do voto, mas não inclui qualquer
+// identificação de quem enviou o wallpaper enquanto a votação estiver aberta.
+document.addEventListener('click', (event) => {
+  const trigger = event.target.closest('[data-wallpaper-preview-url]');
+  if (!trigger) return;
+  const dialog = $('#wallpaperPreviewDialog');
+  const image = $('#wallpaperPreviewImage');
+  const title = trigger.dataset.wallpaperPreviewTitle || 'Wallpaper da rodada';
+  image.src = trigger.dataset.wallpaperPreviewUrl;
+  image.alt = title;
+  $('#wallpaperPreviewLabel').textContent = 'Autoria secreta · visualização para análise';
+  if (!dialog.open) dialog.showModal();
+});
+$('#closeWallpaperPreviewDialog')?.addEventListener('click', () => $('#wallpaperPreviewDialog').close());
+$('#wallpaperPreviewDialog')?.addEventListener('click', (event) => {
+  if (event.target === event.currentTarget) event.currentTarget.close();
+});
+
 function closeFeedbackPanel(restoreFocus = true) {
   feedbackPanelOpen = false;
   $('#feedbackPanel').classList.add('hidden');
@@ -2030,7 +2048,7 @@ function renderGallery() {
   gallery.innerHTML = items.map((item) => {
     const author = item.revealed && item.uploader ? 'Por ' + escapeHtml(formatDisplayName(item.uploader)) : 'Autoria secreta';
     const visual = item.imageUrl
-      ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" decoding="async">'
+      ? '<button class="gallery-image-open" type="button" data-wallpaper-preview-url="' + escapeHtml(item.imageUrl) + '" data-wallpaper-preview-title="' + escapeHtml(item.title) + '" aria-label="Ampliar wallpaper ' + escapeHtml(item.title) + '"><img src="' + escapeHtml(item.imageUrl) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" decoding="async"></button>'
       : '<div class="secret-wallpaper"><span>✦</span><strong>ENVIO RECEBIDO</strong><small>A imagem aparece quando todos enviarem</small></div>';
     return '<article class="gallery-card">' +
       visual +
@@ -2465,7 +2483,7 @@ function renderVoting() {
     const results = closed ? '<div class="vote-results"><span class="vote-badge best">▲ ' + item.bestVotes + ' melhor</span>' +
       '<span class="vote-badge worst">▼ ' + item.worstVotes + ' pior</span></div>' : '';
     const highlight = closed ? (item.isBestWinner ? ' winner-best' : '') + (item.isWorstWinner ? ' winner-worst' : '') : '';
-    const visual = item.imageUrl ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" decoding="async">' :
+    const visual = item.imageUrl ? '<button class="vote-image-open" type="button" data-wallpaper-preview-url="' + escapeHtml(item.imageUrl) + '" data-wallpaper-preview-title="' + escapeHtml(item.title) + '" aria-label="Ampliar wallpaper ' + escapeHtml(item.title) + '"><img src="' + escapeHtml(item.imageUrl) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" decoding="async"></button>' :
       '<div class="vote-secret-visual"><span>👽</span><strong>IMAGEM RESERVADA</strong></div>';
     return '<article class="vote-card' + highlight + '">' + visual +
       '<div class="vote-card-body"><strong>' + escapeHtml(item.title) + '</strong>' + author + choices + results + '</div></article>';
