@@ -665,8 +665,9 @@ function finalizePokemonCapsuleCycle(entries, chosenEntry, reason) {
   });
 }
 
-// Sexta abre a escolha final; se ela ficar pendente até o sábado, o sistema
-// escolhe uma opção automaticamente e bloqueia a entrega para o Davi.
+// A escolha final só abre na sexta depois de todas as sete vagas do ciclo
+// serem usadas. Antes disso, o jogador ainda pode comprar e abrir a cápsula
+// restante; no sábado, o sistema resolve automaticamente o que sobrar.
 function settlePokemonCapsules() {
   const currentCycleId = pokemonCapsuleCycleKey();
   let changed = false;
@@ -683,7 +684,8 @@ function settlePokemonCapsules() {
       entries.filter((entry) => ['box-closed', 'box-open', 'choice-pending'].includes(entry.status)).forEach((entry) => { entry.status = 'cycle-expired'; entry.expiredAt = new Date().toISOString(); changed = true; });
       continue;
     }
-    if (deliveryLocked || !pokemonCapsuleIsFriday() || entries.some((entry) => entry.status === 'weekly-choice-pending')) continue;
+    const paidCapsules = entries.filter((entry) => !['cycle-discarded', 'cycle-expired', 'replaced', 'reset-refunded'].includes(entry.status));
+    if (deliveryLocked || !pokemonCapsuleIsFriday() || paidCapsules.length < 7 || entries.some((entry) => entry.status === 'weekly-choice-pending')) continue;
     if (active.length === 1) finalizePokemonCapsuleCycle(entries, active[0], 'Única opção da semana');
     else if (active.length > 1) {
       const anchor = active[0];
@@ -4062,7 +4064,9 @@ async function handleApi(req, res, route) {
       } else {
         Object.assign(reward, { rewardId: choice.id, name: choice.name, sprite: choice.sprite, sellPrice: choice.sellPrice, pokemonId: choice.pokemonId, rarity: choice.rarity, isShiny: Boolean(choice.isShiny), level: choice.level, gender: choice.gender, levelSource: choice.levelSource, status: 'cycle-candidate', decidedAt: now, chosenAt: now, dailyChoiceAt: now });
         const candidates = db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === reward.cycleId && entry.status === 'cycle-candidate');
-        if (candidates.length >= 7 || (pokemonCapsuleIsFriday() && candidates.length > 0)) {
+        // Sexta-feira não transforma uma escolha diária em decisão final se
+        // ainda houver vagas de cápsula. Isso mantém a sétima compra aberta.
+        if (candidates.length >= 7) {
           reward.status = 'weekly-choice-pending';
           reward.choices = candidates.map(pokemonCapsuleChoiceForEntry);
         }

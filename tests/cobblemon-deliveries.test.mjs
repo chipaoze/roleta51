@@ -147,6 +147,47 @@ test('venda da escolha final conserva a compra no teto semanal, sem bloquear uma
   assert.doesNotMatch(server, /!weeklyChoiceClosed && weeklyPurchaseCount/);
 });
 
+test('sexta não antecipa a escolha final quando ainda há cápsulas semanais disponíveis', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(server, /paidCapsules\.length < 7/);
+  assert.match(server, /if \(candidates\.length >= 7\)/);
+  assert.doesNotMatch(server, /candidates\.length >= 7 \|\| \(pokemonCapsuleIsFriday\(\) && candidates\.length > 0\)/);
+  assert.match(app, /escolha final abre na sexta ao preencher as 7 vagas/);
+  assert.match(app, /As vagas restantes seguem abertas/);
+  assert.match(app, /Você pode vender as outras antes de escolher a entrega/);
+  assert.doesNotMatch(app, /const weekly = await showCobblemonOpening\('Escolha o Pokémon da semana'/);
+});
+
+test('ciclo local de cápsulas mantém a sétima vaga aberta e só fecha a lista completa na sexta', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const start = server.indexOf('function finalizePokemonCapsuleCycle(');
+  const end = server.indexOf('function retailPriceWithCents(', start);
+  assert.ok(start >= 0 && end > start, 'motor de fechamento semanal localizado');
+  const cycleId = 'capsule-week:2026-09-12';
+  const entry = (index) => ({
+    id: `capsule-${index}`, userId: 'tester', boxId: 'pokemon', cycleId,
+    status: 'cycle-candidate', name: `Pokémon ${index}`, pokemonId: index,
+    sprite: `/pokemon-${index}.webp`, rarity: 'common', createdAt: `2026-09-1${index}T12:00:00.000Z`,
+  });
+  const db = { economy: { cobblemonDeliveries: Array.from({ length: 6 }, (_, index) => entry(index + 1)) } };
+  const settle = vm.runInNewContext(`${server.slice(start, end)}; settlePokemonCapsules`, {
+    db,
+    pokemonCapsuleCycleKey: () => cycleId,
+    pokemonCapsuleIsFriday: () => true,
+    pokemonCapsuleChoiceForEntry: (item) => ({ entryId: item.id, id: item.pokemonId, name: item.name, sprite: item.sprite, rarity: item.rarity }),
+    Math,
+    Date,
+  });
+  assert.equal(settle(), false, 'seis cápsulas não podem abrir a escolha semanal automaticamente');
+  assert.ok(db.economy.cobblemonDeliveries.every((item) => item.status === 'cycle-candidate'));
+  db.economy.cobblemonDeliveries.push(entry(7));
+  assert.equal(settle(), true, 'a sétima cápsula pode abrir a escolha semanal');
+  const weekly = db.economy.cobblemonDeliveries.find((item) => item.status === 'weekly-choice-pending');
+  assert.ok(weekly);
+  assert.equal(weekly.choices.length, 7);
+});
+
 test('Cápsula prioriza a escolha pendente no rótulo e no clique', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');

@@ -11,6 +11,9 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "test": "node --test tests/*.test.mjs",
+    "qa:cobblemon": "node --test tests/cobblemon-deliveries.test.mjs",
+    "validate:local": "node --check legacy-server.mjs && node --check public/app.js && npm run qa:cobblemon && npm test && npm run build",
+    "dev:isolated": "vinext dev",
     "format": "oxfmt",
     "db:generate": "drizzle-kit generate"
   },

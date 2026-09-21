@@ -21,10 +21,29 @@ npm run dev
 Para validar uma alteração:
 
 ```bash
-node --check legacy-server.mjs
-node --check public/app.js
-npm run build
+npm run validate:local
 ```
+
+## Homologação local isolada
+
+Antes de publicar, use o ambiente local isolado para percorrer as ações na
+interface sem tocar no D1 ou no KV de produção:
+
+```bash
+npm run dev:isolated
+```
+
+Ele inicia o ambiente local em `http://localhost:3000`, com as bindings locais
+do Vite/Miniflare; ele não consulta nem grava no D1 ou no KV de produção.
+Para uma alteração na Cápsula Pokémon, rode também:
+
+```bash
+npm run qa:cobblemon
+```
+
+Esse ensaio cobre compra, três sorteios, escolha diária, venda de candidatos,
+sexta com vagas restantes, fechamento ao completar as sete cápsulas e a escolha
+final. Só publique quando os dois comandos terminarem sem falhas.
 
 ## Publicação
 
