@@ -952,7 +952,7 @@ function monthlyCobblemonPokemonReward(userId = null, cycleId = null) {
     });
     const deliveries = Array.isArray(db.economy?.cobblemonDeliveries) ? db.economy.cobblemonDeliveries : [];
     const activeStatuses = new Set(['awaiting-delivery', 'delivered', 'claimed-no-delivery', 'cycle-candidate', 'weekly-choice-pending']);
-    deliveries.filter((entry) => entry.userId === userId && entry.boxId === 'pokemon' && activeStatuses.has(entry.status) && (!cycleId || entry.cycleId === cycleId || ['awaiting-delivery', 'delivered', 'claimed-no-delivery'].includes(entry.status))).forEach((entry) => {
+    deliveries.filter((entry) => entry.userId === userId && entry.boxId === 'pokemon' && activeStatuses.has(entry.status)).forEach((entry) => {
       const id = Number(entry?.pokemonId ?? entry?.roll?.pokemonId);
       if (Number.isInteger(id) && id > 0) ownedIds.add(id);
     });

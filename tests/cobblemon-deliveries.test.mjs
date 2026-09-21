@@ -57,20 +57,21 @@ test('cápsula não oferece novamente um Pokémon já pertencente ao participant
     COBBLEMON_CATALOG: [
       { n: 'Metagross', i: 376, l: '' },
       { n: 'Pikachu', i: 25, l: '' },
+      { n: 'Eevee', i: 133, l: '' },
     ],
     db: {
       economy: {
         cobblemonDex: { davi: [{ id: 376 }] },
-        cobblemonDeliveries: [],
+        cobblemonDeliveries: [{ userId: 'davi', boxId: 'pokemon', cycleId: 'capsule-week:2026-09-12', status: 'cycle-candidate', pokemonId: 25 }],
       },
     },
     cobblemonDeliverySpec: (id) => ({ level: Number(id) === 376 ? 45 : 5, gender: 'genderless', levelSource: 'cobbledex-minimum' }),
     rollCobblemonDeliveryGender: () => 'genderless',
-    Math: { random: () => 0.9, floor: Math.floor },
+    Math: { random: (() => { const values = [0.9, 0]; return () => values.shift() ?? 0; })(), floor: Math.floor },
   };
   const monthlyReward = vm.runInNewContext(server.slice(start, end) + ';monthlyCobblemonPokemonReward', context);
   const reward = monthlyReward('davi', 'capsule-week:2026-09-19');
-  assert.equal(reward.pokemonId, 25);
+  assert.equal(reward.pokemonId, 133);
   assert.notEqual(reward.pokemonId, 376);
 });
 

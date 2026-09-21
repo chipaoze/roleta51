@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-delivery-history-v75',
-  title: 'Entregas Cobblemon acionáveis',
-  notes: 'O botão de marcar entrega voltou a responder diretamente na fila, inclusive para o Pokémon pendente do Davi. O ciclo semanal sem repetição e o histórico continuam preservados, sem alterar saldo.'
+  version: '20260921-cobblemon-delivery-history-v76',
+  title: 'Ciclos Cobblemon isolados',
+  notes: 'Desculpe pelos erros anteriores. O botão de entrega e o Pokémon pendente do Davi foram corrigidos, e escolhas pendentes de ciclos antigos também ficam fora do novo sorteio. Histórico e saldo foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
