@@ -128,6 +128,9 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /cobblemonBallPurchaseQuantities/);
   assert.match(app, /data-cobblemon-ball-quantity/);
   assert.match(app, /value="\$\{savedQuantity\}"/);
+  assert.match(app, /type="text" inputmode="numeric" pattern="\[0-9\]\*" maxlength="2"/);
+  assert.match(app, /function normalizeCobblemonBallQuantityInput\(input, commit = false\)/);
+  assert.match(app, /replace\(\/\\D\/g, ''\)/);
   assert.match(app, /mountCobblemonHuntBallPanel\(/);
   assert.match(app, /restoreCobblemonBallPanel\(/);
   assert.match(app, /const actionLabel = !encounterReady \? \(quantity > 0 \? 'Disponível na caça' : 'Sem estoque'\)/);

@@ -1,5 +1,5 @@
 {
-  "version": "20260921-cobblemon-ball-stock-v87",
-  "title": "Arremesso usa somente bolas disponíveis",
-  "notes": "A bola que aparece ao encontrar o Pokémon agora é escolhida a partir do estoque real. Great e Ultra Ball continuam disponíveis quando a Poké Ball básica acabou, e o servidor bloqueia qualquer arremesso sem estoque. A ativação da Maldição do Mouse também gera o aviso para a equipe; chances, saldos e regras da caça foram preservados."
+  "version": "20260921-cobblemon-quantity-input-v88",
+  "title": "Quantidade de bolas digitável",
+  "notes": "Os campos de compra das Poké Balls agora aceitam digitação direta, além das setas. O valor é validado entre 1 e 20 e a compra usa exatamente a quantidade informada; estoque, saldos e regras da caça foram preservados."
 }

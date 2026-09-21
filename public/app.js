@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-ball-stock-v87',
-  title: 'Arremesso usa somente bolas disponíveis',
-  notes: 'A bola que aparece ao encontrar o Pokémon agora é escolhida a partir do estoque real. Great e Ultra Ball continuam disponíveis quando a Poké Ball básica acabou, e o servidor bloqueia qualquer arremesso sem estoque. A ativação da Maldição do Mouse também gera o aviso para a equipe; chances, saldos e regras da caça foram preservados.'
+  version: '20260921-cobblemon-quantity-input-v88',
+  title: 'Quantidade de bolas digitável',
+  notes: 'Os campos de compra das Poké Balls agora aceitam digitação direta, além das setas. O valor é validado entre 1 e 20 e a compra usa exatamente a quantidade informada; estoque, saldos e regras da caça foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3159,7 +3159,7 @@ function renderCobblemonBallOptions(balls = {}, encounter = cobblemonPageEncount
     const unitPrice = ball.id === 'poke' ? Number(balls.unitPrice || 8.99) : Number(ball.price);
     const savedQuantity = Math.max(1, Math.min(20, Math.floor(Number(cobblemonBallPurchaseQuantities[ball.id]) || 1)));
     cobblemonBallPurchaseQuantities[ball.id] = savedQuantity;
-    const purchase = `<div class="cobblemon-ball-purchase"><div class="cobblemon-ball-price">${shopCreditMarkup(unitPrice, 'por unidade')}</div><div class="cobblemon-ball-buy"><label class="shop-quantity-picker"><span>Quantidade</span><input type="number" min="1" max="20" step="1" value="${savedQuantity}" inputmode="numeric" data-cobblemon-ball-quantity="${ball.id}" aria-label="Quantidade de ${escapeHtml(ball.name)}"></label><button type="button" class="button button-primary" data-cobblemon-ball-buy="${ball.id}">Comprar</button></div></div>`;
+    const purchase = `<div class="cobblemon-ball-purchase"><div class="cobblemon-ball-price">${shopCreditMarkup(unitPrice, 'por unidade')}</div><div class="cobblemon-ball-buy"><label class="shop-quantity-picker"><span>Quantidade</span><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" value="${savedQuantity}" data-cobblemon-ball-quantity="${ball.id}" aria-label="Quantidade de ${escapeHtml(ball.name)}" title="Digite uma quantidade de 1 a 20"></label><button type="button" class="button button-primary" data-cobblemon-ball-buy="${ball.id}">Comprar</button></div></div>`;
     const selectorAttributes = encounterReady ? `data-cobblemon-ball-select="${ball.id}" aria-pressed="${selected}" aria-disabled="${quantity < 1}"` : 'aria-disabled="true"';
     return `<article class="cobblemon-ball-option${selected ? ' selected' : ''}${quantity < 1 ? ' empty' : ''}"><button type="button" class="cobblemon-ball-select" ${selectorAttributes}><img src="${ball.sprite}" alt=""><span><strong>${escapeHtml(ball.name)}</strong><small>${escapeHtml(ball.shortName)} · ${escapeHtml(stockLabel)}</small>${chanceLabel}</span><b>${actionLabel}</b></button>${emptyNote}${purchase}</article>`;
   }).join('');
@@ -5956,13 +5956,30 @@ window.addEventListener('offline', () => {
 });
 
 document.addEventListener('input', (event) => { if (event.target?.id === 'cobblemonDexSearch' && appState?.profile) { cobblemonDexPage = 0; renderCobblemonDex(appState.profile); } });
-document.addEventListener('input', (event) => {
-  const input = event.target?.closest?.('[data-cobblemon-ball-quantity]');
-  if (!input) return;
+function normalizeCobblemonBallQuantityInput(input, commit = false) {
+  if (!input?.matches?.('[data-cobblemon-ball-quantity]')) return;
   const ballType = input.dataset.cobblemonBallQuantity;
-  const quantity = Number(input.value);
-  if (Object.hasOwn(cobblemonBallPurchaseQuantities, ballType) && Number.isInteger(quantity) && quantity >= 1 && quantity <= 20) cobblemonBallPurchaseQuantities[ballType] = quantity;
-});
+  if (!Object.hasOwn(cobblemonBallPurchaseQuantities, ballType)) return;
+  const digits = String(input.value || '').replace(/\D/g, '').slice(0, 2);
+  if (input.value !== digits) input.value = digits;
+  if (!digits) {
+    if (commit) {
+      const fallback = Math.max(1, Math.min(20, Math.floor(Number(cobblemonBallPurchaseQuantities[ballType]) || 1)));
+      input.value = String(fallback);
+      cobblemonBallPurchaseQuantities[ballType] = fallback;
+    }
+    return;
+  }
+  const quantity = Number(digits);
+  if (quantity >= 1 && quantity <= 20) cobblemonBallPurchaseQuantities[ballType] = quantity;
+  else if (commit) {
+    const clamped = Math.max(1, Math.min(20, quantity || 1));
+    input.value = String(clamped);
+    cobblemonBallPurchaseQuantities[ballType] = clamped;
+  }
+}
+document.addEventListener('input', (event) => normalizeCobblemonBallQuantityInput(event.target?.closest?.('[data-cobblemon-ball-quantity]')));
+document.addEventListener('blur', (event) => normalizeCobblemonBallQuantityInput(event.target?.closest?.('[data-cobblemon-ball-quantity]'), true), true);
 $('#closeCobblemonOddsDialog')?.addEventListener('click', () => $('#cobblemonOddsDialog').close());
 $('#cobblemonOpeningDialog')?.addEventListener('cancel', (event) => event.preventDefault());
 $('#cobblemonOpeningDialog')?.addEventListener('click', (event) => { if (event.target === event.currentTarget) { event.preventDefault(); event.stopPropagation(); } });
