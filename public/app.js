@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-cobblemon-weekly-choice-v86',
-  title: 'Escolha semanal da cápsula corrigida',
-  notes: 'As opções da semana continuam vendáveis antes da escolha. Ao escolher um Pokémon, ele passa para aguardando entrega e as demais opções são vendidas automaticamente, com o valor creditado no saldo, inclusive após recarregar a página. A regra das sete cápsulas, saldos e entregas foi preservada.'
+  version: '20260921-cobblemon-ball-stock-v87',
+  title: 'Arremesso usa somente bolas disponíveis',
+  notes: 'A bola que aparece ao encontrar o Pokémon agora é escolhida a partir do estoque real. Great e Ultra Ball continuam disponíveis quando a Poké Ball básica acabou, e o servidor bloqueia qualquer arremesso sem estoque. A ativação da Maldição do Mouse também gera o aviso para a equipe; chances, saldos e regras da caça foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3085,7 +3085,13 @@ function cobblemonTierLabel(tier) {
 
 function syncCobblemonSelectedBall(balls = {}) {
   const inventory = balls.special || {};
-  if (cobblemonSelectedBall !== 'poke' && Number(inventory[cobblemonSelectedBall]?.quantity || 0) < 1) cobblemonSelectedBall = 'poke';
+  const quantityFor = (ballType) => ballType === 'poke' ? Number(balls.remaining || 0) : Number(inventory[ballType]?.quantity || 0);
+  if (quantityFor(cobblemonSelectedBall) < 1) {
+    const fallback = quantityFor('poke') > 0
+      ? 'poke'
+      : Object.keys(COBBLEMON_CAPTURE_BALLS).find((ballType) => quantityFor(ballType) > 0) || 'poke';
+    cobblemonSelectedBall = fallback;
+  }
   const ball = COBBLEMON_CAPTURE_BALLS[cobblemonSelectedBall] || COBBLEMON_CAPTURE_BALLS.poke;
   const element = $('#cobblemonPageBall');
   if (element) {
@@ -6108,6 +6114,7 @@ async function startCobblemonPageEncounter() {
   $('#cobblemonCaptureHint').textContent = 'Procurando no bioma…';
   try {
     const data = await api('/api/cobblemon/encounter', { method: 'POST' });
+    if (data.profile) appState.profile = data.profile;
     const enabledSectors = cobblemonHuntEnabledSectors();
     const huntPage = enabledSectors[Math.floor(Math.random() * enabledSectors.length)] || 'memes';
     cobblemonPageEncounter = { ...data, huntPage, expiresAt: Date.now() + Number(data.expiresIn || 60) * 1000 };

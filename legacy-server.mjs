@@ -761,10 +761,19 @@ function grantCobblemonDailyBallBonus(userId, dayKey = saoPauloDayKey()) {
   return true;
 }
 
-function cobblemonDailyCaptureLimit(userId, dayKey = saoPauloDayKey()) {
-  const attempts = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === userId && entry.dayKey === dayKey);
+function cobblemonDailyPokeLimit(userId, dayKey = saoPauloDayKey()) {
   const purchase = [...db.economy.cobblemonBallPurchases].reverse().find((entry) => entry.userId === userId && entry.dayKey === dayKey);
   const extra = purchase ? Math.max(0, Math.floor(Number(purchase.quantity || 0))) : 0;
+  return 5 + extra;
+}
+
+function cobblemonDailyPokeAttempts(userId, dayKey = saoPauloDayKey()) {
+  return db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === userId && entry.dayKey === dayKey && (!entry.ballType || entry.ballType === 'poke')).length;
+}
+
+function cobblemonDailyCaptureLimit(userId, dayKey = saoPauloDayKey()) {
+  const attempts = db.economy.cobblemonCaptureAttempts.filter((entry) => entry.userId === userId && entry.dayKey === dayKey);
+  const extra = cobblemonDailyPokeLimit(userId, dayKey) - 5;
   const inventory = db.economy.cobblemonBallInventory?.[userId] && typeof db.economy.cobblemonBallInventory[userId] === 'object' ? db.economy.cobblemonBallInventory[userId] : {};
   const specialStock = Object.keys(COBBLEMON_DAILY_SPECIAL_BALL_BONUS).reduce((sum, ballType) => sum + Math.max(0, Math.floor(Number(inventory[ballType] || 0))), 0);
   const specialAttempts = attempts.filter((entry) => entry.ballType && entry.ballType !== 'poke').length;
@@ -2719,7 +2728,8 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     items.push({id:'trade:'+trade.id,icon:'🔄',title:trade.status==='pending'?'Proposta de troca de visuais':'Proposta de troca atualizada',detail:trade.offeredName+' ↔ '+trade.wantedName,page:'perfil',targetId:'visual-trade-'+trade.id,createdAt:trade.updatedAt});
   }
   for (const announcement of (db.economy.powerAnnouncements || []).filter((item) => item.activatedByUserId !== user.id).slice(-8)) {
-    items.push({ id: 'power-activation:' + announcement.id, icon: '⚡', title: announcement.itemName + ' ativado na rodada', detail: 'Um poder da Loja 51 foi ativado. Confira a rodada.', page: 'sorteio', targetId: 'sorteio', createdAt: announcement.createdAt });
+    const scope = announcement.roundId ? 'na rodada' : 'agora';
+    items.push({ id: 'power-activation:' + announcement.id, icon: '⚡', title: announcement.itemName + ' ativado ' + scope, detail: 'Um poder da Loja 51 foi ativado. Confira os poderes e a rodada.', page: 'perfil', targetId: 'activePowersCard', createdAt: announcement.createdAt });
   }
   const lotteryReminder = lotteryReminderForUser(user);
   if (lotteryReminder) items.push({ id: 'lottery-reminder:' + lotteryReminder.roundId + ':' + user.id, icon: '⏰', title: 'Faltam 10 minutos para a Loteria 51', detail: 'Você ainda não registrou seu palpite. Escolha um número antes das ' + lotteryTimeLabelForNotification(lotteryReminder.closeAt) + '.', page: 'loteria', targetId: 'loteria', createdAt: new Date(Date.parse(lotteryReminder.closeAt) - 10 * 60 * 1000).toISOString() });
@@ -4219,7 +4229,8 @@ async function handleApi(req, res, route) {
     const ownedEntry = (Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : []).find((entry) => Number(entry.id) === Number(pokemon.i));
     const ownedLevel = ownedEntry ? (Number(ownedEntry.level) > 0 ? Number(ownedEntry.level) : normalizedCobblemonLevel(ownedEntry.id, ownedEntry.tier)) : null;
     const captureChances = Object.fromEntries(Object.keys(COBBLEMON_CAPTURE_BALLS).map((ballType) => [ballType, cobblemonCaptureChance(tier, level, ballType)]));
-    json(res, 200, { encounterToken: createCobblemonEncounter(auth, pokemon, tier, level, isShiny), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level, isShiny }, captureChances, alreadyOwned: Boolean(ownedEntry), ownedLevel, expiresIn: 60 }); return;
+    const currentProfile = profileFor(user);
+    json(res, 200, { encounterToken: createCobblemonEncounter(auth, pokemon, tier, level, isShiny), pokemon: { id: Number(pokemon.i), name: pokemon.n, type: pokemon.t, tier, level, isShiny }, captureChances, alreadyOwned: Boolean(ownedEntry), ownedLevel, expiresIn: 60, profile: currentProfile }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/capture') {
     const auth = requireAuth(req); const { user } = auth; const body = await readJson(req); const verified = verifyCobblemonEncounter(auth, body.encounterToken);
@@ -4240,7 +4251,9 @@ async function handleApi(req, res, route) {
     const ball = COBBLEMON_CAPTURE_BALLS[ballType];
     if (!ball) throw new HttpError(400, 'Escolha uma Poké Ball válida.');
     db.economy.cobblemonBallInventory[user.id] ||= {};
-    if (!ball.daily) {
+    if (ball.daily) {
+      if (cobblemonDailyPokeAttempts(user.id, dayKey) >= cobblemonDailyPokeLimit(user.id, dayKey)) throw new HttpError(409, 'Você não possui Poké Ball básica disponível para esta caça.');
+    } else {
       const available = Math.max(0, Number(db.economy.cobblemonBallInventory[user.id][ballType] || 0));
       if (available < 1) throw new HttpError(409, `Você não possui ${ball.name}. Compre uma antes do arremesso.`);
       db.economy.cobblemonBallInventory[user.id][ballType] = available - 1;
@@ -4601,7 +4614,7 @@ async function handleApi(req, res, route) {
       db.economy.forcedGay = { roundId, userId: user.id, userName: user.displayName, targetId: target.id, targetName: target.displayName, createdAt: new Date().toISOString() };
     }
     const announcementRoundId = db.settings.currentRoundId || roundId;
-    if ((announcementRoundId || item.value === 'forceAdhdCursor') && item.value !== 'loanExtension') {
+    if ((announcementRoundId || ['forceAdhdCursor', 'forceGiantCursor'].includes(item.value)) && item.value !== 'loanExtension') {
       db.economy.powerAnnouncements.push({ id: randomUUID(), roundId: announcementRoundId, itemId: item.id, itemName: item.name, activatedByUserId: user.id, createdAt: new Date().toISOString() });
       db.economy.powerAnnouncements = db.economy.powerAnnouncements.slice(-100);
     }

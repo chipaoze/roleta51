@@ -169,6 +169,43 @@ test('bônus diário libera uma Great e uma Ultra e a caçada usa o estoque espe
   assert.equal(helpers.cobblemonDailyCaptureLimit('user-1', '2026-09-21'), 7);
 });
 
+test('caçada não aceita Poké Ball básica quando o estoque só tem bolas especiais', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const start = server.indexOf('function cobblemonDailyPokeLimit(');
+  const end = server.indexOf('function cobblemonCaptureChance(', start);
+  const context = {
+    db: { economy: {
+      cobblemonBallPurchases: [],
+      cobblemonCaptureAttempts: Array.from({ length: 5 }, (_, index) => ({ userId: 'user-1', dayKey: '2026-09-21', ballType: 'poke', id: String(index) })),
+    } },
+  };
+  const helpers = vm.runInNewContext(`${server.slice(start, end)};({ cobblemonDailyPokeLimit, cobblemonDailyPokeAttempts })`, context);
+  assert.equal(helpers.cobblemonDailyPokeLimit('user-1', '2026-09-21'), 5);
+  assert.equal(helpers.cobblemonDailyPokeAttempts('user-1', '2026-09-21'), 5);
+});
+
+test('a bola que aparece para arremesso sempre tem estoque real', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const start = app.indexOf('function syncCobblemonSelectedBall(');
+  const end = app.indexOf('function cobblemonHasAvailableBall(', start);
+  const element = { querySelector: () => ({ }), classList: { toggle() {} }, setAttribute() {} };
+  const context = {
+    COBBLEMON_CAPTURE_BALLS: {
+      poke: { id: 'poke', name: 'Poké Ball', sprite: 'poke.png' },
+      great: { id: 'great', name: 'Great Ball', sprite: 'great.png' },
+      ultra: { id: 'ultra', name: 'Ultra Ball', sprite: 'ultra.png' },
+    },
+    cobblemonPageEncounter: null,
+    cobblemonPageCaptureBusy: false,
+    $: () => element,
+  };
+  const helpers = vm.runInNewContext(`let cobblemonSelectedBall = 'poke'; ${app.slice(start, end)}; ({ syncCobblemonSelectedBall, selected: () => cobblemonSelectedBall })`, context);
+  helpers.syncCobblemonSelectedBall({ remaining: 0, special: { great: { quantity: 1 }, ultra: { quantity: 1 } } });
+  assert.equal(helpers.selected(), 'great');
+  helpers.syncCobblemonSelectedBall({ remaining: 0, special: { great: { quantity: 0 }, ultra: { quantity: 1 } } });
+  assert.equal(helpers.selected(), 'ultra');
+});
+
 test('Cobblemon mantém rolagem leve e preço de cápsula padronizado', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
@@ -348,6 +385,8 @@ test('Poké Ball só pode ser escolhida depois do encontro e exibe chance percen
   assert.match(app, /const encounterReady = Boolean\(encounter\?\.encounterToken && encounter\?\.captureChances &&/);
   assert.match(app, /const selectorAttributes = encounterReady \?/);
   assert.match(app, /Chance de captura: <b>\$\{chance\}%<\/b>/);
+  assert.match(app, /const fallback = quantityFor\('poke'\) > 0/);
+  assert.match(app, /if \(data\.profile\) appState\.profile = data\.profile/);
   assert.doesNotMatch(app, /appState\.profile = data\.profile; cobblemonSelectedBall = ballType;/);
   assert.match(app, /Escolha a bola somente depois de encontrar um Pokémon/);
   assert.match(html, /cada opção mostrará a chance percentual desta captura/);
