@@ -5920,7 +5920,7 @@ let sessionBootRetryTimer = null;
 async function initialize() {
   drawWheel();
   clearTimeout(sessionBootRetryTimer);
-  try { showApp(await api('/api/state', { timeoutMs: 60000 })); sessionBootAttempts = 0; }
+  try { showApp(await api('/api/state', { timeoutMs: 60000 }, false)); sessionBootAttempts = 0; }
   catch(error) {
     if(error.status===401) { showAuth(); return; }
     sessionBootAttempts += 1;
