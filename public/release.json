@@ -1,5 +1,5 @@
 {
-  "version": "20260918-cobblemon-capsule-final-slot-v67",
-  "title": "Última cápsula semanal liberada",
-  "notes": "Vender uma escolha final continua contando no limite de sete cápsulas, mas não bloqueia uma vaga que ainda esteja disponível no ciclo."
+  "version": "20260921-cobblemon-delivery-history-v72",
+  "title": "Histórico de entregas Cobblemon",
+  "notes": "Corrigimos a escolha e o envio da Poké Ball na caça e organizamos as entregas: pendentes continuam acionáveis e os registros já concluídos aparecem no histórico, sem alterar saldo ou dados existentes."
 }
