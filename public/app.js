@@ -7,9 +7,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-forbes-cash-v80',
-  title: 'Forbes 51 com caixa atual',
-  notes: 'O Forbes 51 agora ordena somente pelo caixa atual de Créditos 51; compras históricas não são tratadas como dinheiro investido. A captura centralizada, a preferência da música e as regras existentes foram preservadas.'
+  version: '20260921-forbes-investments-v81',
+  title: 'Forbes 51 com investimentos públicos',
+  notes: 'O Forbes 51 ordena pelo patrimônio total (caixa + investimentos), mas exibe somente o valor atual investido em ativos. O saldo em caixa permanece privado; a captura centralizada, a música e as regras existentes foram preservadas.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2360,8 +2360,8 @@ function renderRankings() {
     const podiumClass = index < 3 ? ' rank-' + (index + 1) : '';
     return '<article class="finance-row' + podiumClass + '"><span class="finance-position">' + (index + 1) + '</span>' +
       personAvatar(person, 'finance-avatar') +
-      '<div class="finance-person"><strong>' + visualName(person) + '</strong><span class="ranking-live-titles">' + liveTitleChips(person.liveTitles) + '</span><small>Caixa atual: ' + formatCredits(person.cash) + ' Créditos 51</small></div>' +
-      '<b class="finance-fortune"><span class="coin-51" aria-hidden="true">51</span> ' + formatCredits(person.fortune) + '</b></article>';
+      '<div class="finance-person"><strong>' + visualName(person) + '</strong><span class="ranking-live-titles">' + liveTitleChips(person.liveTitles) + '</span><small>Investido em ativos: ' + formatCredits(person.invested) + ' Créditos 51</small></div>' +
+      '<b class="finance-fortune"><span class="coin-51" aria-hidden="true">51</span> ' + formatCredits(person.invested) + '</b></article>';
   }).join('') : '<div class="ranking-empty">O placar financeiro será preenchido conforme a equipe movimentar a economia.</div>';
 }
 

@@ -1,5 +1,5 @@
 {
-  "version": "20260921-forbes-cash-v80",
-  "title": "Forbes 51 com caixa atual",
-  "notes": "O Forbes 51 agora ordena somente pelo caixa atual de Créditos 51; compras históricas não são tratadas como dinheiro investido. A captura centralizada, a preferência da música e as regras existentes foram preservadas."
+  "version": "20260921-forbes-investments-v81",
+  "title": "Forbes 51 com investimentos públicos",
+  "notes": "O Forbes 51 ordena pelo patrimônio total (caixa + investimentos), mas exibe somente o valor atual investido em ativos. O saldo em caixa permanece privado; a captura centralizada, a música e as regras existentes foram preservadas."
 }
