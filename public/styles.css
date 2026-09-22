@@ -2019,6 +2019,19 @@ body.theme-light-override .cobblemon-page{background-color:#dceff4!important;bac
 @media(max-width:1050px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{min-height:164px!important}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:186px!important}}
 @media(max-width:520px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{grid-template-columns:54px minmax(0,1fr)!important;padding:12px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span{width:54px;height:54px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span img{width:42px;height:42px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-copy>strong{font-size:14px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions{grid-template-columns:1fr!important}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:238px!important}}
 
+/* Histórico pessoal usa o livro de ordens existente; rolagem fica só na tabela. */
+.market-trade-history-card{min-width:0}
+.market-trade-history-card .market-panel-heading>span{white-space:normal;text-align:right}
+.market-trade-scroll{max-height:340px;overflow:auto;border:1px solid #29445f;border-radius:10px}
+.market-trade-table{width:100%;min-width:690px;border-collapse:collapse;color:#d9e8f4;font-size:11px;font-variant-numeric:tabular-nums}
+.market-trade-table th,.market-trade-table td{padding:10px 12px;border-bottom:1px solid #29445f;text-align:left;white-space:nowrap}
+.market-trade-table th{position:sticky;top:0;z-index:1;background:#10263d;color:#88dce8;font-size:10px}
+.market-trade-table tr:last-child td{border-bottom:0}
+.market-trade-table td strong{color:#ffe078}
+.market-trade-side{display:inline-block;padding:4px 7px;border-radius:6px;font-weight:900}
+.market-trade-side.buy{background:#113c34;color:#76e6ae}
+.market-trade-side.sell{background:#452b35;color:#ff9fad}
+
 /* O cartão reutiliza o personagem do diálogo do Agiota, sem asset novo. */
 .stellar-loan-card>.stellar-loan-avatar{overflow:hidden}
 .stellar-loan-card>.stellar-loan-avatar img{display:block;width:100%;height:100%;object-fit:cover;object-position:center top}

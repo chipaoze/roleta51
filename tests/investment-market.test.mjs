@@ -52,6 +52,25 @@ test('cotação só avança uma vez por janela e carteira compra/vende por preç
   assert.equal(Number(snapshot.assets.find((asset) => asset.id === 'nebula').price.toFixed(2)), snapshot.assets.find((asset) => asset.id === 'nebula').price);
 });
 
+test('histórico pessoal mostra o preço exato de cada compra e venda sem alterar posições', () => {
+  const economy = {}; const market = ensureMarketState(economy);
+  market.prices.nebula = 123.45;
+  const buy = transactMarket(economy, 'user', 'nebula', 2, 'buy', new Date('2026-09-22T18:00:00Z'));
+  market.ledger.push({ ...buy, userId: 'user' });
+  market.prices.nebula = 135.67;
+  const sell = transactMarket(economy, 'user', 'nebula', 1, 'sell', new Date('2026-09-22T19:00:00Z'));
+  market.ledger.push({ ...sell, userId: 'user' });
+  const before = JSON.stringify(market);
+  const snapshot = marketForUser(economy, 'user');
+  assert.deepEqual(snapshot.transactions.map(({ side, price, total, quantity }) => ({ side, price, total, quantity })), [
+    { side: 'sell', price: 135.67, total: 135.67, quantity: 1 },
+    { side: 'buy', price: 123.45, total: 246.9, quantity: 2 },
+  ]);
+  assert.equal(snapshot.portfolio.nebula, 1);
+  assert.deepEqual(marketForUser(economy, 'other').transactions, []);
+  assert.equal(JSON.stringify(market), before);
+});
+
 test('troca de cadência migra a sessão sem voltar para uma janela antiga', () => {
   const economy = { investmentMarket: { prices: Object.fromEntries(MARKET_ASSETS.map((asset) => [asset.id, asset.initialPrice])), portfolios: {}, ledger: [], history: [], dividendSlots: [], previousPrices: {}, slotKey: '2026-09-18:u7' } };
   const changed = advanceMarket(economy, new Date('2026-09-18T11:30:00Z')); // 08h30 BRT, primeira janela nova

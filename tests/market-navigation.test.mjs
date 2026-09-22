@@ -54,6 +54,15 @@ test('Mercado informa as 36 janelas de atualização no horário de Brasília', 
   assert.doesNotMatch(html, /00h · 03h · 06h/);
 });
 
+test('Mercado exibe o histórico pessoal de compras e vendas com preço da operação', () => {
+  const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="marketTradeHistory"/);
+  assert.match(app, /Preço na operação/);
+  assert.match(app, /market\.transactions/);
+  assert.match(app, /transaction\.price/);
+});
+
 test('Mercado não altera cotações fora da janela operacional', () => {
   assert.equal(marketSlotKey(new Date('2026-09-17T10:59:00.000Z')), '2026-09-16:u35'); // 07h59 BRT
   assert.equal(marketSlotKey(new Date('2026-09-17T11:00:00.000Z')), '2026-09-17:u0'); // 08h00 BRT

@@ -1,5 +1,5 @@
 {
-  "version": "20260922-stellar-lender-icon-v108",
-  "title": "Agiota Estelar com seu próprio ícone",
-  "notes": "O cartão de empréstimos agora mostra o personagem do Agiota Estelar no lugar da nave. As regras e os saldos dos empréstimos não mudaram."
+  "version": "20260922-market-trades-v109",
+  "title": "Histórico pessoal de negociações",
+  "notes": "O Mercado 51 agora mostra suas compras e vendas com data, moeda, quantidade, preço unitário e total registrado. Nenhum saldo, posição ou operação anterior foi alterado."
 }
