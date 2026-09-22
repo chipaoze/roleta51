@@ -2,12 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MARKET_ASSETS, ensureMarketState, advanceMarket, marketForUser, transactMarket } from '../lib/investment-market.mjs';
 
-test('mercado interno inicializa seis ativos e cotação controlada pelo servidor', () => {
+test('mercado interno inicializa oito ativos e cotação controlada pelo servidor', () => {
   const economy = {};
   const market = ensureMarketState(economy);
-  assert.equal(MARKET_ASSETS.length, 6);
+  assert.equal(MARKET_ASSETS.length, 8);
   assert.deepEqual(Object.keys(market.prices), MARKET_ASSETS.map((asset) => asset.id));
   assert.equal(market.portfolios.user?.nebula || 0, 0);
+});
+
+test('novas moedas entram antes da janela sem alterar preços ou posições existentes', () => {
+  const economy = { investmentMarket: { prices: { nebula: 151.23, void: 488.75 }, portfolios: { user: { nebula: 2 } }, ledger: [{ id: 'old' }], history: [], dividendSlots: [], previousPrices: {}, dayOpenPrices: {}, slotKey: '2026-09-22:u10', scheduleVersion: 12, pricingVersion: 3 } };
+  const market = ensureMarketState(economy);
+  assert.equal(market.prices.nebula, 151.23);
+  assert.equal(market.prices.void, 488.75);
+  assert.equal(market.prices.solar, 145);
+  assert.equal(market.prices.comet, 65);
+  assert.deepEqual(market.portfolios, { user: { nebula: 2 } });
+  assert.deepEqual(market.ledger, [{ id: 'old' }]);
+  assert.equal(advanceMarket(economy, new Date('2026-09-22T19:10:00Z')), false);
+  assert.equal(advanceMarket(economy, new Date('2026-09-22T19:15:00Z')), true);
+  assert.ok(market.history.at(-1).prices.solar > 0);
+  assert.ok(market.history.at(-1).prices.comet > 0);
 });
 
 test('cotação só avança uma vez por janela e carteira compra/vende por preço atual', () => {

@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-market-volatility-v105',
-  title: 'Mercado mais vivo e sessões mais ágeis',
-  notes: 'As moedas agora oscilam mais a cada janela, com compras e vendas da equipe influenciando a cotação. A abertura de sessão reage mais rápido a falhas de conexão, e a Roleta 51 consome menos CPU.'
+  version: '20260922-new-coins-v106',
+  title: 'Duas novas moedas no mercado',
+  notes: 'Solar Coin e Cometa Coin já estão disponíveis; sua primeira variação será na janela das 16h15. Preços, saldos, compras e posições anteriores permanecem intactos.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
