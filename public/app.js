@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-force-refresh-v104',
-  title: 'Atualização de sincronização',
-  notes: 'Uma atualização geral foi liberada. Recarregue para usar os arquivos mais recentes e consulte os patch notes no Menu sempre que quiser.'
+  version: '20260922-market-volatility-v105',
+  title: 'Mercado mais vivo e sessões mais ágeis',
+  notes: 'As moedas agora oscilam mais a cada janela, com compras e vendas da equipe influenciando a cotação. A abertura de sessão reage mais rápido a falhas de conexão, e a Roleta 51 consome menos CPU.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -6029,9 +6029,12 @@ document.addEventListener('visibilitychange', () => {
 let sessionBootAttempts = 0;
 let sessionBootRetryTimer = null;
 async function initialize() {
-  drawWheel();
   clearTimeout(sessionBootRetryTimer);
-  try { showApp(await api('/api/state', { timeoutMs: 60000 }, false)); sessionBootAttempts = 0; }
+  try {
+    drawWheel();
+    showApp(await api('/api/state', { timeoutMs: 15000 }, false));
+    sessionBootAttempts = 0;
+  }
   catch(error) {
     if(error.status===401) { showAuth(); return; }
     sessionBootAttempts += 1;

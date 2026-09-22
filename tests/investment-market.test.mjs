@@ -45,13 +45,15 @@ test('venda não permite quantidade maior que a carteira', () => {
 test('motor de mercado novo preserva preço, compras e carteira existentes ao ser ativado', () => {
   const prices = Object.fromEntries(MARKET_ASSETS.map((asset) => [asset.id, asset.initialPrice * 1.37]));
   const ledger = [{ id: 'old-buy', userId: 'user', assetId: 'void', side: 'buy', quantity: 2, price: 685, total: 1370, createdAt: '2026-09-21T18:00:00.000Z' }];
-  const economy = { investmentMarket: { prices: { ...prices }, portfolios: { user: { void: 2 } }, ledger: [...ledger], history: [], dividendSlots: [], previousPrices: {}, slotKey: '2026-09-21:u11', scheduleVersion: 12 } };
+  const economy = { investmentMarket: { prices: { ...prices }, portfolios: { user: { void: 2 } }, ledger: [...ledger], history: [], dividendSlots: ['2026-09-21:u11'], previousPrices: {}, slotKey: '2026-09-21:u11', scheduleVersion: 12, pricingVersion: 2, updatedAt: '2026-09-21T19:15:00.000Z' } };
   advanceMarket(economy, new Date('2026-09-22T11:00:00.000Z'));
   const market = economy.investmentMarket;
   assert.deepEqual(market.prices, prices);
   assert.deepEqual(market.portfolios, { user: { void: 2 } });
   assert.deepEqual(market.ledger, ledger);
-  assert.equal(market.pricingVersion, 2);
+  assert.equal(market.pricingVersion, 3);
+  assert.equal(market.history.length, 0);
+  assert.deepEqual(market.dividendSlots, ['2026-09-21:u11', '2026-09-22:u0']);
 });
 
 test('compras e vendas da equipe influenciam a janela seguinte com limite de pressão', () => {
@@ -67,10 +69,10 @@ test('compras e vendas da equipe influenciam a janela seguinte com limite de pre
   assert.ok(buyEconomy.investmentMarket.prices.void > sellEconomy.investmentMarket.prices.void);
   assert.ok(buyEconomy.investmentMarket.lastDrivers.void.netFlow > 0);
   assert.ok(sellEconomy.investmentMarket.lastDrivers.void.netFlow < 0);
-  assert.ok(Math.abs(buyEconomy.investmentMarket.lastDrivers.void.demandImpact) <= 0.025);
+  assert.ok(Math.abs(buyEconomy.investmentMarket.lastDrivers.void.demandImpact) <= 0.045);
 });
 
-test('proteção diária impede uma derrocada da Void acima de 8% no mesmo dia', () => {
+test('Void oscila mais, mas não perde mais de 10% no mesmo dia', () => {
   const economy = {}; ensureMarketState(economy);
   const dayStart = new Date('2026-09-22T11:00:00.000Z');
   advanceMarket(economy, dayStart);
@@ -78,5 +80,23 @@ test('proteção diária impede uma derrocada da Void acima de 8% no mesmo dia',
   for (let index = 1; index < 12; index += 1) {
     advanceMarket(economy, new Date(dayStart.getTime() + index * 45 * 60 * 1000));
   }
-  assert.ok(economy.investmentMarket.prices.void >= Math.round(opening * 0.92 * 100) / 100);
+  assert.ok(economy.investmentMarket.prices.void >= Math.round(opening * 0.90 * 100) / 100);
+});
+
+test('novas janelas têm oscilação perceptível sem superar o teto por atualização', () => {
+  const economy = {}; ensureMarketState(economy);
+  const start = new Date('2026-09-23T11:00:00Z');
+  advanceMarket(economy, start);
+  const voidMoves = [];
+  for (let index = 1; index < 12; index += 1) {
+    const previous = { ...economy.investmentMarket.prices };
+    advanceMarket(economy, new Date(start.getTime() + index * 45 * 60 * 1000));
+    for (const asset of MARKET_ASSETS) {
+      const move = economy.investmentMarket.prices[asset.id] / previous[asset.id] - 1;
+      assert.ok(Math.abs(move) <= asset.maxWindowMove + 0.0002, `${asset.id} excedeu o teto da janela`);
+      if (asset.id === 'void') voidMoves.push(move);
+    }
+  }
+  assert.ok(voidMoves.some((move) => move >= 0.02));
+  assert.ok(voidMoves.some((move) => move <= -0.015));
 });

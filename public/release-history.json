@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20260922-market-volatility-v105",
+      "publishedAt": "2026-09-22",
+      "title": "Mercado mais vivo e sessões mais ágeis",
+      "notes": [
+        "As cotações agora variam mais nas janelas de 45 minutos e continuam considerando compras e vendas da equipe.",
+        "Os preços e investimentos existentes são preservados; os novos parâmetros entram na próxima janela.",
+        "A Roleta 51 grava suas jogadas com menos trabalho do Worker, e a tela de sessão mostra a tentativa de reconexão mais cedo."
+      ]
+    },
+    {
       "version": "20260922-force-refresh-v104",
       "publishedAt": "2026-09-22",
       "title": "Atualização de sincronização",

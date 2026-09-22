@@ -1,5 +1,5 @@
 {
-  "version": "20260922-force-refresh-v104",
-  "title": "Atualização de sincronização",
-  "notes": "Uma atualização geral foi liberada. Recarregue para usar os arquivos mais recentes e consulte os patch notes no Menu sempre que quiser."
+  "version": "20260922-market-volatility-v105",
+  "title": "Mercado mais vivo e sessões mais ágeis",
+  "notes": "As moedas agora oscilam mais a cada janela, com compras e vendas da equipe influenciando a cotação. A abertura de sessão reage mais rápido a falhas de conexão, e a Roleta 51 consome menos CPU."
 }

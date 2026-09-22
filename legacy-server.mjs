@@ -3,6 +3,7 @@ import { FLIGHT_STEP_MS, flightStepMs, flightMultiplier, settleFlight } from './
 import { CARD_COLLECTIONS, CARD_PACK_RULES, albumFor, updateAlbum, awardEngagementCard, updateCardTrade, openCardPack } from './lib/card-album.mjs';
 import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
 import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, marketForUser, transactMarket } from './lib/investment-market.mjs';
+import { casinoPlayStatePatch } from './lib/casino-state-patch.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { cobblemonDeliveryMinimumLevel, cobblemonDeliverySpec, rollCobblemonDeliveryGender } from './lib/cobblemon-delivery-metadata.mjs';
 import { createHash, randomBytes, randomInt, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
@@ -163,6 +164,34 @@ function persist() {
   return saveQueue.catch((error) => {
     // The database may have committed even when its response was lost.
     // Force a full reload before any subsequent request uses the in-memory state.
+    stateRevision = -1;
+    lastStateRefreshAt = 0;
+    throw error;
+  });
+}
+
+function persistCasinoPlay(userId, play, adjustment, inventoryItem) {
+  saveQueue = saveQueue.catch(() => undefined).then(async () => {
+    const expectedRevision = stateRevision;
+    const patch = casinoPlayStatePatch({
+      userId, play, account: db.economy.casinoAccounts[userId],
+      wallet: play.walletSource === 'shop' ? db.economy.wallets[userId] : undefined,
+      adjustment, inventoryItem, revision: expectedRevision, updatedAt: new Date().toISOString(),
+    });
+    const result = await runtimeEnv.DB.prepare(patch.sql).bind(...patch.values).run();
+    if (Number(result.meta?.changes || 0) !== 1) {
+      const stored = await runtimeEnv.DB.prepare('SELECT data, revision FROM app_state WHERE id = 1').first();
+      if (stored?.data) {
+        db = JSON.parse(String(stored.data));
+        stateRevision = Number(stored.revision || expectedRevision);
+        liveDraw = db.settings?.liveDraw?.endsAt > Date.now() ? db.settings.liveDraw : null;
+      }
+      throw new HttpError(409, 'Outra pessoa atualizou o site ao mesmo tempo. Tente sua ação novamente.', { retryableConcurrency: true });
+    }
+    stateRevision = expectedRevision + 1;
+    lastStateRefreshAt = Date.now();
+  });
+  return saveQueue.catch((error) => {
     stateRevision = -1;
     lastStateRefreshAt = 0;
     throw error;
@@ -3728,14 +3757,19 @@ async function handleApi(req, res, route) {
     } else {
       multiplier = Number(outcome); payout = roundMoney(bet * multiplier); net = roundMoney(payout - bet);
     }
+    let adjustment = null;
     if (walletSource === 'shop') {
       addCredits(user.id, net);
-      if (net !== 0) db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before, after: roundMoney(before + net), reason: 'Resultado da Roleta 51 usando saldo da loja', createdAt });
+      if (net !== 0) {
+        adjustment = { id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before, after: roundMoney(before + net), reason: 'Resultado da Roleta 51 usando saldo da loja', createdAt };
+        db.economy.creditAdjustments.push(adjustment);
+      }
     } else casinoAccount.balance = roundMoney(before + net);
     const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : roundMoney(casinoAccount.balance);
     const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType, segmentIndex, wheelValue: outcome, multiplier, payout, net, mysteryBox, balanceAfter, createdAt };
     db.economy.casinoPlays.push(play);
-    await persist(); broadcastRefresh('economy'); json(res, 200, body.compact ? { casinoResult: play } : { ...stateFor(user), casinoResult: play }); return;
+    await persistCasinoPlay(user.id, play, adjustment, resultType === 'mysteryBox' ? db.economy.mysteryBoxes.at(-1) : null);
+    broadcastRefresh('economy'); json(res, 200, body.compact ? { casinoResult: play } : { ...stateFor(user), casinoResult: play }); return;
   }
 
   if (req.method === 'POST' && route === '/api/lottery/entry') {

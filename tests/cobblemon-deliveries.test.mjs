@@ -142,7 +142,7 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /api\('\/api\/admin\/settings', \{ method: 'PATCH', timeoutMs: 60000/);
   assert.match(app, /api\('\/api\/admin\/visual-theme\/clear', \{ method: 'POST', timeoutMs: 60000/);
   assert.match(app, /setButtonBusy\(button, true\)/);
-  assert.match(app, /showApp\(await api\('\/api\/state', \{ timeoutMs: 60000 \}, false\)\)/);
+  assert.match(app, /showApp\(await api\('\/api\/state', \{ timeoutMs: 15000 \}, false\)\)/);
   assert.doesNotMatch(app, /cobblemonBallOptions'\)\?\.addEventListener\('pointerdown',[\s\S]{0,300}event\.stopPropagation\(\)/);
   assert.match(app, /if \(isNativeInteractiveTarget\(event\.target\)\) \{\s*suppressClick = false;\s*return;\s*\}/);
   assert.match(app, /replace\(\/\\D\/g, ''\)/);
