@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-worker-cpu-v102',
-  title: 'Portal mais estável',
-  notes: 'Corrigimos uma rotina que podia sobrecarregar o Worker durante atualizações automáticas. O carregamento das telas ficou separado das liquidações do sistema, sem mudar saldos, posições, compras ou históricos.'
+  version: '20260922-release-history-v103',
+  title: 'Histórico de atualizações',
+  notes: 'Agora o Menu possui uma área permanente com os patch notes publicados. Você pode consultar melhorias e correções a qualquer momento, além do aviso automático de cada nova versão.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -82,6 +82,8 @@ let releaseNoticeChecked = false;
 let releaseNoticeLoaded = false;
 let releaseCheckPromise = null;
 let releaseNoticeRequiresUpdate = false;
+let releaseHistory = null;
+let releaseHistoryPromise = null;
 let navigationFrame = null;
 let visiblePortalPage = null;
 let portalRenderRequest = 0;
@@ -1440,7 +1442,7 @@ function openFeedbackPanel() {
   $('#feedbackMessage').focus();
 }
 
-const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','cobblemon','album','loja','jogos','loteria','mercado','classificacao','admin'];
+const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','cobblemon','album','loja','jogos','loteria','mercado','classificacao','atualizacoes','admin'];
 const portalSections = ['inicio', ...portalPages];
 const featurePageMap = { jogos: 'casino', loteria: 'casino', impostor: 'impostor', misterio: 'mystery', loja: 'shop', inscricoes: 'uploads' };
 
@@ -4012,6 +4014,7 @@ function renderActivePortalPage(data = appState) {
     else if (page === 'jogos') renderCasino(data.casino);
     else if (page === 'loteria' && !lotteryDrawInProgress) renderLottery(data.casino?.lottery);
     else if (page === 'mercado') renderInvestmentMarket(data.profile);
+    else if (page === 'atualizacoes') renderReleaseHistory();
     else if (page === 'admin') renderAdmin();
     optimizeRenderedImages();
   } finally {
@@ -4046,7 +4049,7 @@ function showReleaseNotice() {
     dialog.dataset.locked = 'true';
   }
   dialog.innerHTML = notesMode
-    ? '<span class="release-notice-icon" aria-hidden="true">✨</span><small>ATUALIZAÇÃO CONCLUÍDA</small><h2>' + escapeHtml(RELEASE_NOTICE.title) + '</h2><p>' + escapeHtml(RELEASE_NOTICE.notes) + '</p><button class="button button-primary" data-release-ack type="button">Entendi</button>'
+    ? '<span class="release-notice-icon" aria-hidden="true">✨</span><small>ATUALIZAÇÃO CONCLUÍDA</small><h2>' + escapeHtml(RELEASE_NOTICE.title) + '</h2><p>' + escapeHtml(RELEASE_NOTICE.notes) + '</p><div class="release-notice-actions"><button class="button button-primary" data-release-ack type="button">Entendi</button><button class="button button-dark" data-release-history type="button">Ver atualizações</button></div>'
     : '<span class="release-notice-icon" aria-hidden="true">🚀</span><small>NOVA VERSÃO DISPONÍVEL</small><h2>Atualize a Área 51</h2><p>Uma melhoria acabou de ser publicada. Atualize agora para continuar com a versão mais recente.</p><button class="button button-primary" data-release-update type="button">Atualizar agora</button>';
   if (dialog.open) dialog.close();
   dialog.showModal();
@@ -4058,6 +4061,12 @@ function showReleaseNotice() {
     storage.removeItem('area51-release-pending');
     storage.setItem('area51-release-seen', version);
     dialog.close();
+  });
+  dialog.querySelector('[data-release-history]')?.addEventListener('click', () => {
+    storage.removeItem('area51-release-pending');
+    storage.setItem('area51-release-seen', version);
+    dialog.close();
+    showPortalPage('atualizacoes', true);
   });
 }
 
@@ -4085,6 +4094,65 @@ async function checkPublishedRelease() {
     }
   })();
   try { await releaseCheckPromise; } finally { releaseCheckPromise = null; }
+}
+
+function releaseDateLabel(value) {
+  const text = String(value || '').trim();
+  if (!text) return 'Data não informada';
+  const date = new Date(text.length === 10 ? text + 'T12:00:00' : text);
+  if (Number.isNaN(date.getTime())) return text;
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
+}
+
+function fallbackReleaseHistory() {
+  return [{
+    version: RELEASE_NOTICE.version,
+    publishedAt: new Date().toISOString().slice(0, 10),
+    title: RELEASE_NOTICE.title,
+    notes: [RELEASE_NOTICE.notes],
+  }];
+}
+
+async function loadReleaseHistory() {
+  if (Array.isArray(releaseHistory)) return releaseHistory;
+  if (releaseHistoryPromise) return releaseHistoryPromise;
+  releaseHistoryPromise = (async () => {
+    try {
+      const response = await fetch('/release-history.json?ts=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) throw new Error('Histórico indisponível');
+      const payload = await response.json();
+      const releases = Array.isArray(payload?.releases) ? payload.releases : [];
+      releaseHistory = releases
+        .filter((item) => item && item.version && item.title)
+        .map((item) => ({
+          version: String(item.version),
+          publishedAt: String(item.publishedAt || ''),
+          title: String(item.title),
+          notes: Array.isArray(item.notes) ? item.notes.map((note) => String(note)).filter(Boolean).slice(0, 8) : [String(item.notes || '')].filter(Boolean),
+        }));
+      if (!releaseHistory.length) releaseHistory = fallbackReleaseHistory();
+    } catch {
+      releaseHistory = fallbackReleaseHistory();
+    }
+    return releaseHistory;
+  })();
+  try { return await releaseHistoryPromise; } finally { releaseHistoryPromise = null; }
+}
+
+function renderReleaseHistory() {
+  const host = $('#releaseHistory');
+  if (!host) return;
+  if (!Array.isArray(releaseHistory)) {
+    host.innerHTML = '<p class="release-history-empty">Carregando histórico de atualizações…</p>';
+    loadReleaseHistory().then(() => {
+      if (currentPortalPage() === 'atualizacoes') renderReleaseHistory();
+    });
+    return;
+  }
+  host.innerHTML = releaseHistory.map((item, index) => {
+    const notes = item.notes.length ? '<ul>' + item.notes.map((note) => '<li>' + escapeHtml(note) + '</li>').join('') + '</ul>' : '';
+    return '<article class="card release-entry' + (index === 0 ? ' is-latest' : '') + '"><header><div><small>' + (index === 0 ? 'VERSÃO ATUAL' : 'ATUALIZAÇÃO PUBLICADA') + '</small><h3>' + escapeHtml(item.title) + '</h3></div><p><b>' + escapeHtml(item.version) + '</b><time datetime="' + escapeHtml(item.publishedAt) + '">' + escapeHtml(releaseDateLabel(item.publishedAt)) + '</time></p></header>' + notes + '</article>';
+  }).join('');
 }
 
 function applyState(data) {

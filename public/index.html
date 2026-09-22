@@ -156,6 +156,7 @@
         <a href="?pagina=loteria" data-page="loteria"><span>🎟️</span><p><strong>Loteria 51</strong><small>Palpite semanal e prêmio acumulado</small></p></a>
         <a href="?pagina=mercado" data-page="mercado"><span>📈</span><p><strong>Mercado 51</strong><small>Investimentos simulados</small></p></a>
         <a href="?pagina=classificacao" data-page="classificacao"><span>📊</span><p><strong>Classificação</strong><small>Placares da equipe</small></p></a>
+        <a href="?pagina=atualizacoes" data-page="atualizacoes"><span>✨</span><p><strong>Atualizações</strong><small>Patch notes e melhorias do portal</small></p></a>
         <a href="?pagina=admin" data-page="admin" id="adminNav" class="hidden"><span>⚙️</span><p><strong>Administração</strong><small>Controle do site e usuários</small></p></a>
         <button id="installAppButton" class="menu-install-button" type="button"><span>📲</span><p><strong>Instalar aplicativo</strong><small>Adicionar à tela inicial</small></p></button>
       </nav>
@@ -545,6 +546,10 @@
       <div id="marketAssets" class="market-assets"></div>
       <article class="card market-history-card"><div class="market-panel-heading"><div><small>HISTÓRICO DO WORKER</small><h3>Livro de cotações</h3></div><span>Sem API de terceiro</span></div><div id="marketHistory"></div></article>
     </section>
+    <section id="atualizacoes" class="section updates-page portal-page-hidden" aria-labelledby="updatesTitle">
+      <header class="section-heading split-heading updates-heading"><div><span class="eyebrow">DIÁRIO DE BORDO · ÁREA 51</span><h2 id="updatesTitle">Atualizações do <em>portal</em></h2></div><p>Consulte as melhorias, correções e ajustes já publicados. O aviso automático continua aparecendo quando houver uma nova versão.</p></header>
+      <div id="releaseHistory" class="release-history" aria-live="polite"><p class="release-history-empty">Carregando histórico de atualizações…</p></div>
+    </section>
     <section id="cobblemon" class="section cobblemon-page portal-page-hidden">
       <div class="cobblemon-scene-sprites" aria-hidden="true"></div>
       <header class="cobblemon-page-hero">
@@ -889,6 +894,6 @@
   <script src="/card-album.js?v=20260917-237"></script>
   <script src="/weather.js?v=20260914-178"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-  <script src="/app.js?v=20260922-386"></script>
+  <script src="/app.js?v=20260922-387"></script>
 </body>
 </html>

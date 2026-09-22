@@ -1,0 +1,40 @@
+{
+  "releases": [
+    {
+      "version": "20260922-release-history-v103",
+      "publishedAt": "2026-09-22",
+      "title": "Histórico de atualizações",
+      "notes": [
+        "Foi criada uma área permanente no Menu para consultar os patch notes já publicados.",
+        "O aviso automático continua sendo exibido quando uma nova versão estiver disponível."
+      ]
+    },
+    {
+      "version": "20260922-worker-cpu-v102",
+      "publishedAt": "2026-09-22",
+      "title": "Portal mais estável",
+      "notes": [
+        "O carregamento das telas foi separado das liquidações automáticas para reduzir picos de CPU do Worker.",
+        "Saldos, posições, compras e históricos foram preservados."
+      ]
+    },
+    {
+      "version": "20260922-market-v101",
+      "publishedAt": "2026-09-22",
+      "title": "Mercado 51 mais equilibrado",
+      "notes": [
+        "As próximas cotações passam a considerar a pressão de compra e venda da equipe.",
+        "Foram adicionados limites contra oscilações bruscas, inclusive para a Void."
+      ]
+    },
+    {
+      "version": "20260922-stability-v100",
+      "publishedAt": "2026-09-22",
+      "title": "Sessões e feed otimizados",
+      "notes": [
+        "A abertura de sessões foi estabilizada e o feed passou a carregar imagens de forma mais leve.",
+        "Registros antigos de jogadas foram preservados em arquivo para reduzir o peso do estado ativo."
+      ]
+    }
+  ]
+}
