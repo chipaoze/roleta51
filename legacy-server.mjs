@@ -1171,8 +1171,8 @@ const DAILY_MISSIONS = [
 // recompensas só criam liquidez controlada para que o usuário não precise
 // liquidar uma posição por falta de saldo para uma nova oportunidade.
 const MARKET_DAILY_INCOME = 40;
-const MARKET_DIVIDEND_DAILY_RATE = 0.0016; // mantém o mesmo alvo diário mesmo com mais janelas
-const MARKET_DIVIDEND_RATE_PER_UPDATE = MARKET_DIVIDEND_DAILY_RATE / MARKET_UPDATE_TIMES.length;
+const MARKET_DIVIDEND_DAILY_RATE = 0.0016; // a nova cadência de preços não multiplica dividendos
+const MARKET_DIVIDEND_RATE_PER_UPDATE = MARKET_DIVIDEND_DAILY_RATE / (MARKET_UPDATE_TIMES.length / 3);
 const MARKET_DIVIDEND_DAILY_CAP = 20;
 const MARKET_MISSIONS = [
   { id: 'market-order', icon: '📈', title: 'Primeira ordem do dia', description: 'Compre ou venda pelo menos uma unidade hoje.', reward: 10 },
@@ -1676,6 +1676,9 @@ function marketIncomeFor(userId) {
 
 function settleMarketDividends(now = new Date()) {
   const market = ensureMarketState(db.economy);
+  // Preços mudam a cada 15 min; dividendos continuam a cada 45 min.
+  const slotIndex = Number(String(market.slotKey || '').match(/:u(\d+)$/)?.[1]);
+  if (!Number.isInteger(slotIndex) || slotIndex % 3 !== 0) return false;
   if (!market.updatedAt || !market.slotKey || market.dividendSlots.includes(market.slotKey)) return false;
   const dayKey = saoPauloDayKey(now);
   const usersWithPositions = new Set(Object.keys(market.portfolios || {}));

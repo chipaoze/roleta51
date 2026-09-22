@@ -42,24 +42,22 @@ test('Mercado mostra total da carteira e direção da cotação', () => {
   assert.doesNotMatch(app, /confirm\('Uma nova versão do Área 51 está disponível/);
 });
 
-test('Mercado informa as doze janelas de atualização no horário de Brasília', () => {
+test('Mercado informa as 36 janelas de atualização no horário de Brasília', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const marketLib = fs.readFileSync(new URL('../lib/investment-market.mjs', import.meta.url), 'utf8');
   assert.match(html, /id="marketUpdateSchedule"/);
   assert.match(app, /A primeira sincronização após cada horário consolida a nova cotação/);
-  assert.match(marketLib, /MARKET_UPDATE_TIMES = Object\.freeze\(\[/);
-  assert.match(marketLib, /'08:00', '08:45', '09:30', '10:15'/);
-  assert.match(marketLib, /'11:00', '11:45', '12:30', '13:15'/);
-  assert.match(marketLib, /'14:00', '14:45', '15:30', '16:15'/);
+  assert.match(marketLib, /MARKET_UPDATE_TIMES = Object\.freeze\(Array\.from\(\{ length: 36 \}/);
+  assert.match(html, /a cada 15 minutos, das 08h às 16h45/);
   assert.match(marketLib, /updateSchedule: \{ timeZone: MARKET_TIME_ZONE, times: \[\.\.\.MARKET_UPDATE_TIMES\] \}/);
   assert.doesNotMatch(html, /00h · 03h · 06h/);
 });
 
 test('Mercado não altera cotações fora da janela operacional', () => {
-  assert.equal(marketSlotKey(new Date('2026-09-17T10:59:00.000Z')), '2026-09-16:u11'); // 07h59 BRT
+  assert.equal(marketSlotKey(new Date('2026-09-17T10:59:00.000Z')), '2026-09-16:u35'); // 07h59 BRT
   assert.equal(marketSlotKey(new Date('2026-09-17T11:00:00.000Z')), '2026-09-17:u0'); // 08h00 BRT
-  assert.equal(marketSlotKey(new Date('2026-09-17T12:29:00.000Z')), '2026-09-17:u1'); // 09h29 BRT
-  assert.equal(marketSlotKey(new Date('2026-09-17T12:30:00.000Z')), '2026-09-17:u2'); // 09h30 BRT
-  assert.equal(marketSlotKey(new Date('2026-09-17T20:45:00.000Z')), '2026-09-17:u11'); // 17h45 BRT, última cotação vigente
+  assert.equal(marketSlotKey(new Date('2026-09-17T12:29:00.000Z')), '2026-09-17:u5'); // 09h29 BRT
+  assert.equal(marketSlotKey(new Date('2026-09-17T12:30:00.000Z')), '2026-09-17:u6'); // 09h30 BRT
+  assert.equal(marketSlotKey(new Date('2026-09-17T20:45:00.000Z')), '2026-09-17:u35'); // 17h45 BRT, última cotação vigente
 });

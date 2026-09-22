@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20260922-rollercoaster-market-v107",
+      "publishedAt": "2026-09-22",
+      "title": "Mercado 51 em ritmo de montanha-russa",
+      "notes": [
+        "Cotações a cada 15 minutos, das 08h às 16h45, com oscilações maiores entre as janelas.",
+        "O mercado pode variar muito para cima ou para baixo: negociem com prudência.",
+        "Dividendos seguem a cada 45 minutos e os preços, saldos, carteiras e históricos anteriores foram preservados."
+      ]
+    },
+    {
       "version": "20260922-new-coins-v106",
       "publishedAt": "2026-09-22",
       "title": "Duas novas moedas no mercado",

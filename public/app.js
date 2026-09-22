@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-new-coins-v106',
-  title: 'Duas novas moedas no mercado',
-  notes: 'Solar Coin e Cometa Coin já estão disponíveis; sua primeira variação será na janela das 16h15. Preços, saldos, compras e posições anteriores permanecem intactos.'
+  version: '20260922-rollercoaster-market-v107',
+  title: 'Mercado 51 em ritmo de montanha-russa',
+  notes: 'As cotações agora mudam a cada 15 minutos, com oscilações maiores. O mercado pode variar muito: negociem com prudência. Dividendos, saldos e posições existentes foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3939,13 +3939,13 @@ function marketRadarMarkup(assets) {
 }
 function renderInvestmentMarket(profile = {}) {
   const market = profile.investmentMarket || {}; const assets = Array.isArray(market.assets) ? market.assets : [];
-  const fallbackTimes = ['08:00', '08:45', '09:30', '10:15', '11:00', '11:45', '12:30', '13:15', '14:00', '14:45', '15:30', '16:15'];
+  const fallbackTimes = Array.from({ length: 36 }, (_, index) => { const minutes = 480 + index * 15; return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`; });
   const schedule = market.updateSchedule || { timeZone: 'America/Sao_Paulo', times: fallbackTimes };
   const scheduleTimes = Array.isArray(schedule.times) && schedule.times.length ? schedule.times : (Array.isArray(schedule.hours) && schedule.hours.length ? schedule.hours.map((hour) => `${String(Number(hour)).padStart(2, '0')}:00`) : fallbackTimes);
   const scheduleLabels = scheduleTimes.map((time) => { const [hour, minute = '00'] = String(time).split(':'); return minute === '00' ? `${String(Number(hour)).padStart(2, '0')}h` : `${String(Number(hour)).padStart(2, '0')}h${String(Number(minute)).padStart(2, '0')}`; });
   const scheduleZone = schedule.timeZone === 'America/Sao_Paulo' ? 'horário de Brasília' : String(schedule.timeZone || 'horário local');
   const scheduleEl = $('#marketUpdateSchedule');
-  if (scheduleEl) scheduleEl.textContent = `Atualizações automáticas: ${scheduleLabels.join(' · ')} (${scheduleZone}). A primeira sincronização após cada horário consolida a nova cotação.`;
+  if (scheduleEl) scheduleEl.textContent = scheduleTimes.length === 36 ? `Atualizações automáticas a cada 15 minutos, das 08h às 16h45 (${scheduleZone}). A primeira sincronização após cada horário consolida a nova cotação. Dividendos seguem a cada 45 minutos.` : `Atualizações automáticas: ${scheduleLabels.join(' · ')} (${scheduleZone}). A primeira sincronização após cada horário consolida a nova cotação.`;
   const wallet = Number(profile.wallet || 0); const holdingsValue = Number(market.holdingsValue || 0); const portfolioValue = wallet + holdingsValue;
   const walletEl = $('#marketWallet'); if (walletEl) { walletEl.textContent = marketMoney(wallet); walletEl.parentElement?.setAttribute('aria-label', `${marketMoney(wallet)} Créditos 51`); }
   const holdingsEl = $('#marketHoldingsValue'); if (holdingsEl) { holdingsEl.textContent = marketMoney(holdingsValue); holdingsEl.parentElement?.setAttribute('aria-label', `${marketMoney(holdingsValue)} Créditos 51`); }
