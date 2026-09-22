@@ -674,7 +674,7 @@ function pokemonCapsuleChoiceForEntry(entry) {
 }
 
 function cobblemonCandidateSellPrice(rarity) {
-  return ({ common: 300, shiny: 400, rare: 450 })[String(rarity || '').toLowerCase()] || 300;
+  return ({ common: 300, shiny: 400, rare: 450, legendary: 500 })[String(rarity || '').toLowerCase()] || 300;
 }
 
 function sellPokemonCapsuleCandidates(entries, chosenEntry, userId, now, reason = 'Venda automática das opções não escolhidas') {
@@ -1045,7 +1045,7 @@ function monthlyCobblemonPokemonReward(userId = null, cycleId = null) {
   const pokemon = pokemonPool[Math.floor(Math.random() * pokemonPool.length)] || pool[0] || COBBLEMON_CATALOG[0];
   const specification = cobblemonCapsuleDeliverySpec(pokemon.i, rarity);
   const suffix = rarity === 'legendary' ? ' · LENDÁRIO' : rarity === 'shiny' ? ' · SHINY' : rarity === 'rare' ? ' · RARO' : '';
-  const sellPrices = { common: 180, rare: 320, shiny: 600, legendary: 800 };
+  const sellPrices = { common: 180, rare: 320, shiny: 600, legendary: 500 };
   return { id: `monthly-pokemon-${pokemon.i}-${rarity}`, name: `${pokemon.n}${suffix}`, sprite: `https://cobbledex.b-cdn.net/3dmons/previews/large/${Number(pokemon.i)}.webp`, sellPrice: sellPrices[rarity], pokemonId: Number(pokemon.i), rarity, isShiny: rarity === 'shiny', ...specification };
 }
 
@@ -2970,13 +2970,23 @@ function buildStateFor(user) {
     profile: profileFor(user, { liveTitleMap, previousSeason, creditLedger, cardAlbum }), notifications: notificationsFor(user, creditLedger), roundRecap: roundRecapFor(recapVoting),
     onlinePeople: sharedOnlinePeople.length ? sharedOnlinePeople : [{ id: user.id, displayName: user.displayName }],
     casino: (() => {
-      const dayKey = saoPauloDayKey(); const plays = db.economy.casinoPlays.filter((item) => item.userId === user.id && item.dayKey === dayKey); const account = casinoAccountFor(user.id);
+      const dayKey = saoPauloDayKey(); const account = casinoAccountFor(user.id);
       // O Apostômetro mede apenas o valor que saiu do saldo principal da Loja 51.
       // Apostas promocionais continuam no histórico, mas não inflacionam o valor real.
-      const totalWagered = db.economy.casinoPlays.filter((item) => item.walletSource === 'shop').reduce((sum, item) => sum + Number(item.bet || 0), 0);
       const totalPlays = db.economy.casinoPlays.length;
-      const myPlays = db.economy.casinoPlays.filter((item) => item.userId === user.id);
-      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday: plays.length, totalWagered, totalPlays, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette: myPlays.filter((item) => item.resultType !== 'flight').slice(-6).reverse(), lottery: lotteryForUser(user) };
+      let playsToday = 0; let totalWagered = 0;
+      const recentRoulette = [];
+      // O histórico pode ficar grande. Uma única passagem preserva os mesmos
+      // totais, a contagem diária e as seis jogadas recentes, sem repetir
+      // filtros sobre todo o registro a cada carregamento de sessão.
+      for (let index = totalPlays - 1; index >= 0; index -= 1) {
+        const play = db.economy.casinoPlays[index];
+        if (play.walletSource === 'shop') totalWagered += Number(play.bet || 0);
+        if (play.userId !== user.id) continue;
+        if (play.dayKey === dayKey) playsToday += 1;
+        if (play.resultType !== 'flight' && recentRoulette.length < 6) recentRoulette.push(play);
+      }
+      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday, totalWagered, totalPlays, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette, lottery: lotteryForUser(user) };
     })(),
     visualTheme: activeVisualPenalty?.kind || 'user-choice', visualThemeEndsAt: activeVisualPenalty?.endsAt || null,
     themes: db.settings.themes.map((name) => ({ id: name, name })),

@@ -168,8 +168,10 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.match(appJs, /20260921-legendary-sides-v98/);
 });
 
-test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51', () => {
-  assert.match(serverJs, /const totalWagered = db\.economy\.casinoPlays\.filter\(\(item\) => item\.walletSource === 'shop'\)\.reduce/);
+test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51 sem repetir o histórico inteiro', () => {
+  assert.match(serverJs, /for \(let index = totalPlays - 1; index >= 0; index -= 1\)/);
+  assert.match(serverJs, /if \(play\.walletSource === 'shop'\) totalWagered \+= Number\(play\.bet \|\| 0\);/);
+  assert.match(serverJs, /if \(play\.resultType !== 'flight' && recentRoulette\.length < 6\) recentRoulette\.push\(play\);/);
   assert.match(html, /valor considera somente o saldo da Loja 51/);
 });
 

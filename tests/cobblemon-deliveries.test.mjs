@@ -353,6 +353,12 @@ test('ao escolher a entrega semanal, as demais opções são vendidas e creditad
   assert.ok(entries[1].soldAutomatically);
   assert.equal(db.economy.creditAdjustments.length, 2);
   assert.equal(db.economy.creditAdjustments[1].amount, 450);
+  const legendaryEntries = [
+    { id: 'kept', status: 'weekly-choice-pending', name: 'Escolhido', rarity: 'common' },
+    { id: 'legendary', status: 'cycle-candidate', name: 'Lendário', rarity: 'legendary' },
+  ];
+  assert.equal(sellCandidates(legendaryEntries, legendaryEntries[0], 'user-1', '2026-09-21T12:00:00.000Z').total, 500);
+  assert.equal(wallet, 1350);
 });
 
 test('escolha semanal aceita o estado pendente e persiste a opção como entrega', () => {
