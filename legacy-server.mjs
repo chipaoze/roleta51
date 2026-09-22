@@ -89,6 +89,7 @@ let db;
 let saveQueue = Promise.resolve();
 let runtimeEnv = null;
 let stateRevision = 0;
+let lastStateRefreshAt = 0;
 let databaseReady = false;
 let databaseBytes = 0;
 // A montagem do payload público percorre várias coleções do estado. Como a
@@ -101,6 +102,11 @@ const stateResponseCache = new Map();
 const serializedJsonCache = new WeakMap();
 const STATE_RESPONSE_CACHE_MS = 5000;
 const STATE_RESPONSE_CACHE_MAX = 16;
+// A mesma instância recebe o boot, o polling e leituras da tela em sequência.
+// Consultar a revisão no D1 a cada uma dessas requisições não traz informação
+// nova e aumenta a pressão no Worker. Uma janela curta mantém a sincronização
+// entre instâncias e ainda deixa as gravações protegidas pelo CAS em persist().
+const STATE_REFRESH_INTERVAL_MS = 1000;
 const DEFAULT_FEATURE_FLAGS = Object.freeze({ casino: true, impostor: true, mystery: true, shop: true, uploads: true });
 function featureFlags() {
   return { ...DEFAULT_FEATURE_FLAGS, ...db?.settings?.featureFlags };
@@ -148,11 +154,13 @@ function persist() {
       throw new HttpError(409, 'Outra pessoa atualizou o site ao mesmo tempo. Tente sua ação novamente.', { retryableConcurrency: true });
     }
     stateRevision = nextRevision;
+    lastStateRefreshAt = Date.now();
   });
   return saveQueue.catch((error) => {
     // The database may have committed even when its response was lost.
     // Force a full reload before any subsequent request uses the in-memory state.
     stateRevision = -1;
+    lastStateRefreshAt = 0;
     throw error;
   });
 }
@@ -219,6 +227,7 @@ async function ensureDatabase(seedDatabase) {
   db = JSON.parse(String(stored.data));
   databaseBytes = Buffer.byteLength(String(stored.data));
   stateRevision = Number(stored.revision || 1);
+  lastStateRefreshAt = Date.now();
   liveDraw = db.settings?.liveDraw?.endsAt > Date.now() ? db.settings.liveDraw : null;
   databaseReady = true;
   let changed = false;
@@ -585,7 +594,10 @@ export async function initializeOnline(environment, seedDatabase) {
 }
 
 export async function refreshOnlineState() {
+  const now = Date.now();
+  if (stateRevision > 0 && now - lastStateRefreshAt < STATE_REFRESH_INTERVAL_MS) return;
   const stored = await runtimeEnv.DB.prepare('SELECT CASE WHEN revision > ? THEN data ELSE NULL END AS data, revision FROM app_state WHERE id = 1').bind(stateRevision).first();
+  lastStateRefreshAt = now;
   const remoteRevision = Number(stored?.revision || 0);
   if (stored?.data && remoteRevision > stateRevision) {
     db = JSON.parse(String(stored.data));
