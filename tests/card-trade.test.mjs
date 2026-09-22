@@ -32,7 +32,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260921-385/);
-  assert.match(html, /app\.js\?v=20260921-381/);
+  assert.match(html, /app\.js\?v=20260922-382/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -570,6 +570,14 @@ test('resultado semanal não vaza candidatos para a fila de entregas', () => {
   assert.match(appJs, /cycle-candidate.*weekly-choice-pending/);
   assert.match(appJs, /cycle-expired/);
   assert.match(appJs, /Aguardando entrega do Davi/);
+});
+
+test('escolha de candidato semanal responde diretamente na lista de resultados', () => {
+  assert.match(appJs, /async function chooseCobblemonCandidateForDelivery\(button\)/);
+  assert.match(appJs, /body: \{ id: button\.dataset\.cobblemonWeeklyChoice, action: 'choose-weekly-now' \}/);
+  assert.match(appJs, /#cobblemonCapsuleResults'\)\?\.addEventListener\('click'[\s\S]*data-cobblemon-weekly-choice/);
+  assert.match(appJs, /void chooseCobblemonCandidateForDelivery\(weeklyChoiceButton\)/);
+  assert.match(serverJs, /wantsWeeklyImmediate.*cycle-candidate/);
 });
 
 test('Pokémon não escolhido pode ser vendido pelo valor da raridade', () => {

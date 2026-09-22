@@ -6393,7 +6393,31 @@ async function sellCobblemonCandidate(button) {
   }
 }
 
+async function chooseCobblemonCandidateForDelivery(button) {
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  try {
+    const data = await api('/api/cobblemon/reward/decision', {
+      method: 'POST',
+      body: { id: button.dataset.cobblemonWeeklyChoice, action: 'choose-weekly-now' },
+    });
+    appState.profile = data.profile;
+    renderProfileEconomy(appState.profile);
+    showToast(`Pokémon escolhido para a entrega do Davi.${data.autoSold?.count ? ` ${data.autoSold.count} outra(s) opção(ões) vendida(s) por ${formatCredits(data.autoSold.total)} créditos.` : ''}`);
+  } catch (error) {
+    showToast(error.message, 'error');
+    button.disabled = false;
+  }
+}
+
 $('#cobblemonCapsuleResults')?.addEventListener('click', (event) => {
+  const weeklyChoiceButton = event.target?.closest?.('[data-cobblemon-weekly-choice]');
+  if (weeklyChoiceButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    void chooseCobblemonCandidateForDelivery(weeklyChoiceButton);
+    return;
+  }
   const candidateSellButton = event.target?.closest?.('[data-cobblemon-candidate-sell]');
   if (!candidateSellButton) return;
   event.preventDefault();
@@ -6573,14 +6597,9 @@ document.addEventListener('click', async (event) => {
   if (boxButton) { await handleCobblemonBoxAction(boxButton); return; }
   const weeklyChoiceButton = event.target?.closest?.('[data-cobblemon-weekly-choice]');
   if (weeklyChoiceButton) {
-    weeklyChoiceButton.disabled = true;
-    try {
-      const data = await api('/api/cobblemon/reward/decision', { method: 'POST', body: JSON.stringify({ id: weeklyChoiceButton.dataset.cobblemonWeeklyChoice, action: 'choose-weekly-now' }) });
-      appState.profile = data.profile; renderProfileEconomy(appState.profile); showToast(`Pokémon escolhido para a entrega do Davi.${data.autoSold?.count ? ` ${data.autoSold.count} outra(s) opção(ões) vendida(s) por ${formatCredits(data.autoSold.total)} créditos.` : ''}`);
-    } catch (error) {
-      showToast(error.message, 'error');
-      try { const fresh = await api('/api/state'); appState.profile = fresh.profile; renderProfileEconomy(appState.profile); } catch { renderCobblemonDex(appState.profile); }
-    } finally { weeklyChoiceButton.disabled = false; }
+    event.preventDefault();
+    event.stopPropagation();
+    await chooseCobblemonCandidateForDelivery(weeklyChoiceButton);
     return;
   }
   const candidateSellButton = event.target?.closest?.('[data-cobblemon-candidate-sell]');
