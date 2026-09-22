@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-capsule-delivery-v99',
-  title: 'Escolha de entrega da Cápsula',
-  notes: 'O botão “Escolher para entrega” voltou a responder diretamente na lista de Pokémon da Cápsula. A escolha continua disponível enquanto o candidato não foi vendido nem enviado para entrega.'
+  version: '20260922-session-feed-v100',
+  title: 'Sessão mais estável e feed mais leve',
+  notes: 'O histórico pesado do cassino foi separado do estado de sessão para evitar travamentos ao abrir o portal. Novas imagens do feed também são otimizadas para carregar mais rápido.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -4706,7 +4706,9 @@ async function normalizeMemeDataUrl(file) {
     const image = new Image();
     image.src = objectUrl;
     await image.decode();
-    const maxSide = 1920;
+    // Feed não precisa da resolução de wallpaper: 1280px preserva leitura em
+    // desktop e reduz bastante o download e a decodificação no mural.
+    const maxSide = 1280;
     const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
     const output = document.createElement('canvas');
     output.width = Math.max(1, Math.round(image.naturalWidth * ratio));
@@ -4715,9 +4717,9 @@ async function normalizeMemeDataUrl(file) {
     context.fillStyle = '#ffffff';
     context.fillRect(0, 0, output.width, output.height);
     context.drawImage(image, 0, 0, output.width, output.height);
-    for (const quality of [.86, .76, .66, .56]) {
+    for (const quality of [.82, .72, .62, .52]) {
       const blob = await new Promise((resolve) => output.toBlob(resolve, 'image/jpeg', quality));
-      if (blob && blob.size <= 1.8 * 1024 * 1024) return fileToDataUrl(blob);
+      if (blob && blob.size <= 650 * 1024) return fileToDataUrl(blob);
     }
     throw new Error('Não foi possível reduzir a imagem para publicação.');
   } catch (error) {

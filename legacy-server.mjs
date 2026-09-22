@@ -107,6 +107,10 @@ const STATE_RESPONSE_CACHE_MAX = 16;
 // nova e aumenta a pressão no Worker. Uma janela curta mantém a sincronização
 // entre instâncias e ainda deixa as gravações protegidas pelo CAS em persist().
 const STATE_REFRESH_INTERVAL_MS = 1000;
+// Mantemos somente a janela da loteria no estado que cada sessão desserializa.
+// O histórico anterior é preservado no D1, mas não precisa viajar em toda
+// abertura do portal nem participar do cálculo da rodada corrente.
+const CASINO_ARCHIVE_BATCH_SIZE = 100;
 const DEFAULT_FEATURE_FLAGS = Object.freeze({ casino: true, impostor: true, mystery: true, shop: true, uploads: true });
 function featureFlags() {
   return { ...DEFAULT_FEATURE_FLAGS, ...db?.settings?.featureFlags };
@@ -220,6 +224,14 @@ async function ensureDatabase(seedDatabase) {
     revision INTEGER NOT NULL DEFAULT 1,
     updated_at TEXT NOT NULL
   )`).run();
+  await runtimeEnv.DB.prepare(`CREATE TABLE IF NOT EXISTS casino_play_archive (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    wallet_source TEXT,
+    payload TEXT NOT NULL
+  )`).run();
+  await runtimeEnv.DB.prepare('CREATE INDEX IF NOT EXISTS idx_casino_play_archive_user_created ON casino_play_archive(user_id, created_at)').run();
   await runtimeEnv.DB.prepare('INSERT OR IGNORE INTO app_state (id, data, revision, updated_at) VALUES (1, ?, 1, ?)')
     .bind(JSON.stringify(seedDatabase), new Date().toISOString()).run();
   const stored = await runtimeEnv.DB.prepare('SELECT data, revision FROM app_state WHERE id = 1').first();
@@ -353,6 +365,10 @@ async function ensureDatabase(seedDatabase) {
   ensureMarketState(db.economy);
   if (!Array.isArray(db.economy.forcedCursors)) { db.economy.forcedCursors = []; changed = true; }
   if (!Array.isArray(db.economy.casinoPlays)) { db.economy.casinoPlays = []; changed = true; }
+  if (!db.economy.casinoArchiveSummary || typeof db.economy.casinoArchiveSummary !== 'object') {
+    db.economy.casinoArchiveSummary = { totalPlays: 0, shopWagered: 0 };
+    changed = true;
+  }
   if (!db.economy.casinoAccounts || typeof db.economy.casinoAccounts !== 'object') { db.economy.casinoAccounts = {}; changed = true; }
   if (!db.economy.lottery || typeof db.economy.lottery !== 'object') { db.economy.lottery = { rounds: [], entries: [] }; changed = true; }
   if (!Array.isArray(db.economy.lottery.rounds)) { db.economy.lottery.rounds = []; changed = true; }
@@ -585,6 +601,7 @@ async function ensureDatabase(seedDatabase) {
     db.settings.dailyPhraseUpdatedBy = null;
     changed = true;
   }
+  if (await archiveCasinoPlaysBefore(lotteryWindowFor().startAt)) changed = true;
   if (changed) await persist();
 }
 
@@ -1196,6 +1213,37 @@ function lotteryBoundaryFor(date = new Date()) {
 function lotteryWindowFor(date = new Date()) {
   const start = lotteryBoundaryFor(date);
   return { id: 'lottery:' + start.toISOString(), startAt: start.toISOString(), closeAt: new Date(start.getTime() + LOTTERY_WEEK_MS).toISOString() };
+}
+
+async function archiveCasinoPlaysBefore(cutoffAt) {
+  const cutoff = Date.parse(cutoffAt || '');
+  if (!Number.isFinite(cutoff) || !Array.isArray(db?.economy?.casinoPlays)) return false;
+  const archived = [];
+  const current = [];
+  db.economy.casinoPlays.forEach((play) => {
+    if (Date.parse(play?.createdAt || '') < cutoff) archived.push(play);
+    else current.push(play);
+  });
+  if (!archived.length) return false;
+
+  // Primeiro gravamos a cópia durável. INSERT OR IGNORE torna uma nova
+  // tentativa após conflito de revisão segura: só removemos do estado depois
+  // que cada registro já está preservado fora dele.
+  for (let start = 0; start < archived.length; start += CASINO_ARCHIVE_BATCH_SIZE) {
+    const statements = archived.slice(start, start + CASINO_ARCHIVE_BATCH_SIZE).map((play) => {
+      const id = String(play.id || createHash('sha256').update(JSON.stringify(play)).digest('hex'));
+      return runtimeEnv.DB.prepare('INSERT OR IGNORE INTO casino_play_archive(id, user_id, created_at, wallet_source, payload) VALUES (?, ?, ?, ?, ?)')
+        .bind(id, String(play.userId || ''), String(play.createdAt || ''), String(play.walletSource || ''), JSON.stringify(play));
+    });
+    await runtimeEnv.DB.batch(statements);
+  }
+
+  const summary = db.economy.casinoArchiveSummary || { totalPlays: 0, shopWagered: 0 };
+  summary.totalPlays = Number(summary.totalPlays || 0) + archived.length;
+  summary.shopWagered = roundMoney(Number(summary.shopWagered || 0) + archived.reduce((sum, play) => sum + (play.walletSource === 'shop' ? Number(play.bet || 0) : 0), 0));
+  db.economy.casinoArchiveSummary = summary;
+  db.economy.casinoPlays = current;
+  return true;
 }
 
 function lotterySeedForRound(round) {
@@ -2973,20 +3021,22 @@ function buildStateFor(user) {
       const dayKey = saoPauloDayKey(); const account = casinoAccountFor(user.id);
       // O Apostômetro mede apenas o valor que saiu do saldo principal da Loja 51.
       // Apostas promocionais continuam no histórico, mas não inflacionam o valor real.
-      const totalPlays = db.economy.casinoPlays.length;
-      let playsToday = 0; let totalWagered = 0;
+      const liveTotalPlays = db.economy.casinoPlays.length;
+      const archiveSummary = db.economy.casinoArchiveSummary || { totalPlays: 0, shopWagered: 0 };
+      let playsToday = 0; let totalWagered = Number(archiveSummary.shopWagered || 0);
       const recentRoulette = [];
       // O histórico pode ficar grande. Uma única passagem preserva os mesmos
       // totais, a contagem diária e as seis jogadas recentes, sem repetir
       // filtros sobre todo o registro a cada carregamento de sessão.
-      for (let index = totalPlays - 1; index >= 0; index -= 1) {
+      for (let index = liveTotalPlays - 1; index >= 0; index -= 1) {
         const play = db.economy.casinoPlays[index];
         if (play.walletSource === 'shop') totalWagered += Number(play.bet || 0);
         if (play.userId !== user.id) continue;
         if (play.dayKey === dayKey) playsToday += 1;
         if (play.resultType !== 'flight' && recentRoulette.length < 6) recentRoulette.push(play);
       }
-      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday, totalWagered, totalPlays, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette, lottery: lotteryForUser(user) };
+      const totalPlays = Number(archiveSummary.totalPlays || 0) + liveTotalPlays;
+      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: CASINO_DAILY_BONUS, cashoutThreshold: CASINO_CASHOUT_THRESHOLD, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= CASINO_CASHOUT_THRESHOLD, cashedOut: Boolean(account.cashedOut), playsToday, totalWagered: roundMoney(totalWagered), totalPlays, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette, lottery: lotteryForUser(user) };
     })(),
     visualTheme: activeVisualPenalty?.kind || 'user-choice', visualThemeEndsAt: activeVisualPenalty?.endsAt || null,
     themes: db.settings.themes.map((name) => ({ id: name, name })),
@@ -3933,7 +3983,7 @@ async function handleApi(req, res, route) {
     const match = String(dataUrl).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
     if (!match) throw new HttpError(400, 'Envie uma imagem PNG, JPG ou WEBP.');
     const image = Buffer.from(match[2], 'base64');
-    if (!image.length || image.length > 5 * 1024 * 1024) throw new HttpError(413, 'O meme deve ter no máximo 5 MB.');
+    if (!image.length || image.length > 750 * 1024) throw new HttpError(413, 'O meme deve ter no máximo 750 KB após a otimização.');
     if (!hasValidImageSignature(image, match[1])) throw new HttpError(400, 'O conteúdo do arquivo não corresponde a uma imagem válida.');
     const usedMemory = [...imageStore.values()].reduce((total, entry) => total + entry.buffer.length, 0);
     if (usedMemory + image.length > MAX_IMAGE_MEMORY) throw new HttpError(507, 'O limite de imagens foi atingido. Peça ao administrador para limpar o mural.');
@@ -5298,6 +5348,7 @@ async function handleApi(req, res, route) {
     db.economy.creditAdjustments = db.economy.creditAdjustments.filter((item) => item.userId !== target.id);
     db.economy.mysteryBoxes = db.economy.mysteryBoxes.filter((item) => item.userId !== target.id);
     db.economy.casinoPlays = db.economy.casinoPlays.filter((item) => item.userId !== target.id);
+    await runtimeEnv.DB.prepare('DELETE FROM casino_play_archive WHERE user_id = ?').bind(target.id).run();
     delete db.economy.casinoAccounts[target.id];
     db.economy.lottery.entries = (db.economy.lottery.entries || []).filter((item) => item.userId !== target.id);
     db.economy.forcedCursors = db.economy.forcedCursors.filter((item) => item.targetUserId !== target.id && item.usedByUserId !== target.id);

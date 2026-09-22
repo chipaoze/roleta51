@@ -1,5 +1,5 @@
 {
-  "version": "20260922-capsule-delivery-v99",
-  "title": "Escolha de entrega da Cápsula",
-  "notes": "O botão “Escolher para entrega” voltou a responder diretamente na lista de Pokémon da Cápsula. A escolha continua disponível enquanto o candidato não foi vendido nem enviado para entrega."
+  "version": "20260922-session-feed-v100",
+  "title": "Sessão mais estável e feed mais leve",
+  "notes": "O histórico pesado do cassino foi separado do estado de sessão para evitar travamentos ao abrir o portal. Novas imagens do feed também são otimizadas para carregar mais rápido."
 }

@@ -84,7 +84,7 @@ function renderCommunityFeed(wall) {
     <div class="feed-post-actions">${post.canEdit ? `<button type="button" data-feed-edit="${escapeHtml(post.id)}" data-feed-type="${post.type}">Editar</button>` : ''}${post.canDelete ? `<button type="button" data-feed-delete="${escapeHtml(post.id)}" data-feed-type="${post.type}">Excluir</button>` : ''}</div></header>
     <p class="feed-post-text">${escapeHtml(post.phrase || post.caption || '')}</p>
     ${youtubeEmbedMarkup(post.phrase || post.caption || '')}
-    ${post.imageUrl ? `<a href="${escapeHtml(post.imageUrl)}" target="_blank" rel="noopener"><img loading="lazy" src="${escapeHtml(post.imageUrl)}" alt="Publicação de ${escapeHtml(authorName)}"></a>` : ''}
+    ${post.imageUrl ? `<a href="${escapeHtml(post.imageUrl)}" target="_blank" rel="noopener"><img loading="lazy" decoding="async" src="${escapeHtml(post.imageUrl)}" alt="Publicação de ${escapeHtml(authorName)}"></a>` : ''}
     <div class="daily-reactions">${emojis.map((emoji) => `<button type="button" aria-label="Reagir com ${emoji}" aria-pressed="${post.reactions?.mine?.includes(emoji) ? 'true' : 'false'}" class="${post.reactions?.mine?.includes(emoji) ? 'active' : ''}" data-reaction-type="${post.type}" data-reaction-id="${escapeHtml(post.id)}" data-reaction-emoji="${emoji}">${emoji} ${Number(post.reactions?.counts?.[emoji] || 0)}</button>`).join('')}</div>
     <details class="feed-reaction-people"><summary>Quem reagiu (${post.reactions?.total || 0})</summary><ul>${(post.reactions?.people || []).map((person) => `<li>${escapeHtml(person.emoji)} ${escapeHtml(formatDisplayName(person.name))}</li>`).join('') || '<li>Nenhuma reação ainda.</li>'}</ul></details>
     <details><summary>Comentários (${(post.comments || []).length})</summary>
