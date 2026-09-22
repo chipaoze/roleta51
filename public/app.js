@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-rollercoaster-market-v107',
-  title: 'Mercado 51 em ritmo de montanha-russa',
-  notes: 'As cotações agora mudam a cada 15 minutos, com oscilações maiores. O mercado pode variar muito: negociem com prudência. Dividendos, saldos e posições existentes foram preservados.'
+  version: '20260922-stellar-lender-icon-v108',
+  title: 'Agiota Estelar com seu próprio ícone',
+  notes: 'O cartão de empréstimos agora mostra o personagem do Agiota Estelar no lugar da nave. As regras e os saldos dos empréstimos não mudaram.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;

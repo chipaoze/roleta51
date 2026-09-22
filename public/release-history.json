@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "20260922-stellar-lender-icon-v108",
+      "publishedAt": "2026-09-22",
+      "title": "Agiota Estelar com seu próprio ícone",
+      "notes": [
+        "O cartão de empréstimos usa o mesmo personagem do Agiota Estelar exibido no aviso do cassino.",
+        "A imagem se adapta ao cartão no computador e no celular, sem mudar empréstimos ou saldos."
+      ]
+    },
+    {
       "version": "20260922-rollercoaster-market-v107",
       "publishedAt": "2026-09-22",
       "title": "Mercado 51 em ritmo de montanha-russa",

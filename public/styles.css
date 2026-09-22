@@ -2019,6 +2019,10 @@ body.theme-light-override .cobblemon-page{background-color:#dceff4!important;bac
 @media(max-width:1050px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{min-height:164px!important}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:186px!important}}
 @media(max-width:520px){.cobblemon-page .cobblemon-box-shop .cobblemon-box-card{grid-template-columns:54px minmax(0,1fr)!important;padding:12px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span{width:54px;height:54px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card>span img{width:42px;height:42px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-copy>strong{font-size:14px}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card .cobblemon-box-actions{grid-template-columns:1fr!important}.cobblemon-page .cobblemon-box-shop .cobblemon-box-card.monthly-pokemon-box{min-height:238px!important}}
 
+/* O cartão reutiliza o personagem do diálogo do Agiota, sem asset novo. */
+.stellar-loan-card>.stellar-loan-avatar{overflow:hidden}
+.stellar-loan-card>.stellar-loan-avatar img{display:block;width:100%;height:100%;object-fit:cover;object-position:center top}
+
 /* Entregas são expansíveis mesmo com um cursor premium ativo. */
 .cobblemon-delivery-group summary{position:relative;padding-right:42px;user-select:none}
 .cobblemon-delivery-group summary::after{content:'⌄';position:absolute;right:15px;top:50%;color:#8fe5d1;font-size:20px;font-weight:900;line-height:1;transform:translateY(-57%);transition:transform .18s ease}
