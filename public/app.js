@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-session-feed-v100',
-  title: 'Sessão mais estável e feed mais leve',
-  notes: 'O histórico pesado do cassino foi separado do estado de sessão para evitar travamentos ao abrir o portal. Novas imagens do feed também são otimizadas para carregar mais rápido.'
+  version: '20260922-market-v101',
+  title: 'Mercado 51 mais equilibrado',
+  notes: 'As próximas cotações passam a considerar a pressão de compra e venda da equipe, com fases diárias e limites contra quedas bruscas. Seus saldos, compras e posições atuais foram preservados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
