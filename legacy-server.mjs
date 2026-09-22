@@ -3376,14 +3376,11 @@ async function handleApi(req, res, route) {
     // Presença é apenas um indicador visual. Uma oscilação no D1 não pode
     // impedir uma sessão válida de abrir o portal.
     try { await heartbeatPresence(auth); } catch {}
-    const settledCleanName = settleCleanNameRewards();
-    const settledSeasonChallenges = settleSeasonalChallenges();
-    const settledPokemonCapsules = settlePokemonCapsules();
-    const settledLottery = settleLotteryRounds();
-    const settledLieVotes = settlePendingLieVotes();
-    const marketAdvanced = syncMarketEconomy();
-    const dailyCobblemonBonus = grantCobblemonDailyBallBonus(user.id);
-    if (settledCleanName || settledSeasonChallenges || settledPokemonCapsules || settledLottery || settledLieVotes || marketAdvanced || dailyCobblemonBonus) await persist();
+    // Esta rota entrega o maior payload do portal. As rotinas que podem
+    // gravar o estado inteiro ficam em /api/sync, que é chamado logo após a
+    // abertura e no polling normal. Misturar persistência com a serialização
+    // desta resposta fez um GET /api/state passar do limite de CPU do plano
+    // gratuito durante uma virada do mercado.
     json(res, 200, stateFor(user)); return;
   }
 
@@ -3562,16 +3559,20 @@ async function handleApi(req, res, route) {
     const auth = requireAuth(req); const { user } = auth;
     // As cotações avançam no servidor, o polling normal também precisa
     // perceber a virada da janela sem exigir que o usuário recarregue a tela.
-    // A função só altera o estado doze vezes por dia; portanto, não cria
-    // gravações extras durante os demais ciclos de presença.
+    // As demais liquidações também ficam aqui: a tela inicial só precisa
+    // montar a resposta e não deve combinar uma persistência completa com o
+    // seu payload. A função só altera o estado quando há uma virada real.
     let lotteryReminder = null;
     try {
+      const cleanNameSettled = settleCleanNameRewards();
+      const seasonalChallengesSettled = settleSeasonalChallenges();
+      const pokemonCapsulesSettled = settlePokemonCapsules();
       const marketAdvanced = syncMarketEconomy();
       const lotterySettled = settleLotteryRounds();
       const lieVotesSettled = settlePendingLieVotes();
       const dailyCobblemonBonus = grantCobblemonDailyBallBonus(user.id);
       lotteryReminder = lotteryReminderForUser(user);
-      if (marketAdvanced || lotterySettled || lieVotesSettled || dailyCobblemonBonus) {
+      if (cleanNameSettled || seasonalChallengesSettled || pokemonCapsulesSettled || marketAdvanced || lotterySettled || lieVotesSettled || dailyCobblemonBonus) {
         await persist();
         if (lotterySettled) broadcastRefresh('lottery');
       }

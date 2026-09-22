@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-market-v101',
-  title: 'Mercado 51 mais equilibrado',
-  notes: 'As próximas cotações passam a considerar a pressão de compra e venda da equipe, com fases diárias e limites contra quedas bruscas. Seus saldos, compras e posições atuais foram preservados.'
+  version: '20260922-worker-cpu-v102',
+  title: 'Portal mais estável',
+  notes: 'Corrigimos uma rotina que podia sobrecarregar o Worker durante atualizações automáticas. O carregamento das telas ficou separado das liquidações do sistema, sem mudar saldos, posições, compras ou históricos.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
