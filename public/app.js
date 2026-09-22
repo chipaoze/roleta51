@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260921-legendary-sides-v98',
-  title: 'Lendários nas laterais',
-  notes: 'Os lendários da Central Cobblemon agora ficam visíveis nos corredores laterais em telas grandes, sem cobrir formulários e sem usar fundo fixo na rolagem.'
+  version: '20260922-capsule-delivery-v99',
+  title: 'Escolha de entrega da Cápsula',
+  notes: 'O botão “Escolher para entrega” voltou a responder diretamente na lista de Pokémon da Cápsula. A escolha continua disponível enquanto o candidato não foi vendido nem enviado para entrega.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
