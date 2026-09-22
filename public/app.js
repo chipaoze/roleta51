@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-release-history-v103',
-  title: 'Histórico de atualizações',
-  notes: 'Agora o Menu possui uma área permanente com os patch notes publicados. Você pode consultar melhorias e correções a qualquer momento, além do aviso automático de cada nova versão.'
+  version: '20260922-force-refresh-v104',
+  title: 'Atualização de sincronização',
+  notes: 'Uma atualização geral foi liberada. Recarregue para usar os arquivos mais recentes e consulte os patch notes no Menu sempre que quiser.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;

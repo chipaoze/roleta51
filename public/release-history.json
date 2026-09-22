@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "20260922-force-refresh-v104",
+      "publishedAt": "2026-09-22",
+      "title": "Atualização de sincronização",
+      "notes": [
+        "Foi disparada uma atualização geral para que os navegadores carreguem a versão mais recente do portal.",
+        "O histórico de patch notes permanece disponível no Menu em Atualizações."
+      ]
+    },
+    {
       "version": "20260922-release-history-v103",
       "publishedAt": "2026-09-22",
       "title": "Histórico de atualizações",
