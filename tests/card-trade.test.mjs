@@ -32,7 +32,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260922-387/);
-  assert.match(html, /app\.js\?v=20260923-399/);
+  assert.match(html, /app\.js\?v=20260923-400/);
   assert.match(html, /platform-upgrades\.css\?v=20260923-218/);
 });
 
@@ -176,7 +176,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="500" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260923-session-resilience-v115/);
+  assert.match(appJs, /20260923-delivery-history-v116/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51 sem repetir o histórico inteiro', () => {
@@ -280,7 +280,9 @@ test('Roleta Cobblemon responde ao botão e aos elementos internos do preço', (
 test('controles da página Cobblemon não são bloqueados por efeitos de cursor', () => {
   assert.match(appJs, /NATIVE_POINTER_SELECTOR = 'input,textarea,select,button,a,summary/);
   assert.ok((appJs.match(/isNativeInteractiveTarget\(event\.target\)/g) || []).length >= 6);
-  assert.match(appJs, /cobblemonRewards'\)\?\.addEventListener\('click'[\s\S]*cobblemon-delivery-group > summary[\s\S]*group\.open = expanded/);
+  assert.match(appJs, /function toggleCobblemonDeliveryGroup\(event\)[\s\S]*cobblemon-delivery-group > summary[\s\S]*group\.open = expanded/);
+  assert.match(appJs, /cobblemonRewards'\)\?\.addEventListener\('click'/);
+  assert.match(appJs, /cobblemonDeliveryHistory'\)\?\.addEventListener\('click', toggleCobblemonDeliveryGroup\)/);
   assert.match(appJs, /data-cobblemon-delivery-group=/);
   assert.match(appJs, /cobblemonOpenDeliveryGroups/);
   assert.match(styles, /\.cobblemon-delivery-group summary::after/);
@@ -379,7 +381,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260923-session-resilience-v115/);
+  assert.match(appJs, /20260923-delivery-history-v116/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -387,7 +389,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260923-session-resilience-v115/);
+  assert.match(appJs, /20260923-delivery-history-v116/);
 });
 
 test('lembrete de água é avaliado globalmente, sem depender da página Água', () => {

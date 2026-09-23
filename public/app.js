@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-    version: '20260923-session-resilience-v115',
-    title: 'Sessões mais resilientes',
-    notes: 'A reconexão de sessão agora tenta se recuperar progressivamente, enquanto o portal reduz trabalho local repetido sem mudar os fluxos ao vivo.'
+    version: '20260923-delivery-history-v116',
+    title: 'Histórico de entregas acessível',
+    notes: 'O Histórico de entregas Cobblemon agora abre e fecha de forma confiável, preservando o estado quando o portal atualiza.'
   };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -6549,6 +6549,23 @@ async function markCobblemonDelivered(button) {
     if (button.isConnected) button.disabled = false;
   }
 }
+function toggleCobblemonDeliveryGroup(event) {
+  const summary = event.target?.closest?.('.cobblemon-delivery-group > summary');
+  if (!summary) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  const group = summary.parentElement;
+  if (!group) return true;
+  const expanded = !group.open;
+  group.open = expanded;
+  summary.setAttribute('aria-expanded', String(expanded));
+  const key = group.dataset.cobblemonDeliveryGroup;
+  if (!key) return true;
+  cobblemonOpenDeliveryGroups ||= new Set();
+  if (expanded) cobblemonOpenDeliveryGroups.add(key);
+  else cobblemonOpenDeliveryGroups.delete(key);
+  return true;
+}
 $('#cobblemonRewards')?.addEventListener('click', (event) => {
   const delivered = event.target?.closest?.('[data-cobblemon-delivered]');
   if (delivered) {
@@ -6557,21 +6574,9 @@ $('#cobblemonRewards')?.addEventListener('click', (event) => {
     void markCobblemonDelivered(delivered);
     return;
   }
-  const summary = event.target?.closest?.('.cobblemon-delivery-group > summary');
-  if (!summary) return;
-  event.preventDefault();
-  event.stopPropagation();
-  const group = summary.parentElement;
-  if (!group) return;
-  const expanded = !group.open;
-  group.open = expanded;
-  summary.setAttribute('aria-expanded', String(expanded));
-  const key = group.dataset.cobblemonDeliveryGroup;
-  if (!key) return;
-  cobblemonOpenDeliveryGroups ||= new Set();
-  if (expanded) cobblemonOpenDeliveryGroups.add(key);
-  else cobblemonOpenDeliveryGroups.delete(key);
+  toggleCobblemonDeliveryGroup(event);
 });
+$('#cobblemonDeliveryHistory')?.addEventListener('click', toggleCobblemonDeliveryGroup);
 async function handleCobblemonBoxAction(boxButton) {
   if (!boxButton || boxButton.disabled) return;
   const boxId = boxButton.dataset.cobblemonBox;

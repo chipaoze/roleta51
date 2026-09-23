@@ -1,5 +1,5 @@
 {
-  "version": "20260923-session-resilience-v115",
-  "title": "Sessões mais resilientes",
-  "notes": "A reconexão de sessão agora tenta se recuperar progressivamente, enquanto o portal reduz trabalho local repetido sem mudar os fluxos ao vivo."
+  "version": "20260923-delivery-history-v116",
+  "title": "Histórico de entregas acessível",
+  "notes": "O Histórico de entregas Cobblemon agora abre e fecha de forma confiável, preservando o estado quando o portal atualiza."
 }

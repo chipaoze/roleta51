@@ -98,10 +98,14 @@ test('painel de entregas não trunca itens antigos não-Pokémon', () => {
 
 test('histórico de entregas usa os registros existentes sem truncar a produção', () => {
   const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   assert.match(server, /deliveries:\s*db\.economy\.cobblemonDeliveries\.filter\(/);
   assert.match(server, /route === '\/api\/admin\/cobblemon\/delivered'/);
   assert.match(server, /reward\.status = 'delivered'/);
   assert.doesNotMatch(server, /cobblemonDeliveryHistoryV1/);
+  assert.match(app, /function toggleCobblemonDeliveryGroup\(event\)/);
+  assert.match(app, /#cobblemonDeliveryHistory'\)\?\.addEventListener\('click', toggleCobblemonDeliveryGroup\)/);
+  assert.match(app, /const historyOpen = Boolean\(history\.querySelector\('details'\)\?\.open\)/);
 });
 
 test('Pokédex permite comprar e escolher bolas especiais com chance calculada no servidor', () => {
