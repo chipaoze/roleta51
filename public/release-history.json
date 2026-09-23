@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20260923-performance-v110",
+      "publishedAt": "2026-09-23",
+      "title": "Portal mais leve e sessões mais claras",
+      "notes": [
+        "CSS, JavaScript, fontes e imagens públicas passam a ser atendidos pela CDN; apenas APIs e imagens privadas continuam no Worker.",
+        "O ranking e os dividendos do Mercado 51 calculam somente o valor atual das posições, sem reconstruir repetidamente o histórico de negociações.",
+        "A abertura agora separa erro de sessão de erro visual. Saldos, compras, posições, prêmios e históricos existentes foram preservados."
+      ]
+    },
+    {
       "version": "20260922-market-trades-v109",
       "publishedAt": "2026-09-22",
       "title": "Histórico pessoal de negociações",

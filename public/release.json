@@ -1,5 +1,5 @@
 {
-  "version": "20260922-market-trades-v109",
-  "title": "Histórico pessoal de negociações",
-  "notes": "O Mercado 51 agora mostra suas compras e vendas com data, moeda, quantidade, preço unitário e total registrado. Nenhum saldo, posição ou operação anterior foi alterado."
+  "version": "20260923-performance-v110",
+  "title": "Portal mais leve e sessões mais claras",
+  "notes": "Arquivos estáticos passam pela CDN, o Mercado 51 evita cálculos repetidos e a tela informa se a falha é de sessão ou de interface. Nenhum saldo, compra, posição ou histórico foi alterado."
 }

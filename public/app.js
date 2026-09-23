@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260922-market-trades-v109',
-  title: 'Histórico pessoal de negociações',
-  notes: 'O Mercado 51 agora mostra suas compras e vendas com data, moeda, quantidade, preço unitário e total registrado. Nenhum saldo, posição ou operação anterior foi alterado.'
+  version: '20260923-performance-v110',
+  title: 'Portal mais leve e sessões mais claras',
+  notes: 'Arquivos visuais passam pela CDN, o Mercado 51 evita cálculos repetidos e a tela diferencia falha de sessão de falha de interface. Saldos, compras, posições e históricos não foram alterados.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -134,7 +134,7 @@ const palette = ['#f47721','#173b67','#f5b52c','#2f76a9','#dc5c46','#48a47a','#8
 const authView = $('#authView');
 const appView = $('#appView');
 const canvas = $('#wheelCanvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas?.getContext('2d');
 
 function formatDisplayName(value) {
   const particles = new Set(['da', 'das', 'de', 'do', 'dos', 'e']);
@@ -1956,6 +1956,9 @@ function setMode(mode) {
 }
 
 function drawWheel() {
+  // The wheel is cosmetic. A browser that temporarily cannot initialize a
+  // canvas must still be able to authenticate and open the portal.
+  if (!canvas || !ctx) return;
   const items = wheelItems();
   const w = canvas.width;
   const center = w / 2;
@@ -6031,12 +6034,17 @@ document.addEventListener('visibilitychange', () => {
 
 let sessionBootAttempts = 0;
 let sessionBootRetryTimer = null;
+function showSessionBootFailure(message, retryLabel = 'Tentar novamente') {
+  $('#sessionBootText').textContent = message;
+  const retry = $('#sessionBootRetry');
+  retry.textContent = retryLabel;
+  retry.classList.remove('hidden');
+}
 async function initialize() {
   clearTimeout(sessionBootRetryTimer);
+  let data;
   try {
-    drawWheel();
-    showApp(await api('/api/state', { timeoutMs: 15000 }, false));
-    sessionBootAttempts = 0;
+    data = await api('/api/state', { timeoutMs: 15000 }, false);
   }
   catch(error) {
     if(error.status===401) { showAuth(); return; }
@@ -6047,8 +6055,19 @@ async function initialize() {
       sessionBootRetryTimer = setTimeout(initialize, sessionBootAttempts * 1200);
       return;
     }
-    $('#sessionBootText').textContent='Não foi possível verificar sua sessão agora. Seu acesso foi preservado; tente novamente em instantes.';
-    $('#sessionBootRetry').classList.remove('hidden');
+    showSessionBootFailure('Não foi possível verificar sua sessão agora. Seu acesso foi preservado; tente novamente em instantes.');
+    return;
+  }
+  try {
+    drawWheel();
+    showApp(data);
+    sessionBootAttempts = 0;
+  } catch (error) {
+    // Do not report a confirmed session as an authentication failure. This
+    // leaves a useful error in the browser console for support without
+    // exposing internal details to the user.
+    console.error('Falha ao montar a interface após validar a sessão.', error);
+    showSessionBootFailure('Sua sessão foi verificada, mas a tela não terminou de carregar. Tente carregar a interface novamente.', 'Carregar interface');
   }
 }
 $('#sessionBootRetry').addEventListener('click',()=>{sessionBootAttempts=0;initialize();});

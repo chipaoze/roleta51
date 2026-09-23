@@ -2,7 +2,7 @@ import path from 'node:path';
 import { FLIGHT_STEP_MS, flightStepMs, flightMultiplier, settleFlight } from './lib/flight-engine.mjs';
 import { CARD_COLLECTIONS, CARD_PACK_RULES, albumFor, updateAlbum, awardEngagementCard, updateCardTrade, openCardPack } from './lib/card-album.mjs';
 import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
-import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, marketForUser, transactMarket } from './lib/investment-market.mjs';
+import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, marketForUser, marketHoldingsValueForUser, transactMarket } from './lib/investment-market.mjs';
 import { casinoPlayStatePatch } from './lib/casino-state-patch.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { cobblemonDeliveryMinimumLevel, cobblemonDeliverySpec, rollCobblemonDeliveryGender } from './lib/cobblemon-delivery-metadata.mjs';
@@ -1659,9 +1659,9 @@ function marketDailyIncomeFor(userId, dayKey = saoPauloDayKey()) {
   return { amount: MARKET_DAILY_INCOME, dayKey, claimed, eligible, available: !claimed && eligible };
 }
 
-function marketIncomeFor(userId) {
+function marketIncomeFor(userId, marketSnapshot = null) {
   const dayKey = saoPauloDayKey();
-  const market = marketForUser(db.economy, userId);
+  const market = marketSnapshot || marketForUser(db.economy, userId);
   const wallet = walletFor(userId);
   const total = roundMoney(wallet + market.holdingsValue);
   const investedShare = total > 0 ? roundMoney((market.holdingsValue / total) * 100) : 0;
@@ -1684,10 +1684,10 @@ function settleMarketDividends(now = new Date()) {
   const usersWithPositions = new Set(Object.keys(market.portfolios || {}));
   db.users.filter((user) => user.active && user.approved !== false).forEach((user) => usersWithPositions.add(user.id));
   usersWithPositions.forEach((userId) => {
-    const snapshot = marketForUser(db.economy, userId);
-    if (snapshot.holdingsValue <= 0) return;
+    const holdingsValue = marketHoldingsValueForUser(db.economy, userId);
+    if (holdingsValue <= 0) return;
     const paidToday = db.economy.creditAdjustments.filter((entry) => entry.userId === userId && entry.mode === 'market-dividend' && dayKeyForTimestamp(entry.createdAt) === dayKey).reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-    const amount = roundMoney(Math.min(Math.max(0, MARKET_DIVIDEND_DAILY_CAP - paidToday), snapshot.holdingsValue * MARKET_DIVIDEND_RATE_PER_UPDATE));
+    const amount = roundMoney(Math.min(Math.max(0, MARKET_DIVIDEND_DAILY_CAP - paidToday), holdingsValue * MARKET_DIVIDEND_RATE_PER_UPDATE));
     if (amount < 0.01) return;
     const before = walletFor(userId);
     addCredits(userId, amount);
@@ -2620,7 +2620,7 @@ function profileFor(user, computed = {}) {
   const savedShowcase = Array.isArray(user.profileShowcase) ? user.profileShowcase.slice(0, 4) : [];
   const showcaseSelected = savedShowcase.map((id) => showcaseOptions.find((item) => item.id === id)).filter(Boolean);
   const investmentMarket = marketForUser(db.economy, user.id);
-  investmentMarket.income = marketIncomeFor(user.id);
+  investmentMarket.income = marketIncomeFor(user.id, investmentMarket);
   return {
     wallet: walletFor(user.id), equipped,
     investmentMarket,
@@ -3021,7 +3021,7 @@ function buildStateFor(user) {
   // Forbes 51 é somente de leitura: ordena pelo valor atual investido
   // e nunca publica o saldo em caixa.
   const financeRanking = db.users.filter((item) => item.active).map((item) => {
-    const invested = roundMoney(marketForUser(db.economy, item.id).holdingsValue);
+    const invested = roundMoney(marketHoldingsValueForUser(db.economy, item.id));
     return {
       id: item.id,
       displayName: item.displayName,

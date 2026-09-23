@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MARKET_ASSETS, MARKET_UPDATE_TIMES, marketSlotKey, ensureMarketState, advanceMarket, marketForUser, transactMarket } from '../lib/investment-market.mjs';
+import { MARKET_ASSETS, MARKET_UPDATE_TIMES, marketSlotKey, ensureMarketState, advanceMarket, marketForUser, marketHoldingsValueForUser, transactMarket } from '../lib/investment-market.mjs';
 
 test('36 janelas de 15 minutos terminam às 16h45 sem avanço noturno', () => {
   assert.equal(MARKET_UPDATE_TIMES.length, 36);
@@ -68,6 +68,16 @@ test('histórico pessoal mostra o preço exato de cada compra e venda sem altera
   ]);
   assert.equal(snapshot.portfolio.nebula, 1);
   assert.deepEqual(marketForUser(economy, 'other').transactions, []);
+  assert.equal(JSON.stringify(market), before);
+});
+
+test('valor investido para ranking usa apenas preços e posições, sem reconstruir o histórico', () => {
+  const economy = {}; const market = ensureMarketState(economy);
+  market.prices.nebula = 123.45;
+  market.portfolios.user = { nebula: 2, void: 1 };
+  market.ledger = Array.from({ length: 200 }, (_, index) => ({ id: String(index), userId: 'user', assetId: 'nebula', side: 'buy', quantity: 1, total: 1 }));
+  const before = JSON.stringify(market);
+  assert.equal(marketHoldingsValueForUser(economy, 'user'), 2 * 123.45 + market.prices.void);
   assert.equal(JSON.stringify(market), before);
 });
 
