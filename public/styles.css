@@ -2042,8 +2042,8 @@ body.theme-light-override .cobblemon-page{background-color:#dceff4!important;bac
 .cobblemon-delivery-group[open] summary::after{transform:translateY(-43%) rotate(180deg)}
 .cobblemon-delivery-group summary:focus-visible{outline:2px solid #8fe5d1;outline-offset:-3px}
 .cobblemon-delivery-history{display:grid;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid #3c6178}
-.cobblemon-delivery-history>header{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#9fe6d1;font-size:11px}
-.cobblemon-delivery-history>header span{color:#b9cbd8;font-size:10px}
+.cobblemon-delivery-history-group summary small{color:#b9cbd8;font-size:10px}
+.cobblemon-delivery-history-group[open] summary{color:#9fe6d1}
 .cobblemon-delivery-history-row{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 10px;border:1px solid #31566d;border-radius:11px;background:#071a2b}
 .cobblemon-delivery-history-row>p{display:grid;gap:2px;margin:0;min-width:0}
 .cobblemon-delivery-history-row strong{color:#edfaff;font-size:12px}

@@ -1,5 +1,5 @@
 {
-  "version": "20260923-stellar-loan-only-v111",
-  "title": "Agiota: itens somente para quitar dívida",
-  "notes": "A entrega de item ao Agiota só fica disponível com empréstimo ativo e abate exclusivamente a dívida. Nenhum saldo, compra ou histórico anterior foi alterado."
+  "version": "20260923-cobblemon-history-v112",
+  "title": "Caçada em Atualizações e histórico compacto",
+  "notes": "Pokémon podem aparecer na página Atualizações, e o histórico de entregas Cobblemon agora abre somente quando você clicar nele. Nenhuma entrega, saldo ou histórico foi alterado."
 }

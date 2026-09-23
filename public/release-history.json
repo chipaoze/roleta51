@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20260923-cobblemon-history-v112",
+      "publishedAt": "2026-09-23",
+      "title": "Caçada em Atualizações e histórico compacto",
+      "notes": [
+        "A página Atualizações agora é um setor possível para encontrar Pokémon durante a caçada.",
+        "O histórico de entregas Cobblemon começa fechado e abre no mesmo padrão dos grupos de participantes.",
+        "Nenhuma entrega, saldo, compra ou registro histórico foi alterado."
+      ]
+    },
+    {
       "version": "20260923-stellar-loan-only-v111",
       "publishedAt": "2026-09-23",
       "title": "Agiota: itens somente para quitar dívida",

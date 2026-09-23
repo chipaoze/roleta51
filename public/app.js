@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260923-stellar-loan-only-v111',
-  title: 'Agiota: itens somente para quitar dívida',
-  notes: 'A entrega de item ao Agiota só fica disponível com empréstimo ativo e abate exclusivamente a dívida. Nenhum saldo ou histórico anterior foi alterado.'
+  version: '20260923-cobblemon-history-v112',
+  title: 'Caçada em Atualizações e histórico compacto',
+  notes: 'Pokémon podem aparecer na página Atualizações, e o histórico de entregas Cobblemon agora abre somente quando você clicar nele. Nenhuma entrega, saldo ou histórico foi alterado.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3333,6 +3333,7 @@ function renderCobblemonDex(profile = {}) {
   const deliveredHistory = deliveries.filter((entry) => entry.status === 'delivered').sort((a, b) => Date.parse(b.deliveredAt || b.createdAt || 0) - Date.parse(a.deliveredAt || a.createdAt || 0));
   const history = $('#cobblemonDeliveryHistory');
   if (history) {
+    const historyOpen = Boolean(history.querySelector('details')?.open);
     const historyRows = deliveredHistory.map((entry) => {
       const deliveredDate = entry.deliveredAt ? new Date(entry.deliveredAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'data não registrada';
       const recipient = canDeliverCobblemon ? ` · ${escapeHtml(entry.userName || 'participante')}` : '';
@@ -3340,7 +3341,7 @@ function renderCobblemonDex(profile = {}) {
       const spec = cobblemonDeliverySpecLabel(entry);
       return `<article class="cobblemon-delivery-history-row">${cobblemonDeliverySpriteMarkup(entry)}<p><strong>${escapeHtml(entry.name || 'Recompensa Cobblemon')}</strong><small>Entregue em ${escapeHtml(deliveredDate)}${by}${recipient}</small>${spec ? `<small class="cobblemon-delivery-spec">${escapeHtml(spec)}</small>` : ''}</p><b>✓ Entregue</b></article>`;
     }).join('');
-    history.innerHTML = `<header><strong>Histórico de entregas</strong><span>${deliveredHistory.length} concluída${deliveredHistory.length === 1 ? '' : 's'}</span></header>${historyRows || '<p class="cobblemon-delivery-history-empty">Nenhuma entrega concluída ainda.</p>'}`;
+    history.innerHTML = `<details class="cobblemon-delivery-group cobblemon-delivery-history-group"${historyOpen ? ' open' : ''}><summary aria-expanded="${historyOpen}"><span>📦</span><strong>Histórico de entregas</strong><small>${deliveredHistory.length} concluída${deliveredHistory.length === 1 ? '' : 's'}</small></summary><div>${historyRows || '<p class="cobblemon-delivery-history-empty">Nenhuma entrega concluída ainda.</p>'}</div></details>`;
   }
   const pendingDeliveries = deliveries.filter((entry) => entry.status === 'awaiting-delivery');
   $('#cobblemonDeliveryKicker').textContent = canDeliverCobblemon ? 'PAINEL DE ENTREGA · TODA A EQUIPE' : 'MEUS PEDIDOS';
@@ -6199,7 +6200,7 @@ let cobblemonPageCaptureBusy = false;
 let cobblemonPageThrowSequence = 0;
 let cobblemonHuntInterval = null;
 let cobblemonOpenDeliveryGroups = null;
-const COBBLEMON_HUNT_SECTORS = ['memes','sorteio','inscricoes','agua','mentirometro','misterio','impostor','perfil','album','loja','jogos','classificacao'];
+const COBBLEMON_HUNT_SECTORS = ['memes','sorteio','inscricoes','agua','mentirometro','misterio','impostor','perfil','album','loja','jogos','classificacao','atualizacoes'];
 
 function cobblemonHuntEnabledSectors(flags = appState?.settings?.featureFlags || {}) {
   return COBBLEMON_HUNT_SECTORS.filter((page) => {
