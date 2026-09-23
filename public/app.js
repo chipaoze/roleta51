@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260923-lie-neutral-v113',
-  title: 'Mentirômetro com decisão neutra',
-  notes: 'A votação agora tem a opção “Não ouvi”. Ela registra a participação, mas não conta como mentira nem como verdade e não altera o placar.'
+  version: '20260923-water-reminder-v114',
+  title: 'Lembrete de água em todo o portal',
+  notes: 'O lembrete de hidratação agora é avaliado em qualquer página. Ele continua levando direto para Água quando você decidir registrar.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2616,7 +2616,6 @@ function renderHydration(hydration = {}) {
   $('#waterEntryList').innerHTML = entries.length ? entries.map((entry) =>
     `<article class="water-entry"><span aria-hidden="true">💧</span><p><strong>${escapeHtml(formatDisplayName(entry.displayName))}</strong><small>${escapeHtml(formatDate(entry.createdAt))}</small></p><b>+ ${Number(entry.ml).toLocaleString('pt-BR')} ml</b>${entry.canDelete ? `<button type="button" data-delete-water="${escapeHtml(entry.id)}">Desfazer</button>` : ''}</article>`
   ).join('') : '<p class="water-empty">Ninguém registrou água hoje.</p>';
-  maybeShowWaterReminder(hydration);
 }
 
 function renderSeason(season = {}) {
@@ -4230,7 +4229,7 @@ function applyState(data) {
   $('#adminNav').classList.toggle('hidden', !isAdmin);
   $('#admin').classList.toggle('hidden', !isAdmin);
   $('#adminLiveChecklist').classList.toggle('hidden', !isAdmin);
-  renderFeatureAvailability(data.settings?.featureFlags); renderTodayHub(data); renderNotifications(); renderAnnouncement(data.announcement); renderActivePortalPage(data);
+  renderFeatureAvailability(data.settings?.featureFlags); renderTodayHub(data); renderNotifications(); renderAnnouncement(data.announcement); maybeShowWaterReminder(data.hydration); renderActivePortalPage(data);
   setTimeout(() => { if (releaseChanged) checkPublishedRelease(); else showReleaseNotice(); }, 0);
   const canUpload = Boolean(data.meCanUpload && data.settings?.featureFlags?.uploads !== false);
   $$('input,button', $('#uploadForm')).forEach((control) => { control.disabled = !canUpload; });

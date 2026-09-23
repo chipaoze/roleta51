@@ -1,5 +1,5 @@
 {
-  "version": "20260923-lie-neutral-v113",
-  "title": "Mentirômetro com decisão neutra",
-  "notes": "A votação agora tem a opção “Não ouvi”. Ela registra a participação, mas não conta como mentira nem como verdade e não altera o placar."
+  "version": "20260923-water-reminder-v114",
+  "title": "Lembrete de água em todo o portal",
+  "notes": "O lembrete de hidratação agora é avaliado em qualquer página. Ele continua levando direto para Água quando você decidir registrar."
 }
