@@ -1,5 +1,5 @@
 {
-  "version": "20260923-water-reminder-v114",
-  "title": "Lembrete de água em todo o portal",
-  "notes": "O lembrete de hidratação agora é avaliado em qualquer página. Ele continua levando direto para Água quando você decidir registrar."
+  "version": "20260923-session-resilience-v115",
+  "title": "Sessões mais resilientes",
+  "notes": "A reconexão de sessão agora tenta se recuperar progressivamente, enquanto o portal reduz trabalho local repetido sem mudar os fluxos ao vivo."
 }

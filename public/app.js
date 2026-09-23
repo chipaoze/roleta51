@@ -31,10 +31,10 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260923-water-reminder-v114',
-  title: 'Lembrete de água em todo o portal',
-  notes: 'O lembrete de hidratação agora é avaliado em qualquer página. Ele continua levando direto para Água quando você decidir registrar.'
-};
+    version: '20260923-session-resilience-v115',
+    title: 'Sessões mais resilientes',
+    notes: 'A reconexão de sessão agora tenta se recuperar progressivamente, enquanto o portal reduz trabalho local repetido sem mudar os fluxos ao vivo.'
+  };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
 let activeMode = 'theme';
@@ -3858,6 +3858,13 @@ function renderAdminHealth(health = {}) {
   const bytes = Number(health.databaseBytes || 0);
   const formatBytes = (value) => value >= 1048576 ? (value / 1048576).toFixed(2) + ' MB' : value >= 1024 ? Math.round(value / 1024) + ' KB' : value + ' B';
   const media = health.media || {};
+  const backupAt = Date.parse(health.lastBackupAt || '');
+  const backupNeedsAttention = !Number.isFinite(backupAt) || Date.now() - backupAt > 14 * 24 * 60 * 60 * 1000;
+  const healthStatus = $('#healthOverallStatus');
+  if (healthStatus) {
+    healthStatus.textContent = backupNeedsAttention ? '● Revisar backup' : '● Saudável';
+    healthStatus.classList.toggle('needs-attention', backupNeedsAttention);
+  }
   $('#healthMetrics').innerHTML = [
     ['Banco atual', formatBytes(bytes)], ['Mídias referenciadas', Number(media.referencedTotal || 0).toLocaleString('pt-BR')],
     ['Contas ativas', `${Number(health.activeUsers || 0)} de ${Number(health.totalUsers || 0)}`], ['Online agora', Number(health.onlineUsers || 0).toLocaleString('pt-BR')],
@@ -3865,7 +3872,7 @@ function renderAdminHealth(health = {}) {
   ].map(([label,value]) => `<div class="health-metric"><small>${label}</small><strong>${escapeHtml(value)}</strong></div>`).join('');
   const backup = health.lastBackupAt ? formatDate(health.lastBackupAt) : 'ainda não registrado';
   const cleanup = health.lastCleanupAt ? formatDate(health.lastCleanupAt) : 'ainda não registrada';
-  $('#healthActivity').textContent = `Último backup: ${backup}. Última limpeza: ${cleanup}. Imagens: ${Number(media.wallpapers || 0)} wallpapers, ${Number(media.feedImages || 0)} no feed e ${Number(media.feedbackImages || 0)} em feedbacks.`;
+  $('#healthActivity').textContent = `Último backup: ${backup}. Última limpeza: ${cleanup}. Imagens: ${Number(media.wallpapers || 0)} wallpapers, ${Number(media.feedImages || 0)} no feed e ${Number(media.feedbackImages || 0)} em feedbacks. Sincronização visível preservada; apenas abas em segundo plano ficam pausadas.`;
 }
 
 function renderAnnouncement(announcement) {
@@ -6034,6 +6041,7 @@ document.addEventListener('visibilitychange', () => {
 
 let sessionBootAttempts = 0;
 let sessionBootRetryTimer = null;
+const SESSION_BOOT_RETRY_DELAYS = [1200, 2500, 5000, 10000];
 function showSessionBootFailure(message, retryLabel = 'Tentar novamente') {
   $('#sessionBootText').textContent = message;
   const retry = $('#sessionBootRetry');
@@ -6049,10 +6057,11 @@ async function initialize() {
   catch(error) {
     if(error.status===401) { showAuth(); return; }
     sessionBootAttempts += 1;
-    if (sessionBootAttempts < 3) {
+    const retryDelay = SESSION_BOOT_RETRY_DELAYS[sessionBootAttempts - 1];
+    if (retryDelay) {
       $('#sessionBootText').textContent = 'Reconectando sua sessão…';
       $('#sessionBootRetry').classList.add('hidden');
-      sessionBootRetryTimer = setTimeout(initialize, sessionBootAttempts * 1200);
+      sessionBootRetryTimer = setTimeout(initialize, retryDelay);
       return;
     }
     showSessionBootFailure('Não foi possível verificar sua sessão agora. Seu acesso foi preservado; tente novamente em instantes.');
@@ -6075,6 +6084,7 @@ initialize();
 let portalSyncInProgress = false;
 let portalSyncTimer = null;
 let lastPortalActivityAt = Date.now();
+let lastPointerMoveActivityAt = 0;
 function portalSyncDelay() {
   if (document.hidden) return 90000;
   const page = currentPortalPage();
@@ -6136,14 +6146,22 @@ async function runPortalSync() {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && appState?.realtimeTransport === 'adaptive-poll') { lastPortalActivityAt = Date.now(); schedulePortalSync(0); }
 });
-function notePortalActivity() {
-  const wasIdle = Date.now() - lastPortalActivityAt >= 5 * 60 * 1000;
-  lastPortalActivityAt = Date.now();
+function notePortalActivity(source = 'interaction') {
+  const now = Date.now();
+  // O ponteiro pode disparar centenas de eventos por segundo. Ele ainda
+  // mantém o comportamento de sincronização atual, mas no máximo uma vez a
+  // cada 30 segundos — sem transformar movimento contínuo em trabalho local.
+  if (source === 'pointermove') {
+    if (now - lastPointerMoveActivityAt < 30000) return;
+    lastPointerMoveActivityAt = now;
+  }
+  const wasIdle = now - lastPortalActivityAt >= 5 * 60 * 1000;
+  lastPortalActivityAt = now;
   if (wasIdle && appState?.realtimeTransport === 'adaptive-poll' && !document.hidden) schedulePortalSync(0);
 }
-document.addEventListener('pointermove', notePortalActivity, { passive: true });
-document.addEventListener('pointerdown', notePortalActivity, { passive: true });
-document.addEventListener('keydown', notePortalActivity, { passive: true });
+document.addEventListener('pointermove', () => notePortalActivity('pointermove'), { passive: true });
+document.addEventListener('pointerdown', () => notePortalActivity('pointerdown'), { passive: true });
+document.addEventListener('keydown', () => notePortalActivity('keydown'), { passive: true });
 window.addEventListener('online', () => { if (appState?.realtimeTransport === 'adaptive-poll') schedulePortalSync(0); });
 window.addEventListener('offline', () => {
   if ($('#liveStatus')) { $('#liveStatus').textContent = 'OFFLINE'; $('#liveStatus').title = 'Aguardando a conexão voltar'; }

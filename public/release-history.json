@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "20260923-session-resilience-v115",
+      "publishedAt": "2026-09-23",
+      "title": "Sessões mais resilientes",
+      "notes": [
+        "Quando houver falha temporária ao abrir, a sessão tenta se recuperar progressivamente antes de exibir a ação manual.",
+        "O movimento contínuo do cursor não repete trabalho local; cliques e teclado seguem respondendo normalmente.",
+        "Aba em segundo plano, sincronização visível e as cadências rápidas de Sorteio, Mistério e Impostor foram preservadas.",
+        "O painel administrativo agora sinaliza backup ausente ou desatualizado, sem alterar dados do portal."
+      ]
+    },
+    {
       "version": "20260923-water-reminder-v114",
       "publishedAt": "2026-09-23",
       "title": "Lembrete de água em todo o portal",
