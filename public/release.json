@@ -1,5 +1,5 @@
 {
-  "version": "20260923-performance-v110",
-  "title": "Portal mais leve e sessões mais claras",
-  "notes": "Arquivos estáticos passam pela CDN, o Mercado 51 evita cálculos repetidos e a tela informa se a falha é de sessão ou de interface. Nenhum saldo, compra, posição ou histórico foi alterado."
+  "version": "20260923-stellar-loan-only-v111",
+  "title": "Agiota: itens somente para quitar dívida",
+  "notes": "A entrega de item ao Agiota só fica disponível com empréstimo ativo e abate exclusivamente a dívida. Nenhum saldo, compra ou histórico anterior foi alterado."
 }

@@ -32,7 +32,7 @@ test('análise calcula utilidade por coleção e versão dos assets é atualizad
   assert.match(html, /card-album\.js\?v=20260917-237/);
   assert.match(js, /directTradeFilter/);
   assert.match(html, /styles\.css\?v=20260922-387/);
-  assert.match(html, /app\.js\?v=20260923-394/);
+  assert.match(html, /app\.js\?v=20260923-395/);
   assert.match(html, /platform-upgrades\.css\?v=20260917-217/);
 });
 
@@ -176,7 +176,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="500" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260923-performance-v110/);
+  assert.match(appJs, /20260923-stellar-loan-only-v111/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51 sem repetir o histórico inteiro', () => {
@@ -378,7 +378,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260923-performance-v110/);
+  assert.match(appJs, /20260923-stellar-loan-only-v111/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -386,7 +386,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260923-performance-v110/);
+  assert.match(appJs, /20260923-stellar-loan-only-v111/);
 });
 
 test('Pokédex preserva a identidade Cobblemon mesmo com tema ou punição ativos', () => {
@@ -549,6 +549,8 @@ test('cápsula Pokémon faz três sorteios por compra e escolha semanal', () => 
 test('Agiota autentica a venda de item antes de consultar o inventário', () => {
   assert.match(serverJs, /route === '\/api\/loans\/offer-item'\) \{\s+const \{ user \} = requireAuth\(req\);/);
   assert.match(serverJs, /entry\.id === body\.purchaseId && entry\.userId === user\.id/);
+  assert.match(serverJs, /if \(!loan\) throw new HttpError\(409, 'Você não possui dívida ativa para quitar com um item\.'/);
+  assert.doesNotMatch(serverJs, /mode: 'stellar-item-sale'/);
 });
 
 test('cápsula separa limite semanal, sorteios por baú e entrega antecipada após a escolha', () => {

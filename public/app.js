@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260923-performance-v110',
-  title: 'Portal mais leve e sessões mais claras',
-  notes: 'Arquivos visuais passam pela CDN, o Mercado 51 evita cálculos repetidos e a tela diferencia falha de sessão de falha de interface. Saldos, compras, posições e históricos não foram alterados.'
+  version: '20260923-stellar-loan-only-v111',
+  title: 'Agiota: itens somente para quitar dívida',
+  notes: 'A entrega de item ao Agiota só fica disponível com empréstimo ativo e abate exclusivamente a dívida. Nenhum saldo ou histórico anterior foi alterado.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3648,7 +3648,7 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   if (!lenderOffers) { lenderOffers = document.createElement('section'); lenderOffers.id = 'stellarLenderOffers'; lenderOffers.className = 'stellar-lender-offers'; $('#stellarLoanCard').append(lenderOffers); }
   const lender = profile.stellarLender;
   lenderOffers.classList.toggle('hidden', !lender?.visible || !(lender.offers || []).length);
-  lenderOffers.innerHTML = lender?.visible ? `<strong>💼 Venda um item ao Agiota</strong><small>${lender.reason === 'overdue' ? 'Sua dívida está vencida: o valor será abatido dela.' : 'Saldo abaixo de 500: troque um item do inventário por créditos.'}</small><div class="stellar-item-offer-list">${(lender.offers || []).map((item) => `<button type="button" data-loan-item="${escapeHtml(item.purchaseId)}"><span>${escapeHtml(item.icon)}</span><b>${escapeHtml(item.name)}</b><em>+${formatCredits(item.value)} créditos</em></button>`).join('')}</div>` : '';
+  lenderOffers.innerHTML = lender?.visible ? `<strong>💼 Entregue um item ao Agiota</strong><small>${lender.reason === 'overdue' ? 'Sua dívida está vencida: o valor será abatido dela.' : 'Você tem uma dívida ativa: o valor será abatido dela.'}</small><div class="stellar-item-offer-list">${(lender.offers || []).map((item) => `<button type="button" data-loan-item="${escapeHtml(item.purchaseId)}"><span>${escapeHtml(item.icon)}</span><b>${escapeHtml(item.name)}</b><em>${formatCredits(item.value)} para abater</em></button>`).join('')}</div>` : '';
   const shopPriority = (item) => item.service ? -2 : item.id === 'power-force-gay-cursor' ? -1 : 0;
   const orderedShop = [...shop].sort((a, b) => shopPriority(a) - shopPriority(b));
   const nextShopCatalogSignature = JSON.stringify([shop, profile.cardPacks || [], mysteryBoxes, freeShopAvailable, profile.cobblemon?.balls || {}, shopFilter, hideOwnedVisuals]);
@@ -5085,7 +5085,7 @@ $('#lotteryForm')?.addEventListener('submit', async (event) => {
 
 $('#stellarLoanCard').addEventListener('click', async (event) => {
   const itemOffer = event.target.closest('[data-loan-item]'); const borrow = event.target.closest('[data-loan-borrow]'); const repay = event.target.closest('[data-loan-repay],[data-loan-repay-all]');
-  if (itemOffer) { const offer = appState?.profile?.stellarLender?.offers?.find((entry) => entry.purchaseId === itemOffer.dataset.loanItem); if (!offer) return; if (!confirm(`Entregar ${offer.name} ao Agiota por ${offer.value} créditos?\n\nO item será removido definitivamente do seu inventário.`)) return; itemOffer.disabled = true; try { applyState(await api('/api/loans/offer-item', { method: 'POST', body: { purchaseId: offer.purchaseId } })); showToast('Item entregue ao Agiota e saldo atualizado.'); } catch (error) { showToast(error.message, 'error'); itemOffer.disabled = false; } return; }
+  if (itemOffer) { const offer = appState?.profile?.stellarLender?.offers?.find((entry) => entry.purchaseId === itemOffer.dataset.loanItem); if (!offer) return; if (!confirm(`Entregar ${offer.name} ao Agiota para abater ${offer.value} créditos da dívida?\n\nO item será removido definitivamente do seu inventário.`)) return; itemOffer.disabled = true; try { applyState(await api('/api/loans/offer-item', { method: 'POST', body: { purchaseId: offer.purchaseId } })); showToast('Item entregue ao Agiota e valor abatido da dívida.'); } catch (error) { showToast(error.message, 'error'); itemOffer.disabled = false; } return; }
   if (!borrow && !repay) return;
   const button = borrow || repay; button.disabled = true;
   try {
