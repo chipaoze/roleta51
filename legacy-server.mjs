@@ -1951,22 +1951,27 @@ export function lieVoteDecision(requiredVoterIds = [], votes = {}) {
   const voterIds = [...new Set(requiredVoterIds)];
   const lieVotes = voterIds.filter((id) => votes[id] === 'lie').length;
   const truthVotes = voterIds.filter((id) => votes[id] === 'truth').length;
-  const remaining = Math.max(0, voterIds.length - lieVotes - truthVotes);
+  // “Não ouvi” registra que a pessoa participou, mas é uma abstenção: não
+  // pesa nem para confirmar nem para negar a acusação.
+  const notHeardVotes = voterIds.filter((id) => votes[id] === 'not-heard').length;
+  const remaining = Math.max(0, voterIds.length - lieVotes - truthVotes - notHeardVotes);
   const received = lieVotes + truthVotes;
-  const everyoneVoted = remaining === 0;
+  const everyoneAnswered = remaining === 0;
   // Depois de mais da metade da equipe votar, a maioria dos votos recebidos
   // decide. Antes do quórum, um placar parcial não encerra a acusação.
   const quorumReached = received > voterIds.length / 2;
   const outcome = quorumReached && lieVotes !== truthVotes
     ? (lieVotes > truthVotes ? 'lie' : 'truth')
-    : everyoneVoted ? (lieVotes > truthVotes ? 'lie' : 'truth') : null;
-  return { outcome, lieVotes, truthVotes, remaining };
+    // Mantém o desempate histórico quando todos votaram nas duas opções. Com
+    // pelo menos uma abstenção, encerrar sem maioria vira decisão neutra.
+    : everyoneAnswered ? (notHeardVotes > 0 ? 'not-heard' : (lieVotes > truthVotes ? 'lie' : 'truth')) : null;
+  return { outcome, lieVotes, truthVotes, notHeardVotes, remaining };
 }
 
 function resolveLieVoteIfDecided(item, now = new Date().toISOString()) {
   if (!item || item.status !== 'pending' || !Array.isArray(item.requiredVoterIds)) return false;
   item.votes ||= {};
-  const { outcome, lieVotes, truthVotes, remaining } = lieVoteDecision(item.requiredVoterIds, item.votes);
+  const { outcome, lieVotes, truthVotes, notHeardVotes, remaining } = lieVoteDecision(item.requiredVoterIds, item.votes);
   if (!outcome) return false;
 
   if (outcome === 'lie') {
@@ -1981,9 +1986,9 @@ function resolveLieVoteIfDecided(item, now = new Date().toISOString()) {
   } else {
     item.status = 'rejected';
     item.rejectedAt = now;
-    item.voteOutcome = 'truth';
+    item.voteOutcome = outcome;
   }
-  item.decisionVotes = { lie: lieVotes, truth: truthVotes, remaining };
+  item.decisionVotes = { lie: lieVotes, truth: truthVotes, notHeard: notHeardVotes, remaining };
   return true;
 }
 
@@ -3167,13 +3172,14 @@ function buildStateFor(user) {
           })),
           lieVotes: (item.requiredVoterIds || []).filter((voterId) => item.votes?.[voterId] === 'lie').length,
           truthVotes: (item.requiredVoterIds || []).filter((voterId) => item.votes?.[voterId] === 'truth').length,
+          notHeardVotes: (item.requiredVoterIds || []).filter((voterId) => item.votes?.[voterId] === 'not-heard').length,
           canVote: (item.requiredVoterIds || []).includes(user.id),
           canCancel: user.id === item.createdByUserId || user.role === 'admin',
         };
       }),
-      history: db.lieAccusations.filter((item) => ['confirmed', 'rejected'].includes(item.status) && Object.values(item.votes || {}).some((vote) => vote === 'lie' || vote === 'truth')).slice(-12).reverse().map((item) => {
+      history: db.lieAccusations.filter((item) => ['confirmed', 'rejected'].includes(item.status) && Object.values(item.votes || {}).some((vote) => ['lie', 'truth', 'not-heard'].includes(vote))).slice(-12).reverse().map((item) => {
         const voterIds = [...new Set(item.requiredVoterIds || Object.keys(item.votes || {}))];
-        const votes = voterIds.filter((voterId) => ['lie', 'truth'].includes(item.votes?.[voterId])).map((voterId) => ({
+        const votes = voterIds.filter((voterId) => ['lie', 'truth', 'not-heard'].includes(item.votes?.[voterId])).map((voterId) => ({
           id: voterId,
           name: db.users.find((person) => person.id === voterId)?.displayName || 'Conta removida',
           vote: item.votes[voterId],
@@ -3181,12 +3187,13 @@ function buildStateFor(user) {
         return {
           id: item.id,
           reason: item.reason || null,
-          outcome: item.status === 'confirmed' ? 'lie' : 'truth',
+          outcome: item.voteOutcome || (item.status === 'confirmed' ? 'lie' : 'truth'),
           resolvedAt: item.confirmedAt || item.rejectedAt || item.createdAt,
           targetName: db.users.find((person) => person.id === item.targetUserId)?.displayName || 'Usuário removido',
           creatorName: db.users.find((person) => person.id === item.createdByUserId)?.displayName || 'Usuário removido',
           lieVotes: votes.filter((entry) => entry.vote === 'lie').length,
           truthVotes: votes.filter((entry) => entry.vote === 'truth').length,
+          notHeardVotes: votes.filter((entry) => entry.vote === 'not-heard').length,
           voters: votes,
         };
       }),
@@ -4128,7 +4135,7 @@ async function handleApi(req, res, route) {
     if (!item) throw new HttpError(404, 'Votação de mentira não encontrada.');
     if (!item.requiredVoterIds?.includes(user.id)) throw new HttpError(403, 'Você não participa desta votação.');
     const vote = String(body.vote || '');
-    if (!['truth', 'lie'].includes(vote)) throw new HttpError(400, 'Escolha Verdade ou Mentira.');
+    if (!['truth', 'lie', 'not-heard'].includes(vote)) throw new HttpError(400, 'Escolha Mentiu, Não mentiu ou Não ouvi.');
     item.votes ||= {}; item.votes[user.id] = vote;
     resolveLieVoteIfDecided(item);
     await persist(); broadcastRefresh('lie-meter'); json(res, 200, stateFor(user)); return;

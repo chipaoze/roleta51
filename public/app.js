@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-  version: '20260923-cobblemon-history-v112',
-  title: 'Caçada em Atualizações e histórico compacto',
-  notes: 'Pokémon podem aparecer na página Atualizações, e o histórico de entregas Cobblemon agora abre somente quando você clicar nele. Nenhuma entrega, saldo ou histórico foi alterado.'
+  version: '20260923-lie-neutral-v113',
+  title: 'Mentirômetro com decisão neutra',
+  notes: 'A votação agora tem a opção “Não ouvi”. Ela registra a participação, mas não conta como mentira nem como verdade e não altera o placar.'
 };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2737,20 +2737,20 @@ function renderLieMeter(lieMeter = {}) {
     const total = Math.max(1, Number(item.totalVoters || 0)); const received = Number(item.receivedVotes || 0);
     const voterCard = (voter) => {
       const voterPerson = { id: voter.id, displayName: voter.name };
-      const voteLabel = voter.vote === 'lie' ? 'Mentiu' : voter.vote === 'truth' ? 'Não mentiu' : 'Aguardando';
-      const voteIcon = voter.vote === 'lie' ? '✓' : voter.vote === 'truth' ? '✓' : '…';
+      const voteLabel = voter.vote === 'lie' ? 'Mentiu' : voter.vote === 'truth' ? 'Não mentiu' : voter.vote === 'not-heard' ? 'Não ouvi' : 'Aguardando';
+      const voteIcon = voter.vote === 'lie' || voter.vote === 'truth' ? '✓' : voter.vote === 'not-heard' ? '—' : '…';
       return `<span class="lie-voter ${voter.vote || 'waiting'}">${personAvatar(voterPerson, 'lie-voter-avatar')}<span><em>${escapeHtml(formatDisplayName(voter.name))}</em><i><b>${voteIcon}</b>${voteLabel}</i></span></span>`;
     };
     const voted = (item.voters || []).filter((voter) => voter.vote).map(voterCard).join('');
     const waiting = (item.voters || []).filter((voter) => !voter.vote).map(voterCard).join('');
     const voterGroups = `<div class="lie-voter-groups">${voted ? `<section><strong class="lie-voter-group-title voted">✓ Já votaram <b>${received}</b></strong><div class="lie-voters">${voted}</div></section>` : ''}${waiting ? `<section><strong class="lie-voter-group-title waiting">⌛ Aguardando <b>${Math.max(0, total - received)}</b></strong><div class="lie-voters">${waiting}</div></section>` : ''}</div>`;
-    return `<article id="lie-pending-${escapeHtml(item.id)}" class="lie-pending"><div class="lie-pending-heading"><span>🗳️</span><div><strong>Votação coletiva: ${escapeHtml(formatDisplayName(item.targetName))} mentiu?</strong><small>Registrada por ${escapeHtml(formatDisplayName(item.creatorName))}</small></div></div><div class="lie-pending-copy"><p>${item.reason ? `<em class="lie-reason">“${escapeHtml(item.reason)}”</em>` : ''}</p><div class="lie-vote-progress"><span><b style="width:${Math.round(received / total * 100)}%"></b></span><strong>${received} de ${total} votaram</strong><em>Mentiu ${Number(item.lieVotes || 0)} · Não mentiu ${Number(item.truthVotes || 0)}</em></div>${voterGroups}</div><div class="lie-pending-actions">${item.canVote ? `<small>Sua escolha: <b>${item.myVote === 'lie' ? 'Mentiu' : item.myVote === 'truth' ? 'Não mentiu' : 'pendente'}</b></small><button class="lie-validate" type="button" data-lie-vote="lie" data-lie-vote-id="${escapeHtml(item.id)}">Mentiu</button><button class="lie-deny" type="button" data-lie-vote="truth" data-lie-vote-id="${escapeHtml(item.id)}">Não mentiu</button>` : '<small>Você não participa desta votação</small>'}${item.canCancel ? `<button class="lie-cancel" type="button" data-lie-cancel="${escapeHtml(item.id)}">Cancelar</button>` : ''}</div></article>`;
+    return `<article id="lie-pending-${escapeHtml(item.id)}" class="lie-pending"><div class="lie-pending-heading"><span>🗳️</span><div><strong>Votação coletiva: ${escapeHtml(formatDisplayName(item.targetName))} mentiu?</strong><small>Registrada por ${escapeHtml(formatDisplayName(item.creatorName))}</small></div></div><div class="lie-pending-copy"><p>${item.reason ? `<em class="lie-reason">“${escapeHtml(item.reason)}”</em>` : ''}</p><div class="lie-vote-progress"><span><b style="width:${Math.round(received / total * 100)}%"></b></span><strong>${received} de ${total} votaram</strong><em>Mentiu ${Number(item.lieVotes || 0)} · Não mentiu ${Number(item.truthVotes || 0)} · Não ouvi ${Number(item.notHeardVotes || 0)}</em></div>${voterGroups}</div><div class="lie-pending-actions">${item.canVote ? `<small>Sua escolha: <b>${item.myVote === 'lie' ? 'Mentiu' : item.myVote === 'truth' ? 'Não mentiu' : item.myVote === 'not-heard' ? 'Não ouvi' : 'pendente'}</b></small><button class="lie-validate" type="button" data-lie-vote="lie" data-lie-vote-id="${escapeHtml(item.id)}">Mentiu</button><button class="lie-deny" type="button" data-lie-vote="truth" data-lie-vote-id="${escapeHtml(item.id)}">Não mentiu</button><button class="lie-neutral" type="button" data-lie-vote="not-heard" data-lie-vote-id="${escapeHtml(item.id)}">Não ouvi</button>` : '<small>Você não participa desta votação</small>'}${item.canCancel ? `<button class="lie-cancel" type="button" data-lie-cancel="${escapeHtml(item.id)}">Cancelar</button>` : ''}</div></article>`;
   }).join('') : '<p class="lie-empty">Nenhuma votação de mentira aguardando a equipe.</p>';
   const voteHistory = Array.isArray(lieMeter.history) ? lieMeter.history : [];
   $('#lieVoteHistory').innerHTML = voteHistory.length ? `<details><summary>Histórico das votações <b>${voteHistory.length}</b></summary><div class="lie-vote-history-list">${voteHistory.map((item) => {
-    const resultLabel = item.outcome === 'lie' ? 'Resultado: mentiu' : 'Resultado: não mentiu';
-    const voters = (item.voters || []).map((voter) => `<span class="lie-voter ${voter.vote}">${personAvatar({ id: voter.id, displayName: voter.name }, 'lie-voter-avatar')}<span><em>${escapeHtml(formatDisplayName(voter.name))}</em><i><b>✓</b>${voter.vote === 'lie' ? 'Mentiu' : 'Não mentiu'}</i></span></span>`).join('');
-    return `<article class="lie-vote-history-item ${item.outcome}"><header><div><strong>${escapeHtml(formatDisplayName(item.targetName))}</strong><small>Registrada por ${escapeHtml(formatDisplayName(item.creatorName))} · ${escapeHtml(formatDate(item.resolvedAt))}</small></div><b>${resultLabel}</b></header>${item.reason ? `<p>“${escapeHtml(item.reason)}”</p>` : ''}<div class="lie-vote-history-score"><span>Mentiu <b>${Number(item.lieVotes || 0)}</b></span><span>Não mentiu <b>${Number(item.truthVotes || 0)}</b></span></div><div class="lie-voters">${voters}</div></article>`;
+    const resultLabel = item.outcome === 'lie' ? 'Resultado: mentiu' : item.outcome === 'not-heard' ? 'Resultado: sem decisão' : 'Resultado: não mentiu';
+    const voters = (item.voters || []).map((voter) => `<span class="lie-voter ${voter.vote}">${personAvatar({ id: voter.id, displayName: voter.name }, 'lie-voter-avatar')}<span><em>${escapeHtml(formatDisplayName(voter.name))}</em><i><b>${voter.vote === 'not-heard' ? '—' : '✓'}</b>${voter.vote === 'lie' ? 'Mentiu' : voter.vote === 'truth' ? 'Não mentiu' : 'Não ouvi'}</i></span></span>`).join('');
+    return `<article class="lie-vote-history-item ${item.outcome}"><header><div><strong>${escapeHtml(formatDisplayName(item.targetName))}</strong><small>Registrada por ${escapeHtml(formatDisplayName(item.creatorName))} · ${escapeHtml(formatDate(item.resolvedAt))}</small></div><b>${resultLabel}</b></header>${item.reason ? `<p>“${escapeHtml(item.reason)}”</p>` : ''}<div class="lie-vote-history-score"><span>Mentiu <b>${Number(item.lieVotes || 0)}</b></span><span>Não mentiu <b>${Number(item.truthVotes || 0)}</b></span><span>Não ouvi <b>${Number(item.notHeardVotes || 0)}</b></span></div><div class="lie-voters">${voters}</div></article>`;
   }).join('')}</div></details>` : '';
   const disputes = Array.isArray(lieMeter.disputes) ? lieMeter.disputes : [];
   const disputeBox = $('#lieDisputes');

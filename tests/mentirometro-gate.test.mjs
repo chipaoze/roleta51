@@ -23,10 +23,12 @@ test('Mentirômetro permite várias marcações diferentes para o mesmo alvo', (
   assert.match(server, /Date\.parse\(now\) - Date\.parse\(item\.createdAt \|\| ''\) < 30000/);
 });
 
-test('interface bloqueia o portal e oferece as duas decisões', () => {
+test('interface bloqueia o portal e oferece as três decisões', () => {
   assert.match(html, /id="lieVoteRequiredDialog"/);
   assert.match(html, /data-required-lie-vote="lie"/);
   assert.match(html, /data-required-lie-vote="truth"/);
+  assert.match(html, /data-required-lie-vote="not-heard"/);
+  assert.match(client, /data-lie-vote="not-heard"/);
   assert.match(client, /function renderRequiredLieVote\(required\)/);
   assert.match(client, /api\('\/api\/lie-meter\/'.*\/vote/);
   assert.match(client, /requiredLieVoteChanged/);
@@ -34,6 +36,17 @@ test('interface bloqueia o portal e oferece as duas decisões', () => {
   assert.match(client, /dialog\.dataset\.submitting === '1'/);
   assert.match(client, /approvedBy/);
   assert.match(server, /approvedBy: lieApprovalPeople\(item\)/);
+});
+
+test('Não ouvi libera a participação sem contar como mentira ou verdade', () => {
+  const pending = lieVoteDecision(['a', 'b', 'c'], { a: 'lie', b: 'not-heard' });
+  const neutral = lieVoteDecision(['a', 'b', 'c'], { a: 'lie', b: 'not-heard', c: 'truth' });
+  const decisive = lieVoteDecision(['a', 'b', 'c', 'd'], { a: 'lie', b: 'lie', c: 'truth', d: 'not-heard' });
+  assert.equal(pending.outcome, null);
+  assert.equal(pending.notHeardVotes, 1);
+  assert.equal(pending.remaining, 1);
+  assert.equal(neutral.outcome, 'not-heard');
+  assert.equal(decisive.outcome, 'lie');
 });
 
 test('votos de várias mentiras são independentes e a próxima decisão continua disponível', () => {

@@ -1,5 +1,5 @@
 {
-  "version": "20260923-cobblemon-history-v112",
-  "title": "Caçada em Atualizações e histórico compacto",
-  "notes": "Pokémon podem aparecer na página Atualizações, e o histórico de entregas Cobblemon agora abre somente quando você clicar nele. Nenhuma entrega, saldo ou histórico foi alterado."
+  "version": "20260923-lie-neutral-v113",
+  "title": "Mentirômetro com decisão neutra",
+  "notes": "A votação agora tem a opção “Não ouvi”. Ela registra a participação, mas não conta como mentira nem como verdade e não altera o placar."
 }

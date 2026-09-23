@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20260923-lie-neutral-v113",
+      "publishedAt": "2026-09-23",
+      "title": "Mentirômetro com decisão neutra",
+      "notes": [
+        "Foi incluída a opção “Não ouvi” nas votações coletivas e no bloqueio de participação.",
+        "Ela registra a resposta da pessoa sem contar como mentira ou como verdade.",
+        "Se todos responderem e não houver maioria entre Mentiu e Não mentiu, a votação termina sem decisão e não altera o placar."
+      ]
+    },
+    {
       "version": "20260923-cobblemon-history-v112",
       "publishedAt": "2026-09-23",
       "title": "Caçada em Atualizações e histórico compacto",
