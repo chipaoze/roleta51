@@ -4749,12 +4749,24 @@ async function createWatermarkedWallpaper(result) {
     if (!blob) throw new Error('Falha ao gerar a imagem.');
     if (watermarkObjectUrl) URL.revokeObjectURL(watermarkObjectUrl);
     watermarkObjectUrl = URL.createObjectURL(blob);
-    $('#winnerImage').src = watermarkObjectUrl;
-    download.href = watermarkObjectUrl;
+    let permanentUrl = '';
+    try {
+      const saved = await api('/api/draw/gay-watermark', {
+        method: 'POST', timeoutMs: 60000,
+        body: { drawId: result.id, dataUrl: output.toDataURL('image/png', .94) },
+      });
+      permanentUrl = saved?.watermarkedUrl || '';
+    } catch {
+      // A imagem local ainda pode ser baixada se o salvamento falhar.
+    }
+    $('#winnerImage').src = permanentUrl || watermarkObjectUrl;
+    download.href = permanentUrl || watermarkObjectUrl;
     download.download = 'gay-da-rodada-' + result.winner.toLowerCase().normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-') + '.png';
     download.classList.remove('hidden');
-    status.textContent = '✓ Marca d’água aplicada em “' + (result.watermarkSourceTitle || 'wallpaper') + '”. Pronto para usar por uma semana.';
+    status.textContent = permanentUrl
+      ? '✓ Marca d’água aplicada e salva em “' + (result.watermarkSourceTitle || 'wallpaper') + '”. Pronto para usar por uma semana.'
+      : '✓ Marca d’água aplicada em “' + (result.watermarkSourceTitle || 'wallpaper') + '”. Baixe agora para não perder a versão marcada.';
   } catch {
     status.textContent = 'Não foi possível gerar a versão marcada neste navegador.';
   }

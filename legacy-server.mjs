@@ -2810,7 +2810,7 @@ function makeGayDrawResult({ roundId, participants, assignments, submissions, wi
     id: randomUUID(), type: 'gay', winnerId: winner.id, winnerUserId: winner.id,
     winner: winner.displayName, detail: 'Gay da Rodada', imageUrl: '/gay-da-rodada.png',
     roundId, votingId, watermarkSourceUrl: '/uploads/' + sourceSubmission.filename,
-    watermarkSourceTitle: sourceSubmission.title, roundName: db.settings.roundName,
+    watermarkSourceTitle: sourceSubmission.title, watermarkedFilename: null, roundName: db.settings.roundName,
     drawnBy, createdAt: new Date().toISOString(),
   };
   db.votings.push({
@@ -3717,6 +3717,15 @@ function buildStateFor(user, options = {}) {
     .filter((draw) => draw.type !== 'theme' || (draw.themeStage !== 'finalist' && db.settings.themes.includes(draw.winner)))
     .slice(-30).reverse().map((draw) => {
     const { winnerUserId, ...safeDraw } = draw;
+    if (draw.type === 'gay') {
+      const canAccessMarkedWallpaper = draw.winnerId === user.id || user.role === 'admin';
+      return {
+        ...safeDraw,
+        imageUrl: draw.watermarkedFilename && canAccessMarkedWallpaper ? '/uploads/' + draw.watermarkedFilename : safeDraw.imageUrl,
+        watermarkSourceUrl: canAccessMarkedWallpaper ? safeDraw.watermarkSourceUrl : null,
+        watermarkSourceTitle: canAccessMarkedWallpaper ? safeDraw.watermarkSourceTitle : null,
+      };
+    }
     if (draw.type !== 'wallpaper') return safeDraw;
     const item = db.submissions.find((submission) => submission.id === draw.submissionId);
     const relatedVoting = [...db.votings].reverse().find((vote) => vote.roundId === draw.roundId);
@@ -5926,6 +5935,28 @@ async function handleApi(req, res, route) {
     json(res, 200, stateFor(user)); return;
   }
 
+  if (req.method === 'POST' && route === '/api/draw/gay-watermark') {
+    const { user } = requireAuth(req);
+    const { drawId = '', dataUrl = '' } = await readJson(req);
+    const draw = db.draws.find((item) => item.id === String(drawId) && item.type === 'gay');
+    if (!draw) throw new HttpError(404, 'Sorteio do Gay da Rodada não encontrado.');
+    if (draw.winnerId !== user.id && user.role !== 'admin') throw new HttpError(403, 'Somente o sorteado ou o administrador pode salvar este wallpaper marcado.');
+    const { image, mimeType, extension } = decodeWallpaperDataUrl(dataUrl);
+    const previousFilename = draw.watermarkedFilename;
+    const filename = randomUUID() + '.' + extension;
+    const usedMemory = [...imageStore.values()].reduce((total, entry) => total + entry.buffer.length, 0);
+    if (usedMemory - Number(previousFilename ? imageStore.get(previousFilename)?.buffer.length || 0 : 0) + image.length > MAX_IMAGE_MEMORY) {
+      throw new HttpError(507, 'Não há espaço para salvar a versão marcada deste wallpaper.');
+    }
+    await storeImage(filename, image, mimeType);
+    draw.watermarkedFilename = filename;
+    draw.watermarkedMimeType = mimeType;
+    if (previousFilename && previousFilename !== filename) await deleteStoredImage(previousFilename);
+    await persist();
+    broadcastRefresh('gay-wallpaper-watermarked');
+    json(res, 201, { watermarkedUrl: '/uploads/' + filename }); return;
+  }
+
   if (req.method === 'POST' && route === '/api/draw/gay-shield') {
     const { user } = requireAuth(req);
     const body = await readJson(req);
@@ -6690,7 +6721,9 @@ export async function requestHandler(req, res) {
       const { user } = requireAuth(req);
       const filename = path.basename(decodeURIComponent(url.pathname.slice(9)));
       const submission = db.submissions.find((item) => item.filename === filename && item.active);
-      if (!submission || !canViewSubmission(user, submission)) throw new HttpError(403, 'Este wallpaper pertence a outra pessoa.');
+      const markedGayDraw = db.draws.find((item) => item.type === 'gay' && item.watermarkedFilename === filename);
+      const canViewMarkedGayWallpaper = markedGayDraw && (markedGayDraw.winnerId === user.id || user.role === 'admin');
+      if ((!submission || !canViewSubmission(user, submission)) && !canViewMarkedGayWallpaper) throw new HttpError(403, 'Este wallpaper pertence a outra pessoa.');
       await serveMemoryImage(res, filename); return;
     }
     if (url.pathname.startsWith('/memes/')) {
