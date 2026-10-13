@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# O healthz não consulta SQLite nem monta o estado do jogo. Se ele não
+# responder, o Node deixou de atender o loop e pode ser reiniciado sem tocar
+# no banco ou nas mídias. Caddy é verificado separadamente pelo systemd.
+if ! /usr/bin/curl --fail --silent --show-error --connect-timeout 2 --max-time 8 \
+  http://127.0.0.1:8787/healthz >/dev/null; then
+  /usr/bin/logger -t area51-healthcheck 'backend health check failed; restarting area51-backend'
+  /usr/bin/systemctl restart area51-backend.service
+fi
+
+if ! /usr/bin/systemctl is-active --quiet caddy.service; then
+  /usr/bin/logger -t area51-healthcheck 'caddy is inactive; restarting caddy'
+  /usr/bin/systemctl restart caddy.service
+fi

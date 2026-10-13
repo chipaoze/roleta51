@@ -1,0 +1,21 @@
+import { DatabaseSync } from 'node:sqlite';
+import { randomBytes, scryptSync } from 'node:crypto';
+
+const filename = process.argv[2];
+if (!filename) throw new Error('Informe o SQLite de teste.');
+const database = new DatabaseSync(filename);
+const row = database.prepare('SELECT data, revision FROM app_state WHERE id = 1').get();
+const state = JSON.parse(row.data);
+const id = 'premium-sale-smoke-user';
+const username = 'premium_sale_smoke';
+const password = 'premium-sale-smoke-only';
+const salt = randomBytes(16).toString('hex');
+const template = state.users.find((user) => user.active) || {};
+state.users = state.users.filter((user) => user.id !== id && user.username !== username);
+state.users.push({ ...template, id, username, displayName: 'Teste Baú Premium', role: 'participant', active: true, approved: true, mustChangePassword: false, avatarDataUrl: null, passwordSalt: salt, passwordHash: scryptSync(password, salt, 64).toString('hex'), createdAt: new Date().toISOString() });
+state.rememberTokens = (state.rememberTokens || []).filter((entry) => entry.userId !== id);
+state.economy.wallets[id] = 5000;
+state.economy.cobblemonDeliveries = (state.economy.cobblemonDeliveries || []).filter((entry) => entry.userId !== id);
+state.economy.creditAdjustments = (state.economy.creditAdjustments || []).filter((entry) => entry.userId !== id);
+database.prepare('UPDATE app_state SET data = ?, revision = ?, updated_at = ? WHERE id = 1').run(JSON.stringify(state), Number(row.revision || 0) + 1, new Date().toISOString());
+database.close();

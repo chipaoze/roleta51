@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-    version: '20260923-delivery-history-v116',
-    title: 'Histórico de entregas acessível',
-    notes: 'O Histórico de entregas Cobblemon agora abre e fecha de forma confiável, preservando o estado quando o portal atualiza.'
+    version: '20261002-locator-chip-roulette-v181',
+    title: 'Locator Chip na Roleta Cobblemon',
+    notes: 'O novo item raro chegou à roleta com sprite, chance e explicação de uso no Poké Radar.'
   };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -98,14 +98,18 @@ let votingDraft = { votingId: null, bestId: null, worstId: null };
 let notificationsReadAtLocal = null;
 let casinoWheelRotation = 0;
 let casinoSpinInProgress = false;
+let casinoWheelTickTimer = null;
+let casinoWheelAudioContext = null;
 let lotteryGuessDraft = null;
 let lotteryReminderTimer = null;
 let lotteryDrawTimer = null;
 let lotteryDrawInProgress = false;
 let mysteryOpeningInProgress = false;
 let forcedCursorExpiryTimer = null;
+let announcedForcedCursorId = null;
 let pendingShieldDialogIdShown = null;
 let seasonCountdownTimer = null;
+let nextSeasonPassLoaded = false;
 
 function musicPreferenceKey(userId) {
   return userId ? `roundMusic:${userId}` : 'roundMusic';
@@ -220,9 +224,11 @@ function startRainbowMouseTrail() {
       trailContext.beginPath();
       trailContext.moveTo(previous.x, previous.y);
       trailContext.lineTo(point.x, point.y);
-      trailContext.lineWidth = 1.25 + (opacity * 3.25);
       const trailStyle = document.body.dataset.trailStyle || 'rainbow';
-      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67],laser:[158,100,58],alien:[112,100,55],white:[0,0,100],'gta-neon':[322,100,65],cobblemon:[96,68,52],wolverine:[46,100,58],samurai:[344,90,68],'god-war':[200,92,67],sovereign:[47,100,68] };
+      const isSlime = trailStyle === 'halloween-slime';
+      const isBlood = trailStyle === 'halloween-blood';
+      trailContext.lineWidth = (isSlime ? 4.5 : isBlood ? 2.5 : 1.25) + (opacity * (isSlime ? 7 : isBlood ? 5 : 3.25));
+      const trailPalette = { gold:[46,100,60],pink:[330,100,65],blue:[205,100,62],green:[138,96,55],purple:[274,100,67],laser:[158,100,58],alien:[112,100,55],white:[0,0,100],'gta-neon':[322,100,65],cobblemon:[96,68,52],wolverine:[46,100,58],samurai:[344,90,68],'god-war':[200,92,67],'halloween-slime':[112,92,45],'halloween-blood':[352,92,31],sovereign:[47,100,68],taquion:[272,94,68] };
       const fixedColor = trailPalette[trailStyle];
       const rocketAge = Math.max(0, Math.min(1, (now - point.time) / lifetime));
       const hue = trailStyle === 'fire' ? 5 + ((point.hue / 360) * 48) : trailStyle === 'rocket' ? (rocketAge < .2 ? 198 : Math.max(5, 48 - ((rocketAge - .2) * 54))) : fixedColor ? fixedColor[0] : point.hue;
@@ -230,8 +236,16 @@ function startRainbowMouseTrail() {
       const lightness = trailStyle === 'rocket' && rocketAge < .2 ? 78 : fixedColor ? fixedColor[2] : 61;
       trailContext.strokeStyle = `hsla(${hue},${saturation}%,${lightness}%,${opacity * .9})`;
       trailContext.shadowColor = `hsla(${hue},100%,68%,${opacity})`;
-      trailContext.shadowBlur = 5 * opacity;
+      trailContext.shadowBlur = (isSlime ? 11 : isBlood ? 2 : 5) * opacity;
       trailContext.stroke();
+      if ((isSlime || isBlood) && index % (isSlime ? 3 : 4) === 0) {
+        const dropRadius = (isSlime ? 2.2 : 1.5) + opacity * (isSlime ? 3.4 : 2.5);
+        const dropOffset = (index % 2 ? 1 : -1) * (isSlime ? 7 : 5);
+        trailContext.beginPath();
+        trailContext.arc(point.x + dropOffset, point.y + dropOffset * .55, dropRadius, 0, Math.PI * 2);
+        trailContext.fillStyle = `hsla(${hue},${saturation}%,${lightness}%,${opacity * .88})`;
+        trailContext.fill();
+      }
     }
     trailContext.shadowBlur = 0;
 
@@ -371,7 +385,7 @@ startPoliticalAndAxeCursorPhrases();
 function startCommanderCursorEffects() {
   let lastParticleAt = 0;
   document.addEventListener('pointermove', (event) => {
-    const commander = document.documentElement.classList.contains('commander-cursor-active');
+    const commander = document.documentElement.classList.contains('commander-cursor-active') || document.documentElement.classList.contains('commander-halloween-cursor-active');
     const forcedGay = document.documentElement.classList.contains('gay-power-cursor-active');
     if ((!commander && !forcedGay) || Date.now() - lastParticleAt < 85) return;
     lastParticleAt = Date.now();
@@ -382,7 +396,7 @@ function startCommanderCursorEffects() {
     document.body.appendChild(particle); setTimeout(() => particle.remove(), 650);
   }, { passive: true });
   document.addEventListener('pointerdown', (event) => {
-    const commander = document.documentElement.classList.contains('commander-cursor-active');
+    const commander = document.documentElement.classList.contains('commander-cursor-active') || document.documentElement.classList.contains('commander-halloween-cursor-active');
     const forcedGay = document.documentElement.classList.contains('gay-power-cursor-active');
     if (!commander && !forcedGay) return;
     const pulse = document.createElement('i'); pulse.className = forcedGay ? 'gay-click-pulse' : 'commander-click-pulse';
@@ -1245,9 +1259,17 @@ function api(url, options = {}, retry = true) {
 }
 
 async function requestApi(url, options = {}, retry = true) {
-  const { timeoutMs = 25000, ...requestOptions } = options;
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 25000));
-  const config = { ...requestOptions, signal: options.signal || controller.signal, headers: { ...(options.headers || {}) } };
+  const { timeoutMs = 25000, signal: externalSignal, ...requestOptions } = options;
+  const controller = new AbortController();
+  const abortFromExternal = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener('abort', abortFromExternal, { once: true });
+  }
+  const timeout = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 25000));
+  const config = { ...requestOptions, signal: controller.signal, headers: { ...(options.headers || {}) } };
+  const isHalloweenPreview = location.hostname === 'localhost' && new URLSearchParams(location.search).get('preview') === 'halloween';
+  if (isHalloweenPreview && /^\/api\/(state|sync)$/.test(url)) config.headers['X-Area51-Halloween-Preview'] = 'true';
   if ((!config.method || String(config.method).toUpperCase() === 'GET') && !config.cache) config.cache = 'no-store';
   if (config.body && typeof config.body !== 'string') {
     config.headers['Content-Type'] = 'application/json';
@@ -1262,7 +1284,10 @@ async function requestApi(url, options = {}, retry = true) {
     if (retry && (!config.method || config.method === 'GET') && !options.signal?.aborted) return api(url, options, false);
     if (error.name === 'AbortError') throw new Error('A operação demorou demais. Tente novamente.');
     throw new Error('Conexão temporariamente indisponível. Tente novamente em instantes.');
-  } finally { clearTimeout(timeout); }
+  } finally {
+    clearTimeout(timeout);
+    if (externalSignal) externalSignal.removeEventListener('abort', abortFromExternal);
+  }
   if (response.status === 204) return null;
   if (retry && response.status >= 500 && (!config.method || config.method === 'GET')) return api(url, options, false);
   if (!response.ok) {
@@ -1442,7 +1467,7 @@ function openFeedbackPanel() {
   $('#feedbackMessage').focus();
 }
 
-const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','cobblemon','album','loja','jogos','loteria','mercado','classificacao','atualizacoes','admin'];
+const portalPages = ['sorteio','inscricoes','memes','anonimos','agua','mentirometro','misterio','impostor','perfil','cobblemon','album','loja','jogos','loteria','mercado','votacoes','classificacao','atualizacoes','admin'];
 const portalSections = ['inicio', ...portalPages];
 const featurePageMap = { jogos: 'casino', loteria: 'casino', impostor: 'impostor', misterio: 'mystery', loja: 'shop', inscricoes: 'uploads' };
 
@@ -1467,6 +1492,10 @@ function currentPortalPage() {
 
 function showPortalPage(page, pushState = false, resetScroll = true) {
   if (!portalPages.includes(page) || (page === 'admin' && appState?.me?.role !== 'admin')) page = 'sorteio';
+  if (appState?.communityVotes?.requiredVote && page !== 'votacoes') {
+    page = 'votacoes';
+    if (pushState) showToast('Há uma votação obrigatória aguardando sua escolha.', 'error');
+  }
   const requiredFeature = featurePageMap[page];
   if (requiredFeature && appState?.settings?.featureFlags?.[requiredFeature] === false) {
     if (pushState) showToast('Esta área foi pausada temporariamente pelo administrador.', 'error');
@@ -1481,9 +1510,15 @@ function showPortalPage(page, pushState = false, resetScroll = true) {
     link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   });
-  if (pushState) history.pushState({ page }, '', '?pagina=' + encodeURIComponent(page));
-  else if (currentPortalPage() !== page) history.replaceState({ page }, '', '?pagina=' + encodeURIComponent(page));
+  // Preserve parâmetros auxiliares da URL — inclusive o preview local de
+  // Halloween — quando a navegação vem de um sino, menu ou atalho.
+  const portalQuery = new URLSearchParams(location.search);
+  portalQuery.set('pagina', page);
+  const portalUrl = '?' + portalQuery.toString();
+  if (pushState) history.pushState({ page }, '', portalUrl);
+  else if (currentPortalPage() !== page) history.replaceState({ page }, '', portalUrl);
   visiblePortalPage = page;
+  document.body.dataset.portalPage = page;
   if (page === 'sorteio') {
     if (musicPreferenceBeforeDraw === null) musicPreferenceBeforeDraw = musicWanted;
     musicWanted = true;
@@ -1844,6 +1879,16 @@ function applyVisualTheme(data) {
   button.setAttribute('aria-pressed', dark ? 'true' : 'false');
 }
 
+function applySeasonalEvent(event) {
+  const halloweenActive = event?.id === 'halloween-2026' && event.active === true;
+  document.body.dataset.seasonalEvent = halloweenActive ? event.id : '';
+  document.documentElement.dataset.seasonalEvent = halloweenActive ? event.id : '';
+  // A temporada altera somente o catálogo da Loja. O restante do portal
+  // continua exatamente como o usuário configurou; a ambientação só aparece
+  // se ele equipar voluntariamente o tema premium comprado.
+  $('#seasonalAtmosphere')?.remove();
+}
+
 function openPasswordDialog(forced = false) {
   const dialog = $('#passwordDialog');
   dialog.dataset.forced = forced ? 'true' : 'false';
@@ -2088,7 +2133,7 @@ function renderNotifications() {
   const badge = $('#notificationBadge');
   badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
   badge.classList.toggle('hidden', !unreadCount);
-  $('#notificationList').innerHTML = visibleItems.length ? visibleItems.map((item) => `<button type="button" class="notification-item${item.unread ? ' unread' : ''}" data-notification-page="${escapeHtml(item.page || 'sorteio')}" data-notification-id="${escapeHtml(item.id)}" data-notification-target="${escapeHtml(item.targetId || '')}" data-notification-profile="${escapeHtml(item.profileId || '')}"><span>${item.icon || '👽'}</span><p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail || '')}</small><em>${escapeHtml(formatDate(item.createdAt))}</em></p></button>`).join('') : '<div class="notification-empty"><span>🛸</span><strong>Tudo tranquilo por aqui</strong><small>Seus novos avisos aparecerão neste espaço.</small></div>';
+  $('#notificationList').innerHTML = visibleItems.length ? visibleItems.map((item) => `<button type="button" class="notification-item${item.unread ? ' unread' : ''}" data-notification-page="${escapeHtml(item.page || 'sorteio')}" data-notification-id="${escapeHtml(item.id)}" data-notification-target="${escapeHtml(item.targetId || '')}" data-notification-profile="${escapeHtml(item.profileId || '')}" data-notification-pokemon="${escapeHtml(String(item.pokemonId || ''))}" data-notification-capture-user="${escapeHtml(item.captureUserId || '')}"><span>${item.icon || '👽'}</span><p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail || '')}</small><em>${escapeHtml(formatDate(item.createdAt))}</em></p></button>`).join('') : '<div class="notification-empty"><span>🛸</span><strong>Tudo tranquilo por aqui</strong><small>Seus novos avisos aparecerão neste espaço.</small></div>';
 }
 
 function notificationTargetReady(targetId) {
@@ -2137,7 +2182,7 @@ async function focusNotificationTarget(targetId, page) {
   }, 3500);
 }
 
-async function openNotificationTarget(id, page, requestedTargetId = '', profileId = '') {
+async function openNotificationTarget(id, page, requestedTargetId = '', profileId = '', requestedPokemonId = '', requestedCaptureUserId = '') {
   const notification = appState.notifications?.items?.find((item) => item.id === id);
   const safePage = portalPages.includes(page) ? page : 'sorteio';
   showPortalPage(safePage, true);
@@ -2164,6 +2209,21 @@ async function openNotificationTarget(id, page, requestedTargetId = '', profileI
   else if (id.startsWith('trade:')) targetId = notification?.targetId || 'visualTradingCard';
   else if (id.startsWith('feature-master')) targetId = 'mysteryInventoryCard';
   else if (id.startsWith('card-pack:')) targetId = notification?.targetId || 'cardAlbumCollections';
+  else if (id.startsWith('cobblemon-capture:')) {
+    const pokemonId = Number(requestedPokemonId || notification?.pokemonId || 0);
+    const captureUserId = requestedCaptureUserId || notification?.captureUserId || '';
+    setCobblemonTab('catalog');
+    const owner = (appState.profile?.cobblemon?.collections || []).find((entry) => entry.id === captureUserId);
+    if (pokemonId > 0 && owner) {
+      cobblemonDexOwnerId = captureUserId;
+      cobblemonDexFilter = 'caught';
+      cobblemonDexPage = 0;
+      const dexSearch = $('#cobblemonDexSearch');
+      if (dexSearch) dexSearch.value = String(pokemonId);
+      renderCobblemonDex(appState.profile);
+      targetId = 'cobblemonDexPokemon-' + pokemonId;
+    } else showToast('A captura foi registrada, mas essa coleção não está disponível agora.', 'error');
+  }
   else if (id.startsWith('profile-comment:') && profileId) {
     try {
       const data = await api('/api/profiles/' + encodeURIComponent(profileId));
@@ -2176,13 +2236,20 @@ async function openNotificationTarget(id, page, requestedTargetId = '', profileI
 }
 
 function renderOnlinePeople() {
-  const people = Array.isArray(appState?.onlinePeople) ? appState.onlinePeople : [];
+  const received = Array.isArray(appState?.onlinePeople) ? appState.onlinePeople : [];
+  const me = appState?.me;
+  // Presença pode chegar antes da própria sessão na primeira sincronização.
+  // Incluímos a conta local uma única vez e a rotulamos sempre como “Você”,
+  // sem alternar com o nome entre o carregamento e os polls seguintes.
+  const people = me && !received.some((person) => person.id === me.id)
+    ? [{ id: me.id, displayName: me.displayName }, ...received] : received;
+  const labelFor = (person) => person.id === me?.id ? 'Você' : formatDisplayName(person.displayName);
   $('#onlinePeopleCount').textContent = String(people.length || 1);
-  $('#onlinePeopleButton').title = people.length ? 'Online agora: ' + people.map((person) => formatDisplayName(person.displayName)).join(', ') : 'Você está online';
-  $('#menuOnlinePeople').innerHTML = `<i></i><strong>${people.length || 1} online</strong><span>${escapeHtml(people.length ? people.map((person) => formatDisplayName(person.displayName)).join(' · ') : 'Você')}</span>`;
+  $('#onlinePeopleButton').title = people.length ? 'Online agora: ' + people.map(labelFor).join(', ') : 'Você está online';
+  $('#menuOnlinePeople').innerHTML = `<i></i><strong>${people.length || 1} online</strong><span>${escapeHtml(people.length ? people.map(labelFor).join(' · ') : 'Você')}</span>`;
 }
 
-$('#onlinePeopleButton')?.addEventListener('click',()=>{const people=Array.isArray(appState?.onlinePeople)?appState.onlinePeople:[];const host=$('#onlinePeopleDialogList');host.innerHTML=people.length?people.map(person=>'<span class="online-person-line">🟢 '+escapeHtml(formatDisplayName(person.displayName))+(person.id===appState.me.id?' · você':'')+'</span>').join(''):'<span class="online-person-line">🟢 Você</span>';$('#onlinePeopleDialog').showModal();});
+$('#onlinePeopleButton')?.addEventListener('click',()=>{const received=Array.isArray(appState?.onlinePeople)?appState.onlinePeople:[];const people=appState?.me&&!received.some(person=>person.id===appState.me.id)?[{id:appState.me.id,displayName:appState.me.displayName},...received]:received;const host=$('#onlinePeopleDialogList');host.innerHTML=people.length?people.map(person=>'<span class="online-person-line">🟢 '+escapeHtml(person.id===appState.me.id?'Você':formatDisplayName(person.displayName))+'</span>').join(''):'<span class="online-person-line">🟢 Você</span>';$('#onlinePeopleDialog').showModal();});
 $('#closeOnlinePeopleDialog')?.addEventListener('click',()=>$('#onlinePeopleDialog').close());
 
 function renderCasino(casino = {}) {
@@ -2338,6 +2405,50 @@ function animateCasinoWheel(segmentIndex, wheelValue) {
   wheel.style.transition = 'transform 5.2s cubic-bezier(.08,.72,.04,1)';
   wheel.style.transform = `rotate(${casinoWheelRotation}deg)`;
   return new Promise((resolve) => setTimeout(resolve, 5300));
+}
+
+// O próprio clique de aposta libera o áudio. O efeito é gerado no navegador,
+// sem baixar arquivos: cada setor que passa no ponteiro recebe um "tic" e os
+// intervalos se alongam enquanto a roleta desacelera.
+function casinoAudioContext() {
+  const Audio = window.AudioContext || window.webkitAudioContext;
+  if (!Audio) return null;
+  casinoWheelAudioContext ||= new Audio();
+  if (casinoWheelAudioContext.state === 'suspended') casinoWheelAudioContext.resume().catch(() => {});
+  return casinoWheelAudioContext;
+}
+
+function playCasinoOscillator(frequency, duration, volume = .04, type = 'triangle') {
+  try {
+    const audio = casinoAudioContext(); if (!audio || audio.state !== 'running') return;
+    const oscillator = audio.createOscillator(); const gain = audio.createGain(); const now = audio.currentTime;
+    oscillator.type = type; oscillator.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(volume, now); gain.gain.exponentialRampToValueAtTime(.001, now + duration);
+    oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(now); oscillator.stop(now + duration);
+  } catch {}
+}
+
+function stopCasinoWheelSound() {
+  if (casinoWheelTickTimer) clearTimeout(casinoWheelTickTimer);
+  casinoWheelTickTimer = null;
+}
+
+function startCasinoWheelSound(duration = 5200) {
+  stopCasinoWheelSound();
+  const startedAt = performance.now();
+  const tick = () => {
+    const progress = Math.min(1, (performance.now() - startedAt) / duration);
+    playCasinoOscillator(880 - progress * 220, .04, .028);
+    if (progress >= 1) return;
+    const interval = 46 + Math.round(440 * progress * progress);
+    casinoWheelTickTimer = setTimeout(tick, interval);
+  };
+  tick();
+}
+
+function playCasinoRewardSound(won) {
+  const notes = won ? [660, 880, 1100] : [370, 290, 210];
+  notes.forEach((note, index) => setTimeout(() => playCasinoOscillator(note, .13, .055, won ? 'sine' : 'sawtooth'), index * 105));
 }
 
 async function showMysteryOpening(boxName, reward) {
@@ -2619,6 +2730,7 @@ function renderHydration(hydration = {}) {
 }
 
 function renderSeason(season = {}) {
+  renderNextSeasonPassPreview();
   const current = season.current || { ranking: [], monthKey: '' };
   const passTitle = $('#seasonPassTitle'), passUntil = $('#seasonPassUntil');
   if (passTitle) passTitle.textContent = current.name || 'Temporada atual';
@@ -2634,6 +2746,7 @@ function renderSeason(season = {}) {
   };
   updateSeasonClock(); seasonCountdownTimer = setInterval(updateSeasonClock, 60000);
   $('#seasonRanking').innerHTML = current.ranking.length ? current.ranking.map((person, index) => `<article${index === 0 && person.points > 0 ? ' class="leader"' : ''}><b>${index + 1}</b>${personAvatar(person, 'season-avatar')}<p><strong>${visualName(person)}</strong><small>${person.water.toLocaleString('pt-BR')} ml · ${person.memes} memes · ${person.phrases} frases</small></p><em>${person.points} pts</em></article>`).join('') : '<p class="season-empty">A temporada começa com a primeira atividade do mês.</p>';
+  $('#seasonChampionPrize').textContent = '🏆 1º lugar recebe 500 Créditos 51 e a medalha de Campeão da Temporada.';
   const previous = season.previous;
   $('#previousSeasonWinner').textContent = previous?.leader ? '🏅 Campeão de ' + (previous.name || previous.monthKey) + ': ' + formatDisplayName(previous.leader.displayName) : 'A temporada anterior ainda não teve pontuação.';
   const challenges = Array.isArray(season.challenges) ? season.challenges : [];
@@ -2649,6 +2762,46 @@ function renderSeason(season = {}) {
     return `<article class="season-challenge${challenge.rewarded ? ' rewarded' : ''}${challenge.teamCompleted ? ' team-done' : ''}"><span class="season-challenge-icon">${challenge.icon}</span><div class="season-challenge-content"><header><p><strong>${escapeHtml(challenge.title)}</strong><small>${escapeHtml(challenge.description)}</small></p><b>+${Number(challenge.reward || 0)} créditos</b></header><div class="season-challenge-progress"><span>Equipe <em>${teamText}</em></span><i><b style="width:${teamPercent}%"></b></i></div><div class="season-challenge-progress personal"><span>Sua parte <em>${personalText}</em></span><i><b style="width:${personalPercent}%"></b></i></div><footer>${escapeHtml(status)}</footer></div></article>`;
   }).join('') : '<p class="season-empty">Os desafios mensais estarão disponíveis no próximo carregamento.</p>';
 }
+
+async function renderNextSeasonPassPreview() {
+  const host = $('#nextSeasonPassPreview');
+  if (!host || nextSeasonPassLoaded) return;
+  nextSeasonPassLoaded = true;
+  host.innerHTML = '<div class="season-pass-preview-loading">Preparando o Passe da Operação…</div>';
+  try {
+    const pass = await api('/api/card-season/pass-preview');
+    const source = pass.xpSources || {};
+    const percent = Math.min(100, Math.round((Number(pass.currentLevelXp || 0) / Number(pass.nextLevelXp || 100)) * 100));
+    const active = Boolean(pass.active);
+    const claimed = pass.claimed || { free: [], premium: [] };
+    const rewardCell = (item, track) => {
+      const isClaimed = (claimed[track] || []).includes(item.level);
+      const canClaim = active && item.unlocked && !isClaimed && (track === 'free' || pass.premium);
+      return '<div><b>'+escapeHtml(item[track].name)+'</b><small>x'+Number(item[track].quantity||1)+'</small>'+(isClaimed ? '<em>Resgatado</em>' : canClaim ? '<button type="button" data-season-pass-claim="'+track+'" data-season-pass-level="'+Number(item.level)+'">Resgatar</button>' : '')+'</div>';
+    };
+    host.innerHTML = '<header class="season-pass-preview-hero"><div><small>'+(active ? 'TEMPORADA ATIVA' : 'PRÉVIA DA TEMPORADA')+'</small><h2>'+escapeHtml(pass.name)+'</h2><p>30 níveis durante outubro. Toda a equipe avança gratuitamente; o premium libera uma segunda trilha sem vender níveis.</p></div><div class="season-pass-level"><span>NÍVEL</span><strong>'+Number(pass.level||0)+'</strong><small>'+Number(pass.currentLevelXp||0)+' / '+Number(pass.nextLevelXp||100)+' XP</small></div></header>'+
+      '<section class="season-pass-explainer"><strong>Como avançar:</strong><span>missão diária, missão semanal, desafio coletivo e a primeira insígnia nova montada dão XP. Cada objetivo conta uma vez; XP não compra nível.</span></section>'+
+      '<div class="season-pass-progress"><i style="width:'+percent+'%"></i></div>'+
+      '<div class="season-pass-xp-sources"><span><b>+'+Number(source.dailyMission||0)+' XP</b> missão diária</span><span><b>+'+Number(source.weeklyMission||0)+' XP</b> missão semanal</span><span><b>+'+Number(source.crewChallenge||0)+' XP</b> desafio coletivo</span><span><b>+'+Number(source.firstBadgeCraft||0)+' XP</b> primeira insígnia</span></div>'+
+      '<div class="season-pass-track"><div class="season-pass-track-labels"><span>GRÁTIS</span><span>NÍVEL</span><span>PREMIUM · '+Number(pass.premiumPrice||0)+' CRÉDITOS</span></div>'+pass.tracks.map(item=>'<article class="'+(item.unlocked?'unlocked':'locked')+'">'+rewardCell(item,'free')+'<strong>'+Number(item.level)+'</strong>'+rewardCell(item,'premium')+'</article>').join('')+'</div>'+
+      '<footer class="season-pass-preview-footer">'+(active ? '<p><strong>Temporada ativa.</strong> Missões concluídas somam XP uma única vez.</p>' : '<p><strong>Ativação protegida.</strong> XP, compras e recompensas ainda não alteram saldo ou inventário nesta prévia.</p>')+(active && !pass.premium ? '<button type="button" data-season-pass-premium>Ativar Premium · '+Number(pass.premiumPrice||0)+' créditos</button>' : active ? '<button type="button" disabled>Premium '+(pass.premium?'ativo':'indisponível')+'</button>' : '<button type="button" disabled>Indisponível</button>')+'</footer>';
+  } catch (error) {
+    nextSeasonPassLoaded = false;
+    host.innerHTML = '<div class="season-pass-preview-loading">Não foi possível carregar o passe: '+escapeHtml(error.message)+'</div>';
+  }
+}
+
+$('#nextSeasonPassPreview')?.addEventListener('click', async (event) => {
+  const premium = event.target.closest('[data-season-pass-premium]');
+  const claim = event.target.closest('[data-season-pass-claim]');
+  if (!premium && !claim) return;
+  const button = premium || claim; button.disabled = true;
+  try {
+    const data = await api(premium ? '/api/card-season/pass-premium' : '/api/card-season/pass-claim', { method: 'POST', body: premium ? {} : { track: claim.dataset.seasonPassClaim, level: Number(claim.dataset.seasonPassLevel) } });
+    applyState(data); nextSeasonPassLoaded = false; await renderNextSeasonPassPreview(); showToast(premium ? 'Passe Premium ativado.' : 'Recompensa resgatada.');
+  } catch (error) { showToast(error.message, 'error'); }
+  finally { if (button.isConnected) button.disabled = false; }
+});
 
 function mysteryStartCard() {
   const people = Array.isArray(appState?.powerParticipants) ? appState.powerParticipants : [];
@@ -2727,7 +2880,8 @@ function renderLieMeter(lieMeter = {}) {
   $('#lieRanking').innerHTML = ranking.length ? ranking.map((person, index) => {
     const reasons = Array.isArray(person.reasons) ? person.reasons : [];
     const history = reasons.length ? `<details class="lie-history"><summary>Ver histórico dos motivos <b>${reasons.length}</b></summary><div>${reasons.map((entry, reasonIndex) => `<article${reasonIndex === 0 ? ' class="latest"' : ''}><span>🤥</span><p><strong>${escapeHtml(entry.reason)}</strong><small>${escapeHtml(formatDate(entry.createdAt))}</small>${lieAttribution(entry)}</p></article>`).join('')}</div></details>` : '';
-    return `<article class="lie-person${index === 0 && person.total > 0 ? ' lie-leader' : ''}"><span class="lie-position">${index + 1}</span>${personAvatar(person, 'lie-avatar')}<div class="lie-person-copy"><strong>${visualName(person)}${person.id === appState.me.id ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><small>${Number(person.total)} ${Number(person.total) === 1 ? 'mentira confirmada' : 'mentiras confirmadas'}</small>${person.latestReason ? `<em class="lie-reason"><span>ÚLTIMA MENTIRA</span>“${escapeHtml(person.latestReason)}”</em>${reasons[0] ? lieAttribution(reasons[0]) : ''}` : ''}${history}</div><b>${Number(person.total)}</b><div class="lie-actions"><button type="button" data-lie-delta="-1" data-lie-target="${escapeHtml(person.id)}" aria-label="Solicitar remoção de uma mentira de ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id || person.total <= 0 ? ' disabled' : ''}>−</button><button type="button" data-lie-delta="1" data-lie-target="${escapeHtml(person.id)}" aria-label="Marcar uma mentira para ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id ? ' disabled' : ''}>+</button></div></article>`;
+    const truths = Number(person.truths || 0);
+    return `<article class="lie-person${index === 0 && person.total > 0 ? ' lie-leader' : ''}"><span class="lie-position">${index + 1}</span>${personAvatar(person, 'lie-avatar')}<div class="lie-person-copy"><strong>${visualName(person)}${person.id === appState.me.id ? ' · você' : ''}</strong><span class="ranking-live-titles">${liveTitleChips(person.liveTitles)}</span><small>${Number(person.total)} ${Number(person.total) === 1 ? 'mentira confirmada' : 'mentiras confirmadas'} · ${truths} ${truths === 1 ? 'verdade' : 'verdades'}</small>${person.latestReason ? `<em class="lie-reason"><span>ÚLTIMA MENTIRA</span>“${escapeHtml(person.latestReason)}”</em>${reasons[0] ? lieAttribution(reasons[0]) : ''}` : ''}${history}</div><b>${Number(person.total)}</b><div class="lie-actions"><button type="button" data-lie-delta="-1" data-lie-target="${escapeHtml(person.id)}" aria-label="Solicitar remoção de uma mentira de ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id || person.total <= 0 ? ' disabled' : ''}>−</button><button type="button" data-lie-delta="1" data-lie-target="${escapeHtml(person.id)}" aria-label="Marcar uma mentira para ${escapeHtml(formatDisplayName(person.displayName))}"${person.id === appState.me.id ? ' disabled' : ''}>+</button></div></article>`;
   }).join('') : '<p class="lie-empty">Nenhuma pessoa disponível.</p>';
   $('#liePendingCount').textContent = pending.length + (pending.length === 1 ? ' pendente' : ' pendentes');
   const pendingList = $('#liePendingList');
@@ -2811,6 +2965,9 @@ function shopVisualPreview(item) {
     const premiumCursorSources = { 'gta-neon': '/cursor-gta-neon-v2.png', cobblemon: '/cursor-cobblemon-v2.png', wolverine: '/cursor-wolverine-v2.png', 'god-war': '/cursor-god-war-v2.png', samurai: '/cursor-samurai.svg?v=2' };
     if (item.value === 'thor') return cursorEffectPreview('/cursor-thor.svg', 'Mjölnir', 'Mjölnir Retornável', 'CLIQUE + ARRASTE + SOLTE · T OU CLIQUE PARA CHAMAR');
     if (item.value === 'web-slinger') return cursorEffectPreview('/cursor-web-slinger-v2.png', 'Luva lançadora de teia', 'Cursor Lançador de Teia', 'CLIQUE + ARRASTE + SOLTE PARA DISPARAR');
+    if (item.value === 'halloween-broom') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-halloween-broom.png?v=2" alt="Cursor Vassoura Fantasma"><b>Cursor Vassoura Fantasma</b></span></div>';
+    if (item.value === 'halloween-pumpkin') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-halloween-pumpkin.png?v=2" alt="Cursor Abóbora Radioativa"><b>Cursor Abóbora Radioativa</b></span></div>';
+    if (item.value === 'halloween-mask') return cursorEffectPreview('/cursor-halloween-mask.png?v=2', 'Máscara do Acampamento 51', 'Máscara do Acampamento 51', 'MOVE O CURSOR · RASTRO DE SANGUE');
     if (['crystal','solar','ufo','wand','comet-tail','thunder','gta-neon','cobblemon','wolverine','samurai','god-war'].includes(item.value)) return `<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="${premiumCursorSources[item.value] || `/cursor-${item.value}.svg`}" alt="${escapeHtml(item.name)}"><b>${escapeHtml(item.name)}</b></span></div>`;
     if (item.value === 'unicorn') return '<div class="shop-visual-preview cursor-preview cursor-preview-unicorn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-cursor-full-v2.png" alt="Unicórnio completo"> <b>Galopa ao movimentar</b></span></div>';
     if (item.value === 'dipirona') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-dipirona.svg" alt="Seta Dipirona"><b>Seta Dipirona</b></span></div>';
@@ -2818,6 +2975,7 @@ function shopVisualPreview(item) {
     if (item.value === 'anvisa') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-anvisa.svg" alt="Seta Anvisa Intergaláctica"><b>Seta Anvisa Intergaláctica</b></span></div>';
     if (item.value === 'gay') return cursorEffectPreview('/cursor-gay-power.svg', 'Seta Gay Arco-íris', 'Seta Gay Arco-íris', '🌈 EU SOU FOFO, QUERO CARINHO E CONFUSÃO');
     if (item.value === 'commander') return '<div class="shop-visual-preview cursor-preview cursor-preview-commander"><small>ITEM DE COMANDO · EXCLUSIVO ADMIN</small><span><img src="/cursor-commander.svg" alt="Cursor Comandante da Área 51"><b>Cursor Comandante da Área 51</b></span></div>';
+    if (item.value === 'commander-halloween') return '<div class="shop-visual-preview cursor-preview cursor-preview-commander"><small>COMANDO DA CRIPTA · HALLOWEEN</small><span><img src="/cursor-commander-halloween-v3.png" alt="Cursor do Comandante Sombrio"><b>Cursor do Comandante Sombrio</b></span></div>';
     if (item.value === 'galinha-preta') return cursorEffectPreview('/cursor-galinha-preta.svg', 'Seta Galinha Preta', 'Seta Galinha Preta', 'COCORICÓ!');
     if (item.value === 'volei') return cursorEffectPreview('/cursor-volei.svg', 'Seta Bola de Vôlei', 'Seta Bola de Vôlei', 'GIBA NELES!');
     if (item.value === 'biblia') return cursorEffectPreview('/cursor-biblia.svg', 'Seta Bíblia', 'Seta Bíblia Sagrada', 'AMÉM!');
@@ -2836,26 +2994,26 @@ function shopVisualPreview(item) {
     }
     return '<div class="shop-visual-preview cursor-preview cursor-preview-horn"><small>PRÉVIA DO CURSOR</small><span><img src="/unicorn-arrow-cursor.png" alt="Seta de mouse arco-íris em formato de chifre"> <b>Seta Unicórnio</b></span></div>';
   }
-  if (item.type === 'trailStyle') return `<div class="shop-visual-preview trail-preview trail-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO RASTRO</small><span><i></i><b>${item.value === 'fruit' ? '🍉 🍊 🍓' : '🦄'}</b></span></div>`;
-  if (item.type === 'siteTheme') { const accents={ galaxy:'✦  GALÁXIA VIVA  ·  HORIZONTE INFINITO', sunset:'☀  PÔR DO SOL  ·  CÉU EM CHAMAS', ocean:'◈  OCEANO PROFUNDO  ·  MARÉ AZUL', retro:'▦  RETRO WAVE  ·  ARCADE NOTURNO', matrix:'▣  MATRIX  ·  SINAL VERDE', eclipse:'◐  ECLIPSE  ·  OURO SOMBRIO', aurora:'✧  AURORA  ·  LUZ POLAR', mars:'◉  MARTE  ·  AREIA ESTELAR', nebula:'✦  NEBULOSA  ·  VIOLETA CÓSMICO', hyperdrive:'➤  HIPERVELOCIDADE  ·  SALTO ESTELAR', 'lunar-tide':'☾  MARÉ LUNAR  ·  AZUL PRATEADO', 'coral-signal':'◈  SINAL CORAL  ·  ABISSAL', prism:'◇  PRISMA  ·  ESPECTRO VIVO', 'gta-neon':'🌴  NEON VICE  ·  ✦  ÁREA 51', cobblemon:'⛏️  MUNDO EM BLOCOS  ·  🐾', wolverine:'╲╲╲  MODO SELVAGEM  ·  ✦', samurai:'⛩️  NÉVOA DE YŌTEI  ·  🌸', 'god-war':'ᚱ  NORTE ANTIGO  ·  🪓', sovereign:'👑  COMANDO SOBERANO 51  ·  ✦' }; const standardThemes=['galaxy','sunset','ocean','retro','matrix','eclipse','aurora','mars','nebula','hyperdrive','lunar-tide','coral-signal','prism']; return `<div class="shop-visual-preview theme-preview theme-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO TEMA ${standardThemes.includes(item.value) ? 'MODERNIZADO' : 'PREMIUM'}</small><span>${accents[item.value] || '✦  ÁREA 51  ·  ✧  ·  ✦'}</span></div>`; }
-  if (item.type === 'frame') return `<div class="shop-visual-preview frame-preview frame-${escapeHtml(item.value)}"><small>PRÉVIA EXATA · PERFIL, TOPO E MENU</small><span><b>${escapeHtml(initials(appState?.me?.displayName || 'SN'))}</b><em>${previewName}</em></span></div>`;
+  if (item.type === 'trailStyle') return `<div class="shop-visual-preview trail-preview trail-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO RASTRO · TESTE TAMBÉM FUNCIONA AO MOVER O MOUSE</small><span><i></i><b>${item.value === 'halloween-slime' ? '●  •  ·' : item.value === 'fruit' ? '🍉 🍊 🍓' : '🦄'}</b></span></div>`;
+  if (item.type === 'siteTheme') { const accents={ galaxy:'✦  GALÁXIA VIVA  ·  HORIZONTE INFINITO', sunset:'☀  PÔR DO SOL  ·  CÉU EM CHAMAS', ocean:'◈  OCEANO PROFUNDO  ·  MARÉ AZUL', retro:'▦  RETRO WAVE  ·  ARCADE NOTURNO', matrix:'▣  MATRIX  ·  SINAL VERDE', eclipse:'◐  ECLIPSE  ·  OURO SOMBRIO', aurora:'✧  AURORA  ·  LUZ POLAR', mars:'◉  MARTE  ·  AREIA ESTELAR', nebula:'✦  NEBULOSA  ·  VIOLETA CÓSMICO', hyperdrive:'➤  HIPERVELOCIDADE  ·  SALTO ESTELAR', 'lunar-tide':'☾  MARÉ LUNAR  ·  AZUL PRATEADO', 'coral-signal':'◈  SINAL CORAL  ·  ABISSAL', prism:'◇  PRISMA  ·  ESPECTRO VIVO', 'gta-neon':'🌴  NEON VICE  ·  ✦  ÁREA 51', cobblemon:'⛏️  MUNDO EM BLOCOS  ·  🐾', wolverine:'╲╲╲  MODO SELVAGEM  ·  ✦', samurai:'⛩️  NÉVOA DE YŌTEI  ·  🌸', 'god-war':'ᚱ  NORTE ANTIGO  ·  🪓', 'halloween-bloodmoon':'🌕  LUA DE SANGUE  ·  NOITE RUBRA', 'halloween-toxic-fog':'🧪  NÉVOA TÓXICA  ·  SINAL ECTOPLASMA', 'halloween-haunted':'🎃  HALLOWEEN 51  ·  NOITE ASSOMBRADA', sovereign:'👑  COMANDO SOBERANO 51  ·  ✦', 'sovereign-halloween':'🌑  COMANDO DA CRIPTA 51  ·  👑' }; const standardThemes=['galaxy','sunset','ocean','retro','matrix','eclipse','aurora','mars','nebula','hyperdrive','lunar-tide','coral-signal','prism','halloween-bloodmoon','halloween-toxic-fog']; return `<div class="shop-visual-preview theme-preview theme-preview-${escapeHtml(item.value)}"><small>PRÉVIA DO TEMA ${standardThemes.includes(item.value) ? 'INDIVIDUAL' : 'PREMIUM'}</small><span>${accents[item.value] || '✦  ÁREA 51  ·  ✧  ·  ✦'}</span></div>`; }
+  if (item.type === 'frame') return `<div class="shop-visual-preview frame-preview frame-${escapeHtml(item.value)}"><small>PRÉVIA EXATA · A MOLDURA FICA NO CARTÃO, TOPO E MENU</small><span><b>${escapeHtml(initials(appState?.me?.displayName || 'SN'))}</b><em>${previewName}</em></span></div>`;
   if (item.type === 'nameStyle') return `<div class="shop-visual-preview name-preview"><small>PRÉVIA DO NOME</small><strong class="name-style-${escapeHtml(item.value)}">${previewName}</strong></div>`;
-  if (item.type === 'badge') return `<div class="shop-visual-preview badge-preview"><small>PRÉVIA DO EMBLEMA · NÃO ALTERA A COR DO NOME</small><span><b>${escapeHtml(item.value)}</b><em class="badge-preview-name">${previewName}</em><i>Somente o emblema é aplicado</i></span></div>`;
+  if (item.type === 'badge') return `<div class="shop-visual-preview badge-preview${item.value === 'admin-halloween' ? ' badge-preview-admin-halloween' : ''}"><small>PRÉVIA DO EMBLEMA · NÃO ALTERA A COR DO NOME</small><span><b>${item.value === 'admin-halloween' ? '<img src="/badge-commander-halloween-v2.png" alt="Coroa Maldita">' : escapeHtml(item.value)}</b><em class="badge-preview-name">${previewName}</em><i>Somente o emblema é aplicado</i></span></div>`;
   if (item.type === 'title') return `<div class="shop-visual-preview title-preview"><small>PRÉVIA DO TÍTULO</small><span><b>${escapeHtml(initials(appState?.me?.displayName || 'SN'))}</b><em>${previewName}</em><strong>${escapeHtml(item.value)}</strong></span></div>`;
   return '';
 }
 
 function setPreviewCursor(value) {
-  const classes = ['unicorn-cursor-active', 'horn-cursor-active', 'medicine-cursor-active', 'pirokinha-cursor-active', 'anvisa-cursor-active', 'commander-cursor-active', 'gay-power-cursor-active', 'giant-slow-cursor-active', 'black-hen-cursor-active', 'volleyball-cursor-active', 'bible-cursor-active', 'papa-bento-cursor-active', 'scrum-cursor-active', 'energy-cursor-active', 'laser-cursor-active', 'rocket-cursor-active', 'alien-cursor-active', 'petista-cursor-active', 'bolsonaro-cursor-active', 'umbanda-cursor-active'];
+  const classes = ['unicorn-cursor-active', 'horn-cursor-active', 'medicine-cursor-active', 'pirokinha-cursor-active', 'anvisa-cursor-active', 'commander-cursor-active', 'commander-halloween-cursor-active', 'khepri-cursor-active', 'gay-power-cursor-active', 'giant-slow-cursor-active', 'black-hen-cursor-active', 'volleyball-cursor-active', 'bible-cursor-active', 'papa-bento-cursor-active', 'scrum-cursor-active', 'energy-cursor-active', 'laser-cursor-active', 'rocket-cursor-active', 'alien-cursor-active', 'petista-cursor-active', 'bolsonaro-cursor-active', 'umbanda-cursor-active'];
   classes.forEach((name) => document.documentElement.classList.remove(name));
-  const classByValue = { unicorn: 'unicorn-cursor-active', horn: 'horn-cursor-active', dipirona: 'medicine-cursor-active', 'pirokinha-cosmica': 'pirokinha-cursor-active', anvisa: 'anvisa-cursor-active', gay: 'gay-power-cursor-active', 'giant-slow': 'giant-slow-cursor-active', commander: 'commander-cursor-active', 'galinha-preta': 'black-hen-cursor-active', volei: 'volleyball-cursor-active', biblia: 'bible-cursor-active', 'papa-bento': 'papa-bento-cursor-active', 'scrum-master': 'scrum-cursor-active', energetico: 'energy-cursor-active', laser: 'laser-cursor-active', rocket: 'rocket-cursor-active', alien: 'alien-cursor-active', petista: 'petista-cursor-active', bolsonaro: 'bolsonaro-cursor-active', umbanda: 'umbanda-cursor-active' };
+  const classByValue = { unicorn: 'unicorn-cursor-active', horn: 'horn-cursor-active', dipirona: 'medicine-cursor-active', 'pirokinha-cosmica': 'pirokinha-cursor-active', anvisa: 'anvisa-cursor-active', gay: 'gay-power-cursor-active', 'giant-slow': 'giant-slow-cursor-active', commander: 'commander-cursor-active', 'commander-halloween': 'commander-halloween-cursor-active', khepri: 'khepri-cursor-active', 'galinha-preta': 'black-hen-cursor-active', volei: 'volleyball-cursor-active', biblia: 'bible-cursor-active', 'papa-bento': 'papa-bento-cursor-active', 'scrum-master': 'scrum-cursor-active', energetico: 'energy-cursor-active', laser: 'laser-cursor-active', rocket: 'rocket-cursor-active', alien: 'alien-cursor-active', petista: 'petista-cursor-active', bolsonaro: 'bolsonaro-cursor-active', umbanda: 'umbanda-cursor-active' };
   if (classByValue[value]) document.documentElement.classList.add(classByValue[value]);
   document.documentElement.dataset.activeCursor = value || 'windows';
 }
 
 function applyPersonalTheme(value) {
   applyVisualTheme(appState);
-  ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars', 'nebula', 'hyperdrive', 'lunar-tide', 'coral-signal', 'prism', 'gta-neon', 'cobblemon', 'wolverine', 'samurai', 'god-war', 'sovereign'].forEach((theme) => document.body.classList.toggle('profile-theme-' + theme, theme === value));
+  ['galaxy', 'sunset', 'ocean', 'retro', 'matrix', 'eclipse', 'aurora', 'mars', 'nebula', 'hyperdrive', 'lunar-tide', 'coral-signal', 'prism', 'gta-neon', 'cobblemon', 'wolverine', 'samurai', 'god-war', 'halloween-bloodmoon', 'halloween-toxic-fog', 'halloween-haunted', 'sovereign', 'sovereign-halloween', 'camara-vanta'].forEach((theme) => document.body.classList.toggle('profile-theme-' + theme, theme === value));
   document.body.classList.toggle('theme-light-override', Boolean(value) && !document.body.classList.contains('theme-dark'));
   if (value) {
     const button = $('#themeToggle');
@@ -2886,7 +3044,12 @@ function applyShopPreviewVisual(item) {
       wolverine: ['linear-gradient(90deg,#231a05e9,#7d590b77),url(/theme-wolverine-comic-v1.png) center/cover', '#ffd23d'],
       samurai: ['linear-gradient(90deg,#161222e9,#37243a99),url(/theme-yotei-landscape-v1.png) center/cover', '#ffc0cb'],
       'god-war': ['linear-gradient(90deg,#071523e9,#1736538c),url(/theme-olympus-v1.png) center/cover', '#f4d59b'],
+      'halloween-haunted': ['radial-gradient(circle at 82% 12%,#ff8f1f 0,transparent 16%),radial-gradient(circle at 15% 10%,#7b4db8 0,transparent 25%),linear-gradient(145deg,#10071c,#28113b 54%,#0b2431)', '#ff9d28'],
+      'halloween-bloodmoon': ['radial-gradient(circle at 82% 10%,#d83845 0,transparent 18%),linear-gradient(145deg,#13080d,#35111c 56%,#170b18)', '#e24c58'],
+      'halloween-toxic-fog': ['radial-gradient(circle at 16% 12%,#70f05a55 0,transparent 26%),radial-gradient(circle at 86% 18%,#894bc755 0,transparent 28%),linear-gradient(145deg,#07160f,#182c22 54%,#1d102d)', '#77ef68'],
       sovereign: ['linear-gradient(90deg,#09071be0,#2e184f86),url(/theme-sovereign-command-v1.png) center/cover', '#f7d46c'],
+      'sovereign-halloween': ['linear-gradient(90deg,#08070de8,#35101f72),url(/theme-sovereign-command-halloween-v1.png) center/cover', '#d7aa43'],
+      'camara-vanta': ['linear-gradient(90deg,#060817e8,#26134775),url(/card-season-2026-10/theme-camara-vanta.webp) center/cover', '#a77cff'],
     };
     const palette = previewPalettes[item.value];
     document.body.classList.add('shop-theme-preview-active');
@@ -2896,20 +3059,25 @@ function applyShopPreviewVisual(item) {
       document.body.style.setProperty('--shop-preview-accent', palette[1]);
     }
     applyPersonalTheme(item.value);
-    const companions = { 'gta-neon': { badge: '🌴' }, cobblemon: { badge: '⚡' }, wolverine: { badge: '🐾' }, samurai: { badge: '⛩️' }, 'god-war': { badge: 'ᚱ' }, sovereign: { badge: '👑' } }[item.value];
+    const companions = { 'gta-neon': { badge: '🌴' }, cobblemon: { badge: '⚡' }, wolverine: { badge: '🐾' }, samurai: { badge: '⛩️' }, 'god-war': { badge: 'ᚱ' }, 'halloween-haunted': { badge: '🎃', cursor: 'halloween-broom', trail: 'halloween-slime', nameStyle: 'halloween-ectoplasm', frame: 'halloween-rune' }, sovereign: { badge: '👑' }, 'sovereign-halloween': { badge: 'admin-halloween', cursor: 'commander-halloween', nameStyle: 'sovereign-halloween', frame: 'sovereign-halloween' }, 'camara-vanta': { badge: '◈', cursor: 'khepri', trail: 'taquion', frame: 'blackstar' } }[item.value];
     if (companions) {
-      setPreviewCursor(item.value);
-      document.body.dataset.trailStyle = item.value;
+      setPreviewCursor(companions.cursor || item.value);
+      document.body.dataset.trailStyle = companions.trail || item.value;
       ['profileDisplayName', 'userName', 'menuUserName'].forEach((id) => {
         const element = $('#' + id);
         if (!element) return;
-        element.className = 'name-style-' + item.value;
+        element.className = 'name-style-' + (companions.nameStyle || item.value);
         element.dataset.badge = companions.badge;
       });
+      if (companions.frame) {
+        $('#profileIdentityCard').className = 'card profile-identity-card frame-' + companions.frame;
+        $('#topProfileButton').className = 'top-profile-button frame-' + companions.frame;
+        $('.site-menu-user').className = 'site-menu-user frame-' + companions.frame;
+      }
     }
   } else if (item.type === 'cursorStyle') {
     setPreviewCursor(item.value);
-    document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : item.value === 'maradona' ? 'white' : 'none';
+    document.body.dataset.trailStyle = ['laser', 'rocket', 'alien'].includes(item.value) ? item.value : item.value === 'maradona' ? 'white' : item.value === 'halloween-mask' ? 'halloween-blood' : 'none';
     document.body.dataset.cursorEffect = ['gay', 'galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda', 'messi', 'cristiano', 'pele', 'maradona', 'neymar'].includes(item.value) ? item.value : '';
   }
   else if (item.type === 'trailStyle') document.body.dataset.trailStyle = item.value;
@@ -3037,12 +3205,78 @@ function cobblemonDeliverySpriteMarkup(entry = {}) {
 }
 let cobblemonSelectedBall = 'poke';
 const COBBLEMON_BOX_CATALOG = {
-  trainer: { name: 'Carga de Treinador', price: 179.90, accent: 'basic', cover: COBBLEMON_ITEM_SPRITES.poke, rewards: [['Poké Ball ×64',COBBLEMON_ITEM_SPRITES.poke,55],['Great Ball ×64',COBBLEMON_ITEM_SPRITES.great,25],['Ancient Poké Ball ×32',COBBLEMON_ITEM_SPRITES.ancient,12],['Quick Ball ×16',COBBLEMON_ITEM_SPRITES.quick,8]] },
-  evolution: { name: 'Caixa das Pedras', price: 479.90, accent: 'rare', cover: COBBLEMON_ITEM_SPRITES.stone, rewards: [['Pedra evolutiva sortida ×4',COBBLEMON_ITEM_SPRITES.stone,52],['Rare Candy ×16',COBBLEMON_ITEM_SPRITES.candy,25],['Ultra Ball ×32',COBBLEMON_ITEM_SPRITES.ultra,15],['Ability Capsule',COBBLEMON_ITEM_SPRITES.capsule,8]] },
-  professor: { name: 'Relíquia do Professor', price: 1199.90, accent: 'legendary', cover: COBBLEMON_ITEM_SPRITES.master, rewards: [['Kit Ultra Ball ×64',COBBLEMON_ITEM_SPRITES.ultra,66],['Ability Capsule',COBBLEMON_ITEM_SPRITES.capsule,26],['Voucher Shiny definido',COBBLEMON_ITEM_SPRITES.cherish,7],['Voucher lendário definido',COBBLEMON_ITEM_SPRITES.master,1]] },
-  pokemon: { name: 'Cápsula Pokémon', price: 899.90, accent: 'legendary', cover: 'https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp', monthly: true, rewards: [['Pokémon comum','https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp',80],['Pokémon raro','https://cobbledex.b-cdn.net/3dmons/previews/large/6.webp',15],['Pokémon Shiny','https://cobbledex.b-cdn.net/3dmons/previews/large/133.webp',4],['Pokémon lendário','https://cobbledex.b-cdn.net/3dmons/previews/large/150.webp',1]] },
+  evolution: { name: 'Baú das Pedras', price: 479.90, accent: 'rare', cover: COBBLEMON_ITEM_SPRITES.stone, rewards: [['Pedra do Fogo ×4','https://wiki.cobblemon.com/index.php/Special:FilePath/Fire_Stone.png',14],['Pedra da Água ×4','https://wiki.cobblemon.com/index.php/Special:FilePath/Water_Stone.png',14],['Pedra do Trovão ×4','https://wiki.cobblemon.com/index.php/Special:FilePath/Thunder_Stone.png',14],['Pedra da Folha ×4','https://wiki.cobblemon.com/index.php/Special:FilePath/Leaf_Stone.png',14],['Pedra do Gelo ×3','https://wiki.cobblemon.com/index.php/Special:FilePath/Ice_Stone.png',8],['Pedra do Sol ×3','https://wiki.cobblemon.com/index.php/Special:FilePath/Sun_Stone.png',8],['Pedra da Lua ×3','https://wiki.cobblemon.com/index.php/Special:FilePath/Moon_Stone.png',8],['Pedra da Alvorada ×2','https://wiki.cobblemon.com/index.php/Special:FilePath/Dawn_Stone.png',7],['Pedra do Crepúsculo ×2','https://wiki.cobblemon.com/index.php/Special:FilePath/Dusk_Stone.png',7],['Pedra Brilhante ×1','https://wiki.cobblemon.com/index.php/Special:FilePath/Shiny_Stone.png',6]] },
+  master: { name: 'Baú Premium', price: 1499.90, accent: 'legendary', cover: '/legendary-monuments/premium/azure_flute.png', forceDelivery: true, rewards: [['Clear Bell','/legendary-monuments/premium/clear_bell.png',4.17],['Medallion of Renewal','/legendary-monuments/premium/medallion_of_renewal.png',3.33],['Tábua do Despertar — 100% cheia','/legendary-monuments/premium/tablet_of_reawakening_4.png',2.08],['Origin Key','/legendary-monuments/premium/origin_key.png',2.08],['Azure Flute','/legendary-monuments/premium/azure_flute.png',1.25],['Silver Wing','/legendary-monuments/premium/silver_wing.png',3.33],['Espaldeira de Rocha','/legendary-monuments/premium/rock_pauldron.png',3.33],['Espaldeira de Gelo','/legendary-monuments/premium/ice_pauldron.png',3.33],['Espaldeira de Aço','/legendary-monuments/premium/steel_pauldron.png',3.33],['Espaldeira Elétrica','/legendary-monuments/premium/electric_pauldron.png',3.33],['Espaldeira de Dragão','/legendary-monuments/premium/dragon_pauldron.png',3.33],['Espaldeira de Titã','/legendary-monuments/premium/titan_pauldron.png',3.33],['Titan Hammer','/legendary-monuments/premium/titan_hammer.png',2.08],['Hero Sword','/legendary-monuments/premium/herosword.png',2.08],['Hero Shield','/legendary-monuments/premium/heroshield.png',2.08],['Cenoura de Raiz de Gelo','/legendary-monuments/premium/iceroot_carrot.png',4.17],['Cenoura de Shaderoot','/legendary-monuments/premium/shaderoot_carrot.png',4.17],['Essência de Aurora ×16','/legendary-monuments/premium/aurora_essence.png',3.33],['Urna das Brasas de Galar','/legendary-monuments/premium/galarian_urn_of_embers.png',4.17],['Urna da Geada de Galar','/legendary-monuments/premium/galarian_urn_of_frost.png',4.17],['Urna das Tempestades de Galar','/legendary-monuments/premium/galarian_urn_of_storms.png',4.17],['Picareta Netherite encantada','/legendary-monuments/premium/netherite_pickaxe.png',4.17],['Machado Netherite encantado','/legendary-monuments/premium/netherite_axe.png',4.17],['Pá Netherite encantada','/legendary-monuments/premium/netherite_shovel.png',4.17],['Espada Netherite encantada','/legendary-monuments/premium/netherite_sword.png',4.17],['Capacete Netherite encantado','/legendary-monuments/premium/netherite_helmet.png',4.17],['Peitoral Netherite encantado','/legendary-monuments/premium/netherite_chestplate.png',4.17],['Calças Netherite encantadas','/legendary-monuments/premium/netherite_leggings.png',4.17],['Botas Netherite encantadas','/legendary-monuments/premium/netherite_boots.png',4.17]] },
+  pokemon: { name: 'Baú Pokémon', price: 899.90, accent: 'legendary', cover: 'https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp', monthly: true, rewards: [['Pokémon comum','https://cobbledex.b-cdn.net/3dmons/previews/large/25.webp',80],['Pokémon raro','https://cobbledex.b-cdn.net/3dmons/previews/large/6.webp',15],['Pokémon Shiny','https://cobbledex.b-cdn.net/3dmons/previews/large/133.webp',4],['Pokémon lendário','https://cobbledex.b-cdn.net/3dmons/previews/large/150.webp',1]] },
 };
-const COBBLEMON_ROULETTE_REWARDS = [['Não ganhou desta vez',COBBLEMON_ITEM_SPRITES.poke,35],['Poké Ball ×32',COBBLEMON_ITEM_SPRITES.poke,24],['Great Ball ×24',COBBLEMON_ITEM_SPRITES.great,16],['Quick Ball ×16',COBBLEMON_ITEM_SPRITES.quick,10],['Pedra evolutiva sortida ×2',COBBLEMON_ITEM_SPRITES.stone,6],['Ultra Ball ×16',COBBLEMON_ITEM_SPRITES.ultra,4],['Rare Candy ×8',COBBLEMON_ITEM_SPRITES.candy,2],['Exp. Candy XL ×4',COBBLEMON_ITEM_SPRITES.expCandy,1.5],['Ability Capsule',COBBLEMON_ITEM_SPRITES.capsule,.8],['Voucher Shiny definido',COBBLEMON_ITEM_SPRITES.cherish,.5],['Voucher lendário definido',COBBLEMON_ITEM_SPRITES.master,.2]];
+const COBBLEMON_BOX_REWARD_DETAILS = {
+  'Clear Bell': 'Relíquia da jornada de Ho-Oh.',
+  'Medallion of Renewal': 'Permite reutilizar uma ativação de pedestal uma vez.',
+  'Tábua do Despertar — 100% cheia': 'Chega completa, pronta para a etapa do Reawakening Sanctum.',
+  'Origin Key': 'Chave da progressão do Reawakening Sanctum.',
+  'Azure Flute': 'Acessa o Hall of Origin na jornada de Arceus, após os demais requisitos.',
+  'Silver Wing': 'Relíquia da jornada de Lugia.',
+  'Espaldeira de Rocha': 'Componente da jornada Regi.',
+  'Espaldeira de Gelo': 'Componente da jornada Regi.',
+  'Espaldeira de Aço': 'Componente da jornada Regi.',
+  'Espaldeira Elétrica': 'Componente da jornada Regi.',
+  'Espaldeira de Dragão': 'Componente da jornada Regi.',
+  'Espaldeira de Titã': 'Componente da jornada Regi.',
+  'Titan Hammer': 'Item da progressão dos Regis.',
+  'Hero Sword': 'Usada com um Totem da Imortalidade para evocar Zacian.',
+  'Hero Shield': 'Relíquia da jornada de Zamazenta.',
+  'Cenoura de Raiz de Gelo': 'Usada para evocar Glastrier.',
+  'Cenoura de Shaderoot': 'Usada para evocar Spectrier.',
+  'Essência de Aurora ×16': '16 Essências de Aurora — quantidade necessária para formar o Frasco de Essência de Aurora na jornada de Xerneas.',
+  'Urna das Brasas de Galar': 'Componente definido da mecânica Dynamax.',
+  'Urna da Geada de Galar': 'Componente definido da mecânica Dynamax.',
+  'Urna das Tempestades de Galar': 'Componente definido da mecânica Dynamax.',
+  'Picareta Netherite encantada': 'Eficiência V, Fortuna III, Inquebrável III e Remendo.',
+  'Machado Netherite encantado': 'Eficiência V, Fortuna III, Inquebrável III e Remendo.',
+  'Pá Netherite encantada': 'Eficiência V, Fortuna III, Inquebrável III e Remendo.',
+  'Espada Netherite encantada': 'Afiação V, Saque III, Aspecto Flamejante II, Inquebrável III e Remendo.',
+  'Capacete Netherite encantado': 'Proteção IV, Respiração III, Afinidade Aquática, Inquebrável III e Remendo.',
+  'Peitoral Netherite encantado': 'Proteção IV, Inquebrável III e Remendo.',
+  'Calças Netherite encantadas': 'Proteção IV, Inquebrável III e Remendo.',
+  'Botas Netherite encantadas': 'Proteção IV, Queda Suave IV, Passos Profundos III, Agilidade das Almas III, Inquebrável III e Remendo.'
+};
+const COBBLEMON_ROULETTE_REWARDS = [
+ ['Sem prêmio','',23,'no-prize'],['Arc Phone','/legendary-monuments/arc-phone.png',6,'legendary-arc-phone'],['Dream Catcher','/legendary-monuments/dream-catcher.png',6,'legendary-dream-catcher'],['Light Stone Shard ×3','/legendary-monuments/light-stone-shard.png',6,'legendary-light-shards'],['Dark Stone Shard ×3','/legendary-monuments/dark-stone-shard.png',6,'legendary-dark-shards'],['Golem Scrap ×4','/legendary-monuments/golem-scrap.png',7.5,'legendary-golem-scrap'],['Disc of the First Song Fragment ×2','/legendary-monuments/first-song-fragment.png',5,'legendary-first-song-fragments'],['Medallion of Renewal Fragment','/legendary-monuments/renewal-fragment.png',.5,'legendary-renewal-fragment'],['Cosmic Catalyst','/legendary-monuments/cosmic-catalyst.png',5,'legendary-cosmic-catalyst'],['Dyna Fruit','/legendary-monuments/dyna-fruit.png',6,'legendary-dyna-fruit'],['Icerend Seal','/legendary-monuments/icerend-seal.png',3,'legendary-icerend-seal'],['Groundblight Seal','/legendary-monuments/groundblight-seal.png',3,'legendary-groundblight-seal'],['Firescourge Seal','/legendary-monuments/firescourge-seal.png',3,'legendary-firescourge-seal'],['Grasswither Seal','/legendary-monuments/grasswither-seal.png',3,'legendary-grasswither-seal'],['Sacred Ash','/legendary-monuments/sacred-ash.png',1,'legendary-sacred-ash'],['Locator Chip','/legendary-monuments/locator-chip.webp',2,'locator-chip-roulette'],['Lucky Egg','https://wiki.cobblemon.com/index.php/Special:FilePath/Lucky_Egg.png',1,'lucky-egg-roulette'],['Coordenadas de Escavação Fóssil','https://wiki.cobblemon.com/index.php/Special:FilePath/Dome_Fossil.png',1,'fossil-location-roulette'],['Master Ball',COBBLEMON_ITEM_SPRITES.master,.5,'master-ball-roulette'],['Rare Candy ×8',COBBLEMON_ITEM_SPRITES.candy,5,'rare-candy-roulette'],['Exp. Candy L ×8','https://wiki.cobblemon.com/index.php/Special:FilePath/Exp._Candy_L.png',4,'exp-candy-l-roulette'],['Exp. Candy XL ×4',COBBLEMON_ITEM_SPRITES.expCandy,2.5,'exp-candy-xl-roulette']
+];
+const COBBLEMON_ROULETTE_DETAILS = {
+  'no-prize':'O giro é consumido e nenhum item é entregue.',
+  'legendary-arc-phone':'Rastreia estruturas lendárias quando você possui o item-chave exigido pelo monumento.',
+  'legendary-dream-catcher':'Permite avançar nas jornadas de Cresselia e Darkrai sem entregar a invocação pronta.',
+  'legendary-light-shards':'Três dos nove fragmentos necessários para formar a Light Stone de Reshiram.',
+  'legendary-dark-shards':'Três dos nove fragmentos necessários para formar a Dark Stone de Zekrom.',
+  'legendary-golem-scrap':'Material usado para fabricar lingotes e chaves dos desafios dos Regis.',
+  'legendary-first-song-fragments':'Dois dos nove fragmentos necessários para restaurar o disco relacionado à Meloetta.',
+  'legendary-renewal-fragment':'Um dos quatro fragmentos do medalhão que permite reutilizar um pedestal.',
+  'legendary-cosmic-catalyst':'Coleta Cosmic Dust para avançar na jornada de Cosmog.',
+  'legendary-dyna-fruit':'Fruta especial utilizada na fabricação das Galarian Urns.',
+  'legendary-icerend-seal':'Localiza o santuário de Chien-Pao.',
+  'legendary-groundblight-seal':'Localiza o santuário de Ting-Lu.',
+  'legendary-firescourge-seal':'Localiza o santuário de Chi-Yu.',
+  'legendary-grasswither-seal':'Localiza o santuário de Wo-Chien.',
+  'legendary-sacred-ash':'Restaura o HP e o PP de toda a equipe fora de batalha.',
+  'locator-chip-roulette':'Com 4 ferros e 4 redstones, fabrica o Poké Radar para rastrear estruturas lendárias.',
+  'fossil-location-roulette':'Davi entrega uma localização preparada para escavação fóssil.',
+  'master-ball-roulette':'Ball raríssima que garante a captura.',
+  'lucky-egg-roulette':'Aumenta a experiência recebida pelo Pokémon.',
+  'rare-candy-roulette':'Cada unidade aumenta o Pokémon em um nível.',
+  'exp-candy-l-roulette':'Concede uma grande quantidade de experiência.',
+  'exp-candy-xl-roulette':'Concede uma quantidade muito grande de experiência.'
+};
+function renderCobblemonRouletteWheel(wheel) {
+  if (!wheel || wheel.dataset.rewardsReady) return;
+  const colors=['#194f70','#563c82','#23766d','#935020','#285ca0','#74478b','#a73d59','#a97d18'];
+  const sweep=360/COBBLEMON_ROULETTE_REWARDS.length;
+  wheel.style.background=`radial-gradient(circle,#08172b 0 18%,transparent 18.5%),conic-gradient(${COBBLEMON_ROULETTE_REWARDS.map((_,i)=>`${colors[i%colors.length]} ${i*sweep}deg ${(i+1)*sweep}deg`).join(',')})`;
+  wheel.innerHTML=COBBLEMON_ROULETTE_REWARDS.map(([name,sprite,chance,id],index)=>{const angle=index*sweep+sweep/2, detail=COBBLEMON_ROULETTE_DETAILS[id]||'Item especial da Roleta Cobblemon.';return `<span class="cobblemon-roulette-slot" style="--slot-angle:${angle}deg;--slot-radius:198px" tabindex="0" aria-label="${escapeHtml(name)} · ${chance}%">${index===0?'<b class="roulette-loss">×</b>':`<img src="${sprite}" alt="${escapeHtml(name)}">`}<div class="cobblemon-roulette-tooltip"><strong>${escapeHtml(name)}</strong><em>${String(chance).replace('.',',')}% de chance</em><small>${escapeHtml(detail)}</small></div></span>`;}).join('');
+  wheel.addEventListener('click',(event)=>{const slot=event.target.closest('.cobblemon-roulette-slot');if(!slot)return;wheel.querySelectorAll('.is-expanded').forEach(item=>item.classList.remove('is-expanded'));slot.classList.add('is-expanded');event.stopPropagation();});
+  document.addEventListener('click',()=>wheel.querySelectorAll('.is-expanded').forEach(item=>item.classList.remove('is-expanded')));
+  wheel.dataset.rewardsReady='true';
+}
 
 function cobblemonDeliverySpecLabel(entry = {}) {
   const level = Math.floor(Number(entry.level || 0));
@@ -3052,7 +3286,7 @@ function cobblemonDeliverySpecLabel(entry = {}) {
 }
 
 function cobblemonOddsCards(rewards) {
-  return rewards.map(([name,sprite,chance]) => `<article class="mystery-odds-card cobblemon-odds-card"><span><img src="${sprite}" alt=""></span><div><small>ITEM COBBLEMON</small><strong>${escapeHtml(name)}</strong><em>${Number(chance).toLocaleString('pt-BR',{maximumFractionDigits:1})}% de chance</em></div></article>`).join('');
+  return rewards.map(([name,sprite,chance]) => { const detail = COBBLEMON_BOX_REWARD_DETAILS[name]; return `<article class="mystery-odds-card cobblemon-odds-card"><span><img src="${sprite}" alt=""></span><div><small>ITEM COBBLEMON</small><strong title="${escapeHtml(name)}">${escapeHtml(name)}</strong>${detail ? `<p>${escapeHtml(detail)}</p>` : ''}<em>${Number(chance).toLocaleString('pt-BR',{maximumFractionDigits:1})}% de chance</em></div></article>`; }).join('');
 }
 
 function showCobblemonOdds(title, rewards, note) {
@@ -3066,7 +3300,11 @@ function spinCobblemonRouletteWheel(wheel, rewardIndex) {
   // somente o giro que revela o novo prêmio recebe animação.
   wheel.style.transition = 'none';
   wheel.classList.remove('spinning');
-  wheel.style.setProperty('--roulette-stop-angle', `${rewardIndex * (360 / COBBLEMON_ROULETTE_REWARDS.length)}deg`);
+  const sweep = 360 / COBBLEMON_ROULETTE_REWARDS.length;
+  // A animação CSS já compensa a posição do ponteiro; usamos o centro da casa
+  // sorteada, nunca o começo do setor.
+  const center = rewardIndex * sweep + sweep / 2;
+  wheel.style.setProperty('--roulette-stop-angle', `${center}deg`);
   void wheel.offsetWidth;
   wheel.style.removeProperty('transition');
   void wheel.offsetWidth;
@@ -3076,12 +3314,13 @@ function spinCobblemonRouletteWheel(wheel, rewardIndex) {
 async function spinCobblemonRoulette(button = $('#cobblemonRouletteSpin')) {
   if (!button || button.disabled) return;
   const price = Number(appState?.profile?.cobblemon?.roulette?.price || 259.90);
-  if (!confirmCobblemonAction(`Girar a Roleta Cobblemon por ${formatCredits(price)} Créditos 51? O próximo giro será liberado amanhã.`, button)) return;
+  const remaining = Number(appState?.profile?.cobblemon?.roulette?.spinsRemaining || 0);
+  if (!confirmCobblemonAction(`Girar a Roleta Cobblemon por ${formatCredits(price)} Créditos 51? Depois deste giro, você terá ${Math.max(0, remaining - 1)} tentativa(s) neste ciclo semanal.`, button)) return;
   button.disabled = true;
   try {
     const data = await api('/api/cobblemon/roulette/spin', { method: 'POST' });
     const wheel = $('#cobblemonRouletteWheel');
-    const rewardIndex = Math.max(0, COBBLEMON_ROULETTE_REWARDS.findIndex(([name]) => name === data.reward.name));
+    const rewardIndex = Math.max(0, COBBLEMON_ROULETTE_REWARDS.findIndex(([name,,,id]) => id === data.reward.rewardId || name === data.reward.name));
     spinCobblemonRouletteWheel(wheel, rewardIndex);
     await new Promise((resolve) => setTimeout(resolve, 3200));
     const decided = await showCobblemonOpening('Resultado da Roleta Cobblemon', { ...data.reward, profile: data.profile }, { skipCarousel: true });
@@ -3118,7 +3357,7 @@ async function showCobblemonOpening(title, reward, options = {}) {
   }
   const hasChoices = Array.isArray(reward.choices) && reward.choices.length > 0;
   const rewardSpec = cobblemonDeliverySpecLabel(reward);
-  result.innerHTML = `<span>${reward.noPrize ? '<b class="roulette-loss">×</b>' : `<img src="${reward.sprite || COBBLEMON_ITEM_SPRITES.poke}" alt="">`}</span><strong>${reward.noPrize ? 'Não foi desta vez!' : hasChoices ? 'Escolha uma opção' : 'Você recebeu ' + escapeHtml(reward.name) + '!'}</strong>${rewardSpec ? `<small class="cobblemon-delivery-spec">${escapeHtml(rewardSpec)}</small>` : ''}`; result.classList.add('revealed');
+  result.innerHTML = `<span>${reward.noPrize ? '<b class="roulette-loss">×</b>' : `<img src="${reward.sprite || COBBLEMON_ITEM_SPRITES.poke}" alt="">`}</span><strong>${reward.noPrize ? 'Não foi desta vez!' : hasChoices ? 'Escolha uma opção' : 'Você recebeu ' + escapeHtml(reward.name) + '!'}</strong>${reward.deliveryNote ? `<small class="cobblemon-delivery-spec">${escapeHtml(reward.deliveryNote)}</small>` : ''}${rewardSpec ? `<small class="cobblemon-delivery-spec">${escapeHtml(rewardSpec)}</small>` : ''}`; result.classList.add('revealed');
   const keepButton = $('#keepCobblemonReward'), sellButton = $('#sellCobblemonReward');
   const rollOnly = Boolean(reward.rollOnly);
   const finalChoices = Array.isArray(reward.choices) && reward.choices.length > 0;
@@ -3132,7 +3371,7 @@ async function showCobblemonOpening(title, reward, options = {}) {
   // antigo continua no HTML como fallback visual, mas não interrompe mais o
   // fluxo entre o primeiro, segundo e terceiro sorteio.
   if (rollOnly) continueButton?.classList.add('hidden');
-  decision.querySelector('p').textContent = reward.noPrize ? 'A casa de perda foi sorteada. O giro foi consumido e nenhum item entrou na fila de entrega.' : reward.forceDelivery ? 'Este Pokémon já entrou na fila de entrega do Davi e não pode ser vendido por créditos.' : finalChoices ? (weeklyChoice ? 'Escolha um dos Pokémon selecionados nesta semana para o Davi entregar na sexta.' : 'Você fez os três sorteios. Escolha um Pokémon para guardar como sua opção do dia.') : rollOnly ? `Sorteio ${reward.rollNumber} de 3 concluído. Continue para ver os próximos resultados; a escolha acontece somente depois dos três.` : 'Escolha agora: manter envia para a fila de entrega; vender devolve parte dos Créditos 51.';
+  decision.querySelector('p').textContent = reward.noPrize ? 'A casa de perda foi sorteada. O giro foi consumido e nenhum item entrou na fila de entrega.' : reward.forceDelivery ? `Este prêmio já entrou na fila de entrega do Davi e não pode ser vendido por créditos.${reward.deliveryNote ? ` ${reward.deliveryNote}` : ''}` : finalChoices ? (weeklyChoice ? 'Escolha um dos Pokémon selecionados nesta semana para o Davi entregar na sexta.' : 'Você fez os três sorteios. Escolha um Pokémon para guardar como sua opção do dia.') : rollOnly ? `Sorteio ${reward.rollNumber} de 3 concluído. Continue para ver os próximos resultados; a escolha acontece somente depois dos três.` : 'Escolha agora: manter envia para a fila de entrega; vender devolve parte dos Créditos 51.';
   if (finalChoices && choicesBox) { choicesBox.innerHTML = reward.choices.map((choice) => { const choiceSpec = cobblemonDeliverySpecLabel(choice); return `<button type="button" data-cobblemon-choice="${escapeHtml(choice.entryId || choice.choiceKey || choice.id)}" aria-pressed="false"><img src="${escapeHtml(choice.sprite || COBBLEMON_ITEM_SPRITES.poke)}" alt=""><strong>${escapeHtml(choice.name)}</strong><small>${escapeHtml(choice.rarity || 'Pokémon')}${choiceSpec ? ` · ${escapeHtml(choiceSpec.replace('Entrega Cobblemon: ', ''))}` : ''}</small><b class="cobblemon-choice-selected">Selecionado</b></button>`; }).join(''); choicesBox.classList.remove('hidden'); keepButton.classList.remove('hidden'); keepButton.textContent = weeklyChoice ? 'Enviar escolhido ao Davi' : 'Escolher Pokémon do dia'; keepButton.disabled = true; }
   sellButton.textContent = `Vender agora por ${formatCredits(reward.sellPrice || 0)} créditos`; decision.classList.remove('hidden');
   return await new Promise((resolve) => {
@@ -3163,6 +3402,16 @@ async function showCobblemonOpening(title, reward, options = {}) {
 
 function cobblemonTierLabel(tier) {
   return ({ 1: 'comum', 2: 'incomum', 3: 'raro', 4: 'lendário' })[Number(tier)] || 'selvagem';
+}
+
+function cobblemonDexTier(mon = {}, entry = {}) {
+  const tags = String(mon.l || '');
+  if (/legendary|mythical/.test(tags)) return 4;
+  if (/powerhouse|ultra_beast|paradox/.test(tags)) return 3;
+  if (/starter|fossil|baby/.test(tags)) return 2;
+  const savedTier = Number(entry?.tier || 0);
+  if (savedTier >= 1 && savedTier <= 4) return savedTier;
+  return 1;
 }
 
 function syncCobblemonSelectedBall(balls = {}) {
@@ -3294,25 +3543,32 @@ function renderCobblemonDex(profile = {}) {
   const canDeliverCobblemon = appState.me.role === 'admin' || /^davi\b/i.test(String(appState.me.displayName || ''));
   const monthlyBox = profile.cobblemon?.monthlyPokemonBox || { canPurchase: true, canOpen: false, openCount: 0, openRollCount: 0, rollsRemaining: 7, dailyRollsRemaining: 3, weeklyPurchaseCount: 0, weeklyPurchasesRemaining: 7, price: 899.90 };
   $('#cobblemonBoxShop').innerHTML = Object.entries(COBBLEMON_BOX_CATALOG).map(([id,box]) => {
-    const readyToOpen = box.monthly && monthlyBox.canOpen;
+    // Cada cápsula fechada traz seu próprio identificador. Nunca reutilize o
+    // resumo da última compra: compras feitas em sequência precisam continuar
+    // abrindo a cápsula certa, mesmo após vender ou escolher a anterior.
+    const pendingCapsule = box.monthly ? (monthlyBox.pendingBoxes || []).find((entry) => Number(entry.openRollCount || 0) < 3) : null;
+    const readyToOpen = box.monthly && Boolean(pendingCapsule && monthlyBox.canOpen);
     const choicePending = box.monthly && monthlyBox.choicePending;
     const locked = box.monthly && !monthlyBox.canPurchase && !readyToOpen && !choicePending;
-    const choiceMode = choicePending && monthlyBox.choice;
+    // Um Baú Pokémon já pago não pode ficar escondido por uma escolha semanal
+    // pendente de outra abertura. Primeiro o participante conclui seus três
+    // sorteios; a escolha guardada continua disponível em seguida.
+    const choiceMode = choicePending && monthlyBox.choice && !readyToOpen;
     // Uma escolha de cápsula anterior precisa ser concluída antes de abrir a
     // próxima. A prioridade visual deve coincidir com o modo enviado no clique.
-    const actionLabel = choiceMode ? (monthlyBox.choiceStage === 'weekly' ? 'Escolher entrega da semana' : 'Escolher 1 dos 3') : readyToOpen ? `Sorteio ${Number(monthlyBox.openRollCount || 0) + 1}/3` : locked ? `Novo ciclo no sábado` : box.monthly ? 'Comprar cápsula' : 'Abrir agora';
-    const priceLabel = choiceMode ? `<b>${monthlyBox.choice?.choices?.length || (monthlyBox.choiceStage === 'weekly' ? monthlyBox.weeklyCandidates?.length || 7 : 3)} opções</b> para escolher` : readyToOpen ? `<b>${Number(monthlyBox.dailyRollsRemaining || 0)} sorteio(s)</b> restantes nesta cápsula` : shopCreditMarkup(box.price, 'por cápsula');
-    const deliveryNote = box.monthly ? `<small class="cobblemon-delivery-lock"><b>${Number(monthlyBox.weeklyPurchasesRemaining ?? 7)} de 7</b> cápsulas disponíveis nesta semana · 3 sorteios por cápsula · a escolha final abre na sexta ao preencher as 7 vagas · ciclo reinicia no sábado.</small>` : '';
-    const purchaseMore = box.monthly && monthlyBox.canPurchase && (readyToOpen || choiceMode) ? `<button type="button" data-cobblemon-box="${id}" data-cobblemon-box-mode="purchase">Comprar outra cápsula · ${shopCreditMarkup(box.price)}</button>` : '';
+    const actionLabel = readyToOpen ? `Sorteio ${Number(pendingCapsule.openRollCount || 0) + 1}/3` : choiceMode ? (monthlyBox.choiceStage === 'weekly' ? 'Escolher entrega da semana' : 'Escolher 1 dos 3') : locked ? `Novo ciclo no sábado` : box.monthly ? 'Comprar Baú Pokémon' : 'Abrir agora';
+    const priceLabel = choiceMode ? `<b>${monthlyBox.choice?.choices?.length || (monthlyBox.choiceStage === 'weekly' ? monthlyBox.weeklyCandidates?.length || 7 : 3)} opções</b> para escolher` : readyToOpen ? `<b>${Math.max(0, 3 - Number(pendingCapsule.openRollCount || 0))} sorteio(s)</b> restantes neste baú` : box.monthly ? shopCreditMarkup(box.price, 'por baú') : shopCreditMarkup(box.price, 'por baú');
+    const deliveryNote = box.monthly ? `<small class="cobblemon-delivery-lock"><b>${Number(monthlyBox.weeklyPurchasesRemaining ?? 7)} de 7</b> baús disponíveis nesta semana · 3 sorteios por baú · o próximo baú fechado sempre aparece como “Sorteio 1/3” · ciclo reinicia no sábado.</small>` : box.forceDelivery ? '<small class="cobblemon-delivery-lock"><b>1 recompensa definida</b> por abertura · resultado e chance visíveis antes da compra · entrega pelo Davi no servidor.</small>' : '';
+    const purchaseMore = box.monthly && monthlyBox.canPurchase && (readyToOpen || choiceMode) ? `<button type="button" data-cobblemon-box="${id}" data-cobblemon-box-mode="purchase">Comprar outro Baú Pokémon · ${shopCreditMarkup(box.price)}</button>` : '';
     const coverFallback = escapeHtml('/capture-ball-cobblemon.png');
-    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}${choiceMode ? ' choice-ready' : ''}"><span><img src="${escapeHtml(box.cover)}" alt="" onerror="this.onerror=null;this.src='${coverFallback}'"></span><div class="cobblemon-box-copy"><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><div class="cobblemon-box-price">${priceLabel}</div>${deliveryNote}</div><div class="cobblemon-box-actions"><button type="button" data-cobblemon-box-odds="${id}">Ver chances</button><button type="button" data-cobblemon-box="${id}" data-cobblemon-box-mode="${choiceMode ? 'choice' : readyToOpen ? 'open' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.boxId)}"` : choiceMode ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button>${purchaseMore}</div></article>`;
+    return `<article class="cobblemon-box-card ${box.accent}${box.monthly ? ' monthly-pokemon-box' : ''}${readyToOpen ? ' ready-to-open' : ''}${choiceMode ? ' choice-ready' : ''}"><span><img src="${escapeHtml(box.cover)}" alt="" onerror="this.onerror=null;this.src='${coverFallback}'"></span><div class="cobblemon-box-copy"><small>${box.monthly ? 'CICLO SEMANAL · SÁBADO A SEXTA · SOMENTE POKÉMON' : box.accent === 'legendary' ? 'EXCEPCIONAL' : box.accent === 'rare' ? 'AVANÇADO' : 'BÁSICO'}</small><strong>${escapeHtml(box.name)}</strong><div class="cobblemon-box-price">${priceLabel}</div>${deliveryNote}</div><div class="cobblemon-box-actions"><button type="button" data-cobblemon-box-odds="${id}">Ver chances</button><button type="button" data-cobblemon-box="${id}" data-cobblemon-box-mode="${readyToOpen ? 'open' : choiceMode ? 'choice' : box.monthly ? 'purchase' : 'open'}"${readyToOpen ? ` data-cobblemon-box-inventory="${escapeHtml(pendingCapsule.id)}"` : choiceMode ? ` data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}"` : ''}${locked ? ' disabled' : ''}>${escapeHtml(actionLabel)}</button>${purchaseMore}</div></article>`;
   }).join('');
   const weeklyCandidates = Array.isArray(monthlyBox.weeklyCandidates) ? monthlyBox.weeklyCandidates : [];
   const resultCards = weeklyCandidates.map((entry) => { const rarity = String(entry.rarity || 'common').toLowerCase(); const sellAmount = rarity === 'legendary' ? 500 : rarity === 'shiny' ? 400 : rarity === 'rare' ? 450 : 300; const sellButton = entry.deliveryLocked ? '' : `<button type="button" class="button button-dark cobblemon-candidate-sell" data-cobblemon-candidate-sell="${escapeHtml(entry.entryId || entry.id)}" data-cobblemon-candidate-price="${sellAmount}">Vender por: ${sellAmount} coins</button>`; const deliverySpec = cobblemonDeliverySpecLabel(entry); return `<article class="cobblemon-capsule-result"><img src="${escapeHtml(entry.sprite || COBBLEMON_ITEM_SPRITES.poke)}" alt=""><div><strong>${escapeHtml(entry.name || 'Pokémon')}</strong><small>${escapeHtml(entry.rarity || 'Pokémon')} · aguardando escolha da semana${deliverySpec ? ` · ${escapeHtml(deliverySpec.replace('Entrega Cobblemon: ', ''))}` : ''}</small><button type="button" class="button button-dark cobblemon-weekly-choice" data-cobblemon-weekly-choice="${escapeHtml(entry.entryId || entry.id)}">Escolher para entrega</button>${sellButton}</div></article>`; }).join('');
   const resultAction = monthlyBox.weeklyChoicePending && monthlyBox.choice ? `<button class="button button-primary" data-cobblemon-box="pokemon" data-cobblemon-box-mode="choice" data-cobblemon-box-inventory="${escapeHtml(monthlyBox.choice.id)}">Escolher Pokémon para o Davi</button>` : '';
-  $('#cobblemonCapsuleResults').innerHTML = resultCards ? `<div class="cobblemon-capsule-result-grid">${resultCards}</div><p class="cobblemon-capsule-result-note">${monthlyBox.weeklyChoicePending ? 'As sete vagas foram preenchidas: escolha um deles para a entrega de sexta. Ao confirmar, as outras opções serão vendidas e creditadas automaticamente.' : 'Suas opções ficam guardadas até você preencher as sete vagas ou até o fechamento automático de sábado. Ao escolher uma, as demais serão vendidas e creditadas automaticamente.'}</p>${resultAction}` : '<p class="cobblemon-delivery-empty">Nenhum Pokémon escolhido neste ciclo. Abra uma cápsula para começar.</p>';
+  $('#cobblemonCapsuleResults').innerHTML = resultCards ? `<div class="cobblemon-capsule-result-grid">${resultCards}</div><p class="cobblemon-capsule-result-note">${monthlyBox.weeklyChoicePending ? 'As sete vagas foram preenchidas: escolha um deles para a entrega de sexta. Ao confirmar, as outras opções serão vendidas e creditadas automaticamente.' : 'Suas opções ficam guardadas até você preencher as sete vagas ou até o fechamento automático de sábado. Ao escolher uma, as demais serão vendidas e creditadas automaticamente.'}</p>${resultAction}` : '<p class="cobblemon-delivery-empty">Nenhum Pokémon escolhido neste ciclo. Abra um Baú Pokémon para começar.</p>';
   $('#cobblemonCapsuleResultCount').textContent = `${weeklyCandidates.length} selecionado${weeklyCandidates.length === 1 ? '' : 's'}`;
-  $('#cobblemonCapsuleResultHelp').textContent = monthlyBox.weeklyChoicePending ? 'Escolha um Pokémon desta lista para ficar aguardando o envio do Davi na sexta.' : 'A cada cápsula, faça os 3 sorteios e escolha 1 Pokémon. As vagas restantes seguem abertas; o que sobrar é fechado automaticamente no sábado.';
+  $('#cobblemonCapsuleResultHelp').textContent = monthlyBox.weeklyChoicePending ? 'Escolha um Pokémon desta lista para ficar aguardando o envio do Davi na sexta.' : 'A cada Baú Pokémon, faça os 3 sorteios e escolha 1 Pokémon. As vagas restantes seguem abertas; o que sobrar é fechado automaticamente no sábado.';
   const visibleDeliveries = deliveries.filter((entry) => !['sold', 'box-closed', 'box-open', 'choice-pending', 'cycle-candidate', 'weekly-choice-pending', 'cycle-discarded', 'cycle-expired', 'reset-refunded', 'delivered'].includes(entry.status));
   const deliveryGroups = new Map();
   visibleDeliveries.forEach((entry) => {
@@ -3348,25 +3604,31 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonDeliveryCount').textContent = `${pendingDeliveries.length} ${pendingDeliveries.length === 1 ? 'pendente' : 'pendentes'} · ${deliveredHistory.length} entregues`;
   if (!visibleDeliveries.length) $('#cobblemonRewards').innerHTML = '<p class="cobblemon-delivery-empty">Nenhuma recompensa aguardando decisão ou entrega.</p>';
   const roulette = profile.cobblemon?.roulette || {}; const rouletteButton = $('#cobblemonRouletteSpin');
-  $('#cobblemonRouletteCard .cobblemon-roulette-copy>small').textContent = 'RODADA ESPECIAL · 1 VEZ POR DIA';
+  $('#cobblemonRouletteCard .cobblemon-roulette-copy>small').textContent = 'CICLO SEMANAL · 7 GIROS · SÁBADO A SEXTA';
   const rouletteWheel = $('#cobblemonRouletteWheel');
-  if (!rouletteWheel.dataset.rewardsReady) {
-    rouletteWheel.innerHTML = COBBLEMON_ROULETTE_REWARDS.map(([name, sprite], index) => `<span style="--i:${index}" title="${escapeHtml(name)}">${index === 0 ? '<b class="roulette-loss">×</b>' : `<img src="${sprite}" alt="${escapeHtml(name)}">`}</span>`).join('');
-    rouletteWheel.dataset.rewardsReady = 'true';
-  }
+  renderCobblemonRouletteWheel(rouletteWheel);
   const roulettePrice = Number(roulette.price || 259.90);
   const roulettePriceMarkup = shopCreditMarkup(roulettePrice, 'por giro');
   const roulettePriceElement = $('#cobblemonRoulettePrice');
   if (roulettePriceElement) roulettePriceElement.innerHTML = roulettePriceMarkup;
-  rouletteButton.disabled = !roulette.canSpin; rouletteButton.innerHTML = roulette.canSpin ? `Girar por ${roulettePriceMarkup}` : 'Roleta em recarga';
-  const rouletteStatus = roulette.canSpin ? '✓ Disponível agora' : `Próximo giro: ${new Date(roulette.nextSpinAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
+  rouletteButton.disabled = !roulette.canSpin; rouletteButton.classList.toggle('cycle-closed', !roulette.canSpin); rouletteButton.innerHTML = roulette.canSpin ? `Comprar e girar · ${roulettePriceMarkup}` : '<span aria-hidden="true">◷</span> Ciclo encerrado';
+  const rouletteStatus = roulette.canSpin ? `✓ ${Number(roulette.spinsRemaining || 0)} de 7 giros disponíveis neste ciclo` : `Novo ciclo: ${new Date(roulette.nextCycleAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}`;
   rouletteButton.title = roulette.canSpin ? `Girar a Roleta Cobblemon por ${formatCredits(roulettePrice)} Créditos 51` : rouletteStatus;
   rouletteButton.setAttribute('aria-label', rouletteButton.title);
-  $('#cobblemonRouletteStatus').textContent = rouletteStatus;
+  const rouletteStatusElement = $('#cobblemonRouletteStatus');
+  rouletteStatusElement.classList.toggle('is-closed', !roulette.canSpin);
+  rouletteStatusElement.textContent = rouletteStatus;
   const search = ($('#cobblemonDexSearch')?.value || '').trim().toLowerCase();
   const visible = catalog.filter((mon) => {
-    const owned = caught.has(Number(mon.i));
-    const matchesFilter = cobblemonDexFilter === 'caught' ? owned : cobblemonDexFilter === 'locked' ? !owned : true;
+    const ownedEntry = caught.get(Number(mon.i));
+    const owned = Boolean(ownedEntry);
+    const tier = cobblemonDexTier(mon, ownedEntry);
+    const matchesFilter = cobblemonDexFilter === 'caught' ? owned
+      : cobblemonDexFilter === 'locked' ? !owned
+        : cobblemonDexFilter === 'rare' ? owned && tier === 3
+          : cobblemonDexFilter === 'legendary' ? owned && tier === 4
+            : cobblemonDexFilter === 'shiny' ? owned && Boolean(ownedEntry?.isShiny)
+              : true;
     return matchesFilter && (!search || mon.n.toLowerCase().includes(search) || String(mon.i) === search || mon.t.toLowerCase().includes(search));
   });
   const pageSize = 24, pages = Math.max(1, Math.ceil(visible.length / pageSize)); cobblemonDexPage = Math.min(cobblemonDexPage, pages - 1);
@@ -3382,8 +3644,12 @@ function renderCobblemonDex(profile = {}) {
     bonusPanel = document.createElement('section');
     bonusPanel.id = 'cobblemonCaptureBonuses';
     bonusPanel.className = 'cobblemon-capture-bonuses';
-    $('#cobblemonBallOptions')?.insertAdjacentElement('afterend', bonusPanel);
   }
+  // As bolas são movidas para um painel flutuante durante a caçada. Nunca
+  // use esse elemento móvel como âncora: o bônus deve permanecer no card da
+  // Pokédex, antes da ajuda fixa, mesmo após visitar a tela Cobblemon.
+  const bonusAnchor = card.querySelector('.cobblemon-ball-help');
+  if (bonusAnchor) bonusAnchor.before(bonusPanel);
   const milestoneMarkup = (captureBonus.milestones || []).map((entry) => `<li class="${entry.claimed ? 'claimed' : ''}"><b>${entry.claimed ? '✓' : `${Math.min(Number(captureBonus.totalCaught || 0), Number(entry.target))}/${Number(entry.target)}`}</b><span>${Number(entry.target)} Pokémon</span><em>+${formatCredits(entry.reward)}</em></li>`).join('');
   bonusPanel.innerHTML = `<header><span>RECOMPENSAS DE CAPTURA</span><strong>${Number(captureBonus.totalCaught || 0)} Pokémon na Pokédex</strong></header><p>Créditos são liberados uma única vez pelo servidor ao registrar uma descoberta.</p><div class="cobblemon-capture-bonus-rules"><span>Raro novo <b>+${formatCredits(captureBonus.rewards?.rare || 15)}</b></span><span>Lendário novo <b>+${formatCredits(captureBonus.rewards?.legendary || 100)}</b></span><span>Shiny novo <b>+${formatCredits(captureBonus.rewards?.shiny || 60)}</b></span></div>${milestoneMarkup ? `<ol class="cobblemon-capture-milestones">${milestoneMarkup}</ol>` : ''}`;
   const buyBallsButton = $('#cobblemonBuyBalls');
@@ -3392,16 +3658,20 @@ function renderCobblemonDex(profile = {}) {
   $('#cobblemonDexPage').textContent = 'Página ' + (cobblemonDexPage + 1) + ' de ' + pages;
   $('#cobblemonDexPrev').disabled = cobblemonDexPage === 0; $('#cobblemonDexNext').disabled = cobblemonDexPage >= pages - 1;
   $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.classList.toggle('active', button.dataset.cobblemonFilter === cobblemonDexFilter));
-  const dexGridKey = [cobblemonDexOwnerId, cobblemonDexFilter, search, cobblemonDexPage, visible.map((mon) => { const owned = caught.get(Number(mon.i)); return `${mon.i}:${owned?.level || 0}:${owned?.isShiny ? 1 : 0}`; }).join(',')].join('|');
+  const dexGridKey = [cobblemonDexOwnerId, cobblemonDexFilter, search, cobblemonDexPage, visible.map((mon) => { const owned = caught.get(Number(mon.i)); return `${mon.i}:${owned?.level || 0}:${owned?.isShiny ? 1 : 0}:${cobblemonDexTier(mon, owned)}`; }).join(',')].join('|');
   if (dexGridKey !== cobblemonDexGridKey) {
     cobblemonDexGridKey = dexGridKey;
-    $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); const pokemon = { id: mon.i, name: mon.n, isShiny: Boolean(owned?.isShiny) }; return `<article class="cobblemon-dex-mon${owned ? '' : ' locked'}${pokemon.isShiny ? ' shiny' : ''}">${owned ? cobblemonSpriteMarkup(pokemon, 'small', `loading="lazy" decoding="async" fetchpriority="low" width="52" height="52" alt="${escapeHtml(mon.n)}"`) : `<img loading="lazy" decoding="async" fetchpriority="low" width="52" height="52" src="${cobblemonPreviewSprite(mon.i, 'small')}" alt="Silhueta">`}<p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? escapeHtml(mon.t) : 'Ainda não encontrado'}</small></p><em>${owned ? (pokemon.isShiny ? '✨ shiny' : level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
+    $('#cobblemonDexGrid').innerHTML = visible.length ? visible.slice(cobblemonDexPage * pageSize, (cobblemonDexPage + 1) * pageSize).map((mon) => { const owned = caught.get(Number(mon.i)); const level = Number(owned?.level || 0); const tier = cobblemonDexTier(mon, owned); const pokemon = { id: mon.i, name: mon.n, isShiny: Boolean(owned?.isShiny) }; return `<article id="cobblemonDexPokemon-${Number(mon.i)}" class="cobblemon-dex-mon tier-${tier}${owned ? '' : ' locked'}${pokemon.isShiny ? ' shiny' : ''}">${owned ? cobblemonSpriteMarkup(pokemon, 'small', `loading="lazy" decoding="async" fetchpriority="low" width="52" height="52" alt="${escapeHtml(mon.n)}"`) : `<img loading="lazy" decoding="async" fetchpriority="low" width="52" height="52" src="${cobblemonPreviewSprite(mon.i, 'small')}" alt="Silhueta">`}<p><b>${String(mon.i).padStart(4,'0')} · ${owned ? escapeHtml(mon.n) : '???'}</b><small>${owned ? `${escapeHtml(mon.t)} · ${cobblemonTierLabel(tier)}` : 'Ainda não encontrado'}</small></p><em>${owned ? (pokemon.isShiny ? '✨ shiny' : level ? 'nível ' + level : 'capturado') : '?'}</em></article>`; }).join('') : '<p class="cobblemon-dex-empty">Nenhum Pokémon corresponde a este filtro.</p>';
   }
 }
 
 function mountCobblemonHuntBallPanel() {
   const options = $('#cobblemonBallOptions');
   if (!options) return;
+  // O painel flutuante da caçada contém exclusivamente as bolas. As
+  // recompensas da Pokédex pertencem ao catálogo e nunca devem acompanhar o
+  // jogador para outra página enquanto ele procura o Pokémon.
+  $('#cobblemonCaptureBonuses')?.remove();
   let panel = $('#cobblemonHuntBallPanel');
   if (!panel) {
     panel = document.createElement('section');
@@ -3431,7 +3701,7 @@ function restoreCobblemonBallPanel() {
 }
 
 function setCobblemonDexFilter(filter = 'all') {
-  const nextFilter = ['all', 'caught', 'locked'].includes(filter) ? filter : 'all';
+  const nextFilter = ['all', 'caught', 'rare', 'legendary', 'shiny', 'locked'].includes(filter) ? filter : 'all';
   cobblemonDexFilter = nextFilter;
   cobblemonDexPage = 0;
   $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => {
@@ -3442,7 +3712,26 @@ function setCobblemonDexFilter(filter = 'all') {
   if (appState?.profile) renderCobblemonDex(appState.profile);
 }
 
+// Os controles da Pokédex ficam no próprio card. Isso evita que temas,
+// cursores ou outros listeners globais impeçam a troca de página/filtro.
+$('#cobblemonDexCard')?.addEventListener('click', (event) => {
+  const pager = event.target?.closest?.('#cobblemonDexPrev, #cobblemonDexNext');
+  if (pager) {
+    event.preventDefault();
+    if (pager.disabled) return;
+    cobblemonDexPage += pager.id.endsWith('Next') ? 1 : -1;
+    renderCobblemonDex(appState.profile);
+    return;
+  }
+  const filter = event.target?.closest?.('#cobblemonDexFilters [data-cobblemon-filter]');
+  if (filter) {
+    event.preventDefault();
+    setCobblemonDexFilter(filter.dataset.cobblemonFilter);
+  }
+});
+
 function renderProfileEconomy(profile = {}, globalOnly = false) {
+  if(typeof renderNextCardSeasonShopPreview==='function')renderNextCardSeasonShopPreview();
   const profilePage = currentPortalPage();
   // applyState() chama esta função em modo global para atualizar apenas o
   // cabeçalho. A página ativa é renderizada uma vez por
@@ -3452,6 +3741,7 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
     if (profilePage === 'perfil') renderVisualTrading(appState.trading || {});
     if (profilePage === 'album') renderCardAlbum(appState.cardAlbum);
   }
+  syncCobblemonHuntLauncher();
   const albumBadge=appState.cardAlbum?.collections?.find(c=>c.id===appState.cardAlbum.equipped && c.craftedAt);
   const shop = Array.isArray(profile.shop) ? profile.shop : [];
   const equipped = profile.equipped || {};
@@ -3479,7 +3769,7 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   document.documentElement.classList.toggle('debt-cursor', Boolean(profile.forcedCursor?.debt));
   applyPersonalTheme(allowPersonalTheme ? siteThemeItem?.value : null);
   const personalCursor = forcedGayCursor || forcedGiantCursor ? null : cursorItem;
-  document.body.dataset.trailStyle = personalCursor?.value === 'maradona' ? 'white' : (trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none'));
+  document.body.dataset.trailStyle = personalCursor?.value === 'maradona' ? 'white' : personalCursor?.value === 'halloween-mask' ? 'halloween-blood' : (trailItem ? trailItem.value : (['laser', 'rocket', 'alien'].includes(personalCursor?.value) ? personalCursor.value : 'none'));
   document.body.dataset.cursorEffect = forcedGiantCursor ? 'giant-slow' : forcedAdhdCursor ? 'adhd' : (forcedGayCursor || personalCursor?.value === 'gay') ? 'gay' : ['galinha-preta', 'volei', 'biblia', 'papa-bento', 'scrum-master', 'energetico', 'pirokinha-cosmica', 'petista', 'bolsonaro', 'umbanda', 'messi', 'cristiano', 'pele', 'maradona', 'neymar'].includes(personalCursor?.value) ? personalCursor.value : '';
   if (forcedGayCursor || forcedGiantCursor) $$('.cursor-linked-effect').forEach((particle) => particle.remove());
   document.documentElement.classList.toggle('unicorn-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'unicorn'));
@@ -3488,6 +3778,7 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   document.documentElement.classList.toggle('pirokinha-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'pirokinha-cosmica'));
   document.documentElement.classList.toggle('anvisa-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'anvisa'));
   document.documentElement.classList.toggle('commander-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'commander'));
+  document.documentElement.classList.toggle('commander-halloween-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'commander-halloween'));
   document.documentElement.classList.toggle('black-hen-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'galinha-preta'));
   document.documentElement.classList.toggle('volleyball-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'volei'));
   document.documentElement.classList.toggle('bible-cursor-active', Boolean(!forcedGayCursor && cursorItem && cursorItem.value === 'biblia'));
@@ -3564,10 +3855,16 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
     ...liveTitles.map((item) => [item.icon, 'Título vivo: ' + item.name]),
   ].filter(Boolean);
   $('#activeVisualsList').innerHTML = activeVisuals.length
-    ? activeVisuals.map(([icon, label]) => `<span>${icon} ${escapeHtml(label)}</span>`).join('')
+    ? activeVisuals.map(([icon, label]) => `<span>${icon === 'admin-halloween' ? '<img class="active-visual-badge" src="/badge-commander-halloween-v2.png" alt="">' : escapeHtml(icon)} ${escapeHtml(label)}</span>`).join('')
     : '<span class="visuals-empty">Nenhuma personalização equipada</span>';
   const powers = profile.activePowers || {};
   const powerRows = [];
+  const activeCurse = profile.forcedCursor && !profile.forcedCursor.automatic && !profile.forcedCursor.debt ? profile.forcedCursor : null;
+  if (activeCurse) {
+    const curseLabel = activeCurse.style === 'giant-slow' ? 'Maldição do Mouse Gigante' : activeCurse.style === 'adhd' ? 'Maldição TDAH' : 'Seta Gay Compulsória';
+    const curseDetail = activeCurse.style === 'giant-slow' ? 'Você foi alvo: mouse gigante e lento por 24 horas. Origem sigilosa.' : activeCurse.style === 'adhd' ? 'Você foi alvo: o cursor pode se mover sozinho por cerca de 30 segundos, durante 24 horas. Origem sigilosa.' : 'Você foi alvo: cursor obrigatório por 24 horas. Origem sigilosa.';
+    powerRows.push([activeCurse.style === 'giant-slow' ? '🐌' : activeCurse.style === 'adhd' ? '⚡' : '🌈', curseLabel + ' ativa', curseDetail, true]);
+  }
   if (powers.forcedGay) powerRows.push(['👑', 'Controle Gay da Rodada ativo', 'Escolhido: ' + powers.forcedGay, true, 'power-choose-gay']);
   if (powers.shield) powerRows.push(['🛡️', 'Escudo da Rodada ativo', 'Você está protegido nesta rodada', true, 'power-shield-gay']);
   if (powers.forcedTheme) powerRows.push(['🎨', 'Tema reservado', powers.forcedTheme, true]);
@@ -3583,15 +3880,15 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
   $('#mysteryInventoryCount').textContent = (mysteryBoxes.length + mysteryRewards.length + physicalPrizes.length) + ((mysteryBoxes.length + mysteryRewards.length + physicalPrizes.length) === 1 ? ' item' : ' itens');
 $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel = box.source === 'casino' ? 'Ganho na Roleta 51' : String(box.source || '').startsWith('feature-gift-') ? 'Brinde das novas funcionalidades' : 'Comprado na Loja 51'; return `<article class="mystery-inventory-item mystery-${escapeHtml(box.tier)}"><span>${box.icon || '🎁'}</span><p><strong>${escapeHtml(box.name)}</strong><small>${sourceLabel} · ${escapeHtml(formatDate(box.acquiredAt))}</small></p><div><button type="button" data-box-open="${escapeHtml(box.id)}" data-box-name="${escapeHtml(box.name)}">Abrir</button><button type="button" data-box-sell="${escapeHtml(box.id)}" data-box-name="${escapeHtml(box.name)}" data-box-price="${Number(box.sellPrice || 0)}">Vender por ${Number(box.sellPrice || 0).toLocaleString('pt-BR')}</button></div></article>`; }).join('');
   $('#mysteryRewardInventory').innerHTML = mysteryRewards.length ? '<h4>Decisão pendente</h4>' + mysteryRewards.map((reward) => `<article class="mystery-reward-item"><span>${reward.icon || '🎁'}</span><p><strong>${escapeHtml(reward.name)}</strong><small>Você ainda não usou este prêmio.</small></p><div><button type="button" data-reward-keep="${escapeHtml(reward.purchaseId)}">Ficar</button><button type="button" data-reward-sell="${escapeHtml(reward.purchaseId)}" data-reward-name="${escapeHtml(reward.name)}" data-reward-price="${Number(reward.sellPrice || 0)}">Vender por ${Number(reward.sellPrice || 0).toLocaleString('pt-BR')}</button></div></article>`).join('') : '';
-  const mission = profile.mission || { progress: 0, target: 1, reward: 0 };
-  const missionPercent = Math.min(100, Math.round(Number(mission.progress || 0) / Math.max(1, Number(mission.target || 1)) * 100));
-  $('#missionIcon').textContent = mission.icon || '🛸';
-  $('#missionTitle').textContent = mission.title || 'Missão semanal';
-  $('#missionDescription').textContent = mission.description || '';
-  $('#missionProgressBar').style.width = missionPercent + '%';
-  $('#missionProgressText').textContent = mission.completed ? '✓ Missão concluída' : mission.progress + ' de ' + mission.target;
-  $('#missionReward').textContent = mission.completed ? 'Recompensa recebida' : '+' + mission.reward + ' créditos';
-  $('.weekly-mission-card').classList.toggle('completed', Boolean(mission.completed));
+  const weeklyMissions = Array.isArray(profile.missions) && profile.missions.length ? profile.missions : [profile.mission || { progress: 0, target: 1, reward: 0 }];
+  const completedWeekly = weeklyMissions.filter((item) => item.completed).length;
+  $('#weeklyMissionCount').textContent = completedWeekly + ' de ' + weeklyMissions.length;
+  $('#weeklyMissionList').innerHTML = weeklyMissions.map((item) => {
+    const percent = Math.min(100, Math.round(Number(item.progress || 0) / Math.max(1, Number(item.target || 1)) * 100));
+    const progress = item.completed ? '✓ Recompensa recebida' : item.progress + ' de ' + item.target;
+    return `<article class="weekly-mission-item${item.completed ? ' completed' : ''}"><span>${item.icon || '🛸'}</span><div><strong>${escapeHtml(item.title || 'Missão semanal')}</strong><small>${escapeHtml(item.description || '')}</small><i><b style="width:${percent}%"></b></i><em>${escapeHtml(progress)}</em></div><mark>${item.completed ? '✓' : '+' + Number(item.reward || 0)}</mark></article>`;
+  }).join('');
+  $('.weekly-mission-card').classList.toggle('completed', completedWeekly === weeklyMissions.length);
   const dailyMissions = Array.isArray(profile.dailyMissions) ? profile.dailyMissions : [];
   const completedDaily = dailyMissions.filter((item) => item.completed).length;
   const dailyUnlocked = dailyMissions.some((item) => item.unlocked !== false);
@@ -3624,7 +3921,8 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   const peopleOptions = (gifts.people || []).map((person) => `<option value="${escapeHtml(person.id)}">${escapeHtml(formatDisplayName(person.displayName))}</option>`).join('');
   $('#giftCreditsUser').innerHTML = peopleOptions || '<option value="">Nenhuma pessoa disponível</option>';
   $('#giftItemUser').innerHTML = peopleOptions || '<option value="">Nenhuma pessoa disponível</option>';
-    $('#giftShopItem').innerHTML = (gifts.items || []).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${formatCredits(item.price)} créditos</option>`).join('');
+    const giftableItems = (gifts.items || []).filter((item) => Number(item.price) > 0);
+    $('#giftShopItem').innerHTML = giftableItems.length ? giftableItems.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${formatCredits(item.price)} créditos</option>`).join('') : '<option value="">Nenhum item disponível</option>';
   $('#giftCreditsAmount').max = String(weeklyCreditLimit);
   $('#giftCreditLimit').textContent = 'Limite restante nesta semana: ' + Number(gifts.weeklyCreditRemaining || 0) + ' de ' + weeklyCreditLimit + ' créditos';
   $('.gift-center-card').classList.toggle('hidden', !(gifts.people || []).length);
@@ -3634,6 +3932,7 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
   $('#freeShopPassText').textContent = freeShopAvailable ? 'Escolha um visual da loja e use seu único passe sem gastar créditos.' : 'Seu passe individual já foi usado. As próximas compras utilizam Créditos 51.';
   $('#freeShopPassStatus').textContent = freeShopAvailable ? '1 USO' : 'UTILIZADO';
   const loan = profile.loan;
+  const loanTrust = profile.stellarLoanTrust || { level: 0, maxLevel: 5, maxPrincipal: 900, nextMaxPrincipal: 1200, qualifyingPrincipal: 900, offers: [300, 600, 900] };
   let debtNotice = $('#loanOverdueNotice');
   if (loan?.overdue && !debtNotice) {
     debtNotice = document.createElement('aside'); debtNotice.id = 'loanOverdueNotice'; debtNotice.className = 'loan-overdue-notice'; debtNotice.setAttribute('role','status');
@@ -3641,14 +3940,19 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
     $('.topbar').insertAdjacentElement('afterend', debtNotice);
   } else if (!loan?.overdue) debtNotice?.remove();
   $('#stellarLoanCard').classList.toggle('has-debt', Boolean(loan));
-  $('#stellarLoanTitle').textContent = loan ? `Dívida atual: ${formatCredits(loan.remainingDue)} créditos` : 'Créditos rápidos para a sua coleção';
-  $('#stellarLoanText').textContent = loan ? `Você recebeu ${loan.principal} e deve ${loan.totalDue} com juros. ${loan.dueAt ? `Vencimento: ${formatDate(loan.dueAt)}. ${loan.overdue ? 'ATRASADO: tema de cobrança e cursor lento ativos; quite para entrar em novas rodadas.' : 'Resgates promocionais abatem primeiro a dívida.'}` : 'Contrato anterior: sem prazo ou novas penalidades.'}` : 'Receba 300, 600 ou 900 créditos. Juros fixos de 20%; prazo de 48 horas. Atrasos ativam cobrança visual e impedem entrada em novas rodadas. Você também pode quitar a dívida entregando itens do inventário. Apenas um empréstimo por vez.';
-  $('#stellarLoanActions').innerHTML = loan ? `<input id="stellarRepayAmount" type="number" min="0.01" max="${Number(loan.remainingDue).toFixed(2)}" step="0.01" inputmode="decimal" value="${Math.min(Number(profile.wallet || 0), Number(loan.remainingDue)).toFixed(2)}" aria-label="Valor do pagamento"><button type="button" data-loan-repay>Pagar</button><button type="button" data-loan-repay-all>Quitar ${formatCredits(loan.remainingDue)}</button>` : [300,600,900].map((amount) => `<button type="button" data-loan-borrow="${amount}">Receber ${formatCredits(amount)}<small>Devolver ${formatCredits(amount * 1.2)}</small></button>`).join('');
+  $('#stellarLoanTitle').textContent = loan ? `Dívida atual: ${formatCredits(loan.remainingDue)} créditos` : `Agiota Estelar · limite ${formatCredits(loanTrust.maxPrincipal)}`;
+  $('#stellarLoanText').textContent = loan ? `Você recebeu ${loan.principal} e deve ${loan.totalDue} com juros. ${loan.dueAt ? `Vencimento: ${formatDate(loan.dueAt)}. ${loan.overdue ? 'ATRASADO: tema de cobrança e cursor lento ativos; quite para entrar em novas rodadas.' : 'Resgates promocionais abatem primeiro a dívida.'}` : 'Contrato anterior: sem prazo ou novas penalidades.'}` : `Confiança ${loanTrust.level}/${loanTrust.maxLevel} · limite atual de ${formatCredits(loanTrust.maxPrincipal)}. Digite de 300 até seu limite. Juros fixos de 20%, prazo de 48 horas e um empréstimo por vez. Quite ${formatCredits(loanTrust.qualifyingPrincipal)} no prazo para liberar ${formatCredits(loanTrust.nextMaxPrincipal)}. Atrasos reduzem uma faixa de confiança.`;
+  $('#stellarLoanActions').innerHTML = loan ? `<input id="stellarRepayAmount" type="number" min="0.01" max="${Number(loan.remainingDue).toFixed(2)}" step="0.01" inputmode="decimal" value="${Math.min(Number(profile.wallet || 0), Number(loan.remainingDue)).toFixed(2)}" aria-label="Valor do pagamento"><button type="button" data-loan-repay>Pagar</button><button type="button" data-loan-repay-all>Quitar ${formatCredits(loan.remainingDue)}</button>` : `<input id="stellarBorrowAmount" type="number" min="300" max="${Number(loanTrust.maxPrincipal)}" step="1" inputmode="numeric" value="${Number(loanTrust.maxPrincipal)}" aria-label="Valor solicitado ao Agiota"><button type="button" data-loan-borrow>Solicitar créditos<small>Devolver +20% em 48h</small></button>`;
   let lenderOffers = $('#stellarLenderOffers');
   if (!lenderOffers) { lenderOffers = document.createElement('section'); lenderOffers.id = 'stellarLenderOffers'; lenderOffers.className = 'stellar-lender-offers'; $('#stellarLoanCard').append(lenderOffers); }
   const lender = profile.stellarLender;
   lenderOffers.classList.toggle('hidden', !lender?.visible || !(lender.offers || []).length);
   lenderOffers.innerHTML = lender?.visible ? `<strong>💼 Entregue um item ao Agiota</strong><small>${lender.reason === 'overdue' ? 'Sua dívida está vencida: o valor será abatido dela.' : 'Você tem uma dívida ativa: o valor será abatido dela.'}</small><div class="stellar-item-offer-list">${(lender.offers || []).map((item) => `<button type="button" data-loan-item="${escapeHtml(item.purchaseId)}"><span>${escapeHtml(item.icon)}</span><b>${escapeHtml(item.name)}</b><em>${formatCredits(item.value)} para abater</em></button>`).join('')}</div>` : '';
+  let blackMarket = $('#stellarBlackMarket');
+  if (!blackMarket) { blackMarket = document.createElement('section'); blackMarket.id = 'stellarBlackMarket'; blackMarket.className = 'stellar-black-market'; $('#stellarLoanCard').append(blackMarket); }
+  const blackMarketState = profile.stellarBlackMarket || { rate: 40, offers: [] };
+  const blackMarketOffers = Array.isArray(blackMarketState.offers) ? blackMarketState.offers : [];
+  blackMarket.innerHTML = `<strong>🕶️ Mercado Negro</strong><small>O Agiota compra cosméticos pagos que você não está usando pelo mesmo valor aceito para quitar empréstimos: ${Number(blackMarketState.rate || 60)}% do valor-base. O crédito vai para a Loja 51 e não altera sua dívida.</small>${blackMarketOffers.length ? `<div class="stellar-item-offer-list">${blackMarketOffers.map((item) => `<button type="button" data-black-market-sale="${escapeHtml(item.purchaseId)}"><span>${escapeHtml(item.icon)}</span><b>${escapeHtml(item.name)}</b><em>Vender por ${formatCredits(item.value)}</em></button>`).join('')}</div>` : '<em class="stellar-black-market-empty">Nenhum cosmético pago e não equipado disponível agora.</em>'}`;
   const shopPriority = (item) => item.service ? -2 : item.id === 'power-force-gay-cursor' ? -1 : 0;
   const orderedShop = [...shop].sort((a, b) => shopPriority(a) - shopPriority(b));
   const nextShopCatalogSignature = JSON.stringify([shop, profile.cardPacks || [], mysteryBoxes, freeShopAvailable, profile.cobblemon?.balls || {}, shopFilter, hideOwnedVisuals]);
@@ -3658,8 +3962,10 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
     const balls = profile.cobblemon?.balls || {};
     const category = (item.mysteryBox || item.cardPack || isCobblemonBalls) ? 'box' : item.type === 'cursorStyle' ? 'cursor' : item.type === 'trailStyle' ? 'trail' : item.type === 'siteTheme' ? 'theme' : item.type === 'power' ? 'power' : 'profile';
     const isOwnedVisual = item.owned && !item.consumable && !item.mysteryBox && !item.service;
-    const filteredOut = (shopFilter !== 'all' && shopFilter !== category) || (hideOwnedVisuals && isOwnedVisual);
-    const label = isCobblemonBalls ? 'POKÉDEX 51 · CAPTURA' : item.cardPack ? 'PACOTE DE CARTAS' : item.service ? 'TROCA DE CONQUISTA' : item.mysteryBox ? 'CAIXA MISTERIOSA' : item.type === 'title' ? 'TÍTULO' : item.type === 'badge' ? 'EMBLEMA DO PERFIL' : item.type === 'frame' ? 'MOLDURA' : item.type === 'nameStyle' ? 'ESTILO DO NOME' : item.type === 'siteTheme' ? 'TEMA VISUAL' : item.type === 'cursorStyle' ? 'SKIN DO CURSOR' : item.type === 'trailStyle' ? 'RASTRO DO CURSOR' : 'PODER CONSUMÍVEL';
+    const matchesFilter = shopFilter === 'all'
+      || (shopFilter === 'halloween' ? item.seasonalEvent === 'halloween-2026' : shopFilter === category);
+    const filteredOut = !matchesFilter || (hideOwnedVisuals && isOwnedVisual);
+    const label = item.seasonalEvent === 'halloween-2026' ? 'HALLOWEEN 51 · EDIÇÃO LIMITADA' : isCobblemonBalls ? 'POKÉDEX 51 · CAPTURA' : item.cardPack ? 'PACOTE DE CARTAS' : item.service ? 'TROCA DE CONQUISTA' : item.mysteryBox ? 'CAIXA MISTERIOSA' : item.type === 'title' ? 'TÍTULO' : item.type === 'badge' ? 'EMBLEMA DO PERFIL' : item.type === 'frame' ? 'MOLDURA' : item.type === 'nameStyle' ? 'ESTILO DO NOME' : item.type === 'siteTheme' ? 'TEMA VISUAL' : item.type === 'cursorStyle' ? 'SKIN DO CURSOR' : item.type === 'trailStyle' ? 'RASTRO DO CURSOR' : 'PODER CONSUMÍVEL';
     const shieldWaiting = item.value === 'shieldGay' && Number(item.quantity || 0) > 0;
     const action = isCobblemonBalls ? 'Comprar Poké Balls' : item.cardPack ? 'Comprar pacote' : item.service ? 'Vender 1 ponto' : item.mysteryBox ? 'Comprar fechada' : shieldWaiting ? 'Aguardar sorteio' : item.consumable ? (item.quantity > 0 ? 'Usar poder' : 'Comprar') : item.equipped ? (item.type === 'siteTheme' ? 'Desativar tema' : 'Remover') : item.owned ? (item.type === 'siteTheme' ? 'Aplicar tema' : 'Equipar') : 'Comprar';
     const shopAction = isCobblemonBalls ? 'cobblemon-balls' : item.cardPack ? 'purchase' : item.service ? 'sell-best-win' : item.mysteryBox ? 'mystery-purchase' : shieldWaiting ? 'shield-waiting' : item.consumable ? (item.quantity > 0 ? 'use' : 'purchase') : item.owned ? 'equip' : 'purchase';
@@ -3674,9 +3980,9 @@ $('#mysteryInventory').innerHTML = mysteryBoxes.map((box) => { const sourceLabel
     const quantityPicker = canBuyQuantity ? `<label class="shop-quantity-picker"><span>Quantidade</span><input type="number" min="1" max="20" step="1" value="1" inputmode="numeric" data-shop-quantity="${escapeHtml(item.id)}" aria-label="Quantidade de ${escapeHtml(item.name)}"></label>` : '';
     const buyMorePower = item.type === 'power' && item.consumable && Number(item.quantity || 0) > 0 ? `<button type="button" data-shop-action="purchase" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}">Comprar mais</button>` : '';
     const boxInfo = item.mysteryBox ? ` data-box-info="true" data-box-name="${escapeHtml(item.name)}" data-box-icon="${escapeHtml(item.icon)}" data-box-credit="${Math.round(Number(item.creditChance || 0) * 100)}" data-box-power="${Math.round(Number(item.powerChance || 0) * 100)}" data-box-min="${Number(item.creditMin || 0)}" data-box-max="${Number(item.creditMax || 0)}" data-box-reward-min="${Number(item.minRewardPrice || 0)}" data-box-reward-max="${Number(item.maxRewardPrice || 0)}" data-box-physical-chance="${Number(item.physicalKitChance || 0)}"` : '';
-    const iconMarkup = isCobblemonBalls ? `<span class="shop-item-icon"><img src="${COBBLEMON_ITEM_SPRITES.poke}" alt="Poké Ball" style="width:52px;height:52px;object-fit:contain;image-rendering:pixelated"></span>` : item.mysteryBox ? `<button class="shop-item-icon" type="button" aria-label="Ver chances da ${escapeHtml(item.name)}">${item.icon}</button>` : `<span class="shop-item-icon">${item.icon}</span>`;
+    const iconMarkup = isCobblemonBalls ? `<span class="shop-item-icon"><img src="${COBBLEMON_ITEM_SPRITES.poke}" alt="Poké Ball" style="width:52px;height:52px;object-fit:contain;image-rendering:pixelated"></span>` : item.cardPack && item.packArt ? `<span class="shop-item-icon shop-pack-art"><img src="${escapeHtml(item.packArt)}" alt="${escapeHtml(item.name)}"></span>` : item.mysteryBox ? `<button class="shop-item-icon" type="button" aria-label="Ver chances da ${escapeHtml(item.name)}">${item.icon}</button>` : `<span class="shop-item-icon">${item.icon}</span>`;
     const oddsButton = item.mysteryBox ? '<button type="button" data-box-odds>Ver chances</button>' : '';
-    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}"${boxInfo}>${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}${iconMarkup}<div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong>${quantityPicker}<span class="shop-card-actions">${oddsButton}${previewButton}${freeButton}${buyMorePower}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}" data-equipped="${item.equipped}"${shieldWaiting || (!isCobblemonBalls && item.service && Number(item.availablePoints || 0) < 1) ? ' disabled' : ''}>${action}</button></span></footer></article>`;
+    return `<article data-shop-category="${category}" class="shop-item shop-type-${escapeHtml(item.type)}${item.service ? ' shop-service' : ''}${item.mysteryBox ? ' mystery-box mystery-' + escapeHtml(item.tier) : ''}${item.owned ? ' owned' : ''}${item.equipped ? ' equipped' : ''}${item.consumable ? ' consumable' : ''}${item.granted ? ' admin-exclusive' : ''}${item.seasonalEvent === 'halloween-2026' ? ' halloween-shop-item' : ''}${featuredPower ? ' featured-gay-power' : ''}${filteredOut ? ' hidden' : ''}"${boxInfo}>${item.seasonalEvent === 'halloween-2026' ? '<span class="shop-seasonal-badge">🎃 OUTUBRO 51</span>' : ''}${featuredPower ? '<span class="shop-new-power">NOVO PODER</span>' : ''}${iconMarkup}<div><small>${label}</small><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p></div>${shopVisualPreview(item)}${themeConfirmation}<footer><strong>${status}</strong>${quantityPicker}<span class="shop-card-actions">${oddsButton}${previewButton}${freeButton}${buyMorePower}<button type="button" data-shop-action="${shopAction}" data-shop-item="${escapeHtml(item.id)}" data-shop-type="${escapeHtml(item.type)}" data-shop-value="${escapeHtml(item.value)}" data-shop-price="${Number(item.price)}" data-equipped="${item.equipped}"${shieldWaiting || (!isCobblemonBalls && item.service && Number(item.availablePoints || 0) < 1) ? ' disabled' : ''}>${action}</button></span></footer></article>`;
   }).join('');
   const collectionCatalog = $('#collectionCatalog');
   collectionCatalog.innerHTML = '';
@@ -3873,6 +4179,32 @@ function renderAdminHealth(health = {}) {
   const backup = health.lastBackupAt ? formatDate(health.lastBackupAt) : 'ainda não registrado';
   const cleanup = health.lastCleanupAt ? formatDate(health.lastCleanupAt) : 'ainda não registrada';
   $('#healthActivity').textContent = `Último backup: ${backup}. Última limpeza: ${cleanup}. Imagens: ${Number(media.wallpapers || 0)} wallpapers, ${Number(media.feedImages || 0)} no feed e ${Number(media.feedbackImages || 0)} em feedbacks. Sincronização visível preservada; apenas abas em segundo plano ficam pausadas.`;
+  void refreshRuntimeHealth();
+}
+
+let runtimeHealthLastCheckedAt = 0;
+let runtimeHealthRequest = null;
+function formatRuntimePercent(value) { return `${Math.max(0, Math.min(100, Math.round(Number(value || 0))))}%`; }
+function runtimeLevel(value, warning, critical) { return value >= critical ? 'critical' : value >= warning ? 'warning' : 'healthy'; }
+function renderRuntimeHealth(runtime = {}, responseMs = null) {
+  const root = $('#healthRuntime'); if (!root) return;
+  if (!runtime.ok) { root.innerHTML = '<div class="health-runtime-alert warning"><strong>⚠ Origem sem leitura</strong><span>O portal ainda pode estar funcionando. Tente atualizar esta página em alguns instantes.</span></div>'; return; }
+  const memoryLevel = runtimeLevel(runtime.memoryUsedPercent, 75, 90); const swapLevel = runtimeLevel(runtime.swapUsedPercent, 50, 80); const loadLevel = runtimeLevel(runtime.loadPerCpu, 1, 2);
+  const overall = [memoryLevel, swapLevel, loadLevel].includes('critical') ? 'critical' : ([memoryLevel, swapLevel, loadLevel].includes('warning') ? 'warning' : 'healthy');
+  const status = $('#healthOverallStatus');
+  if (status) { status.textContent = overall === 'healthy' ? '● Tudo normal' : overall === 'warning' ? '● Atenção necessária' : '● Ação necessária'; status.classList.toggle('needs-attention', overall !== 'healthy'); status.classList.toggle('critical', overall === 'critical'); }
+  const responseLabel = Number.isFinite(responseMs) ? `${Math.round(responseMs)} ms` : 'agora';
+  root.innerHTML = [
+    ['Custo estimado', 'R$ 0,00/mês', 'healthy', 'Plano Always Free'], ['Origem', 'Online', 'healthy', `Resposta: ${responseLabel}`],
+    ['Memória da VM', formatRuntimePercent(runtime.memoryUsedPercent), memoryLevel, memoryLevel === 'healthy' ? 'Até 75% é normal' : 'Uso alto: acompanharemos'], ['Swap', formatRuntimePercent(runtime.swapUsedPercent), swapLevel, swapLevel === 'healthy' ? 'Reserva disponível' : 'Reserva sendo usada'],
+    ['Carga do servidor', `${Number(runtime.loadPerCpu || 0).toFixed(2)} / 1`, loadLevel, loadLevel === 'healthy' ? 'Abaixo do limite' : 'Há trabalho acumulado'], ['Monitor automático', runtime.healthcheckActive ? 'Ativo' : 'Revisar', runtime.healthcheckActive ? 'healthy' : 'warning', runtime.healthcheckActive ? 'Verifica a cada minuto' : 'Monitor indisponível'],
+  ].map(([label, value, level, detail]) => `<div class="health-runtime-metric ${level}"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><span>${escapeHtml(detail)}</span></div>`).join('');
+}
+async function refreshRuntimeHealth() {
+  if (!appState || appState.me?.role !== 'admin' || runtimeHealthRequest || Date.now() - runtimeHealthLastCheckedAt < 30000) return;
+  const startedAt = performance.now();
+  runtimeHealthRequest = api('/api/admin/runtime-health').then((data) => { runtimeHealthLastCheckedAt = Date.now(); renderRuntimeHealth(data.runtime || {}, performance.now() - startedAt); }).catch(() => { runtimeHealthLastCheckedAt = Date.now(); renderRuntimeHealth(); }).finally(() => { runtimeHealthRequest = null; });
+  await runtimeHealthRequest;
 }
 
 function renderAnnouncement(announcement) {
@@ -3889,12 +4221,33 @@ function renderAnnouncement(announcement) {
 let renderingActivePortalPage = false;
 let renderedPortalPage = null;
 const MARKET_CHART_COLORS = ['#62e6c3', '#7f8cff', '#ffcc66', '#ff7195', '#48b8ff', '#c58cff'];
+const MARKET_CHART_PERIODS = Object.freeze({ '1d': 1, '7d': 7, '3w': 21, '1m': 31, '1y': 365 });
+let marketChartPeriod = '1d';
+let marketChartAssetId = 'all';
+let marketHistoryAssetId = 'all';
 function marketMoney(value) {
   return Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function marketSignedMoney(value) {
   const amount = Number(value || 0);
   return `${amount > 0 ? '+' : ''}${marketMoney(amount)}`;
+}
+function marketHistoryForPeriod(market, period = marketChartPeriod) {
+  const days = MARKET_CHART_PERIODS[period] || 1;
+  const detailed = Array.isArray(market.history) ? market.history : [];
+  const daily = Array.isArray(market.dailyHistory) ? market.dailyHistory : [];
+  const source = days > 30 ? [...daily, ...detailed] : detailed;
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  const seen = new Set();
+  return source
+    .filter((row) => !row.createdAt || Date.parse(row.createdAt) >= cutoff)
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    .filter((row) => {
+      const key = row.slotKey || row.createdAt || row.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 function marketChartMarkup(assets, history) {
   const chronological = [...history].reverse();
@@ -3909,28 +4262,31 @@ function marketChartMarkup(assets, history) {
     } else if (Math.abs(samples[samples.length - 1].price - current) > 0.0001) samples.push({ price: current, createdAt: null });
     if (samples.length === 1) samples.unshift({ ...samples[0], createdAt: null });
     const base = samples[0].price || Number(asset.price) || 1;
-    return { asset, color: MARKET_CHART_COLORS[index % MARKET_CHART_COLORS.length], samples, points: samples.map((sample) => ((sample.price / base) - 1) * 100) };
+    return { asset, color: MARKET_CHART_COLORS[index % MARKET_CHART_COLORS.length], samples, points: samples.map((sample) => sample.price), changes: samples.map((sample) => ((sample.price / base) - 1) * 100) };
   });
   const allPoints = series.flatMap((item) => item.points);
-  let min = Math.min(0, ...allPoints); let max = Math.max(0, ...allPoints);
-  if (min === max) { min -= 1; max += 1; }
+  let min = Math.min(...allPoints); let max = Math.max(...allPoints);
+  if (min === max) { const padding = Math.max(1, Math.abs(min) * .06); min -= padding; max += padding; }
+  else { const padding = Math.max(.01, (max - min) * .07); min -= padding; max += padding; }
   const width = 940; const height = 250; const left = 48; const right = 18; const top = 18; const bottom = 30;
   const plotWidth = width - left - right; const plotHeight = height - top - bottom;
   const pointFor = (value, index, total) => `${left + (total <= 1 ? plotWidth / 2 : (index / (total - 1)) * plotWidth)},${top + ((max - value) / (max - min)) * plotHeight}`;
-  const grid = [0, 1, 2, 3].map((index) => { const value = max - ((max - min) * index / 3); const y = top + (plotHeight * index / 3); return `<line x1="${left}" y1="${y.toFixed(1)}" x2="${width - right}" y2="${y.toFixed(1)}"/><text x="4" y="${(y + 4).toFixed(1)}">${value.toFixed(1)}%</text>`; }).join('');
-  const lines = series.map(({ asset, color, points, samples }) => {
+  const grid = [0, 1, 2, 3].map((index) => { const value = max - ((max - min) * index / 3); const y = top + (plotHeight * index / 3); return `<line x1="${left}" y1="${y.toFixed(1)}" x2="${width - right}" y2="${y.toFixed(1)}"/><text x="4" y="${(y + 4).toFixed(1)}">${marketMoney(value)}</text>`; }).join('');
+  const lines = series.map(({ asset, color, points, changes, samples }) => {
     const pointMarkup = points.map((value, pointIndex) => {
       const sample = samples[pointIndex];
       const price = Number(sample.price || 0);
       const timestamp = sample.createdAt ? new Date(sample.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : pointIndex === points.length - 1 ? 'Agora' : 'Início';
-      const percent = `${value >= 0 ? '+' : ''}${value.toFixed(2).replace('.', ',')}%`;
+      const change = Number(changes[pointIndex] || 0);
+      const percent = `${change >= 0 ? '+' : ''}${change.toFixed(2).replace('.', ',')}%`;
       const [cx, cy] = pointFor(value, pointIndex, points.length).split(',');
       return `<g class="market-chart-point" tabindex="0" role="img" aria-label="${escapeHtml(asset.name)}: ${marketMoney(price)} Créditos 51, ${percent} desde ${timestamp}"><circle cx="${cx}" cy="${cy}" r="4" fill="${color}" stroke="#101a2d" stroke-width="2"><title>${escapeHtml(asset.name)} · ${marketMoney(price)} Créditos 51 · ${percent} · ${escapeHtml(timestamp)}</title></circle></g>`;
     }).join('');
     return `<polyline class="market-chart-line" stroke="${color}" points="${points.map((value, pointIndex) => pointFor(value, pointIndex, points.length)).join(' ')}"/>${pointMarkup}`;
   }).join('');
   const legend = series.map(({ asset, color }) => `<span><i style="background:${color}"></i>${escapeHtml(asset.name)}</span>`).join('');
-  return `<div class="market-chart-wrap"><svg class="market-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolução percentual das cotações"><g class="market-chart-grid">${grid}</g>${lines}</svg><div class="market-chart-axis"><span>Histórico</span><span>Agora</span></div></div><div class="market-chart-legend">${legend}</div>`;
+  const focused = series.length === 1 ? (() => { const item = series[0]; const initial = Number(item.samples[0]?.price || item.asset.price || 0); const current = Number(item.asset.price || 0); const change = current - initial; const percent = initial ? (change / initial) * 100 : 0; const direction = change > 0 ? 'positive' : change < 0 ? 'negative' : 'flat'; return `<div class="market-chart-focus ${direction}"><span>Leitura de ${escapeHtml(item.asset.name)}</span><b>${marketMoney(initial)} → ${marketMoney(current)} Créditos 51</b><strong>${change >= 0 ? '+' : ''}${marketMoney(change)} · ${percent >= 0 ? '+' : ''}${percent.toFixed(2).replace('.', ',')}%</strong></div>`; })() : '';
+  return `<div class="market-chart-wrap"><svg class="market-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolução das cotações em Créditos 51"><g class="market-chart-grid">${grid}</g>${lines}</svg><div class="market-chart-axis"><span>Histórico</span><span>Agora</span></div></div><div class="market-chart-legend">${legend}</div>${focused}`;
 }
 function marketMoverMarkup(asset, kind) {
   if (!asset) return `<p class="market-mover-empty">Nenhuma variação registrada nesta janela.</p>`;
@@ -3976,13 +4332,22 @@ function renderInvestmentMarket(profile = {}) {
   const lastUpdateEl = $('#marketLastUpdate'); if (lastUpdateEl) lastUpdateEl.textContent = market.updatedAt ? `Última atualização: ${new Date(market.updatedAt).toLocaleString('pt-BR')}` : 'Aguardando a primeira atualização do servidor';
   const root = $('#marketAssets'); if (!root) return;
   const history = Array.isArray(market.history) ? market.history : [];
+  if (marketChartAssetId !== 'all' && !assets.some((asset) => asset.id === marketChartAssetId)) marketChartAssetId = 'all';
+  if (marketHistoryAssetId !== 'all' && !assets.some((asset) => asset.id === marketHistoryAssetId)) marketHistoryAssetId = 'all';
+  const marketOptions = `<option value="all">Todas as moedas</option>${assets.map((asset) => `<option value="${escapeHtml(asset.id)}">${escapeHtml(asset.name)}</option>`).join('')}`;
+  const chartAssetSelect = $('#marketChartAsset'); if (chartAssetSelect) { chartAssetSelect.innerHTML = marketOptions; chartAssetSelect.value = marketChartAssetId; }
+  const historyAssetSelect = $('#marketHistoryAsset'); if (historyAssetSelect) { historyAssetSelect.innerHTML = marketOptions; historyAssetSelect.value = marketHistoryAssetId; }
+  const chartHistory = marketHistoryForPeriod(market);
   const movers = $('#marketMovers'); if (movers) movers.innerHTML = marketRadarMarkup(assets);
-  const chart = $('#marketChart'); if (chart) chart.innerHTML = marketChartMarkup(assets, history);
+  const chartAssets = marketChartAssetId === 'all' ? assets : assets.filter((asset) => asset.id === marketChartAssetId);
+  const chart = $('#marketChart'); if (chart) chart.innerHTML = marketChartMarkup(chartAssets, chartHistory);
+  $$('#marketChartPeriods [data-market-period]').forEach((button) => { const active = button.dataset.marketPeriod === marketChartPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
   root.innerHTML = assets.map((asset) => { const arrow = asset.direction === 'up' ? '<b class="market-change up">↑</b>' : asset.direction === 'down' ? '<b class="market-change down">↓</b>' : '<b class="market-change flat">→</b>'; const changeText = `${marketSignedMoney(asset.change)} (${asset.changePercent > 0 ? '+' : ''}${Number(asset.changePercent || 0).toFixed(2).replace('.', ',')}%)`; const quantity = Number(asset.quantity || 0); const price = Number(asset.price || 0); const holdingPnl = Number(asset.unrealizedPnl || 0); const holdingPnlClass = holdingPnl > 0 ? 'positive' : holdingPnl < 0 ? 'negative' : 'flat'; const holdingChange = `${holdingPnl > 0 ? '+' : ''}${holdingPnl.toFixed(2).replace('.', ',')} (${Number(asset.holdingChangePercent || 0) > 0 ? '+' : ''}${Number(asset.holdingChangePercent || 0).toFixed(2).replace('.', ',')}%)`; const order = (side, label, buttonClass, max) => `<form class="market-order" data-market-action="${side}" data-market-asset="${escapeHtml(asset.id)}" data-market-price="${price}"><div class="market-order-head"><b>${label}</b><output data-market-total>Total da ordem: ${marketMoney(price)} Créditos 51</output></div><div class="market-order-fields"><label>Quantidade<input name="quantity" type="number" min="1" max="${max}" step="1" value="1" required></label><button class="button ${buttonClass}" type="submit">${label}</button></div><div class="market-quick-qty" aria-label="Quantidades rápidas">${[1, 5, 10, 25].map((amount) => `<button type="button" data-market-quick="${amount}">${amount}</button>`).join('')}</div></form>`; return `<article class="card market-asset-card"><header><span class="market-asset-icon">${asset.icon}</span><div><h3>${escapeHtml(asset.name)}</h3><strong class="market-price"><span>${marketMoney(asset.price)}</span> <small>Créditos 51 / unidade</small> ${arrow}</strong><small class="market-change-label ${asset.direction}">${changeText}</small></div><small class="market-position">${quantity} em carteira<br><b>${marketMoney(asset.positionValue)} Créditos 51</b><span>Pago: ${marketMoney(asset.costBasis)} · <strong class="${holdingPnlClass}">${holdingChange}</strong></span></small></header><div class="market-card-chart">${marketChartMarkup([asset], history)}</div>${order('buy', 'Comprar', 'button-primary', 100000)}${order('sell', 'Vender', 'button-dark', Math.max(1, quantity))}</article>`; }).join('') || '<p class="market-empty">Carregando cotações…</p>';
   const transactions = Array.isArray(market.transactions) ? market.transactions : [];
   const tradeHistory = $('#marketTradeHistory');
   if (tradeHistory) tradeHistory.innerHTML = transactions.length ? `<div class="market-trade-scroll"><table class="market-trade-table" aria-label="Suas compras e vendas de moedas"><thead><tr><th>Data</th><th>Operação</th><th>Moeda</th><th>Quantidade</th><th>Preço na operação</th><th>Total</th></tr></thead><tbody>${transactions.map((transaction) => { const bought = transaction.side === 'buy'; const timestamp = Date.parse(transaction.createdAt) ? new Date(transaction.createdAt).toLocaleString('pt-BR') : 'Data indisponível'; return `<tr><td><time>${escapeHtml(timestamp)}</time></td><td><span class="market-trade-side ${bought ? 'buy' : 'sell'}">${bought ? 'Compra' : 'Venda'}</span></td><td>${escapeHtml(transaction.assetName || transaction.assetId || '')}</td><td>${Number(transaction.quantity || 0).toLocaleString('pt-BR')}</td><td>${marketMoney(transaction.price)}</td><td><strong>${marketMoney(transaction.total)}</strong></td></tr>`; }).join('')}</tbody></table></div>` : '<p class="market-empty">Você ainda não comprou ou vendeu moedas.</p>';
-  $('#marketHistory').innerHTML = history.length ? history.map((row) => `<div class="market-history-row"><time>${new Date(row.createdAt).toLocaleString('pt-BR')}</time><span>${assets.map((asset) => `${escapeHtml(asset.name)}: ${marketMoney(row.prices?.[asset.id])}`).join(' · ')}</span></div>`).join('') : '<p class="market-empty">O histórico será formado na próxima atualização do servidor.</p>';
+  const historyAssets = marketHistoryAssetId === 'all' ? assets : assets.filter((asset) => asset.id === marketHistoryAssetId);
+  $('#marketHistory').innerHTML = history.length ? history.map((row) => `<div class="market-history-row"><time>${new Date(row.createdAt).toLocaleString('pt-BR')}</time><span>${historyAssets.map((asset) => `${escapeHtml(asset.name)}: ${marketMoney(row.prices?.[asset.id])}`).join(' · ')}</span></div>`).join('') : '<p class="market-empty">O histórico será formado na próxima atualização do servidor.</p>';
 }
 function optimizeRenderedImages() {
   const apply = () => {
@@ -3994,6 +4359,20 @@ function optimizeRenderedImages() {
   };
   if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(apply, { timeout: 180 });
   else window.setTimeout(apply, 0);
+}
+
+function renderCommunityVotes(community = {}) {
+  const host = $('#communityVotes'); if (!host) return;
+  const required = community.requiredVote;
+  const avatar = (person) => person?.avatarDataUrl ? `<img src="${escapeHtml(person.avatarDataUrl)}" alt="">` : `<span>${escapeHtml(initials(person?.name || person?.authorName || '?'))}</span>`;
+  const cards = (community.votes || []).map((item) => {
+    const open = item.status === 'open'; const total = Number(item.favor || 0) + Number(item.against || 0);
+    const people = item.voters?.length ? item.voters.map((person) => `<li title="${escapeHtml(person.name)} · ${person.vote === 'favor' ? 'A favor' : 'Contra'}" class="${person.vote}">${avatar(person)}<small>${escapeHtml(person.name)}</small></li>`).join('') : '<li class="community-no-votes">Ainda sem votos.</li>';
+    const action = item.canVote ? `<div class="community-vote-actions"><button class="button button-primary" data-community-vote="favor" data-community-vote-id="${item.id}" type="button">✓ A favor</button><button class="button button-dark" data-community-vote="against" data-community-vote-id="${item.id}" type="button">× Contra</button></div>` : item.myVote ? `<p class="community-my-vote">Seu voto: <strong>${item.myVote === 'favor' ? 'A favor' : 'Contra'}</strong></p>` : `<p class="community-my-vote">${open ? 'Sua conta não está apta a votar.' : 'Votação encerrada.'}</p>`;
+    const admin = appState?.me?.role === 'admin' && item.status !== 'archived' ? `<div class="community-admin-actions">${open ? `<button data-community-admin="close" data-community-vote-id="${item.id}" type="button">Encerrar votação</button>` : ''}<button data-community-admin="archive" data-community-vote-id="${item.id}" type="button">Arquivar</button></div>` : '';
+    return `<article class="community-vote-card ${required?.id === item.id ? 'required' : ''}"><header><div class="community-author">${avatar({ name:item.authorName, avatarDataUrl:item.authorAvatarDataUrl })}<span><small>PROPOSTA POR</small><strong>${escapeHtml(item.authorName)}</strong></span></div><b class="community-status ${item.status}">${item.status === 'open' ? 'ABERTA' : item.status === 'closed' ? 'ENCERRADA' : 'ARQUIVADA'}</b></header><h3>${escapeHtml(item.subject)}</h3><div class="community-totals"><span>A favor <strong>${item.favor}</strong></span><span>Contra <strong>${item.against}</strong></span><small>${total} voto${total === 1 ? '' : 's'}</small></div>${action}<section><small>QUEM JÁ VOTOU</small><ul class="community-voters">${people}</ul></section>${admin}</article>`;
+  }).join('');
+  host.innerHTML = `${required ? `<aside class="community-required">🗳️ <strong>Seu voto é necessário.</strong> Esta pauta foi aberta há mais de 10 minutos; escolha A favor ou Contra para continuar usando o portal.</aside>` : ''}<article class="community-propose"><h3>Propor uma pauta</h3><p>Escreva a questão que a tripulação deve decidir. As opções são sempre A favor e Contra.</p><form id="communityVoteForm"><textarea name="subject" minlength="8" maxlength="280" required placeholder="Ex.: Devemos adicionar uma nova atividade semanal?"></textarea><button class="button button-primary" type="submit">Abrir votação</button></form></article><div class="community-vote-grid">${cards || '<p class="community-empty">Nenhuma votação publicada ainda. Proponha a primeira pauta.</p>'}</div>`;
 }
 
 // Atualiza somente a área aberta. As demais páginas continuam com os dados no
@@ -4027,6 +4406,7 @@ function renderActivePortalPage(data = appState) {
     else if (page === 'jogos') renderCasino(data.casino);
     else if (page === 'loteria' && !lotteryDrawInProgress) renderLottery(data.casino?.lottery);
     else if (page === 'mercado') renderInvestmentMarket(data.profile);
+    else if (page === 'votacoes') renderCommunityVotes(data.communityVotes);
     else if (page === 'atualizacoes') renderReleaseHistory();
     else if (page === 'admin') renderAdmin();
     optimizeRenderedImages();
@@ -4066,9 +4446,17 @@ function showReleaseNotice() {
     : '<span class="release-notice-icon" aria-hidden="true">🚀</span><small>NOVA VERSÃO DISPONÍVEL</small><h2>Atualize a Área 51</h2><p>Uma melhoria acabou de ser publicada. Atualize agora para continuar com a versão mais recente.</p><button class="button button-primary" data-release-update type="button">Atualizar agora</button>';
   if (dialog.open) dialog.close();
   dialog.showModal();
-  dialog.querySelector('[data-release-update]')?.addEventListener('click', () => {
+  dialog.querySelector('[data-release-update]')?.addEventListener('click', async () => {
     storage.setItem('area51-release-pending', version);
-    location.reload();
+    try {
+      const registrations = await navigator.serviceWorker?.getRegistrations?.();
+      await Promise.all((registrations || []).map((registration) => registration.update()));
+      const cacheKeys = await caches?.keys?.();
+      await Promise.all((cacheKeys || []).filter((key) => key.startsWith('area51-static-')).map((key) => caches.delete(key)));
+    } catch {}
+    const next = new URL(location.href);
+    next.searchParams.set('area51-update', version);
+    location.replace(next.toString());
   });
   dialog.querySelector('[data-release-ack]')?.addEventListener('click', () => {
     storage.removeItem('area51-release-pending');
@@ -4170,6 +4558,7 @@ function renderReleaseHistory() {
 
 function applyState(data) {
   const previousPhase = appState && appState.workflow ? appState.workflow.phase : null;
+  const previousForcedCursorId = appState?.profile?.forcedCursor?.id || null;
   const incomingReleaseVersion = Math.max(0, Number(data.settings?.releaseVersion || 0));
   let releaseChanged = false;
   if (knownReleaseVersion === null) knownReleaseVersion = incomingReleaseVersion;
@@ -4180,6 +4569,12 @@ function applyState(data) {
     releaseNoticeChecked = false;
   }
   appState = data;
+  const activeCurse = data.profile?.forcedCursor;
+  if (activeCurse?.id && activeCurse.id !== previousForcedCursorId && activeCurse.id !== announcedForcedCursorId && !activeCurse.automatic && !activeCurse.debt) {
+    announcedForcedCursorId = activeCurse.id;
+    const label = activeCurse.style === 'giant-slow' ? 'Mouse Gigante e Lento por 24 horas' : activeCurse.style === 'adhd' ? 'Maldição TDAH ativa' : 'Seta Gay Compulsória ativa';
+    setTimeout(() => showToast('⚠️ Você foi alvo: ' + label + '. A autoria permanece sigilosa.', 'error'), 0);
+  }
   serverClockOffset = Number(data.serverTime || Date.now()) - Date.now();
   scheduleLotteryReminder(data.casino?.lottery || {});
   scheduleLotteryDraw(data.casino?.lottery || {});
@@ -4188,6 +4583,7 @@ function applyState(data) {
   if (musicPrimedByGesture) startMusic();
   document.body.classList.toggle('admin-command-mode', data.me.role === 'admin');
   applyVisualTheme(data);
+  applySeasonalEvent(data.seasonalEvent);
   document.dispatchEvent(new CustomEvent('area51:state', { detail: data }));
   renderRequiredLieVote(data.lieMeter?.requiredVote || null);
   if (!spinning) setMode(suggestedMode());
@@ -4250,6 +4646,14 @@ function applyState(data) {
     else uploadLock.textContent = '🔒 Os envios desta rodada já foram encerrados.';
   }
   $('#wheelCaption').textContent = captionForMode();
+  const resetThemeDrawButton = $('#resetThemeDrawButton');
+  const canResetThemeDraw = data.me.role === 'admin'
+    && data.workflow.phase === 'uploads'
+    && Boolean(data.workflow.currentTheme)
+    && data.submissions.length === 0
+    && data.assignments.length === 0;
+  resetThemeDrawButton.classList.toggle('hidden', !canResetThemeDraw);
+  resetThemeDrawButton.disabled = !canResetThemeDraw;
   updateSpinControl();
   updateNextStepGuide(data, previousPhase);
 }
@@ -4490,9 +4894,13 @@ function connectLive() {
     }).catch(() => {});
   });
   liveSource.addEventListener('refresh', (event) => {
-    if (spinning || casinoSpinInProgress || mysteryOpeningInProgress) return;
     let reason = '';
     try { reason = JSON.parse(event.data).reason || ''; } catch {}
+    if (reason.startsWith('gay-shield-used:')) {
+      const userName = reason.slice('gay-shield-used:'.length) || 'A pessoa sorteada';
+      showToast('🛡️ ' + userName + ' usou o Escudo da Rodada. Novo sorteio em andamento…');
+    }
+    if (spinning || casinoSpinInProgress || mysteryOpeningInProgress) return;
     if (reason === 'feedback') {
       refreshFeedback(true);
       return;
@@ -4619,6 +5027,19 @@ $$('.mode-button').forEach((button) => button.addEventListener('click', () => {
   updateSpinControl();
 }));
 $('#spinButton').addEventListener('click', spin);
+$('#resetThemeDrawButton').addEventListener('click', async () => {
+  if (!confirm('Limpar somente o tema sorteado e liberar uma nova roleta?')) return;
+  const button = $('#resetThemeDrawButton');
+  button.disabled = true;
+  try {
+    const state = await api('/api/admin/theme-draw/reset', { method: 'POST' });
+    applyState(state);
+    showToast('Tema limpo. A roleta está pronta para um novo sorteio.');
+  } catch (error) {
+    showToast(error.message, 'error');
+    button.disabled = false;
+  }
+});
 $('#markWallpaperSeenButton').addEventListener('click', async () => {
   const button = $('#markWallpaperSeenButton');
   button.disabled = true;
@@ -4835,8 +5256,8 @@ $('#dailyPhraseForm').addEventListener('submit', async (event) => {
   if (!phrase) { showToast('Digite a frase do dia.', 'error'); return; }
   setBusy(form, true);
   try {
-    applyState(await api('/api/daily-wall/phrases', { method: 'POST', body: { phrase } }));
-    form.reset();
+    applyState(await api('/api/daily-wall/phrases', { method: 'POST', body: { phrase, anonymous: Boolean($('#dailyPhraseAnonymous').checked) } }));
+    form.reset(); closeMentionList($('#dailyPhraseInput')); clearMentionSelection($('#dailyPhraseInput'));
     $('#dailyPhraseCount').textContent = '0';
     showToast('Frase do dia publicada!');
   } catch (error) { showToast(error.message, 'error'); }
@@ -4862,14 +5283,14 @@ $('#memeUploadForm').addEventListener('submit', async (event) => {
   try {
     if (!selectedMemeFile) {
       applyState(await api('/api/daily-wall/phrases', { method: 'POST', body: { phrase: caption, anonymous } }));
-      form.reset(); clearMemeSelection(); showToast(anonymous ? 'Frase anônima publicada no feed!' : 'Frase publicada no feed!'); return;
+      form.reset(); closeMentionList($('#memeCaption')); clearMentionSelection($('#memeCaption')); clearMemeSelection(); showToast(anonymous ? 'Frase anônima publicada no feed!' : 'Frase publicada no feed!'); return;
     }
     const submitButton = $('button[type="submit"]', form);
     if (submitButton) submitButton.textContent = 'Preparando imagem…';
     const dataUrl = await normalizeMemeDataUrl(selectedMemeFile);
     if (submitButton) submitButton.textContent = 'Publicando…';
     applyState(await api('/api/memes', { method: 'POST', timeoutMs: 60000, body: { dataUrl, caption, anonymous } }));
-    form.reset(); clearMemeSelection(); showToast(anonymous ? 'Publicação anônima enviada ao feed!' : 'Publicação enviada ao feed!');
+    form.reset(); closeMentionList($('#memeCaption')); clearMentionSelection($('#memeCaption')); clearMemeSelection(); showToast(anonymous ? 'Publicação anônima enviada ao feed!' : 'Publicação enviada ao feed!');
   } catch (error) { $('#memeUploadError').textContent = error.message; }
   finally { setBusy(form, false); }
 });
@@ -5009,6 +5430,17 @@ $('#waterReminderGo').addEventListener('click', () => {
 $('#waterReminderDialog').addEventListener('click', (event) => { if (event.target === $('#waterReminderDialog')) closeWaterReminder(); });
 
 let lenderLossStreak = 0;
+function showStellarLenderRejection() {
+  const existing = document.querySelector('#stellarLenderRejection');
+  if (existing) { existing.showModal(); return; }
+  const dialog = document.createElement('dialog');
+  dialog.id = 'stellarLenderRejection'; dialog.className = 'stellar-offer stellar-lender-rejection';
+  dialog.innerHTML = '<img src="/agiota-raygun-v1.png" alt="Raio laser fictício do Agiota Estelar"><h2>Limite respeitado</h2><p>🔫 <strong>Raspa daqui, sem vergonha.</strong></p><small>O Agiota só libera o que sua confiança atual permite.</small><button type="button">Entendi, chefe</button>';
+  document.body.append(dialog);
+  dialog.querySelector('button').onclick = () => dialog.close();
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  dialog.showModal();
+}
 function offerStellarLoan(result) {
   lenderLossStreak = result.net < 0 ? lenderLossStreak + 1 : 0;
   if (lenderLossStreak < 2 || appState?.profile?.loan) return;
@@ -5053,24 +5485,26 @@ $('#casinoForm').addEventListener('submit', async (event) => {
   if (casinoSpinInProgress) return;
   const form = event.currentTarget; const bet = Number($('#casinoBet').value); const walletSource = $('#casinoWalletSource').value;
   if (!Number.isFinite(bet) || bet < 0.01 || Math.abs(Math.round(bet * 100) - bet * 100) > 0.000001) { showToast('Aposte um valor de pelo menos 0,01 crédito, com no máximo duas casas decimais.', 'error'); return; }
-  casinoSpinInProgress = true; setBusy(form, true); $('#casinoResult').textContent = 'Confirmando sua aposta…';
+  casinoSpinInProgress = true; casinoAudioContext(); setBusy(form, true); $('#casinoResult').textContent = 'Confirmando sua aposta…';
   try {
     const data = await submitRouletteBet(bet, walletSource);
     const result = data.casinoResult;
     $('#casinoResult').textContent = 'A roleta está girando… o resultado será revelado quando ela parar.';
+    startCasinoWheelSound();
     await animateCasinoWheel(result.segmentIndex, result.wheelValue ?? result.multiplier);
+    stopCasinoWheelSound();
     if (result.resultType === 'mysteryBox') {
       const message = `${result.mysteryBox?.icon || '🎁'} ${result.mysteryBox?.name || 'Baú misterioso'} ganho! Sua aposta voltou e o baú está fechado no perfil.`;
-      $('#casinoResult').textContent = message; showToast(message);
+      $('#casinoResult').textContent = message; showToast(message); playCasinoRewardSound(true);
     } else {
       const message = result.net > 0 ? `Você ganhou ${result.net} créditos de lucro! 🚀` : result.net < 0 ? `Você perdeu ${Math.abs(result.net)} créditos. 👽` : 'Empate: seus créditos voltaram. 🛸';
-      $('#casinoResult').textContent = `x${String(result.multiplier).replace('.', ',')} · retorno total ${formatCredits(result.payout)} créditos · ${message}`; showToast(message);
+      $('#casinoResult').textContent = `x${String(result.multiplier).replace('.', ',')} · retorno total ${formatCredits(result.payout)} créditos · ${message}`; showToast(message); playCasinoRewardSound(result.net > 0);
     }
     offerStellarLoan(result);
     try { const fresh = await api('/api/state', {}, false); casinoSpinInProgress = false; applyState(fresh); }
     catch { showToast('Resultado confirmado. O saldo será atualizado quando a conexão voltar.'); }
   } catch (error) { $('#casinoResult').textContent = error.message; showToast(error.message, 'error'); }
-  finally { casinoSpinInProgress = false; setBusy(form, false); renderCasino(appState?.casino); }
+  finally { stopCasinoWheelSound(); casinoSpinInProgress = false; setBusy(form, false); renderCasino(appState?.casino); }
 });
 
 $('#lotteryNumbers')?.addEventListener('click', (event) => {
@@ -5091,20 +5525,24 @@ $('#lotteryForm')?.addEventListener('submit', async (event) => {
 });
 
 $('#stellarLoanCard').addEventListener('click', async (event) => {
-  const itemOffer = event.target.closest('[data-loan-item]'); const borrow = event.target.closest('[data-loan-borrow]'); const repay = event.target.closest('[data-loan-repay],[data-loan-repay-all]');
+  const itemOffer = event.target.closest('[data-loan-item]'); const blackMarketSale = event.target.closest('[data-black-market-sale]'); const borrow = event.target.closest('[data-loan-borrow]'); const repay = event.target.closest('[data-loan-repay],[data-loan-repay-all]');
   if (itemOffer) { const offer = appState?.profile?.stellarLender?.offers?.find((entry) => entry.purchaseId === itemOffer.dataset.loanItem); if (!offer) return; if (!confirm(`Entregar ${offer.name} ao Agiota para abater ${offer.value} créditos da dívida?\n\nO item será removido definitivamente do seu inventário.`)) return; itemOffer.disabled = true; try { applyState(await api('/api/loans/offer-item', { method: 'POST', body: { purchaseId: offer.purchaseId } })); showToast('Item entregue ao Agiota e valor abatido da dívida.'); } catch (error) { showToast(error.message, 'error'); itemOffer.disabled = false; } return; }
+  if (blackMarketSale) { const offer = appState?.profile?.stellarBlackMarket?.offers?.find((entry) => entry.purchaseId === blackMarketSale.dataset.blackMarketSale); if (!offer) return; if (!confirm(`Vender ${offer.name} ao Mercado Negro por ${formatCredits(offer.value)} Créditos 51?\n\nO item será removido definitivamente e o valor irá para sua Loja 51.`)) return; blackMarketSale.disabled = true; try { const data = await api('/api/black-market/sell', { method: 'POST', body: { purchaseId: offer.purchaseId } }); applyState(data); showToast(`${data.blackMarketSale?.name || offer.name} vendido por ${formatCredits(data.blackMarketSale?.amount || offer.value)} créditos. 🕶️`); } catch (error) { showToast(error.message, 'error'); blackMarketSale.disabled = false; } return; }
   if (!borrow && !repay) return;
   const button = borrow || repay; button.disabled = true;
   try {
     if (borrow) {
-      const amount = Number(borrow.dataset.loanBorrow);
+      const amount = Number($('#stellarBorrowAmount')?.value);
       if (!confirm(`Receber ${amount} créditos e devolver ${Math.round(amount * 1.2)} em 48 horas?\n\nAtraso ativa tema de cobrança e cursor com acompanhamento lento, e impede entrar na próxima rodada. Resgates promocionais pagam a dívida primeiro. Nenhum dinheiro real.`)) return;
       applyState(await api('/api/loans/borrow', { method: 'POST', body: { amount } })); showToast('O Agiota Estelar depositou seus créditos. 🛸');
     } else {
       const loan = appState?.profile?.loan; const amount = repay.hasAttribute('data-loan-repay-all') ? Number(loan?.remainingDue || 0) : Number($('#stellarRepayAmount').value);
       applyState(await api('/api/loans/repay', { method: 'POST', body: { amount } })); showToast(amount >= Number(loan?.remainingDue || Infinity) ? 'Empréstimo quitado! Você está livre do Agiota. ✨' : 'Pagamento registrado.');
     }
-  } catch (error) { showToast(error.message, 'error'); }
+  } catch (error) {
+    if (borrow && String(error.message || '').includes('Agiota fecha a maleta')) showStellarLenderRejection();
+    else showToast(error.message, 'error');
+  }
   finally { button.disabled = false; }
 });
 
@@ -5332,13 +5770,15 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       } else if (button.dataset.shopValue === 'forceGayCursor' || button.dataset.shopValue === 'forceGiantCursor' || button.dataset.shopValue === 'forceAdhdCursor') {
         const giant = button.dataset.shopValue === 'forceGiantCursor';
         const adhd = button.dataset.shopValue === 'forceAdhdCursor';
-        const duration = giant || adhd ? 'por 24 horas' : 'até esta rodada terminar';
+    const duration = 'por 24 horas';
         const people = (giant || adhd ? appState.powerParticipants : appState.participants) || [];
         if (!people.length) throw new Error('Não há participantes disponíveis nesta rodada.');
         const powerName = giant ? 'Maldição do Mouse Gigante' : adhd ? 'Maldição TDAH' : 'Seta Gay Compulsória';
-        const answer = adhd ? appState.me.displayName : prompt('Quem deverá usar ' + powerName + ' ' + duration + '?\n\n' + people.map((person) => '• ' + person.displayName).join('\n'));
+        const eligibleTargets = adhd ? people.filter((person) => person.id !== appState.me.id) : people;
+        if (!eligibleTargets.length) throw new Error('É necessário outro participante disponível para enviar a Maldição TDAH.');
+        const answer = prompt('Quem deverá usar ' + powerName + ' ' + duration + '?\n\n' + eligibleTargets.map((person) => '• ' + person.displayName).join('\n'));
         if (!answer) return;
-        const target = people.find((person) => person.displayName.toLowerCase() === answer.trim().toLowerCase()) || (adhd ? appState.me : null);
+        const target = eligibleTargets.find((person) => person.displayName.toLowerCase() === answer.trim().toLowerCase());
         if (!target) throw new Error('Digite exatamente um dos nomes exibidos.');
         body.targetId = target.id;
         if (!confirm('Confirmar o uso deste poder?\n\n' + target.displayName + (adhd ? ' receberá a Maldição TDAH, sem saber quem enviou.' : ' usará o cursor especial ' + duration + '.') )) return;
@@ -5368,7 +5808,7 @@ $('#shopCatalog').addEventListener('click', async (event) => {
       } else if (!confirm('Ativar o Escudo da Rodada agora?')) return;
       applyState(await api('/api/powers/use', { method: 'POST', body }));
       if (['cleanseCursor','loanExtension'].includes(button.dataset.shopValue)) { showToast('Poder aplicado com sucesso!'); return; }
-      showToast(button.dataset.shopValue === 'chooseTheme' ? 'Tema escolhido e rodada aberta sem sorteio! 🎨' : button.dataset.shopValue === 'chooseGay' ? 'Escolha reservada para o sorteio especial. 👑' : button.dataset.shopValue === 'forceGayCursor' ? 'Seta compulsória aplicada durante esta rodada! 🌈' : button.dataset.shopValue === 'forceGiantCursor' ? 'Mouse gigante aplicado por 24 horas! 🐌' : button.dataset.shopValue === 'chooseWallpaper' ? 'Seu wallpaper foi reservado anonimamente! 🖼️' : button.dataset.shopValue === 'assignWallpaper' ? 'Wallpaper do participante reservado anonimamente! 🎯' : button.dataset.shopValue === 'revealAuthor' ? 'Todos os autores foram revelados somente para você. 🔎' : 'Escudo ativado nesta rodada! 🛡️');
+      showToast(button.dataset.shopValue === 'chooseTheme' ? 'Tema escolhido e rodada aberta sem sorteio! 🎨' : button.dataset.shopValue === 'chooseGay' ? 'Escolha reservada para o sorteio especial. 👑' : button.dataset.shopValue === 'forceGayCursor' ? 'Seta compulsória aplicada por 24 horas! 🌈' : button.dataset.shopValue === 'forceGiantCursor' ? 'Mouse gigante aplicado por 24 horas! 🐌' : button.dataset.shopValue === 'chooseWallpaper' ? 'Seu wallpaper foi reservado anonimamente! 🖼️' : button.dataset.shopValue === 'assignWallpaper' ? 'Wallpaper do participante reservado anonimamente! 🎯' : button.dataset.shopValue === 'revealAuthor' ? 'Todos os autores foram revelados somente para você. 🔎' : 'Escudo ativado nesta rodada! 🛡️');
     }
   } catch (error) { showToast(error.message, 'error'); }
   finally { button.disabled = false; }
@@ -5803,12 +6243,12 @@ $('#feedbackForm').addEventListener('submit', async (event) => {
   const message = $('#feedbackMessage').value.trim();
   $('#feedbackError').textContent = '';
   if (message.length < 3) {
-    $('#feedbackError').textContent = 'Conte um pouco mais sobre a ideia ou o problema.';
+    $('#feedbackError').textContent = 'Descreva o bug com um pouco mais de detalhe.';
     return;
   }
   setBusy(form, true);
   try {
-    const type = $('input[name="type"]:checked', form).value;
+    const type = 'bug';
     const file = $('#feedbackImage').files?.[0];
     let imageDataUrl = null;
     if (file) {
@@ -5926,6 +6366,23 @@ document.addEventListener('click', (event) => {
   showPortalPage(link.dataset.page, true);
   setMenuOpen(false);
 });
+$('#communityVotes')?.addEventListener('click', async (event) => {
+  const vote = event.target.closest('[data-community-vote]'); const admin = event.target.closest('[data-community-admin]');
+  if (!vote && !admin) return;
+  const button = vote || admin; button.disabled = true;
+  try {
+    const state = vote
+      ? await api('/api/community-votes/' + encodeURIComponent(vote.dataset.communityVoteId) + '/vote', { method: 'POST', body: { vote: vote.dataset.communityVote } })
+      : await api('/api/admin/community-votes/' + encodeURIComponent(admin.dataset.communityVoteId), { method: 'PATCH', body: { action: admin.dataset.communityAdmin } });
+    applyState(state); showToast(vote ? 'Voto registrado.' : (admin.dataset.communityAdmin === 'close' ? 'Votação encerrada.' : 'Votação arquivada.'));
+  } catch (error) { showToast(error.message, 'error'); if (button.isConnected) button.disabled = false; }
+});
+$('#communityVotes')?.addEventListener('submit', async (event) => {
+  const form = event.target.closest('#communityVoteForm'); if (!form) return;
+  event.preventDefault(); const button = form.querySelector('button'); button.disabled = true;
+  try { const state = await api('/api/community-votes', { method: 'POST', body: { subject: form.elements.subject.value } }); applyState(state); showToast('Pauta aberta para a tripulação.'); }
+  catch (error) { showToast(error.message, 'error'); button.disabled = false; }
+});
 $('#menuButton').addEventListener('click', () => setMenuOpen(!$('#siteMenu').classList.contains('open')));
 $('#closeMenuButton').addEventListener('click', () => setMenuOpen(false));
 $('#menuBackdrop').addEventListener('click', () => setMenuOpen(false));
@@ -5940,7 +6397,24 @@ $('#mercado').addEventListener('input', (event) => {
   const input = event.target.closest('[data-market-action] input[name="quantity"]');
   if (input) updateMarketOrderTotal(input.form);
 });
+$('#mercado').addEventListener('change', (event) => {
+  if (event.target.id === 'marketChartAsset') {
+    marketChartAssetId = event.target.value || 'all';
+    renderInvestmentMarket(appState.profile || {});
+    return;
+  }
+  if (event.target.id === 'marketHistoryAsset') {
+    marketHistoryAssetId = event.target.value || 'all';
+    renderInvestmentMarket(appState.profile || {});
+  }
+});
 $('#mercado').addEventListener('click', (event) => {
+  const periodButton = event.target.closest('[data-market-period]');
+  if (periodButton) {
+    marketChartPeriod = MARKET_CHART_PERIODS[periodButton.dataset.marketPeriod] ? periodButton.dataset.marketPeriod : '1d';
+    renderInvestmentMarket(appState.profile || {});
+    return;
+  }
   const incomeButton = event.target.closest('[data-market-income-claim]');
   if (incomeButton) {
     incomeButton.disabled = true;
@@ -6026,7 +6500,7 @@ document.addEventListener('keydown', (event) => {
 $('#notificationList').addEventListener('click', (event) => {
   const item = event.target.closest('[data-notification-page]');
   if (!item) return;
-  setNotificationPanel(false); markNotificationsRead(); openNotificationTarget(item.dataset.notificationId, item.dataset.notificationPage, item.dataset.notificationTarget, item.dataset.notificationProfile);
+  setNotificationPanel(false); markNotificationsRead(); openNotificationTarget(item.dataset.notificationId, item.dataset.notificationPage, item.dataset.notificationTarget, item.dataset.notificationProfile, item.dataset.notificationPokemon, item.dataset.notificationCaptureUser);
 });
 window.addEventListener('popstate', () => { if (appState) showPortalPage(currentPortalPage()); });
 
@@ -6034,14 +6508,17 @@ $('#currentYear').textContent = new Date().getFullYear();
 window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault(); deferredInstallPrompt = event; $('#installAppButton').classList.remove('hidden'); });
 $('#installAppButton').addEventListener('click', async () => { if (!deferredInstallPrompt) { showToast('No navegador, abra o menu ⋮ e escolha “Instalar aplicativo” ou “Adicionar à tela inicial”.'); return; } deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; });
 window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; $('#installAppButton').classList.add('hidden'); showToast('Área 51 instalada como aplicativo! 📲'); });
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js?v=20260918-5').catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js?v=20260930-464').catch(() => {}));
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && musicWanted && appState) startMusic();
 });
 
 let sessionBootAttempts = 0;
 let sessionBootRetryTimer = null;
-const SESSION_BOOT_RETRY_DELAYS = [1200, 2500, 5000, 10000];
+let sessionBootWatchdog = null;
+let sessionBootController = null;
+let sessionBootRunId = 0;
+const SESSION_BOOT_RETRY_DELAYS = [1200, 2500];
 function showSessionBootFailure(message, retryLabel = 'Tentar novamente') {
   $('#sessionBootText').textContent = message;
   const retry = $('#sessionBootRetry');
@@ -6049,12 +6526,24 @@ function showSessionBootFailure(message, retryLabel = 'Tentar novamente') {
   retry.classList.remove('hidden');
 }
 async function initialize() {
+  const runId = ++sessionBootRunId;
   clearTimeout(sessionBootRetryTimer);
+  clearTimeout(sessionBootWatchdog);
+  // Uma nova tentativa substitui a anterior: reconectar não pode deixar
+  // leituras de estado antigas disputando a mesma sessão.
+  sessionBootController?.abort();
+  const controller = new AbortController();
+  sessionBootController = controller;
+  sessionBootWatchdog = setTimeout(() => {
+    if (!appState && runId === sessionBootRunId) showSessionBootFailure('A conexão está lenta, mas sua sessão continua ativa. Você pode aguardar ou reconectar agora.', 'Reconectar agora');
+  }, 8000);
   let data;
   try {
-    data = await api('/api/state', { timeoutMs: 15000 }, false);
+    data = await api('/api/state', { timeoutMs: 30000, signal: controller.signal }, false);
   }
   catch(error) {
+    if (runId !== sessionBootRunId) return;
+    clearTimeout(sessionBootWatchdog);
     if(error.status===401) { showAuth(); return; }
     sessionBootAttempts += 1;
     const retryDelay = SESSION_BOOT_RETRY_DELAYS[sessionBootAttempts - 1];
@@ -6068,6 +6557,8 @@ async function initialize() {
     return;
   }
   try {
+    if (runId !== sessionBootRunId) return;
+    clearTimeout(sessionBootWatchdog);
     drawWheel();
     showApp(data);
     sessionBootAttempts = 0;
@@ -6216,6 +6707,8 @@ let cobblemonPageDrag = null;
 let cobblemonPageCaptureBusy = false;
 let cobblemonPageThrowSequence = 0;
 let cobblemonHuntInterval = null;
+let cobblemonCaptureResultTimer = null;
+let cobblemonCaptureResultGeneration = 0;
 let cobblemonOpenDeliveryGroups = null;
 const COBBLEMON_HUNT_SECTORS = ['memes','sorteio','inscricoes','agua','mentirometro','misterio','impostor','perfil','album','loja','jogos','classificacao','atualizacoes'];
 
@@ -6289,6 +6782,23 @@ function showCobblemonCaptureOutcome(pokemon, data) {
   setTimeout(() => { outcome.classList.remove('show'); setTimeout(() => outcome.remove(), 320); }, 3200);
 }
 
+function scheduleCobblemonCaptureResultClear(delay = 8000) {
+  clearTimeout(cobblemonCaptureResultTimer);
+  const generation = ++cobblemonCaptureResultGeneration;
+  const result = $('#cobblemonCaptureResult');
+  cobblemonCaptureResultTimer = setTimeout(() => {
+    const current = $('#cobblemonCaptureResult');
+    // A tentativa já pode ter terminado em outra página ou a Pokédex ter sido
+    // redesenhada. A geração protege somente contra apagar um resultado novo;
+    // depender do encontro deixava o aviso de fuga preso na tela.
+    if (generation === cobblemonCaptureResultGeneration && current) {
+      current.textContent = '';
+      current.className = 'cobblemon-capture-result';
+    }
+    cobblemonCaptureResultTimer = null;
+  }, delay);
+}
+
 function resetCobblemonPageCapture(clearResult = false) {
   const ball = $('#cobblemonPageBall');
   const target = $('#cobblemonEncounterTarget');
@@ -6313,12 +6823,30 @@ function resetCobblemonPageCapture(clearResult = false) {
   $('#cobblemonCaptureButton').disabled = !cobblemonHasAvailableBall(appState.profile?.cobblemon?.balls);
   $('#cobblemonCaptureButton').textContent = 'Iniciar caçada';
   $('#cobblemonCaptureHint').textContent = 'Clique em “Iniciar caçada” para procurar um Pokémon selvagem.';
+  syncCobblemonHuntLauncher();
   renderCobblemonBallOptions(appState.profile?.cobblemon?.balls || {}, null);
-  if (clearResult) { $('#cobblemonCaptureResult').textContent = ''; $('#cobblemonCaptureResult').className = 'cobblemon-capture-result'; }
+  if (clearResult) {
+    clearTimeout(cobblemonCaptureResultTimer);
+    cobblemonCaptureResultTimer = null;
+    cobblemonCaptureResultGeneration += 1;
+    $('#cobblemonCaptureResult').textContent = '';
+    $('#cobblemonCaptureResult').className = 'cobblemon-capture-result';
+  }
   if (appState && currentPortalPage() !== 'cobblemon') {
     renderedPortalPage = null;
     requestAnimationFrame(() => { if (!cobblemonPageEncounter) renderActivePortalPage(appState); });
   }
+}
+
+function syncCobblemonHuntLauncher() {
+  const button = $('#topCobblemonHuntButton');
+  if (!button) return;
+  const active = Boolean(cobblemonPageEncounter);
+  const hasBall = cobblemonHasAvailableBall(appState?.profile?.cobblemon?.balls);
+  button.disabled = active || !hasBall;
+  button.title = active ? 'Caçada Cobblemon em andamento' : hasBall ? 'Iniciar caçada Cobblemon' : 'Sem Poké Balls disponíveis para caçar';
+  button.setAttribute('aria-label', button.title);
+  button.dataset.tooltip = active ? 'Caçada em andamento' : hasBall ? 'Iniciar caçada' : 'Sem Poké Balls disponíveis';
 }
 
 function placeCobblemonEncounter() {
@@ -6362,6 +6890,7 @@ async function startCobblemonPageEncounter() {
     const enabledSectors = cobblemonHuntEnabledSectors();
     const huntPage = enabledSectors[Math.floor(Math.random() * enabledSectors.length)] || 'memes';
     cobblemonPageEncounter = { ...data, huntPage, expiresAt: Date.now() + Number(data.expiresIn || 60) * 1000 };
+    syncCobblemonHuntLauncher();
     renderCobblemonBallOptions(appState.profile?.cobblemon?.balls || {}, cobblemonPageEncounter);
     mountCobblemonHuntBallPanel();
     const target = $('#cobblemonEncounterTarget');
@@ -6386,6 +6915,7 @@ async function startCobblemonPageEncounter() {
       $('#cobblemonHuntTimer').textContent = `CAÇA · 0:${String(seconds).padStart(2, '0')}`;
       if (seconds <= 0) {
         $('#cobblemonCaptureResult').textContent = 'O Pokémon foi embora. Nenhuma Poké Ball foi gasta.';
+        scheduleCobblemonCaptureResultClear();
         resetCobblemonPageCapture(false);
       }
     };
@@ -6395,6 +6925,7 @@ async function startCobblemonPageEncounter() {
     resetCobblemonPageCapture(false);
     showToast(error.message, 'error');
     $('#cobblemonCaptureResult').textContent = error.message;
+    scheduleCobblemonCaptureResultClear();
   }
 }
 
@@ -6452,12 +6983,14 @@ async function finishCobblemonPageThrow(event) {
     const resultBox = $('#cobblemonCaptureResult');
     resultBox.className = 'cobblemon-capture-result ' + (data.captured ? 'capture-success' : 'capture-failed');
     resultBox.innerHTML = `<span>${cobblemonSpriteMarkup(mon, 'large', 'alt="" style="width:48px;height:48px;object-fit:contain;vertical-align:middle"')} ${outcome}</span>`;
+    scheduleCobblemonCaptureResultClear();
     $('#cobblemonCaptureHint').textContent = data.captured ? `Captura confirmada com ${data.ballName || 'Poké Ball'} pelo servidor!` : data.missed ? `O Pokémon fugiu após o arremesso de ${data.ballName || 'Poké Ball'}.` : `A ${data.ballName || 'Poké Ball'} abriu e o Pokémon escapou.`;
     renderCobblemonDex(appState.profile);
     setTimeout(() => resetCobblemonPageCapture(false), 1700);
   } catch (error) {
     showToast(error.message, 'error');
     $('#cobblemonCaptureResult').textContent = error.message;
+    scheduleCobblemonCaptureResultClear();
     resetCobblemonPageCapture(false);
   }
 }
@@ -6589,10 +7122,10 @@ async function handleCobblemonBoxAction(boxButton) {
     if (mode === 'purchase') {
       const data = await api('/api/cobblemon/box/purchase', { method: 'POST', body: { boxId } });
       appState.profile = data.profile; renderProfileEconomy(appState.profile);
-      showToast('Cápsula comprada! Faça três sorteios e escolha um Pokémon do dia.');
+      showToast('Baú Pokémon comprado! Ele já está pronto: faça os três sorteios.');
     } else if (mode === 'choice') {
       const pending = appState.profile?.cobblemon?.monthlyPokemonBox?.choice;
-      if (!pending) throw new Error('A escolha desta cápsula já foi concluída.');
+      if (!pending) throw new Error('A escolha deste Baú Pokémon já foi concluída.');
       const decided = await showCobblemonOpening(pending.choiceStage === 'weekly' ? 'Escolha o Pokémon da semana' : 'Escolha o Pokémon do dia', {...pending, boxId: 'pokemon', profile: appState.profile}, {skipCarousel:true});
       appState.profile = decided.profile; renderProfileEconomy(appState.profile);
     } else {
@@ -6600,11 +7133,17 @@ async function handleCobblemonBoxAction(boxButton) {
       let data = await api('/api/cobblemon/box/open', { method: 'POST', body: { boxId, inventoryId } });
       let decided;
       do {
-        decided = await showCobblemonOpening(box?.name || 'Baú Cobblemon', data.reward);
+        // O Baú Lendário é entrega obrigatória. Seu prêmio não exige decisão,
+        // mas o perfil atualizado vem no envelope da resposta, não dentro do
+        // prêmio. Sem este vínculo, fechar a animação trocava o perfil atual
+        // por `undefined` e a tela parecia zerar saldos, bolas e gráficos.
+        decided = await showCobblemonOpening(box?.name || 'Baú Cobblemon', { ...data.reward, profile: data.profile || data.reward?.profile || appState.profile });
         if (!decided.autoNextRoll) break;
         data = await api('/api/cobblemon/box/open', { method: 'POST', body: { boxId, inventoryId: decided.capsuleId || inventoryId } });
       } while (true);
-      appState.profile = decided.profile; renderProfileEconomy(appState.profile);
+      const nextProfile = decided?.profile || data?.profile || appState.profile;
+      if (!nextProfile) throw new Error('O perfil não pôde ser atualizado. Seus dados foram preservados; tente recarregar a página.');
+      appState.profile = nextProfile; renderProfileEconomy(appState.profile);
     }
   } catch (error) {
     showToast(error.message, 'error');
@@ -6684,9 +7223,6 @@ $('#cobblemonBallOptions')?.addEventListener('click', (event) => {
 document.addEventListener('click', async (event) => {
   const cobblemonTab = event.target?.closest?.('[data-cobblemon-tab]');
   if (cobblemonTab) { setCobblemonTab(cobblemonTab.dataset.cobblemonTab); return; }
-  const dexFilterButton = event.target?.closest?.('#cobblemonDexFilters [data-cobblemon-filter]');
-  if (dexFilterButton) { event.preventDefault(); setCobblemonDexFilter(dexFilterButton.dataset.cobblemonFilter); return; }
-  if (event.target?.id === 'cobblemonDexPrev' || event.target?.id === 'cobblemonDexNext') { cobblemonDexPage += event.target.id.endsWith('Next') ? 1 : -1; renderCobblemonDex(appState.profile); return; }
   const ballSelectButton = event.target?.closest?.('[data-cobblemon-ball-select]');
   if (ballSelectButton) {
     const ballType = ballSelectButton.dataset.cobblemonBallSelect; const ball = COBBLEMON_CAPTURE_BALLS[ballType]; const balls = appState.profile?.cobblemon?.balls || {};
@@ -6731,14 +7267,13 @@ document.addEventListener('click', async (event) => {
   if (delivered) { try { applyState(await api('/api/admin/cobblemon/delivered', { method: 'POST', body: JSON.stringify({ id: delivered.dataset.cobblemonDelivered }) })); } catch (error) { showToast(error.message); } return; }
 });
 $('#cobblemonDexOwner')?.addEventListener('change', (event) => { cobblemonDexOwnerId = event.target.value; cobblemonDexPage = 0; renderCobblemonDex(appState.profile); });
-$$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.addEventListener('click', (event) => {
-  event.preventDefault();
-  event.stopPropagation();
-  setCobblemonDexFilter(button.dataset.cobblemonFilter);
-}));
 $('#cobblemonCaptureButton')?.addEventListener('click', (event) => {
   event.preventDefault();
   void startCobblemonPageEncounter();
+});
+$('#topCobblemonHuntButton')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  $('#cobblemonCaptureButton')?.click();
 });
 $('#cobblemonRouletteSpin')?.addEventListener('click', (event) => {
   event.preventDefault();

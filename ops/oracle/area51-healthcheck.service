@@ -1,0 +1,7 @@
+[Unit]
+Description=Area 51 backend health check
+After=network-online.target area51-backend.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/area51-healthcheck

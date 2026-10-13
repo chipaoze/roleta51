@@ -32,6 +32,9 @@ test('Mercado mostra total da carteira e direção da cotação', () => {
   assert.match(app, /market-quick-qty/);
   assert.match(app, /marketMoney/);
   assert.match(app, /Total da ordem/);
+  assert.match(app, /Evolução das cotações em Créditos 51/);
+  assert.match(app, /points: samples\.map\(\(sample\) => sample\.price\)/);
+  assert.doesNotMatch(app, /let min = Math\.min\(0, \.\.\.allPoints\)/);
   assert.match(app, /releaseNoticeLoaded/);
   assert.match(fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8'), /market-change\.up/);
   const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
@@ -40,6 +43,21 @@ test('Mercado mostra total da carteira e direção da cotação', () => {
   assert.match(styles, /market-page \.market-portfolio-breakdown b\.negative\{color:#ff7185!important/);
   assert.match(fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8'), /const marketAdvanced = syncMarketEconomy\(\)/);
   assert.doesNotMatch(app, /confirm\('Uma nova versão do Área 51 está disponível/);
+});
+
+test('Mercado permite filtrar a moeda e alternar o gráfico entre períodos curtos e longos', () => {
+  const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.deepEqual([...html.matchAll(/data-market-period="([^"]+)"/g)].map((match) => match[1]), ['1d', '7d', '3w', '1m', '1y']);
+  assert.match(html, /data-market-period="1d" aria-pressed="true"/);
+  assert.match(html, /data-market-period="7d" aria-pressed="false"/);
+  assert.match(app, /marketHistoryForPeriod/);
+  assert.match(html, /id="marketChartAsset"/);
+  assert.match(html, /id="marketHistoryAsset"/);
+  assert.match(app, /MARKET_CHART_PERIODS = Object\.freeze\(\{ '1d': 1, '7d': 7, '3w': 21, '1m': 31, '1y': 365 \}\)/);
+  assert.match(app, /marketChartAssetId/);
+  assert.match(app, /marketHistoryAssetId/);
+  assert.match(app, /marketChartPeriod = MARKET_CHART_PERIODS\[periodButton\.dataset\.marketPeriod\] \? periodButton\.dataset\.marketPeriod : '1d';\s*renderInvestmentMarket\(appState\.profile \|\| \{\}\)/);
 });
 
 test('Mercado informa as 36 janelas de atualização no horário de Brasília', () => {

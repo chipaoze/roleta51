@@ -12,3 +12,13 @@ test('estado pronto é serializado uma vez por revisão e usuário', () => {
   assert.match(server, /serializedJsonCache\.set\(value, \{ body, bytes: Buffer\.byteLength\(body\) \}\)/);
   assert.match(server, /'Content-Length': serialized\.bytes/);
 });
+
+test('finalistas de tema não entram no histórico público da rodada', () => {
+  assert.match(server, /\.filter\(\(draw\) => draw\.type !== 'theme' \|\| \(draw\.themeStage !== 'finalist' && db\.settings\.themes\.includes\(draw\.winner\)\)\)/);
+});
+
+test('quem inicia o sorteio recebe sua animação antes da transmissão aos demais', () => {
+  const responseAt = server.indexOf('json(res, 200, drawForUser(draw, user.id));');
+  const broadcastAt = server.indexOf("broadcastLive('draw', draw, user.id);");
+  assert.ok(responseAt >= 0 && broadcastAt > responseAt);
+});

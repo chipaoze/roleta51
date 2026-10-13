@@ -1,0 +1,66 @@
+/* Halloween 2026 — somente Loja e cosméticos voluntariamente equipados. */
+#seasonalAtmosphere{display:none!important}
+
+body[data-seasonal-event="halloween-2026"] .shop-item.halloween-shop-item{
+  position:relative;
+  border-color:#d97a35!important;
+  background:linear-gradient(140deg,#241233,#3b1c3b 58%,#253929)!important;
+  box-shadow:inset 0 1px #ffc17b3d,0 12px 28px #16051640;
+}
+.shop-seasonal-badge{position:absolute;z-index:2;right:10px;top:10px;padding:4px 7px;border:1px solid #ffb25f;border-radius:999px;background:#281133;color:#ffd293;font-size:9px;font-weight:1000;letter-spacing:.06em}
+.seasonal-filter-button{border-color:#ff7d2e95;color:#ffe3c3}
+.seasonal-filter-button.active{border-color:#ff8a3d;background:linear-gradient(135deg,#9e3b29,#6b2e77);color:#fff8ed;box-shadow:0 8px 18px #ff5a2738}
+body.theme-light-override[data-seasonal-event="halloween-2026"] .shop-item.halloween-shop-item{background:linear-gradient(140deg,#fff8fb,#fff0e8 58%,#f2fff2)!important;border-color:#c577a2!important;color:#38213b!important}
+
+/* Dois temas individuais: cada compra altera somente o tema. */
+body.profile-theme-halloween-bloodmoon .app{background:radial-gradient(circle at 94% 28%,#8f071999 0 2px,transparent 3px),radial-gradient(circle at 91% 31%,#72051488 0 5px,transparent 6px),radial-gradient(circle at 84% 9%,#db354550 0,transparent 19%),radial-gradient(circle at 14% 18%,#6f20363d 0,transparent 27%),linear-gradient(145deg,#10070b,#32111b 55%,#160b19)!important}
+body.profile-theme-halloween-bloodmoon .topbar{position:relative;background:#17090eef!important;border-color:#9e3442!important}
+body.profile-theme-halloween-bloodmoon .topbar:after{content:"";position:absolute;z-index:0;left:8%;right:8%;bottom:-13px;height:15px;pointer-events:none;background:radial-gradient(ellipse at 8% 0,#8f0719 0 6px,transparent 7px),radial-gradient(ellipse at 29% 0,#b30b20 0 4px,transparent 5px),radial-gradient(ellipse at 67% 0,#790514 0 7px,transparent 8px),radial-gradient(ellipse at 89% 0,#a90a1d 0 4px,transparent 5px);filter:drop-shadow(0 2px 2px #1d0007aa)}
+body.profile-theme-halloween-bloodmoon :is(.section,.card,.shop-item){background:linear-gradient(145deg,#261018dd,#171424e8)!important;border-color:#803343!important;color:#fff0f1!important}
+body.profile-theme-halloween-bloodmoon :is(.section-heading h2,.section-heading p,.card h3,.shop-item h4){color:#fff0e7!important}
+.theme-preview-halloween-bloodmoon{position:relative;overflow:hidden;background:radial-gradient(circle at 82% 16%,#e3424e 0,transparent 19%),linear-gradient(135deg,#12080d,#451522,#180c1b)!important}
+.theme-preview-halloween-bloodmoon:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 13% 72%,#c90b27 0 3px,transparent 4px),radial-gradient(circle at 18% 66%,#8d0618 0 7px,transparent 8px),radial-gradient(circle at 25% 76%,#c90b27 0 2px,transparent 3px),radial-gradient(circle at 72% 34%,#8d0618 0 4px,transparent 5px);opacity:.85}
+.theme-preview-halloween-bloodmoon:after{content:"";position:absolute;left:0;right:0;top:0;height:25px;pointer-events:none;background:radial-gradient(ellipse at 17% 0,#a2071c 0 8px,transparent 9px),radial-gradient(ellipse at 48% 0,#740412 0 5px,transparent 6px),radial-gradient(ellipse at 79% 0,#b00920 0 7px,transparent 8px)}
+
+body.profile-theme-halloween-toxic-fog .app{background:radial-gradient(circle at 14% 12%,#65e95642 0,transparent 27%),radial-gradient(circle at 86% 16%,#8a4bca42 0,transparent 30%),linear-gradient(145deg,#07150e,#172b21 54%,#1d102c)!important}
+body.profile-theme-halloween-toxic-fog .topbar{background:#081a13ef!important;border-color:#65ba62!important}
+body.profile-theme-halloween-toxic-fog :is(.section,.card,.shop-item){background:linear-gradient(145deg,#10271dde,#201630e8)!important;border-color:#5e9c68!important;color:#efffec!important}
+body.profile-theme-halloween-toxic-fog :is(.section-heading h2,.section-heading p,.card h3,.shop-item h4){color:#efffe9!important}
+.theme-preview-halloween-toxic-fog{background:radial-gradient(circle at 18% 18%,#74f160 0,transparent 23%),radial-gradient(circle at 84% 18%,#9d60e0 0,transparent 24%),linear-gradient(135deg,#07150d,#173220,#271337)!important}
+
+/* Tema premium: somente aparece no portal quando o comprador o equipa. */
+body.profile-theme-halloween-haunted .app{background:radial-gradient(circle at 84% 9%,#ff982a38 0,transparent 18%),radial-gradient(circle at 14% 16%,#a261ff42 0,transparent 24%),repeating-linear-gradient(120deg,transparent 0 56px,#f6982910 58px 60px,transparent 62px 112px),linear-gradient(145deg,#0d0717,#2b123b 54%,#0b2931)!important}
+body.profile-theme-halloween-haunted .topbar{background:#12091eef!important;border-color:#d8873b!important}
+body.profile-theme-halloween-haunted :is(.section,.card,.shop-item){border-color:#8952a8!important;background:linear-gradient(145deg,#1d102cdd,#172b35d9)!important;color:#f8efff!important}
+body.profile-theme-halloween-haunted :is(.section-heading h2,.section-heading p,.card h3,.shop-item h4){color:#fff3e4!important}
+.theme-preview-halloween-haunted{background:radial-gradient(circle at 82% 17%,#ff992c 0,transparent 17%),radial-gradient(circle at 15% 17%,#9e63f1 0,transparent 24%),linear-gradient(135deg,#100719,#361641,#0b3032)!important}
+.theme-preview-halloween-haunted{position:relative;overflow:hidden}
+.theme-preview-halloween-haunted:after{content:"";position:absolute;right:7%;bottom:12%;width:54px;height:38px;pointer-events:none;background:radial-gradient(circle at 50% 54%,#95051bd9 0 11px,transparent 12px),radial-gradient(circle at 18% 29%,#b10922d9 0 4px,transparent 5px),radial-gradient(circle at 78% 18%,#7d0415d9 0 5px,transparent 6px),radial-gradient(circle at 88% 73%,#b10922d9 0 3px,transparent 4px);transform:rotate(-13deg);filter:drop-shadow(0 2px 2px #170006aa)}
+
+.theme-light-override.profile-theme-halloween-bloodmoon .app,.theme-light-override.profile-theme-halloween-toxic-fog .app,.theme-light-override.profile-theme-halloween-haunted .app{filter:saturate(.9) brightness(1.4)}
+
+/* Cursores, rastro, nome e moldura. */
+.name-style-halloween-ectoplasm{color:#a5ff83!important;text-shadow:0 0 9px #52d55b,2px 2px 0 #1d5638}
+html[data-active-cursor="halloween-broom"],html[data-active-cursor="halloween-broom"] body,html[data-active-cursor="halloween-broom"] :is(a,button,label,summary,select,[role="button"]){cursor:url('/cursor-halloween-broom.png?v=2') 1 1,auto}
+html[data-active-cursor="halloween-pumpkin"],html[data-active-cursor="halloween-pumpkin"] body,html[data-active-cursor="halloween-pumpkin"] :is(a,button,label,summary,select,[role="button"]){cursor:url('/cursor-halloween-pumpkin.png?v=2') 1 1,auto}
+html[data-active-cursor="halloween-mask"],html[data-active-cursor="halloween-mask"] body,html[data-active-cursor="halloween-mask"] :is(a,button,label,summary,select,[role="button"]){cursor:url('/cursor-halloween-mask.png?v=2') 1 1,auto}
+html[data-active-cursor^="halloween-"] :is(input,textarea){cursor:text}
+.cursor-preview img[src*="cursor-halloween"]{width:76px;height:54px;object-fit:contain;filter:drop-shadow(0 0 8px #75ed6588)}
+.trail-preview-halloween-slime span>i{color:#72ff5f;background:linear-gradient(90deg,transparent,#1e7e3b 14%,#56e64d 42%,#b4ff68 70%,#eaffb6);box-shadow:0 0 7px #52e64c,0 0 16px #55d34e;animation:halloweenSlimePulse 1.4s ease-in-out infinite}
+.trail-preview-halloween-slime span:before{content:"●  •  ·";position:absolute;right:46px;top:-5px;color:#a5ff72;font-size:17px;letter-spacing:6px;text-shadow:0 0 9px #42e45c;animation:halloweenSlimeDrop 1.3s ease-in-out infinite}
+.trail-preview-halloween-slime span>b{color:#9cff72;text-shadow:0 0 10px #46d85b}
+.cursor-preview img[src*="cursor-halloween-mask"]{filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 8px #7de84c88)}
+.frame-halloween-rune{border:2px solid transparent!important;background:linear-gradient(#15233a,#15233a) padding-box,linear-gradient(130deg,#ff9d2e,#934bce,#93f26b,#ff9d2e) border-box!important;box-shadow:0 0 16px #a958d955!important}
+.profile-identity-card.frame-halloween-rune{border:2px solid transparent!important;background:linear-gradient(var(--paper),var(--paper)) padding-box,linear-gradient(120deg,#f08a3d,#7d4bba 32%,#bd88f1 50%,#f08a3d 72%,#7d4bba) border-box!important;box-shadow:0 0 0 1px #f5b15a55,0 0 19px #9148b766!important}
+.top-profile-button.frame-halloween-rune,.site-menu-user.frame-halloween-rune{border:2px solid transparent!important;background:linear-gradient(#111c2d,#111c2d) padding-box,linear-gradient(120deg,#f08a3d,#7d4bba 32%,#bd88f1 50%,#f08a3d 72%,#7d4bba) border-box!important;box-shadow:0 0 14px #9148b766!important}
+.frame-preview.frame-halloween-rune>span{position:relative;border:2px solid #b37be4!important;background:#15182b!important;box-shadow:inset 0 0 0 1px #ff9d4555,0 0 15px #9148b766!important}
+.frame-preview.frame-halloween-rune>span:after{content:"ᛟ  51  ᛟ";position:absolute;right:10px;bottom:4px;color:#ffb365;font-size:8px;font-style:normal;font-weight:1000;letter-spacing:.18em}
+
+.album-halloween{border-color:#e48642!important;background:radial-gradient(circle at 91% 8%,#8cff7130,transparent 24%),linear-gradient(140deg,#20112f,#421c3b 58%,#172b31)!important}
+.album-halloween .album-card{border-color:#a75bd766!important;background:linear-gradient(145deg,#160f2c,#35203b)!important}
+.album-halloween .album-card.album-rare{border-color:#ff9e43!important;box-shadow:0 0 18px #ff7e3848}
+
+@keyframes halloweenSlimePulse{50%{filter:brightness(1.45);transform:scaleY(1.28)}}
+@keyframes halloweenSlimeDrop{50%{opacity:.45;transform:translate(8px,4px)}}
+@media(max-width:700px){.trail-preview-halloween-slime span:before{right:36px;font-size:13px}}
+@media(prefers-reduced-motion:reduce){.trail-preview-halloween-slime span>i,.trail-preview-halloween-slime span:before{animation:none}}

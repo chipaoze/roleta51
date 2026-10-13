@@ -1,56 +1,16 @@
-/_next/static/*
-  Cache-Control: public, max-age=31536000, immutable
-
+/
+  Cache-Control: no-store, max-age=0
+/index.html
+  Cache-Control: no-store, max-age=0
 /app.js
-  Cache-Control: public, max-age=31536000, immutable
-
-/styles.css
-  Cache-Control: public, max-age=31536000, immutable
-
+  Cache-Control: no-store, max-age=0
 /card-album.js
-  Cache-Control: public, max-age=31536000, immutable
-
-/community-feed.js
-  Cache-Control: public, max-age=31536000, immutable
-
-/avatar-crop.js
-  Cache-Control: public, max-age=31536000, immutable
-
-/visual-trading.js
-  Cache-Control: public, max-age=31536000, immutable
-
-/improvements.css
-  Cache-Control: public, max-age=31536000, immutable
-
-/cursor-and-boxes.css
-  Cache-Control: public, max-age=31536000, immutable
-
-/avatar-crop.css
-  Cache-Control: public, max-age=31536000, immutable
-
-/platform-upgrades.css
-  Cache-Control: public, max-age=31536000, immutable
-
-/favicon.svg
-  Cache-Control: public, max-age=31536000, immutable
-
-/cursor-*-v2.png
-  Cache-Control: public, max-age=31536000, immutable
-
-/capture-ball-cobblemon.png
-  Cache-Control: public, max-age=31536000, immutable
-
-/cobble-creature-*.png
-  Cache-Control: public, max-age=31536000, immutable
-
-/cursor-samurai.svg
-  Cache-Control: public, max-age=31536000, immutable
-
-/theme-cobblemon-v3.webp
-  Cache-Control: public, max-age=31536000, immutable
-
-/manifest.webmanifest
-  Cache-Control: public, max-age=86400
-
+  Cache-Control: no-store, max-age=0
+/styles.css
+  Cache-Control: no-store, max-age=0
 /service-worker.js
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: no-store, max-age=0
+/release.json
+  Cache-Control: no-store, max-age=0
+/release-history.json
+  Cache-Control: no-store, max-age=0

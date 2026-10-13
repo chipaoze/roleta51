@@ -1,6 +1,592 @@
 {
   "releases": [
     {
+      "version": "20261005-cobblemon-ball-counter-v183",
+      "publishedAt": "2026-10-05",
+      "title": "Caçada Pokémon: consumo correto das Balls",
+      "notes": [
+        "Corrigimos o contador da caçada ao trocar a Poké Ball básica por Great Ball ou Ultra Ball.",
+        "Great Ball e Ultra Ball passam a descontar somente uma unidade do próprio estoque utilizado.",
+        "Poké Balls básicas só diminuem quando uma básica for realmente arremessada.",
+        "As básicas que pareciam ter sumido não foram consumidas: o erro era somente no contador exibido, que agora mostra o saldo correto."
+      ]
+    },
+    {
+      "version": "20261005-wallpaper-deadline-v182",
+      "publishedAt": "2026-10-05",
+      "title": "Prazo do wallpaper e punição da rodada",
+      "notes": [
+        "Na data configurada para o sorteio, o envio do wallpaper encerra automaticamente às 15h30.",
+        "Quem estiver confirmado e não enviar dentro do prazo fica fora do sorteio e recebe desconto progressivo de 100, 150 e 200 Créditos 51 nas reincidências.",
+        "A pessoa recebe o título “Abduzido por falta de comprometimento”, o selo “Cusão da Rodada” e um tema com cursor obrigatórios até o próximo ciclo.",
+        "Tema e cursor pessoais não substituem a punição. O administrador encerra o efeito junto com as demais punições ao usar “Limpar rodada”.",
+        "Participantes retirados previamente da rodada pelo administrador não recebem a penalidade."
+      ]
+    },
+    {
+      "version": "20261002-locator-chip-roulette-v181",
+      "publishedAt": "2026-10-02",
+      "title": "Locator Chip na Roleta Cobblemon",
+      "notes": [
+        "Adicionamos o Locator Chip à Roleta Cobblemon com 2% de chance e sprite própria.",
+        "Ele entra na receita do Poké Radar: 1 Locator Chip, 4 ferros e 4 redstones.",
+        "O Poké Radar ajuda a rastrear estruturas lendárias; todos os demais prêmios foram preservados."
+      ]
+    },
+    {
+      "version": "20261002-mobile-responsive-v180",
+      "publishedAt": "2026-10-02",
+      "title": "Portal mais confortável no celular",
+      "notes": [
+        "Criamos uma camada única de responsividade para evitar cortes e rolagem lateral em telas estreitas.",
+        "Loja, agiota, mercado, trocas, Cobblemon, roleta e classificações reorganizam ações e informações para toque.",
+        "Modais, feedbacks e painéis flutuantes passam a respeitar a área útil do aparelho."
+      ]
+    },
+    {
+      "version": "20261002-cobblemon-shop-single-path-v179",
+      "publishedAt": "2026-10-02",
+      "title": "Cobblemon: compras em um só lugar",
+      "notes": [
+        "Poké Balls extras foram removidas da Loja Área 51 para não duplicar a compra.",
+        "A página Cobblemon permanece como o único local para comprar e usar Poké Balls extras.",
+        "Estoque, preço, limite diário e histórico de compras foram preservados."
+      ]
+    },
+    {
+      "version": "20261002-curses-24-hours-v178",
+      "publishedAt": "2026-10-02",
+      "title": "Maldições: prazo unificado",
+      "notes": [
+        "Mouse Gigante, TDAH e Seta Gay Compulsória agora duram 24 horas.",
+        "Registros antigos da Seta Gay foram ajustados para respeitar o mesmo prazo.",
+        "A punição do sorteio segue uma regra própria da rodada."
+      ]
+    },
+    {
+      "version": "20261002-curses-crew-alert-v177",
+      "publishedAt": "2026-10-02",
+      "title": "Maldições: alerta para a tripulação",
+      "notes": [
+        "O sino de todos mostra quem foi atingido e qual maldição está ativa.",
+        "A pessoa alvo também recebe aviso imediato, com efeito e duração em Meus poderes.",
+        "Quem enviou não aparece no aviso público nem no estado entregue à pessoa atingida."
+      ]
+    },
+    {
+      "version": "20261002-curses-private-alert-v176",
+      "publishedAt": "2026-10-02",
+      "title": "Maldições: alerta sigiloso",
+      "notes": [
+        "A pessoa alvo recebe aviso imediato, no sino e em Meus poderes, com o efeito e sua duração.",
+        "A autoria não é entregue ao navegador da pessoa atingida e continua sigilosa para preservar a surpresa.",
+        "A análise de impacto nas trocas segue disponível com a conta explicada em cada carta."
+      ]
+    },
+    {
+      "version": "20261002-card-trade-impact-v175",
+      "publishedAt": "2026-10-02",
+      "title": "Trocas: impacto explicado",
+      "notes": [
+        "O antigo percentual de utilidade foi substituído por uma nota de impacto na coleção, com a conta detalhada no próprio cartão.",
+        "Carta nova vale 70 pontos; rara soma 15; fechar a coleção soma 15 e deixá-la a uma carta soma 10.",
+        "A utilidade para a outra pessoa agora é calculada com a coleção dela, e não com a sua. A nota não representa preço, chance ou garantia de uma troca justa."
+      ]
+    },
+    {
+      "version": "20261002-legendary-box-state-v174",
+      "publishedAt": "2026-10-02",
+      "title": "Baú Lendário: estado preservado",
+      "notes": [
+        "A abertura do Baú Lendário agora preserva o perfil que o servidor devolve após o prêmio de entrega obrigatória.",
+        "Créditos, Poké Balls, gráficos, números e inventário não são mais substituídos por uma tela vazia ao fechar a animação.",
+        "Incluída uma proteção extra: uma resposta incompleta nunca pode apagar o perfil exibido localmente."
+      ]
+    },
+    {
+      "version": "20261001-stellar-black-market-inventory-v173",
+      "publishedAt": "2026-10-01",
+      "title": "Mercado Negro: inventário completo",
+      "notes": [
+        "Itens visuais recebidos em caixas e baús agora entram no Mercado Negro depois de serem mantidos pelo usuário.",
+        "A lista continua pessoal: mostra apenas itens da própria conta que não estão equipados, pendentes de decisão ou reservados em uma troca.",
+        "Cada venda remove o item do inventário e credita 60% do valor-base na Loja 51, sem alterar dívidas ou confiança do Agiota."
+      ]
+    },
+    {
+      "version": "20261001-stellar-black-market-value-v172",
+      "publishedAt": "2026-10-01",
+      "title": "Mercado Negro: valor padronizado",
+      "notes": [
+        "O Mercado Negro passou a usar a mesma avaliação do Agiota para itens entregues na quitação de empréstimos: 60% do valor-base.",
+        "A lista é sempre o inventário real da própria conta: vendeu, some imediatamente; comprou um cosmético elegível e não equipado, ele aparece automaticamente.",
+        "Vender continua creditando a Loja 51 sem tocar no contrato, na dívida ou na confiança do Agiota."
+      ]
+    },
+    {
+      "version": "20261001-stellar-black-market-v171",
+      "publishedAt": "2026-10-01",
+      "title": "Mercado Negro do Agiota Estelar",
+      "notes": [
+        "O Agiota agora compra cosméticos pagos e não equipados por 40% do valor originalmente pago.",
+        "O item vendido é removido definitivamente, o crédito entra direto na Loja 51 e nenhuma dívida é abatida ou alterada automaticamente.",
+        "Baús, cartas, itens Cobblemon, poderes, itens gratuitos, visuais equipados e itens reservados em uma troca não entram na lista."
+      ]
+    },
+    {
+      "version": "20261001-casino-roulette-sound-v170",
+      "publishedAt": "2026-10-01",
+      "title": "Roleta 51 com som de giro e resultado",
+      "notes": [
+        "Cada setor cruzado pelo ponteiro agora produz um tic curto, com desaceleração sincronizada ao giro visual.",
+        "Ao receber o resultado, ganhos e baús tocam uma confirmação ascendente; perdas usam um tom descendente.",
+        "O efeito é gerado localmente pelo navegador, sem download adicional nem chamadas externas."
+      ]
+    },
+    {
+      "version": "20261001-casino-month-start-bonus-v169",
+      "publishedAt": "2026-10-01",
+      "title": "Cassino: bônus especial de início de mês",
+      "notes": [
+        "Todas as contas elegíveis receberam hoje 500 Créditos 51 promocionais extras no Cassino, inclusive quem já havia aberto ou resgatado o bônus normal.",
+        "O saldo promocional de hoje só pode ser transferido para a Loja 51 ao alcançar 1.000 créditos.",
+        "A promoção termina ao fim de 01/10: em 02/10, o ciclo diário volta automaticamente a 250 créditos promocionais e meta de 500."
+      ]
+    },
+    {
+      "version": "20261001-cobbledex-tier-repair-v168",
+      "publishedAt": "2026-10-01",
+      "title": "Pokédex: categorias e níveis corrigidos",
+      "notes": [
+        "A caça agora classifica cada espécie pelo catálogo canônico: lendários e míticos, raros, incomuns e comuns nunca se misturam no pool de encontro.",
+        "Registros históricos com categoria ou nível fora da faixa foram reconciliados, incluindo tentativas e destaques de captura.",
+        "Bônus pendentes por uma primeira captura que havia sido classificada abaixo foram creditados automaticamente e uma única vez."
+      ]
+    },
+    {
+      "version": "20261001-premium-wording-v167",
+      "publishedAt": "2026-10-01",
+      "title": "Texto do Baú Premium corrigido",
+      "notes": [
+        "O Baú Premium sempre entrega uma única recompensa física e definida por abertura.",
+        "A frase visual antiga que indicava dois itens foi removida; chances, preço, itens e entregas não foram alterados."
+      ]
+    },
+    {
+      "version": "20261001-market-filter-xerneas-v166",
+      "publishedAt": "2026-10-01",
+      "title": "Mercado 51 mais legível e Baú Premium ajustado",
+      "notes": [
+        "O Livro de cotações agora pode mostrar somente a moeda escolhida, sem alterar cotações, carteiras, saldos ou o histórico existente.",
+        "O gráfico ganhou filtro por moeda, resumo claro de preço e variação, e períodos de 1 dia, 1 semana, 3 semanas, 1 mês e 1 ano.",
+        "A recompensa de Xerneas no Baú Premium foi corrigida para 16 Essências de Aurora, exatamente a quantidade necessária para criar o Frasco de Essência de Aurora."
+      ]
+    },
+    {
+      "version": "20261001-premium-legendary-v165",
+      "publishedAt": "2026-10-01",
+      "title": "Baú Premium: relíquias lendárias",
+      "notes": [
+        "O Baú Premium passou a entregar uma única recompensa física e definida por abertura, sem escolhas, categorias vagas ou itens repetidos da Roleta Cobblemon.",
+        "A lista possui 29 itens com sprites locais, nome, chance individual e utilidade visível antes da abertura; as chances fecham exatamente em 100%.",
+        "As entregas seguem para a fila do Davi com o identificador do item e a especificação completa, incluindo encantamentos nas ferramentas e armaduras Netherite."
+      ]
+    },
+    {
+      "version": "20260930-premium-details-v164",
+      "publishedAt": "2026-09-30",
+      "title": "Baú Premium explicado por completo",
+      "notes": [
+        "Cada resultado do Baú Premium passa a mostrar o nome inteiro, a chance individual e para que a combinação serve.",
+        "Os cartões foram ampliados para não cortar os nomes e explicações no celular."
+      ]
+    },
+    {
+      "version": "20260930-premium-sprites-v163",
+      "publishedAt": "2026-09-30",
+      "title": "Sprites do Baú Premium corrigidos",
+      "notes": [
+        "A arte ausente da Armadura de Diamante com trim Automaton foi substituída por um sprite validado.",
+        "A correção não muda chances, preço, itens, saldo, entregas pendentes ou histórico."
+      ]
+    },
+    {
+      "version": "20260930-box-retirement-v162",
+      "publishedAt": "2026-09-30",
+      "title": "Baús Cobblemon reorganizados",
+      "notes": [
+        "A Caixa de Treinador foi removida da Loja Cobblemon para não repetir as Poké Balls disponíveis pelo painel de captura e pela roleta.",
+        "A Caixa das Pedras agora entrega exclusivamente pedras evolutivas, com a lista e as chances individuais visíveis antes da abertura.",
+        "O novo Baú Premium entrega uma combinação fixa de dois itens por abertura; as 13 combinações e suas chances são exibidas antes da compra.",
+        "Prêmios do Baú Premium entram diretamente na fila de entrega do Davi e não podem ser convertidos em créditos.",
+        "Nenhum histórico de recompensa, entrega ou item já recebido foi apagado.",
+        "A compra de Poké Balls segue disponível no fluxo de captura."
+      ]
+    },
+    {
+      "version": "20260930-update-ready-v161",
+      "publishedAt": "2026-09-30",
+      "title": "Atualizações prontas ao abrir",
+      "notes": [
+        "Ao escolher Atualizar agora, o portal busca o HTML, os estilos e os scripts novos antes de abrir a versão publicada.",
+        "Arquivos de interface deixam de reutilizar uma cópia visual antiga após uma publicação.",
+        "O cache continua existindo para imagens e navegação, mas não pode segurar uma correção de tela."
+      ]
+    },
+    {
+      "version": "20260930-online-label-v160",
+      "publishedAt": "2026-09-30",
+      "title": "Presença e Roleta Cobblemon",
+      "notes": [
+        "A própria conta passa a aparecer sempre como “Você” no menu e na lista de pessoas conectadas.",
+        "Os demais participantes conectados continuam aparecendo pelo nome.",
+        "A contagem inclui a sessão atual desde o primeiro carregamento, mesmo antes do retorno de presença terminar.",
+        "A Roleta Cobblemon foi recomposta para equilibrar melhor o painel, sem mexer nos prêmios, chances, saldo ou histórico.",
+        "Quando o ciclo estiver encerrado, o botão fica compacto e o próximo horário aparece em um estado próprio e fácil de ler.",
+        "O marcador de sem prêmio foi centralizado na própria casa da roleta."
+      ]
+    },
+    {
+      "version": "20260930-agiota-simple-v159",
+      "publishedAt": "2026-09-30",
+      "title": "Agiota Estelar simplificado",
+      "notes": [
+        "O cartão do Agiota agora tem um único campo para digitar o valor desejado, em vez de vários botões de valores fixos.",
+        "A solicitação aceita de 300 Créditos 51 até o limite individual atual; o servidor continua sendo a autoridade da validação.",
+        "Tentar passar do limite recebe a recusa visual do Agiota: um raio laser fictício e a frase “Raspa daqui, sem vergonha.”, sem criar dívida ou alterar saldo.",
+        "Depois de quitar um contrato válido no prazo, o cartão atualiza imediatamente para a nova faixa de confiança."
+      ]
+    },
+    {
+      "version": "20260930-season-loan-trust-v158",
+      "publishedAt": "2026-09-30",
+      "title": "Campeão da temporada e Agiota Estelar",
+      "notes": [
+        "O primeiro lugar da temporada recebe automaticamente 500 Créditos 51 e a medalha Campeão da Temporada quando o mês encerra.",
+        "Em empate de pontos, os co-campeões recebem a medalha e dividem a mesma bolsa de créditos de forma justa.",
+        "O Agiota Estelar passa a acompanhar a confiança individual: começa com limite de 900 e pode chegar a 2.400 Créditos 51.",
+        "Quitar o empréstimo do limite atual dentro das 48 horas sobe uma faixa; atraso reduz uma faixa. Dívidas e históricos anteriores não foram alterados."
+      ]
+    },
+    {
+      "version": "20260930-capture-truth-fix-v157",
+      "publishedAt": "2026-09-30",
+      "title": "Pokédex e Mentirômetro corrigidos",
+      "notes": [
+        "O aviso de Pokémon que escapou agora desaparece automaticamente em até oito segundos, mesmo se a Pokédex for redesenhada ou a pessoa mudar de setor.",
+        "Cada resultado de captura possui uma identificação própria: um temporizador antigo não apaga uma tentativa nova.",
+        "Quando “Não mentiu” vence uma votação, a pessoa volta a receber uma verdade no contador separado do Mentirômetro.",
+        "O contador recupera também as verdades já registradas no histórico, sem alterar mentiras confirmadas."
+      ]
+    },
+    {
+      "version": "20260930-stability-feedback-v156",
+      "publishedAt": "2026-09-30",
+      "title": "Estabilidade e correções do portal",
+      "notes": [
+        "A Relíquia do Professor que havia reaparecido foi removida novamente da loja e dos catálogos ativos.",
+        "No feed da tripulação, textos podem ser selecionados e copiados; links continuam clicáveis e links públicos compatíveis de Instagram e TikTok ganham player no próprio mural.",
+        "O Mentirômetro agora encerra pela maioria dos votos válidos após alcançar três participações, sem ficar esperando integrantes que não votarão.",
+        "A origem do portal recebeu limites de concorrência e memória, reinício automático por saúde e logs persistentes para reduzir travamentos e permitir diagnóstico caso ocorra uma nova falha."
+      ]
+    },
+    {
+      "version": "20260929-ecos-badge-art-v155",
+      "publishedAt": "2026-09-29",
+      "title": "Emblemas das coleções atualizados",
+      "notes": [
+        "Os cabeçalhos das cinco coleções da Operação Ecos do Setor 51 usam agora a arte real de sua insígnia, substituindo os ícones provisórios.",
+        "Foram removidos 24 registros de trocas da coleção anterior; não havia negociação da temporada nova nesse histórico.",
+        "Os cartões dos Pacotes Setor 51, Órbita e Núcleo reservam uma coluna para a arte, sem cobrir título ou descrição.",
+        "No Perfil, cada pacote fechado mostra a própria arte comprada. Arraste o lacre para cima para rasgar e abrir; um clique simples não consome o pacote.",
+        "A revelação usa a arte real de cada carta da coleção, em vez do emoji genérico; a rara recebe borda e brilho próprios.",
+        "O seletor, as ofertas, o mural e as trocas diretas agora usam essas mesmas artes; emojis só ficam como fallback para itens legados sem imagem.",
+        "As duas primeiras atividades elegíveis do dia agora concedem uma carta garantida da temporada ativa: água, frase, meme, comentário válido ou voto.",
+        "Montar uma insígnia agora mostra uma animação de conquista antes de atualizar o Álbum.",
+        "A correção não altera pacotes, cartas, saldos ou inventários existentes."
+      ]
+    },
+    {
+      "version": "20260929-ecos-setor-51-live-v146",
+      "publishedAt": "2026-09-29",
+      "title": "Operação: Ecos do Setor 51",
+      "notes": [
+        "A nova temporada já está ativa com cinco coleções, 25 cartas inéditas e cinco insígnias novas.",
+        "Cartas antigas são convertidas uma única vez: 2 Créditos 51 por carta básica e 6 por rara; pacotes antigos fechados devolvem o valor pago.",
+        "Insígnias antigas montadas permanecem no Perfil como troféus. Posts, propostas e trocas de cartas antigas são encerrados na virada.",
+        "Os novos Pacotes Setor 51, Órbita e Núcleo e as descobertas do site passam a entregar somente cartas da nova temporada.",
+        "O Passe da Operação tem 30 níveis, trilha gratuita e Premium, recompensas de créditos, pacotes e cosméticos exclusivos."
+      ]
+    },
+    {
+      "version": "20260928-commander-cursor-fix-v142",
+      "publishedAt": "2026-09-28",
+      "title": "Cursor do administrador corrigido",
+      "notes": [
+        "A seta original do cursor de Halloween foi restaurada.",
+        "O mesmo desenho PNG foi somente redimensionado proporcionalmente de 48×64 para 36×48, sem recriação visual.",
+        "Cores, formato, rastro, efeitos e ponto de clique permanecem iguais aos da versão original."
+      ]
+    },
+    {
+      "version": "20260928-crew-missions-cursor-v141",
+      "publishedAt": "2026-09-28",
+      "title": "Mais missões para a tripulação",
+      "notes": [
+        "Cada participante agora recebe três missões semanais simultâneas, estáveis durante a semana e escolhidas sem repetição.",
+        "As missões diárias aumentaram para seis e agora também reconhecem comentários no mural e participação na votação de wallpapers.",
+        "As recompensas continuam protegidas por participante, período e tipo de missão para impedir pagamentos duplicados.",
+        "O cursor de Halloween do administrador foi reduzido ao tamanho regular e usa a mesma aparência na prévia e durante o uso."
+      ]
+    },
+    {
+      "version": "20260925-halloween-shop-v140",
+      "publishedAt": "2026-09-25",
+      "title": "Halloween 51: doces ou travessuras",
+      "notes": [
+        "A temporada chegou à Loja 51 com dois temas individuais, um tema premium, três cursores, rastro de gosma e itens de perfil.",
+        "O cursor Máscara do Acampamento 51 deixa um rastro de sangue; o Rastro Gosma Ectoplásmica pode ser usado com qualquer cursor.",
+        "O Tema Premium Noite Assombrada segue o padrão das coleções premium: entrega um cursor, um rastro, um estilo de nome, um emblema e uma moldura, além do próprio tema.",
+        "Os três cursores também podem aparecer na Caixa Cósmica, no Cofre Área 51 e no Baú Master Aurora durante a temporada.",
+        "Os itens ficam disponíveis até 31/10 e saem da loja em 01/11. Tudo que for adquirido continuará na coleção e poderá ser equipado depois."
+      ]
+    },
+    {
+      "version": "20260925-cobblemon-special-roulette-v139",
+      "publishedAt": "2026-09-25",
+      "title": "Nova Roleta Cobblemon e giro grátis",
+      "notes": [
+        "A Roleta Cobblemon foi reconstruída com 20 prêmios e a casa Sem prêmio; todos os setores têm o mesmo tamanho visual e a chance real continua controlada pelo servidor.",
+        "Passe o mouse sobre um ícone para ver nome e chance; clique nele para consultar a utilidade sem sobrepor dois painéis.",
+        "Entraram itens do Legendary Monuments, Master Ball, Rare Candy, Exp. Candy L e XL, Lucky Egg e as coordenadas raras de escavação fóssil.",
+        "O antigo Baú Relíquia e seus vouchers amplos foram removidos da compra. A Caixa de Balls agora entrega somente balls e a Caixa de Pedras somente pedras evolutivas, com nomes, sprites e chances revisados.",
+        "Cada participante recebeu 1 giro gratuito, usado antes dos giros pagos e sem consumir o limite semanal de sete giros. A concessão possui proteção contra duplicação."
+      ]
+    },
+    {
+      "version": "20260925-casino-cache-fix-v138",
+      "publishedAt": "2026-09-25",
+      "title": "Roleta 51: atualização imediata garantida",
+      "notes": [
+        "O cache da própria pessoa é invalidado imediatamente após a aposta ser confirmada no banco.",
+        "Saldo, jogadas do dia e resultado não dependem mais da sincronização periódica de aproximadamente 10 segundos.",
+        "A referência do JavaScript foi renovada para impedir que o navegador continue executando a versão anterior.",
+        "Aposta, prêmio, probabilidades e proteção contra duplicação permanecem inalterados."
+      ]
+    },
+    {
+      "version": "20260925-casino-instant-result-v137",
+      "publishedAt": "2026-09-25",
+      "title": "Roleta 51 mais rápida e sincronizada",
+      "notes": [
+        "A animação da roleta foi reduzida de aproximadamente 5,3 para 3,2 segundos.",
+        "Resultado, saldo promocional ou da Loja e histórico lateral são atualizados juntos assim que a roda para.",
+        "A sincronização completa continua em segundo plano apenas para conferência, sem bloquear a interface.",
+        "Probabilidades, valor debitado, prêmio e proteção contra aposta duplicada não foram alterados."
+      ]
+    },
+    {
+      "version": "20260925-lie-vote-abstention-v136",
+      "publishedAt": "2026-09-25",
+      "title": "Mentirômetro: maioria corrigida",
+      "notes": [
+        "“Não ouvi” é retirado da base da maioria e não recebe peso no resultado.",
+        "A decisão compara exclusivamente os votos “Mentiu” e “Não mentiu”: com 10 pessoas e 2 abstenções, 5 votos vencem entre os 8 restantes.",
+        "Em caso de empate após todos responderem, a votação encerra sem conceder mentira ou verdade.",
+        "Votos já registrados são preservados e votações pendentes são recalculadas automaticamente."
+      ]
+    },
+    {
+      "version": "20260924-truth-counter-pokedex-filters-v135",
+      "publishedAt": "2026-09-24",
+      "title": "Mentirômetro e contagem da Pokédex corrigidos",
+      "notes": [
+        "Quando “Não mentiu” vence uma votação encerrada, o acusado recebe uma verdade no Mentirômetro.",
+        "Cada votação é contabilizada uma única vez; saldo, créditos e pontuação não são alterados.",
+        "O total da Pokédex agora mostra a quantidade correspondente ao filtro selecionado: catálogo completo, capturados, raros, lendários, shiny ou bloqueados.",
+        "Ao consultar outra pessoa, a contagem usa a Pokédex escolhida; bônus e metas pessoais continuam privados.",
+        "O aviso persistente de atualização foi reparado para alcançar também as sessões que já estavam abertas."
+      ]
+    },
+    {
+      "version": "20260924-pokedex-selected-count-v134",
+      "publishedAt": "2026-09-24",
+      "title": "Pokédex: total acompanha coleção e filtro",
+      "notes": [
+        "A quantidade exibida acompanha a Pokédex selecionada no campo Ver coleção.",
+        "Os filtros Capturados, Raros, Lendários, Shiny e Bloqueados mostram suas próprias quantidades.",
+        "Ao consultar outra pessoa, aparecem somente o nome e a quantidade pública; bônus, metas e progresso pessoal não são exibidos.",
+        "Na própria Pokédex, bônus e marcos continuam disponíveis normalmente."
+      ]
+    },
+    {
+      "version": "20260924-capture-bonus-labels-v133",
+      "publishedAt": "2026-09-24",
+      "title": "Pokédex: bônus por nova espécie esclarecido",
+      "notes": [
+        "O bônus é pago uma única vez para cada espécie nova rara, lendária ou shiny adicionada à Pokédex.",
+        "Capturar novamente a mesma espécie não repete o pagamento.",
+        "Notificações e extrato agora mostram o nome do Pokémon, como “Nova espécie rara na Pokédex: Garchomp”.",
+        "O painel de recompensas foi ampliado e ganhou uma explicação destacada sobre créditos por descoberta.",
+        "Os textos históricos foram corrigidos sem alterar saldos ou criar novos pagamentos."
+      ]
+    },
+    {
+      "version": "20260924-capture-ball-result-v132",
+      "publishedAt": "2026-09-24",
+      "title": "Caçada: bola usada permanece no resultado",
+      "notes": [
+        "A bola exibida durante a confirmação permanece igual à bola realmente arremessada.",
+        "O próximo tipo disponível só é selecionado depois que a animação da captura termina.",
+        "Estoque, chance de captura, Pokémon capturado e histórico do servidor não foram modificados."
+      ]
+    },
+    {
+      "version": "20260924-pokedex-rarity-repair-v131",
+      "publishedAt": "2026-09-24",
+      "title": "Pokédex: raridades e níveis revisados",
+      "notes": [
+        "A raridade de cada Pokémon agora vem sempre da classificação oficial do catálogo, tanto no encontro quanto na captura.",
+        "Todas as Pokédexes e tentativas registradas foram revisadas; raridades e níveis fora da faixa correta foram reorganizados sem apagar capturas.",
+        "Bônus de raro, lendário ou shiny que deixaram de ser pagos por uma classificação incorreta foram creditados uma única vez, com registro no extrato.",
+        "Latios e os demais lendários aparecem no filtro Lendários e usam níveis entre 70 e 100."
+      ]
+    },
+    {
+      "version": "20260924-lottery-notification-order-v130",
+      "publishedAt": "2026-09-24",
+      "title": "Loteria: sequência cronológica corrigida",
+      "notes": [
+        "A vitória na Loteria 51 é comunicada primeiro e a confirmação do crédito vem logo depois.",
+        "Como a central mostra o evento mais recente no topo, o crédito aparece acima e a vitória logo abaixo no histórico.",
+        "O sorteio, o prêmio e o saldo não foram modificados."
+      ]
+    },
+    {
+      "version": "20260924-lottery-notification-order-v129",
+      "publishedAt": "2026-09-24",
+      "title": "Loteria: vitória antes do crédito",
+      "notes": [
+        "Nos próximos sorteios, o aviso de vitória na Loteria 51 aparecerá primeiro.",
+        "A confirmação de que os créditos entraram no saldo aparecerá logo depois.",
+        "O resultado, o prêmio, o saldo e as notificações do sorteio de hoje não foram modificados."
+      ]
+    },
+    {
+      "version": "20260924-cobblemon-roulette-v127",
+      "publishedAt": "2026-09-24",
+      "title": "Roleta Cobblemon: novo ciclo e novos prêmios",
+      "notes": [
+        "A Roleta Cobblemon agora permite até sete giros por ciclo semanal, de sábado a sexta, usados no mesmo dia ou distribuídos durante o ciclo.",
+        "Foram adicionados Candies, equipamentos, componentes de evolução, Ability Capsule ou Patch, Balls especiais, Beast Ball, Master Ball e coordenadas raras de escavação fóssil.",
+        "Ver Chances informa a probabilidade, todos os itens possíveis nas categorias e a utilidade de cada recompensa; o resultado identifica exatamente o item sorteado.",
+        "As coordenadas de fóssil usam a sprite do Dome Fossil e seguem diretamente para entrega do Davi, sem opção de venda.",
+        "Saldos, compras anteriores, cápsulas, capturas, entregas existentes e históricos foram preservados."
+      ]
+    },
+    {
+      "version": "20260924-cobblemon-hunt-panel-v126",
+      "publishedAt": "2026-09-24",
+      "title": "Cobblemon: painel da caçada corrigido",
+      "notes": [
+        "Ao visitar a página Cobblemon durante uma caça, o painel fixo mantém somente as Poké Balls necessárias para a captura.",
+        "Missões, marcos e recompensas permanecem dentro da Pokédex e não acompanham mais a pessoa por outras páginas.",
+        "A caça continua normalmente ao trocar de setor; chances, estoque de bolas, capturas e recompensas não foram alterados."
+      ]
+    },
+    {
+      "version": "20260924-cobblemon-hunt-shortcut-v125",
+      "publishedAt": "2026-09-24",
+      "title": "Cobblemon: caçada direto pelo cabeçalho",
+      "notes": [
+        "A Poké Ball no cabeçalho inicia uma caçada de qualquer página do portal.",
+        "Durante uma caçada o atalho fica bloqueado, evitando encontros simultâneos.",
+        "Chances, Poké Balls, capturas, recompensas, saldos e a Pokédex continuam sem mudanças."
+      ]
+    },
+    {
+      "version": "20260924-casino-cashout-clarity-v124",
+      "publishedAt": "2026-09-24",
+      "title": "Cassino: resgate e dívida mais claros",
+      "notes": [
+        "O aviso do resgate agora separa o valor liberado, o abatimento automático no Agiota e o valor final que entrou no saldo.",
+        "A regra financeira não mudou: quando há dívida ativa, o resgate promocional continua abatendo-a primeiro.",
+        "Saldos, dívidas, compras, capturas e históricos existentes foram preservados."
+      ]
+    },
+    {
+      "version": "20260924-feed-mentions-v123",
+      "publishedAt": "2026-09-24",
+      "title": "Feed: marcações também nas publicações",
+      "notes": [
+        "Agora é possível marcar participantes no texto da publicação, além dos comentários, usando @Nome ou @usuário.",
+        "A pessoa marcada recebe uma notificação que abre exatamente a publicação.",
+        "Em publicações anônimas, o aviso informa somente que alguém marcou você; a autoria continua protegida.",
+        "Saldos, compras, capturas, mercado e histórico financeiro não foram alterados."
+      ]
+    },
+    {
+      "version": "20260923-dex-controls-v122",
+      "publishedAt": "2026-09-23",
+      "title": "Pokédex: controles funcionando em todos os filtros",
+      "notes": [
+        "Os botões de página anterior e próxima página agora respondem mesmo quando o clique ocorre no conteúdo interno.",
+        "Todos os filtros da Pokédex usam o listener do próprio card e atualizam a coleção sem depender de outros efeitos da página.",
+        "Capturas, saldos, compras, mercado e histórico foram preservados."
+      ]
+    },
+    {
+      "version": "20260923-market-rollercoaster-v121",
+      "publishedAt": "2026-09-23",
+      "title": "Mercado montanha-russa e paginação corrigida",
+      "notes": [
+        "Os botões Próxima página e Página anterior da Pokédex aceitam o clique em qualquer parte do botão e atualizam o grid.",
+        "O Mercado mantém 36 atualizações entre 08h e 16h45, mas agora tem oscilações mais bruscas por janela.",
+        "O limite diário de queda, saldos, posições, compras, vendas e histórico permanecem preservados."
+      ]
+    },
+    {
+      "version": "20260923-pokedex-shiny-v120",
+      "publishedAt": "2026-09-23",
+      "title": "Pokédex: shiny visível para a tripulação",
+      "notes": [
+        "Ao abrir uma captura especial de outro participante, a Pokédex pública mantém o brilho e a identificação shiny do Pokémon.",
+        "O filtro Shiny também reconhece corretamente as capturas na coleção pública.",
+        "Capturas, saldos, compras, histórico e probabilidades não foram modificados."
+      ]
+    },
+    {
+      "version": "20260923-pokedex-rarity-v119",
+      "publishedAt": "2026-09-23",
+      "title": "Pokédex: raridades e alertas diretos",
+      "notes": [
+        "Lugia e outros Pokémon de registros antigos agora usam a classificação oficial do catálogo no filtro da Pokédex.",
+        "Lendários e míticos aparecem em Lendários; powerhouse, Ultra Beasts e Paradox aparecem em Raros.",
+        "Cada alerta de captura especial abre a Pokédex do participante que capturou, já filtrada no Pokémon avisado.",
+        "Nenhuma captura, saldo, compra ou histórico foi alterado."
+      ]
+    },
+    {
+      "version": "20260923-pokedex-highlights-v118",
+      "publishedAt": "2026-09-23",
+      "title": "Pokédex: filtros e avisos de capturas especiais",
+      "notes": [
+        "Capturas raras, lendárias ou shiny agora avisam toda a tripulação, com o nome de quem capturou e do Pokémon.",
+        "A Pokédex ganhou filtros funcionais para Raros, Lendários e Shiny, além dos filtros existentes.",
+        "A coleção, capturas, saldos, compras e histórico já existentes foram preservados."
+      ]
+    },
+    {
+      "version": "20260923-market-chart-v117",
+      "publishedAt": "2026-09-23",
+      "title": "Mercado: gráfico com cotação real",
+      "notes": [
+        "O gráfico do Mercado 51 passou a usar a cotação real em Créditos 51.",
+        "A variação percentual continua disponível nos pontos do gráfico.",
+        "Nenhum saldo, posição, compra, venda ou histórico financeiro foi alterado."
+      ]
+    },
+    {
       "version": "20260923-delivery-history-v116",
       "publishedAt": "2026-09-23",
       "title": "Histórico de entregas acessível",

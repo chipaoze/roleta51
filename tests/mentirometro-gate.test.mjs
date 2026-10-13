@@ -14,7 +14,7 @@ test('Mentirômetro exige voto após a tolerância e mantém a rota de votação
   assert.match(server, /const voteRoute = req\.method === 'POST' && \/\^\\\/api\\\/lie-meter/);
   assert.match(server, /Você precisa votar na mentira pendente antes de continuar/);
   assert.match(server, /function settlePendingLieVotes\(now = new Date\(\)\.toISOString\(\)\)/);
-  assert.match(server, /const quorumReached = received > voterIds\.length \/ 2/);
+  assert.match(server, /const quorumReached = received >= Math\.min\(3, voterIds\.length\)/);
 });
 
 test('Mentirômetro permite várias marcações diferentes para o mesmo alvo', () => {
@@ -58,10 +58,12 @@ test('votos de várias mentiras são independentes e a próxima decisão continu
   assert.equal(second.remaining, 2);
 });
 
-test('maioria dos votos recebidos encerra depois do quórum', () => {
+test('maioria dos votos recebidos encerra sem esperar ausentes depois de três votos', () => {
   const beforeQuorum = lieVoteDecision(['a', 'b', 'c', 'd'], { a: 'lie', b: 'truth' });
   const majority = lieVoteDecision(['a', 'b', 'c', 'd'], { a: 'lie', b: 'lie', c: 'truth' });
+  const largeTeam = lieVoteDecision(['a', 'b', 'c', 'd', 'e', 'f'], { a: 'truth', b: 'truth', c: 'lie' });
   assert.equal(beforeQuorum.outcome, null);
   assert.equal(majority.outcome, 'lie');
+  assert.equal(largeTeam.outcome, 'truth');
   assert.equal(majority.remaining, 1);
 });

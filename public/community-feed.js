@@ -6,18 +6,32 @@ function mentionParts(message, people) {
   const parts = []; let from = 0;
   for (let i=0;i<message.length;i++) {
     if (message[i] !== '@' || (i && /[\p{L}\p{N}_]/u.test(message[i-1]))) continue;
-    const person = names.find(p => message.slice(i+1,i+1+p.displayName.length).toLocaleLowerCase('pt-BR') === p.displayName.toLocaleLowerCase('pt-BR') && !/[\p{L}\p{N}_]/u.test(message[i+1+p.displayName.length] || ''));
-    if (!person) continue;
+    const match = names.map(person => ({ person, alias: [person.displayName, person.username].filter(Boolean).sort((a,b) => b.length-a.length).find(alias => message.slice(i+1,i+1+alias.length).toLocaleLowerCase('pt-BR') === alias.toLocaleLowerCase('pt-BR') && !/[\p{L}\p{N}_]/u.test(message[i+1+alias.length] || '')) })).find(item => item.alias);
+    if (!match) continue;
+    const person = match.person;
     if (from<i) parts.push({text:message.slice(from,i)});
-    const end=i+1+person.displayName.length;
+    const end=i+1+match.alias.length;
     parts.push({text:message.slice(i,end),person}); from=end; i=end-1;
   }
   if (from<message.length) parts.push({text:message.slice(from)});
   return parts;
 }
+function linkifiedText(text = '') {
+  const escaped = escapeHtml(String(text));
+  return escaped.replace(/https?:\/\/[^\s<]+/gi, (raw) => {
+    const suffix = raw.match(/[.,!?;:]+$/)?.[0] || '';
+    const href = raw.slice(0, raw.length - suffix.length);
+    return `<a class="feed-text-link" href="${href}" target="_blank" rel="noopener noreferrer">${href}</a>${suffix}`;
+  });
+}
 function highlightedComment(comment) {
   const people = (comment.mentions || []).map(m => ({id:m.userId,displayName:m.displayName || (appState?.powerParticipants || []).find(p=>p.id===m.userId)?.displayName})).filter(p=>p.displayName);
-  return mentionParts(comment.message,people).map(part => part.person ? `<mark class="mention-tag" title="Pessoa marcada">${escapeHtml(part.text)}</mark>` : escapeHtml(part.text)).join('');
+  return mentionParts(comment.message,people).map(part => part.person ? `<mark class="mention-tag" title="Pessoa marcada">${escapeHtml(part.text)}</mark>` : linkifiedText(part.text)).join('');
+}
+function highlightedPost(post) {
+  const message = post.phrase || post.caption || '';
+  const people = (post.mentions || []).map(m => ({id:m.userId,displayName:m.displayName || (appState?.powerParticipants || []).find(p=>p.id===m.userId)?.displayName})).filter(p=>p.displayName);
+  return mentionParts(message,people).map(part => part.person ? `<mark class="mention-tag" title="Pessoa marcada">${escapeHtml(part.text)}</mark>` : linkifiedText(part.text)).join('');
 }
 function mentionQuery(value, caret) {
   const before=value.slice(0,caret), match=before.match(/(?:^|[^\p{L}\p{N}_])@([^@\n]{0,50})$/u);
@@ -26,11 +40,14 @@ function mentionQuery(value, caret) {
 }
 function mentionComposer(type, postId, value='', editId='') {
   const listId='mentions-'+type+'-'+postId+'-'+(editId||'new');
-  return `<form class="mention-composer" data-comment-type="${type}" data-comment-id="${escapeHtml(postId)}"${editId ? ` data-edit-comment="${escapeHtml(editId)}"` : ''}><label>${editId ? 'Editar comentário' : 'Seu comentário'}<input name="message" value="${escapeHtml(value)}" maxlength="300" required autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${escapeHtml(listId)}" placeholder="Digite @ para marcar alguém"></label><button class="button button-dark" type="submit">${editId ? 'Salvar' : 'Comentar'}</button>${editId ? '<button type="button" data-cancel-comment>Cancelar</button>' : ''}<div class="mention-suggestions" id="${escapeHtml(listId)}" role="listbox" aria-label="Pessoas para marcar" hidden></div><div class="mention-selected" aria-live="polite"></div></form>`;
+  return `<form class="mention-composer" data-comment-type="${type}" data-comment-id="${escapeHtml(postId)}"${editId ? ` data-edit-comment="${escapeHtml(editId)}"` : ''}><label>${editId ? 'Editar comentário' : 'Seu comentário'}<input class="mentionable-field" name="message" value="${escapeHtml(value)}" maxlength="300" required autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${escapeHtml(listId)}" placeholder="Digite @ para marcar alguém"></label><button class="button button-dark" type="submit">${editId ? 'Salvar' : 'Comentar'}</button>${editId ? '<button type="button" data-cancel-comment>Cancelar</button>' : ''}<div class="mention-suggestions" id="${escapeHtml(listId)}" role="listbox" aria-label="Pessoas para marcar" hidden></div><div class="mention-selected" aria-live="polite"></div></form>`;
 }
 function closeMentionList(input) {
   const list=input.form.querySelector('.mention-suggestions'); list.hidden=true; list.innerHTML='';
   input.setAttribute('aria-expanded','false'); input.removeAttribute('aria-activedescendant');
+}
+function clearMentionSelection(input) {
+  input?.form?.querySelector('.mention-selected')?.replaceChildren();
 }
 function refreshMentions(input, suggestions=true) {
   const form=input.form, people=mentionPeople();
@@ -39,7 +56,7 @@ function refreshMentions(input, suggestions=true) {
   const query=mentionQuery(input.value,input.selectionStart ?? input.value.length);
   if (!suggestions || !query || (query.query.endsWith(' ') && people.some(p=>p.displayName.toLocaleLowerCase('pt-BR')===query.query.trim().toLocaleLowerCase('pt-BR')))) {closeMentionList(input);return;}
   const normalize=s=>s.normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase('pt-BR');
-  const found=people.filter(p=>normalize(p.displayName).includes(normalize(query.query))).slice(0,8);
+  const found=people.filter(p=>[p.displayName,p.username].filter(Boolean).some(alias=>normalize(alias).includes(normalize(query.query)))).slice(0,8);
   const list=form.querySelector('.mention-suggestions'); list.hidden=false;
   list.innerHTML=found.length ? found.map((p,i)=>`<button type="button" role="option" aria-selected="${i===0}" id="${escapeHtml(list.id)}-${i}" data-mention-choice="${escapeHtml(p.id)}"><span aria-hidden="true">@</span>${escapeHtml(p.displayName)}</button>`).join('') : '<span>Nenhuma pessoa encontrada.</span>';
   input.setAttribute('aria-expanded','true'); input.removeAttribute('aria-activedescendant');
@@ -64,6 +81,14 @@ function youtubeEmbedMarkup(text = '') {
   return `<div class="feed-youtube"><iframe src="https://www.youtube-nocookie.com/embed/${videoId}?rel=0" title="Vídeo do YouTube compartilhado no feed" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
 }
 
+function socialEmbedMarkup(text = '') {
+  const instagram = String(text).match(/https?:\/\/(?:www\.)?instagram\.com\/(reel|p)\/([A-Za-z0-9_-]+)/i);
+  if (instagram) return `<div class="feed-youtube feed-social"><iframe src="https://www.instagram.com/${instagram[1]}/${instagram[2]}/embed/captioned/" title="Publicação do Instagram compartilhada no feed" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+  const tiktok = String(text).match(/https?:\/\/(?:www\.)?tiktok\.com\/@[^/]+\/video\/(\d+)/i);
+  if (tiktok) return `<div class="feed-youtube feed-social"><iframe src="https://www.tiktok.com/embed/v2/${tiktok[1]}" title="Vídeo do TikTok compartilhado no feed" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="fullscreen"></iframe></div>`;
+  return '';
+}
+
 function renderCommunityFeed(wall) {
   const container = document.querySelector('#communityFeed');
   if (!container) return;
@@ -79,11 +104,12 @@ function renderCommunityFeed(wall) {
     const authorName = anonymous ? 'Anônimo' : formatDisplayName(post.authorName);
     const avatarUrl = post.userId === appState?.me?.id ? appState.me.avatarDataUrl : avatars[post.userId];
     const avatar = anonymous ? '<span class="feed-avatar feed-avatar-fallback anonymous" aria-hidden="true">🕵️</span>' : (avatarUrl ? `<img class="feed-avatar" src="${escapeHtml(avatarUrl)}" alt="Foto de ${escapeHtml(post.authorName)}">` : `<span class="feed-avatar feed-avatar-fallback" aria-hidden="true">${escapeHtml((post.authorName || '?').slice(0,1).toUpperCase())}</span>`);
-    return `<article class="feed-post">
+    return `<article id="feed-post-${escapeHtml(post.id)}" class="feed-post">
     <header><div class="feed-author">${avatar}<div><strong>${anonymous ? '🕵️ Anônimo' : visualName({ id: post.userId, displayName: post.authorName })}</strong><time>${escapeHtml(formatDate(post.createdAt))}</time></div></div>
     <div class="feed-post-actions">${post.canEdit ? `<button type="button" data-feed-edit="${escapeHtml(post.id)}" data-feed-type="${post.type}">Editar</button>` : ''}${post.canDelete ? `<button type="button" data-feed-delete="${escapeHtml(post.id)}" data-feed-type="${post.type}">Excluir</button>` : ''}</div></header>
-    <p class="feed-post-text">${escapeHtml(post.phrase || post.caption || '')}</p>
+    <p class="feed-post-text">${highlightedPost(post)}</p>
     ${youtubeEmbedMarkup(post.phrase || post.caption || '')}
+    ${socialEmbedMarkup(post.phrase || post.caption || '')}
     ${post.imageUrl ? `<a href="${escapeHtml(post.imageUrl)}" target="_blank" rel="noopener"><img loading="lazy" decoding="async" src="${escapeHtml(post.imageUrl)}" alt="Publicação de ${escapeHtml(authorName)}"></a>` : ''}
     <div class="daily-reactions">${emojis.map((emoji) => `<button type="button" aria-label="Reagir com ${emoji}" aria-pressed="${post.reactions?.mine?.includes(emoji) ? 'true' : 'false'}" class="${post.reactions?.mine?.includes(emoji) ? 'active' : ''}" data-reaction-type="${post.type}" data-reaction-id="${escapeHtml(post.id)}" data-reaction-emoji="${emoji}">${emoji} ${Number(post.reactions?.counts?.[emoji] || 0)}</button>`).join('')}</div>
     <details class="feed-reaction-people"><summary>Quem reagiu (${post.reactions?.total || 0})</summary><ul>${(post.reactions?.people || []).map((person) => `<li>${escapeHtml(person.emoji)} ${escapeHtml(formatDisplayName(person.name))}</li>`).join('') || '<li>Nenhuma reação ainda.</li>'}</ul></details>
@@ -164,10 +190,10 @@ document.querySelector('#communityFeed').addEventListener('submit', async (event
 });
 const mentionFeed=document.querySelector('#communityFeed');
 mentionFeed.addEventListener('pointerdown',event=>{if(event.target.closest('[data-mention-choice]'))event.preventDefault();});
-mentionFeed.addEventListener('input',event=>{if(event.target.matches('.mention-composer input'))refreshMentions(event.target);});
-mentionFeed.addEventListener('click',event=>{if(event.target.matches('.mention-composer input'))refreshMentions(event.target);});
+mentionFeed.addEventListener('input',event=>{if(event.target.matches('.mentionable-field'))refreshMentions(event.target);});
+mentionFeed.addEventListener('click',event=>{if(event.target.matches('.mentionable-field'))refreshMentions(event.target);});
 mentionFeed.addEventListener('keydown',event=>{
-  const input=event.target;if(!input.matches('.mention-composer input') || event.isComposing)return;
+  const input=event.target;if(!input.matches('.mentionable-field') || event.isComposing)return;
   const list=input.form.querySelector('.mention-suggestions');if(list.hidden)return;
   const options=[...list.querySelectorAll('[data-mention-choice]')];
   let index=options.findIndex(p=>p.getAttribute('aria-selected')==='true');
@@ -176,7 +202,38 @@ mentionFeed.addEventListener('keydown',event=>{
   if(event.key==='Enter'&&options.length){event.preventDefault();chooseMention(input,options[Math.max(0,index)].dataset.mentionChoice);}
 });
 mentionFeed.addEventListener('focusout',event=>{
-  const input=event.target;if(!input.matches('.mention-composer input'))return;
+  const input=event.target;if(!input.matches('.mentionable-field'))return;
+  if(event.relatedTarget?.closest('.mention-suggestions'))return;
+  closeMentionList(input);
+});
+// O compositor da publicação fica fora do mural; os mesmos atalhos de @
+// também precisam funcionar nele, inclusive quando a publicação é anônima.
+document.addEventListener('pointerdown',event=>{
+  if(event.target.closest('#communityFeed') || !event.target.closest('[data-mention-choice]'))return;
+  event.preventDefault();
+});
+document.addEventListener('click',event=>{
+  if(event.target.closest('#communityFeed'))return;
+  const choice=event.target.closest('[data-mention-choice]');
+  if(choice){chooseMention(choice.closest('form').querySelector('.mentionable-field'),choice.dataset.mentionChoice);return;}
+  if(event.target.matches('.mentionable-field'))refreshMentions(event.target);
+});
+document.addEventListener('input',event=>{
+  if(!event.target.closest('#communityFeed') && event.target.matches('.mentionable-field'))refreshMentions(event.target);
+});
+document.addEventListener('keydown',event=>{
+  const input=event.target;
+  if(input.closest('#communityFeed') || !input.matches('.mentionable-field') || event.isComposing)return;
+  const list=input.form.querySelector('.mention-suggestions');if(list.hidden)return;
+  const options=[...list.querySelectorAll('[data-mention-choice]')];
+  let index=options.findIndex(p=>p.getAttribute('aria-selected')==='true');
+  if(event.key==='Escape'){event.preventDefault();closeMentionList(input);return;}
+  if(['ArrowDown','ArrowUp'].includes(event.key)&&options.length){event.preventDefault();index=(index+(event.key==='ArrowDown'?1:-1)+options.length)%options.length;options.forEach((p,i)=>p.setAttribute('aria-selected',String(i===index)));input.setAttribute('aria-activedescendant',options[index].id);options[index].scrollIntoView({block:'nearest'});}
+  if(event.key==='Enter'&&options.length){event.preventDefault();chooseMention(input,options[Math.max(0,index)].dataset.mentionChoice);}
+});
+document.addEventListener('focusout',event=>{
+  const input=event.target;
+  if(input.closest('#communityFeed') || !input.matches('.mentionable-field'))return;
   if(event.relatedTarget?.closest('.mention-suggestions'))return;
   closeMentionList(input);
 });

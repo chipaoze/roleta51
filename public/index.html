@@ -8,11 +8,13 @@
   <title>Área 51</title>
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="shortcut icon" href="/favicon.svg?v=2">
-  <link rel="stylesheet" href="/styles.css?v=20260922-387">
+  <link rel="stylesheet" href="/styles.css?v=20261001-472">
   <link rel="stylesheet" href="/improvements.css?v=20260923-120">
-  <link rel="stylesheet" href="/cursor-and-boxes.css?v=20260916-212">
+  <link rel="stylesheet" href="/cursor-and-boxes.css?v=20261001-472">
   <link rel="stylesheet" href="/avatar-crop.css?v=20260902-129">
   <link rel="stylesheet" href="/platform-upgrades.css?v=20260923-218">
+  <link rel="stylesheet" href="/halloween.css?v=20260925-shop-only-5">
+  <link rel="stylesheet" href="/mobile-responsive.css?v=20261002-180">
   <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
@@ -121,8 +123,9 @@
         <div id="topWallet" class="top-wallet" role="status" aria-live="polite" aria-label="Saldo: 0,00 Créditos 51" title="Seu saldo de Créditos 51">
           <span class="coin-51" aria-hidden="true">51</span><strong id="topWalletValue">0,00</strong><small>créditos</small>
         </div>
+        <button id="topCobblemonHuntButton" class="icon-button top-cobblemon-hunt-button" type="button" title="Iniciar caçada" aria-label="Iniciar caçada" data-tooltip="Iniciar caçada"><img src="https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png" alt="" aria-hidden="true"></button>
         <button id="notificationButton" class="icon-button notification-button" type="button" title="Abrir notificações" aria-label="Abrir notificações" aria-expanded="false">🔔<b id="notificationBadge" class="hidden">0</b></button>
-        <button id="feedbackTopButton" class="feedback-top-button hidden" type="button" aria-controls="feedbackPanel" aria-expanded="false" title="Enviar melhoria ou bug">💬 <span>Feedback</span><b id="feedbackUnreadTop" class="feedback-unread hidden">0</b></button>
+        <button id="feedbackTopButton" class="feedback-top-button hidden" type="button" aria-controls="feedbackPanel" aria-expanded="false" title="Reportar um bug">💬 <span>Reportar bug</span><b id="feedbackUnreadTop" class="feedback-unread hidden">0</b></button>
         <button id="musicToggle" class="icon-button music-toggle" title="Ativar som da rodada" aria-label="Ativar som da rodada">♫</button>
         <span id="themePenaltyTimer" class="theme-penalty-timer hidden" aria-live="polite"></span><button id="themeToggle" class="icon-button theme-toggle" title="Ativar modo escuro" aria-label="Ativar modo escuro" aria-pressed="false">☾</button>
         <div class="weather-widget"><button id="weatherButton" class="weather-button" type="button" title="Clima em Americana, SP" aria-expanded="false" aria-controls="weatherPanel"><span id="weatherIcon" aria-hidden="true">☀️</span><span><strong id="weatherTemperature">--°</strong><small>Americana</small></span></button><aside id="weatherPanel" class="weather-panel hidden" aria-label="Previsão do tempo em Americana, São Paulo"><header><div><small>CLIMA LOCAL</small><h3>Americana, SP</h3></div><button id="weatherClose" type="button" aria-label="Fechar previsão">×</button></header><p id="weatherNow">Carregando previsão…</p><div id="weatherDays" class="weather-days"></div><small class="weather-source">Atualização local a cada 30 min</small></aside></div>
@@ -155,6 +158,7 @@
         <a href="?pagina=jogos" data-page="jogos"><span>🎰</span><p><strong>Jogos 51</strong><small>Roleta 51</small></p></a>
         <a href="?pagina=loteria" data-page="loteria"><span>🎟️</span><p><strong>Loteria 51</strong><small>Palpite semanal e prêmio acumulado</small></p></a>
         <a href="?pagina=mercado" data-page="mercado"><span>📈</span><p><strong>Mercado 51</strong><small>Investimentos simulados</small></p></a>
+        <a href="?pagina=votacoes" data-page="votacoes"><span>🗳️</span><p><strong>Votações 51</strong><small>Pautas e decisões da tripulação</small></p></a>
         <a href="?pagina=classificacao" data-page="classificacao"><span>📊</span><p><strong>Classificação</strong><small>Placares da equipe</small></p></a>
         <a href="?pagina=atualizacoes" data-page="atualizacoes"><span>✨</span><p><strong>Atualizações</strong><small>Patch notes e melhorias do portal</small></p></a>
         <a href="?pagina=admin" data-page="admin" id="adminNav" class="hidden"><span>⚙️</span><p><strong>Administração</strong><small>Controle do site e usuários</small></p></a>
@@ -164,7 +168,8 @@
 
     <section id="album" class="section portal-page-hidden">
       <div class="album-intro"><span class="eyebrow">ARQUIVO COLECIONÁVEL · ÁREA 51</span><h2>Seu álbum <em>cósmico</em></h2><p>Oito coleções. Quarenta cartas. Oito insígnias para conquistar.</p></div>
-      <aside class="album-info"><strong id="cardDropProgress">Carregando seu progresso…</strong><details><summary>Como encontrar cartas e montar insígnias</summary><p>40% de chance na primeira atividade válida de cada tipo por dia: registrar 500 ml acumulados de água, publicar frase, publicar meme, comentar pelo menos 10 caracteres na publicação de outra pessoa e votar no wallpaper. No máximo 2 cartas por dia, pelo horário de Brasília. Repetir, editar ou apagar não renova a chance. Jogos de azar não dão cartas.</p><p>Reúna as 5 cartas diferentes de uma coleção. A montagem consome uma de cada e preserva repetidas. Cada insígnia pode ser montada uma vez, sem moedas. A distribuição começou com esta atualização; atividades anteriores não são retroativas.</p></details></aside>
+      <section id="nextCardSeasonPreview" class="card-season-preview" aria-live="polite"></section>
+          <aside id="cardAlbumInfo" class="album-info"><strong id="cardDropProgress">Carregando seu progresso…</strong><details><summary>Como encontrar cartas e montar insígnias</summary><p>As 2 primeiras atividades válidas do dia rendem uma carta garantida: registrar 500 ml acumulados de água, publicar frase, publicar meme, comentar pelo menos 10 caracteres na publicação de outra pessoa ou votar no wallpaper. Cada tipo conta uma vez por dia, pelo horário de Brasília. Repetir, editar ou apagar não gera outra carta. Jogos de azar não dão cartas.</p><p>Reúna as 5 cartas diferentes de uma coleção. A montagem consome uma de cada e preserva repetidas. Cada insígnia pode ser montada uma vez, sem moedas. A distribuição começou com esta atualização; atividades anteriores não são retroativas.</p></details></aside>
       <div id="cardAlbumCollections" aria-live="polite"></div><article id="cardTradingCard" class="album-info"><h3>Trocar cartas repetidas</h3><p>Publique uma repetida no mural de trocas, receba ofertas e escolha a carta que mais te interessa. A troca só ocorre quando você aceitar.</p><form id="cardMarketForm"><label>Minha carta repetida<select name="offeredId" required></select></label><button class="button button-primary" type="submit">Publicar no mural de trocas</button></form><div id="cardTradeMarket"></div><details><summary>Troca direta entre participantes</summary><form id="cardTradeForm"><label>Participante<select name="partnerId" required></select></label><label>Ofereço<select name="offeredId" required></select></label><label>Quero receber<select name="wantedId" required></select></label><button class="button button-primary" type="submit">Propor troca direta</button></form><div id="cardTradeList"></div></details></article>
     </section>
     <section id="inicio" class="hero">
@@ -216,6 +221,7 @@
             <button id="spinButton" class="spin-button" aria-label="Girar roleta"><strong>GIRAR</strong><small>A roleta</small></button>
           </div>
           <p class="wheel-caption" id="wheelCaption">Envie ao menos um wallpaper para começar.</p>
+          <button id="resetThemeDrawButton" class="button button-danger hidden" type="button">Limpar sorteio do tema e refazer</button>
         </div>
 
         <aside class="draw-aside">
@@ -335,13 +341,15 @@
           </div>
           <form id="dailyPhraseForm" class="card daily-wall-form hidden">
             <label for="dailyPhraseInput">Escrever a frase do dia</label>
-            <textarea id="dailyPhraseInput" maxlength="180" rows="3" required placeholder="Digite algo memorável para hoje…"></textarea>
+            <textarea id="dailyPhraseInput" class="mentionable-field" maxlength="180" rows="3" required placeholder="Digite algo memorável para hoje… (use @ para marcar)"></textarea>
+            <div class="mention-suggestions" id="mentions-daily-phrase" role="listbox" aria-label="Pessoas para marcar" hidden></div><div class="mention-selected" aria-live="polite"></div>
             <label class="feed-anonymous-flag"><input id="dailyPhraseAnonymous" type="checkbox"> <span>🕵️ Publicar anonimamente</span></label>
             <div class="daily-wall-form-foot"><span><b id="dailyPhraseCount">0</b>/180</span><button class="button button-dark" type="submit">Publicar no feed</button></div>
           </form>
           <form id="memeUploadForm" class="card daily-wall-form">
             <label for="memeCaption">Publicar no feed</label>
-            <textarea id="memeCaption" maxlength="500" rows="3" placeholder="Escreva uma frase, adicione uma imagem ou use os dois…"></textarea>
+            <textarea id="memeCaption" class="mentionable-field" maxlength="500" rows="3" placeholder="Escreva uma frase, adicione uma imagem ou use os dois… (use @ para marcar)"></textarea>
+            <div class="mention-suggestions" id="mentions-meme-caption" role="listbox" aria-label="Pessoas para marcar" hidden></div><div class="mention-selected" aria-live="polite"></div>
             <label class="meme-file-picker" for="memeFile"><input id="memeFile" type="file" accept="image/png,image/jpeg,image/webp"><span aria-hidden="true">🛸</span><strong id="memeFileName">Adicionar imagem (opcional)</strong><small>PNG, JPG ou WEBP · até 5 MB</small></label>
             <div id="memePreview" class="meme-preview hidden"><img alt="Prévia do meme"><button id="clearMemeFile" type="button">Remover</button></div>
             <label class="feed-anonymous-flag"><input id="feedPostAnonymous" type="checkbox"> <span>🕵️ Publicar anonimamente</span></label>
@@ -483,10 +491,9 @@
           </article>
           <article class="card season-pass-card"><div><small>PASSE DA TEMPORADA</small><h3 id="seasonPassTitle">Temporada atual</h3><p id="seasonPassUntil">Carregando prazo…</p></div><a class="button button-dark" href="?pagina=classificacao" data-page="classificacao">Ver passe e ranking</a></article>
           <article class="card weekly-mission-card mission-center-card">
-            <div class="weekly-mission-head"><span id="missionIcon">🛸</span><div><small>MISSÃO SEMANAL</small><h3 id="missionTitle">Carregando missão…</h3></div></div>
-            <p id="missionDescription"></p><div class="mission-progress"><i id="missionProgressBar"></i></div>
-            <div class="mission-summary"><span id="missionProgressText">0 de 0</span><strong id="missionReward">+0 créditos</strong></div>
-            <div class="daily-missions-head"><div><small>MISSÕES DIÁRIAS</small><h3>Objetivos de hoje</h3></div><strong id="dailyMissionCount">0 de 4</strong></div>
+            <div class="weekly-missions-title"><div><small>MISSÕES SEMANAIS</small><h3>Objetivos da semana</h3></div><strong id="weeklyMissionCount">0 de 3</strong></div>
+            <div id="weeklyMissionList" class="weekly-mission-list"></div>
+            <div class="daily-missions-head"><div><small>MISSÕES DIÁRIAS</small><h3>Objetivos de hoje</h3></div><strong id="dailyMissionCount">0 de 6</strong></div>
             <div id="dailyMissionList" class="daily-mission-list"></div>
             <div id="cleanNameMission" class="clean-name-mission"></div>
           </article>
@@ -495,7 +502,7 @@
         </aside>
         <div class="profile-content-column">
           <article id="activePowersCard" class="card active-powers-card hidden"><div class="profile-block-head"><div><small>USO PRIVADO</small><h3>Meus poderes</h3></div><span>Somente você vê</span></div><div id="activePowersList" class="active-powers-list"></div></article>
-          <article id="cardPackInventoryCard" class="card"><h3>Meus pacotinhos de cartas</h3><p>3 cartas por pacote: 90% básica e 10% rara por carta. Repetidas podem sair. Compre na Loja e abra aqui; as cartas vão para o Álbum.</p><div id="cardPackInventory"></div><div id="cardPackHistory"></div></article><article id="mysteryInventoryCard" class="card mystery-inventory-card hidden"><div class="profile-block-head"><div><small>COFRE DA TRIPULAÇÃO</small><h3>Baús e prêmios</h3></div><span id="mysteryInventoryCount">0 itens</span></div><p>Abra ou venda seus baús. Ao ganhar um item, decida na hora se deseja ficar com ele ou vender por um valor menor.</p><div id="mysteryInventory" class="mystery-inventory"></div><div id="mysteryRewardInventory" class="mystery-reward-inventory"></div><div id="physicalPrizeInventory" class="mystery-reward-inventory"></div></article>
+          <article id="cardPackInventoryCard" class="card"><h3>Meus pacotinhos de cartas</h3><p>Cada pacote traz 3 cartas e informa a própria chance de rara. Repetidas podem sair. Compre na Loja e, aqui no Perfil, arraste o lacre do pacote para revelar as cartas no Álbum.</p><div id="cardPackInventory"></div><div id="cardPackHistory"></div></article><article id="mysteryInventoryCard" class="card mystery-inventory-card hidden"><div class="profile-block-head"><div><small>COFRE DA TRIPULAÇÃO</small><h3>Baús e prêmios</h3></div><span id="mysteryInventoryCount">0 itens</span></div><p>Abra ou venda seus baús. Ao ganhar um item, decida na hora se deseja ficar com ele ou vender por um valor menor.</p><div id="mysteryInventory" class="mystery-inventory"></div><div id="mysteryRewardInventory" class="mystery-reward-inventory"></div><div id="physicalPrizeInventory" class="mystery-reward-inventory"></div></article>
           <div class="profile-block-head"><div><small>CONQUISTAS</small><h3>Minhas medalhas</h3></div><span id="medalCount">0 desbloqueadas</span></div>
           <div id="profileMedals" class="profile-medals"></div>
           <article class="card trophy-room-card"><div class="profile-block-head"><div><small>SALA DE TROFÉUS</small><h3>Minha vitrine pública</h3></div><span>Até 4 destaques</span></div><p>Escolha as medalhas e insígnias que aparecerão quando alguém abrir seu perfil.</p><div id="trophyRoomDisplay" class="trophy-room-display"></div><details><summary>Editar minha vitrine</summary><div id="trophyRoomOptions" class="trophy-room-options"></div><button id="saveTrophyRoomButton" class="button button-primary" type="button">Salvar vitrine</button></details></article>
@@ -540,12 +547,16 @@
       </header>
       <div class="market-overview-grid">
         <article class="card market-movers-card"><div class="market-panel-heading"><div><small>RADAR DO MERCADO</small><h3>Movimentos da sessão</h3></div><span>36 atualizações por dia</span></div><div id="marketMovers" class="market-movers"></div></article>
-        <article class="card market-chart-card"><div class="market-panel-heading"><div><small>PERFORMANCE</small><h3>Evolução das cotações</h3></div><span>Passe o mouse nos pontos para ver a variação</span></div><div id="marketChart" class="market-chart"></div></article>
+        <article class="card market-chart-card"><div class="market-panel-heading"><div><small>PERFORMANCE</small><h3>Evolução das cotações</h3></div><span>Passe o mouse nos pontos para ver preço e variação</span></div><div class="market-chart-controls"><div id="marketChartPeriods" class="market-chart-periods" role="group" aria-label="Período do gráfico"><button type="button" class="active" data-market-period="1d" aria-pressed="true">1 dia</button><button type="button" data-market-period="7d" aria-pressed="false">1 semana</button><button type="button" data-market-period="3w" aria-pressed="false">3 semanas</button><button type="button" data-market-period="1m" aria-pressed="false">1 mês</button><button type="button" data-market-period="1y" aria-pressed="false">1 ano</button></div><label class="market-filter-control">Moeda<select id="marketChartAsset" aria-label="Filtrar moeda no gráfico"><option value="all">Todas as moedas</option></select></label></div><div id="marketChart" class="market-chart"></div></article>
       </div>
       <div class="market-section-heading"><div><small>ATIVOS NEGOCIADOS</small><h3>Escolha uma posição</h3></div><p>Informe a quantidade ou use os atalhos. O total da ordem é calculado antes da confirmação.</p></div>
       <div id="marketAssets" class="market-assets"></div>
       <article class="card market-history-card market-trade-history-card"><div class="market-panel-heading"><div><small>SUAS ORDENS</small><h3>Histórico de negociações</h3></div><span>Preço registrado no momento da operação</span></div><div id="marketTradeHistory" aria-live="polite"></div></article>
-      <article class="card market-history-card"><div class="market-panel-heading"><div><small>HISTÓRICO DO WORKER</small><h3>Livro de cotações</h3></div><span>Sem API de terceiro</span></div><div id="marketHistory"></div></article>
+      <article class="card market-history-card"><div class="market-panel-heading"><div><small>HISTÓRICO DO WORKER</small><h3>Livro de cotações</h3></div><span>Sem API de terceiro</span></div><label class="market-filter-control market-history-filter">Mostrar<select id="marketHistoryAsset" aria-label="Filtrar Livro de cotações por moeda"><option value="all">Todas as moedas</option></select></label><div id="marketHistory"></div></article>
+    </section>
+    <section id="votacoes" class="section portal-page-hidden" aria-labelledby="communityVotesTitle">
+      <div class="section-heading"><span class="eyebrow">DECISÕES DA TRIPULAÇÃO</span><h2 id="communityVotesTitle">Votações <em>51</em></h2><p>Qualquer participante pode propor uma pauta. Cada pessoa registra uma única escolha: A favor ou Contra.</p></div>
+      <div id="communityVotes" class="community-votes" aria-live="polite"></div>
     </section>
     <section id="atualizacoes" class="section updates-page portal-page-hidden" aria-labelledby="updatesTitle">
       <header class="section-heading split-heading updates-heading"><div><span class="eyebrow">DIÁRIO DE BORDO · ÁREA 51</span><h2 id="updatesTitle">Atualizações do <em>portal</em></h2></div><p>Consulte as melhorias, correções e ajustes já publicados. O aviso automático continua aparecendo quando houver uma nova versão.</p></header>
@@ -570,10 +581,10 @@
         </aside>
         <div class="cobblemon-main-column">
           <article class="card cobblemon-store-card"><div class="profile-block-head"><div><small>BAÚS DE RECOMPENSAS</small><h3>Escolha seu baú</h3></div><span>Sprites oficiais da Wiki</span></div><p>Cada baú abre com um carrossel de prêmios. O resultado só é definido pelo servidor depois da confirmação.</p><div id="cobblemonBoxShop" class="cobblemon-box-shop"></div></article>
-          <article id="cobblemonRouletteCard" class="card cobblemon-roulette-card"><div class="cobblemon-roulette-copy"><small>RODADA ESPECIAL · 1 VEZ POR DIA</small><h3>Roleta Cobblemon</h3><p>Gire por <span id="cobblemonRoulettePrice"><span class="shop-credit-value"><span class="coin-51 shop-credit-icon" aria-hidden="true">51</span><b>259,90</b><small>Créditos 51</small><em>por giro</em></span></span>. A roleta pode não entregar prêmio; Rare Candy, EXP Candy e itens fortes têm chances realmente baixas.</p><div id="cobblemonRouletteStatus">Verificando disponibilidade…</div><button id="cobblemonRouletteSpin" class="button button-primary" type="button">Girar por <span class="shop-credit-value"><span class="coin-51 shop-credit-icon" aria-hidden="true">51</span><b>259,90</b><small>Créditos 51</small></span></button><button id="cobblemonRouletteOdds" class="button button-dark" type="button">Ver chances</button></div><div class="cobblemon-roulette-machine" aria-hidden="true"><i></i><div id="cobblemonRouletteWheel"><span class="roulette-loss">×</span><span><img src="https://wiki.cobblemon.com/images/4/45/Great_Ball.png" alt=""></span><span><img src="https://wiki.cobblemon.com/images/b/be/Quick_Ball.png" alt=""></span><span><img src="https://wiki.cobblemon.com/images/6/63/Fire_Stone.png" alt=""></span><span><img src="https://wiki.cobblemon.com/images/a/a2/Rare_Candy.png" alt=""></span><span><img src="https://wiki.cobblemon.com/images/c/c6/Exp._Candy_XL.png" alt=""></span><span><img src="https://wiki.cobblemon.com/images/c/c3/Cherish_Ball.png" alt=""></span><span><img src="https://wiki.cobblemon.com/images/e/ee/Master_Ball.png" alt=""></span></div></div></article>
-          <article class="card cobblemon-capsule-result-card"><div class="profile-block-head"><div><small>RESULTADO DA SEMANA</small><h3>Resultado Cápsula Pokémon</h3></div><span id="cobblemonCapsuleResultCount">0 selecionados</span></div><p id="cobblemonCapsuleResultHelp">Cada cápsula rende 3 sorteios. Os Pokémon escolhidos ficam aqui até a escolha da entrega de sexta.</p><div id="cobblemonCapsuleResults" class="cobblemon-capsule-results"></div></article>
+          <article id="cobblemonRouletteCard" class="card cobblemon-roulette-card"><div class="cobblemon-roulette-copy"><small>CICLO SEMANAL · 7 GIROS · SÁBADO A SEXTA</small><h3>Roleta Cobblemon</h3><p>Compre e gire por <span id="cobblemonRoulettePrice"></span>. Use os sete giros no mesmo dia ou distribua durante o ciclo. Giros restantes não acumulam.</p><div class="cobblemon-roulette-facts"><span>20 prêmios + sem prêmio</span><span>Itens especiais e candies</span><span>Chance controlada no servidor</span></div><div class="cobblemon-roulette-guide"><span>◉</span><p><strong>Seu prêmio é definido no servidor</strong><small>Passe ou toque nos itens da roleta para ver chance e utilidade antes de girar.</small></p></div><div class="cobblemon-roulette-actions"><div id="cobblemonRouletteStatus" aria-live="polite">Verificando o ciclo semanal…</div><button id="cobblemonRouletteSpin" class="button button-primary" type="button">Comprar e girar</button></div></div><div class="cobblemon-roulette-machine"><i aria-hidden="true"></i><div class="cobblemon-roulette-orbit orbit-one" aria-hidden="true"></div><div class="cobblemon-roulette-orbit orbit-two" aria-hidden="true"></div><div id="cobblemonRouletteWheel" role="img" aria-label="Roleta Cobblemon com 21 resultados"></div><small>Passe o mouse para ver nome e chance. Clique no prêmio para abrir sua utilidade.</small></div></article>
+          <article class="card cobblemon-capsule-result-card"><div class="profile-block-head"><div><small>RESULTADO DA SEMANA</small><h3>Resultado do Baú Pokémon</h3></div><span id="cobblemonCapsuleResultCount">0 selecionados</span></div><p id="cobblemonCapsuleResultHelp">Cada baú rende 3 sorteios. Os Pokémon escolhidos ficam aqui até a escolha da entrega de sexta.</p><div id="cobblemonCapsuleResults" class="cobblemon-capsule-results"></div></article>
           <article class="card cobblemon-delivery-card"><div class="profile-block-head"><div><small id="cobblemonDeliveryKicker">MEUS PEDIDOS</small><h3>Entregas Cobblemon</h3></div><span id="cobblemonDeliveryCount">0 pendentes</span></div><p id="cobblemonDeliveryHelp">Acompanhe aqui os itens que o Davi já recebeu para enviar.</p><div id="cobblemonRewards" class="cobblemon-rewards"></div><div id="cobblemonDeliveryHistory" class="cobblemon-delivery-history"></div></article>
-          <article id="cobblemonDexCard" class="card cobblemon-dex-card" data-cobblemon-tab-panel="catalog"><div class="profile-block-head"><div><small>COLEÇÃO VIRTUAL</small><h3 id="cobblemonDexTitle">Minha Pokédex</h3></div><span id="cobblemonDexProgress">0 / 888</span></div><p>Consulte todo o catálogo, seu progresso e suas recompensas de captura. A caçada continua disponível na aba Caça e pelo restante do site.</p><div class="cobblemon-hunt-launch"><span>🎯</span><p><small>CAÇADA PELO SITE</small><strong>Um Pokémon aparecerá escondido em alguma página</strong></p><button id="cobblemonCaptureButton" class="button button-primary" type="button">Iniciar caçada</button></div><div class="cobblemon-capture-stage"><div id="cobblemonEncounterTarget" class="cobblemon-encounter-target hidden"><img alt=""><strong>Pokémon selvagem</strong><small></small></div><button id="cobblemonPageBall" class="cobblemon-page-ball hidden" type="button" aria-label="Segure, mire e solte a Poké Ball"><img src="https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png" alt="Poké Ball"></button><div id="cobblemonCaptureHint">Clique em “Iniciar caçada” para procurar um Pokémon selvagem.</div><b id="cobblemonHuntTimer" class="cobblemon-hunt-timer hidden">1:00</b></div><div class="cobblemon-ball-wallet"><span><img src="https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png" alt=""><b id="cobblemonBallCount">5 / 5 Poké Balls</b><small>Restauração diária automática</small></span><button id="cobblemonBuyBalls" type="button">Comprar +10 · <span class="shop-credit-value"><span class="coin-51 shop-credit-icon" aria-hidden="true">51</span><b>89,90</b><small>Créditos 51</small><em>pacote</em></span></button></div><section id="cobblemonBallOptions" class="cobblemon-ball-options" aria-label="Bolas disponíveis e chance de captura"></section><p class="cobblemon-ball-help">As bolas ficam disponíveis no seu inventário. Depois que um Pokémon aparecer, cada opção mostrará a chance percentual desta captura; escolha uma e só então arremesse.</p><div class="cobblemon-dex-toolbar"><label><span>Ver coleção</span><select id="cobblemonDexOwner" aria-label="Escolher participante"></select></label><div id="cobblemonDexFilters" class="cobblemon-dex-filters" aria-label="Filtrar Pokédex"><button type="button" class="active" data-cobblemon-filter="all">Todos</button><button type="button" data-cobblemon-filter="caught">Capturados</button><button type="button" data-cobblemon-filter="locked">Bloqueados</button></div></div><div class="cobblemon-dex-search"><label for="cobblemonDexSearch">🔎 Buscar na coleção</label><input id="cobblemonDexSearch" type="search" placeholder="Digite nome, tipo ou número do Pokémon"></div><div id="cobblemonCaptureResult" class="cobblemon-capture-result" aria-live="polite"></div><div id="cobblemonDexGrid" class="cobblemon-dex-grid"></div><div class="cobblemon-dex-pages"><button id="cobblemonDexPrev" type="button" aria-label="Página anterior">←</button><span id="cobblemonDexPage">Página 1</span><button id="cobblemonDexNext" type="button" aria-label="Próxima página">→</button></div></article>
+          <article id="cobblemonDexCard" class="card cobblemon-dex-card" data-cobblemon-tab-panel="catalog"><div class="profile-block-head"><div><small>COLEÇÃO VIRTUAL</small><h3 id="cobblemonDexTitle">Minha Pokédex</h3></div><span id="cobblemonDexProgress">0 / 888</span></div><p>Consulte todo o catálogo, seu progresso e suas recompensas de captura. A caçada continua disponível na aba Caça e pelo restante do site.</p><div class="cobblemon-hunt-launch"><span>🎯</span><p><small>CAÇADA PELO SITE</small><strong>Um Pokémon aparecerá escondido em alguma página</strong></p><button id="cobblemonCaptureButton" class="button button-primary" type="button">Iniciar caçada</button></div><div class="cobblemon-capture-stage"><div id="cobblemonEncounterTarget" class="cobblemon-encounter-target hidden"><img alt=""><strong>Pokémon selvagem</strong><small></small></div><button id="cobblemonPageBall" class="cobblemon-page-ball hidden" type="button" aria-label="Segure, mire e solte a Poké Ball"><img src="https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png" alt="Poké Ball"></button><div id="cobblemonCaptureHint">Clique em “Iniciar caçada” para procurar um Pokémon selvagem.</div><b id="cobblemonHuntTimer" class="cobblemon-hunt-timer hidden">1:00</b></div><div class="cobblemon-ball-wallet"><span><img src="https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png" alt=""><b id="cobblemonBallCount">5 / 5 Poké Balls</b><small>Restauração diária automática</small></span><button id="cobblemonBuyBalls" type="button">Comprar +10 · <span class="shop-credit-value"><span class="coin-51 shop-credit-icon" aria-hidden="true">51</span><b>89,90</b><small>Créditos 51</small><em>pacote</em></span></button></div><section id="cobblemonBallOptions" class="cobblemon-ball-options" aria-label="Bolas disponíveis e chance de captura"></section><p class="cobblemon-ball-help">As bolas ficam disponíveis no seu inventário. Depois que um Pokémon aparecer, cada opção mostrará a chance percentual desta captura; escolha uma e só então arremesse.</p><div class="cobblemon-dex-toolbar"><label><span>Ver coleção</span><select id="cobblemonDexOwner" aria-label="Escolher participante"></select></label><div id="cobblemonDexFilters" class="cobblemon-dex-filters" aria-label="Filtrar Pokédex"><button type="button" class="active" data-cobblemon-filter="all">Todos</button><button type="button" data-cobblemon-filter="caught">Capturados</button><button type="button" data-cobblemon-filter="rare">Raros</button><button type="button" data-cobblemon-filter="legendary">Lendários</button><button type="button" data-cobblemon-filter="shiny">Shiny</button><button type="button" data-cobblemon-filter="locked">Bloqueados</button></div></div><div class="cobblemon-dex-search"><label for="cobblemonDexSearch">🔎 Buscar na coleção</label><input id="cobblemonDexSearch" type="search" placeholder="Digite nome, tipo ou número do Pokémon"></div><div id="cobblemonCaptureResult" class="cobblemon-capture-result" aria-live="polite"></div><div id="cobblemonDexGrid" class="cobblemon-dex-grid"></div><div class="cobblemon-dex-pages"><button id="cobblemonDexPrev" type="button" aria-label="Página anterior">←</button><span id="cobblemonDexPage">Página 1</span><button id="cobblemonDexNext" type="button" aria-label="Próxima página">→</button></div></article>
         </div>
       </div>
     </section>
@@ -584,7 +595,8 @@
         <div class="shop-page-toolbar"><div><small>SEU SALDO</small><strong><span class="coin-51" aria-hidden="true">51</span> <b id="shopPageWallet">0,00</b> créditos</strong></div><label class="shop-owned-toggle"><input id="hideOwnedVisuals" type="checkbox"><span>Ocultar visuais que já adquiri</span></label></div>
         <article id="freeShopPass" class="free-shop-pass"><span>🎟️</span><p><small>PRESENTE PARA CADA TRIPULANTE</small><strong id="freeShopPassTitle">Compra Grátis 51 disponível</strong><em id="freeShopPassText">Escolha um visual da loja e use seu único passe sem gastar créditos.</em></p><b id="freeShopPassStatus">1 USO</b></article>
         <article id="stellarLoanCard" class="stellar-loan-card"><span class="stellar-loan-avatar"><img src="/stellar-lender.svg" alt="" width="54" height="54" loading="lazy" decoding="async"></span><div><small>AGIOTA ESTELAR</small><strong id="stellarLoanTitle">Créditos rápidos para a sua coleção</strong><p id="stellarLoanText">Receba 300, 600 ou 900 créditos. Juros fixos de 20%, prazo de 48 horas e pagamento com até duas casas decimais.</p></div><div id="stellarLoanActions" class="stellar-loan-actions"></div></article>
-        <div id="shopFilters" class="shop-filters" aria-label="Filtrar itens da loja"><button class="active" type="button" data-shop-filter="all">Tudo</button><button type="button" data-shop-filter="box">🎁 Baús e pacotes</button><button type="button" data-shop-filter="cursor">Cursores</button><button type="button" data-shop-filter="trail">Rastros</button><button type="button" data-shop-filter="theme">Temas</button><button type="button" data-shop-filter="profile">Perfil</button><button class="power-filter-button" type="button" data-shop-filter="power">✨ Poderes</button></div>
+        <section id="nextCardSeasonShopPreview" class="card-season-shop-preview" aria-live="polite"></section>
+        <div id="shopFilters" class="shop-filters" aria-label="Filtrar itens da loja"><button class="active" type="button" data-shop-filter="all">Tudo</button><button class="seasonal-filter-button" type="button" data-shop-filter="halloween">🎃 Halloween</button><button type="button" data-shop-filter="box">🎁 Baús e pacotes</button><button type="button" data-shop-filter="cursor">Cursores</button><button type="button" data-shop-filter="trail">Rastros</button><button type="button" data-shop-filter="theme">Temas</button><button type="button" data-shop-filter="profile">Perfil</button><button class="power-filter-button" type="button" data-shop-filter="power">✨ Poderes</button></div>
         <div id="shopCatalog" class="shop-catalog"></div>
       </div>
     </section>
@@ -598,6 +610,7 @@
     </section>
 
     <section id="classificacao" class="section ranking-section">
+      <section id="nextSeasonPassPreview" class="next-season-pass-preview" aria-live="polite"></section>
       <div class="section-heading split-heading">
         <div><span class="eyebrow">PLACAR DA EQUIPE</span><h2>Classificação da <em>rodada</em></h2></div>
         <p>Três históricos independentes: melhores wallpapers, piores wallpapers e Gay da Rodada.</p>
@@ -617,7 +630,7 @@
         </div>
       </div>
       <article class="card finance-ranking-card"><div class="card-title-row"><div><small>FORBES 51</small><h3>Investimentos da tripulação</h3></div><span>Valor investido</span></div><p>Ranking público ordenado do maior para o menor valor atual investido em ativos. O placar mostra somente o investimento; o saldo em caixa permanece privado.</p><div id="financeRanking" class="finance-ranking"></div></article>
-      <article class="card season-card"><div class="card-title-row"><div><small>TEMPORADA ATUAL</small><h3 id="seasonTitle">Tripulação em destaque</h3></div><strong id="seasonMonth"></strong></div><div class="season-clock"><p><span>Encerra em</span><strong id="seasonCountdown">Calculando…</strong></p><p><span>Próxima temporada</span><strong id="nextSeasonDate">—</strong></p></div><div id="seasonRanking" class="season-ranking"></div><p id="previousSeasonWinner" class="previous-season-winner"></p></article>
+      <article class="card season-card"><div class="card-title-row"><div><small>TEMPORADA ATUAL</small><h3 id="seasonTitle">Tripulação em destaque</h3></div><strong id="seasonMonth"></strong></div><div class="season-clock"><p><span>Encerra em</span><strong id="seasonCountdown">Calculando…</strong></p><p><span>Próxima temporada</span><strong id="nextSeasonDate">—</strong></p></div><p id="seasonChampionPrize" class="season-champion-prize">🏆 1º lugar recebe 500 Créditos 51 e a medalha de Campeão da Temporada.</p><div id="seasonRanking" class="season-ranking"></div><p id="previousSeasonWinner" class="previous-season-winner"></p></article>
       <article class="card season-challenges-card"><div class="card-title-row"><div><small>DESAFIOS DA TEMPORADA</small><h3>Missão da tripulação</h3></div><strong>Recompensas mensais</strong></div><p class="season-challenges-intro">A equipe libera o objetivo; cada pessoa precisa participar para receber.</p><div id="seasonChallenges" class="season-challenges"></div></article>
     </section>
 
@@ -630,7 +643,7 @@
         <article class="card admin-card admin-event-card admin-wide"><header><div><small>CONTROLE RÁPIDO</small><h3>Modo Evento</h3><p>Acompanhe a etapa e use os mesmos controles seguros da rodada, em uma visão simplificada.</p></div><label class="event-mode-switch"><input id="eventModeToggle" type="checkbox"><span>Ativar foco</span></label></header><div id="eventModeStage" class="event-mode-stage"></div><div id="eventModeActions" class="event-mode-actions"></div></article>
         <div class="admin-columns admin-wide">
         <form id="featureFlagsForm" class="card admin-card feature-flags-card"><div class="card-title-row"><div><h3>Recursos do site</h3><p>Pause áreas sem apagar dados. A mudança só acontece ao salvar.</p></div><span>🎛️</span></div><div id="featureFlagControls" class="feature-flag-controls"><label><input type="checkbox" name="casino"><span><strong>Jogos 51</strong><small>Roleta 51</small></span></label><label><input type="checkbox" name="impostor"><span><strong>Impostor 51</strong><small>Salas e partidas</small></span></label><label><input type="checkbox" name="mystery"><span><strong>Mistério 51</strong><small>Perguntas e respostas</small></span></label><label><input type="checkbox" name="shop"><span><strong>Loja 51</strong><small>Novas compras</small></span></label><label><input type="checkbox" name="uploads"><span><strong>Envio de wallpapers</strong><small>Participantes e envio assistido</small></span></label></div><button class="button button-dark" type="submit">Salvar recursos</button></form>
-        <article class="card admin-card health-panel-card"><div class="card-title-row"><div><h3>Saúde da plataforma</h3><p>Indicadores calculados junto com o estado normal da página.</p></div><span id="healthOverallStatus">● Saudável</span></div><div id="healthMetrics" class="health-metrics"></div><p id="healthActivity" class="health-activity"></p></article>
+        <article class="card admin-card health-panel-card"><div class="card-title-row"><div><h3>Saúde da plataforma</h3><p>Leitura simples da estrutura gratuita: verde é normal; amarelo pede atenção; vermelho exige ação.</p></div><span id="healthOverallStatus">● Verificando</span></div><div id="healthRuntime" class="health-runtime" aria-live="polite"><p>Consultando a origem segura…</p></div><div id="healthMetrics" class="health-metrics"></div><p id="healthActivity" class="health-activity"></p><p class="health-guide">Custo mostrado: <strong>R$ 0,00/mês</strong> no plano Always Free. O portal avisa se memória, swap ou carga saírem do normal; não é necessário acompanhar isso todo dia.</p></article>
         <form id="settingsForm" class="card admin-card">
           <h3>Rodada</h3>
           <label>Nome da rodada<input id="roundInput" maxlength="60"></label>
@@ -818,7 +831,7 @@
     </div>
   </dialog>
 
-  <dialog id="cardPackDialog" class="card-pack-dialog" aria-labelledby="cardPackTitle"><h3 id="cardPackTitle">Pacotinho Cósmico</h3><button id="cardPackEnvelope" class="card-pack-envelope" type="button" aria-describedby="cardPackResult"><div class="pack-seal"><span>✂</span> RASGUE AQUI</div><span class="pack-alien">👽</span><b>ÁREA 51</b><strong>3 CARTAS</strong><small>COLEÇÃO CÓSMICA</small></button><div id="cardPackResult" role="status" aria-live="polite"></div><button id="closeCardPack" type="button">Fechar</button></dialog>
+  <dialog id="cardPackDialog" class="card-pack-dialog" aria-labelledby="cardPackTitle"><h3 id="cardPackTitle">Pacotinho Cósmico</h3><button id="cardPackEnvelope" class="card-pack-envelope" type="button" aria-describedby="cardPackResult"><img class="pack-artwork" src="" alt=""><div class="pack-seal"><span>✂</span> RASGUE AQUI</div><span class="pack-alien">👽</span><b>ÁREA 51</b><strong>3 CARTAS</strong><small>COLEÇÃO CÓSMICA</small></button><div id="cardPackResult" role="status" aria-live="polite"></div><button id="closeCardPack" type="button">Fechar</button></dialog>
   <dialog id="mysteryOpeningDialog" class="mystery-opening-dialog">
     <div class="mystery-opening-head"><span id="mysteryOpeningIcon">🎁</span><p><small>ABRINDO CAIXA MISTERIOSA</small><strong id="mysteryOpeningTitle">Preparando o prêmio…</strong></p></div>
     <div id="mysteryCarouselViewport" class="mystery-carousel-viewport"><div id="mysteryCarouselTrack" class="mystery-carousel-track"></div><i aria-hidden="true"></i></div>
@@ -849,28 +862,24 @@
     <button id="nextStepButton" type="button">Ir agora <b>→</b></button>
   </aside>
 
-  <button id="feedbackLauncher" class="feedback-launcher hidden" type="button" aria-controls="feedbackPanel" aria-expanded="false" aria-label="Abrir formulário de melhorias e bugs">
+  <button id="feedbackLauncher" class="feedback-launcher hidden" type="button" aria-controls="feedbackPanel" aria-expanded="false" aria-label="Abrir formulário para reportar um bug">
     <span class="feedback-launcher-halo" aria-hidden="true"></span>
     <span class="feedback-alien-crop" aria-hidden="true"><img src="/area51-aliens-cutout.png" alt=""></span>
-    <span class="feedback-launcher-copy"><strong>Enviar feedback</strong><small>Melhoria ou bug</small></span>
+    <span class="feedback-launcher-copy"><strong>Reportar bug</strong><small>Envio privado ao administrador</small></span>
     <span id="feedbackUnread" class="feedback-unread hidden" aria-label="Solicitações aguardando aprovação">0</span>
   </button>
 
   <aside id="feedbackPanel" class="feedback-panel hidden" role="dialog" aria-modal="false" aria-labelledby="feedbackTitle">
     <header class="feedback-header">
       <span class="feedback-header-alien" aria-hidden="true"><img src="/area51-aliens-cutout.png" alt=""></span>
-      <div><small>CANAL DA TRIPULAÇÃO</small><h2 id="feedbackTitle">Enviar feedback</h2><p id="feedbackPrivacyText">Seu relato será enviado somente ao administrador.</p></div>
+      <div><small>SUPORTE DA TRIPULAÇÃO</small><h2 id="feedbackTitle">Reportar um bug</h2><p id="feedbackPrivacyText">Seu relato será enviado somente ao administrador para correção.</p></div>
       <button id="feedbackClose" class="feedback-close" type="button" aria-label="Fechar formulário">×</button>
     </header>
-    <div class="feedback-submit-intro"><span aria-hidden="true">🔒</span><p><strong>Envio privado</strong><small>Os outros participantes não verão sua mensagem.</small></p></div>
+    <div class="feedback-submit-intro"><span aria-hidden="true">🔒</span><p><strong>Relato privado</strong><small>Melhorias, implementações e remoções devem ser propostas em Votações 51.</small></p></div>
     <form id="feedbackForm" class="feedback-form">
-      <div class="feedback-type-switch" role="radiogroup" aria-label="Tipo da mensagem">
-        <label><input type="radio" name="type" value="improvement" checked><span>✨ Melhoria</span></label>
-        <label><input type="radio" name="type" value="bug"><span>🐞 Bug</span></label>
-        <label><input type="radio" name="type" value="praise"><span>💚 Elogio / Denúncia</span></label>
-      </div>
-      <label class="feedback-message-label" for="feedbackMessage">Sua mensagem</label>
-      <textarea id="feedbackMessage" name="message" maxlength="800" rows="3" required placeholder="O que podemos melhorar? Explique a ideia ou o problema…"></textarea>
+      <input type="hidden" name="type" value="bug">
+      <label class="feedback-message-label" for="feedbackMessage">O que aconteceu?</label>
+      <textarea id="feedbackMessage" name="message" maxlength="800" rows="3" required placeholder="Explique o erro, onde aconteceu e, se puder, como reproduzir…"></textarea>
       <label class="feedback-image-picker" for="feedbackImage"><span>🖼️ Anexar print (opcional)</span><input id="feedbackImage" type="file" accept="image/png,image/jpeg,image/webp"><small id="feedbackImageName">PNG, JPG ou WEBP · até 900 KB</small></label>
       <div class="feedback-form-foot">
         <span>🔒 Privado · <b id="feedbackCount">0</b>/800</span>
@@ -893,9 +902,9 @@
   <script src="/community-feed.js?v=20260918-196"></script>
   <script src="/avatar-crop.js?v=20260903-161"></script>
   <script src="/visual-trading.js?v=20260902-140"></script>
-  <script src="/card-album.js?v=20260917-237"></script>
+  <script src="/card-album.js?v=20261002-475"></script>
   <script src="/weather.js?v=20260914-178"></script>
   <script src="/visual-atmosphere.js?v=20260911-209"></script>
-  <script src="/app.js?v=20260923-400"></script>
+  <script src="/app.js?v=20261005-492"></script>
 </body>
 </html>

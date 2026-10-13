@@ -22,7 +22,7 @@ test('movimento contínuo do cursor é limitado sem alterar ações por clique o
 });
 
 test('sessão tem reconexão limitada e mantém a autenticação inválida fora de tentativas', () => {
-  assert.match(app, /const SESSION_BOOT_RETRY_DELAYS = \[1200, 2500, 5000, 10000\];/);
+  assert.match(app, /const SESSION_BOOT_RETRY_DELAYS = \[1200, 2500\];/);
   assert.match(app, /if\(error\.status===401\) \{ showAuth\(\); return; \}/);
   assert.match(app, /const retryDelay = SESSION_BOOT_RETRY_DELAYS\[sessionBootAttempts - 1\];/);
   assert.match(app, /sessionBootRetryTimer = setTimeout\(initialize, retryDelay\);/);

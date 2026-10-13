@@ -26,14 +26,45 @@ test('painéis ocultam combos redundantes e informam como navegar', () => {
   assert.match(js, /clique e arraste para os lados/);
 });
 
-test('análise calcula utilidade por coleção e versão dos assets é atualizada', () => {
-  assert.match(js, /utilityScore/);
+test('análise calcula impacto por coleção para cada lado e explica a nota', () => {
+  assert.match(js, /collectionUtility/);
+  assert.match(js, /impacto na coleção/);
+  assert.match(js, /Impacto não é preço, chance nem garantia de justiça/);
+  assert.match(js, /collectionUtility\(card,theirs\)/);
   assert.match(js, /ANÁLISE PRIVADA DA TROCA/);
-  assert.match(html, /card-album\.js\?v=20260917-237/);
+  assert.match(html, /card-album\.js\?v=20261002-475/);
   assert.match(js, /directTradeFilter/);
-  assert.match(html, /styles\.css\?v=20260922-387/);
-  assert.match(html, /app\.js\?v=20260923-400/);
+  assert.match(html, /styles\.css\?v=20261001-472/);
+  assert.match(html, /app\.js\?v=20261002-480/);
+  assert.match(html, /cursor-and-boxes\.css\?v=20261001-472/);
+  assert.match(html, /card-album\.js\?v=20261002-475/);
   assert.match(html, /platform-upgrades\.css\?v=20260923-218/);
+});
+
+test('maldição avisa somente a pessoa alvo e mantém a autoria sigilosa', () => {
+  assert.match(serverJs, /appliedBy: 'Origem sigilosa'/);
+  assert.match(serverJs, /Você foi alvo de uma maldição/);
+  assert.match(serverJs, /Maldição ativada na tripulação/);
+  assert.match(serverJs, /foi prejudicado por/);
+  assert.match(serverJs, /Duração até/);
+  assert.match(serverJs, /secretTargetedCurse/);
+  assert.match(appJs, /Você foi alvo: /);
+  assert.match(appJs, /Origem sigilosa/);
+  assert.match(serverJs, /targetedCurseExpiresAt = new Date\(Date\.now\(\) \+ 86400000\)/);
+  assert.match(serverJs, /item\.roundId !== roundId \|\| item\.expiresAt/);
+});
+
+test('Poké Balls extras ficam somente na página Cobblemon, sem card duplicado na Loja', () => {
+  assert.doesNotMatch(serverJs, /service-cobblemon-balls/);
+  assert.match(serverJs, /route === '\/api\/cobblemon\/balls\/buy'/);
+  assert.match(html, /id="cobblemonBallOptions"/);
+});
+
+test('Roleta Cobblemon entrega e exibe o Locator Chip com a mesma chance', () => {
+  assert.match(serverJs, /\['locator-chip-roulette','Locator Chip','\/legendary-monuments\/locator-chip\.webp',360,2,\{itemId:'lumymon:locator_chip'\}\]/);
+  assert.match(appJs, /\['Locator Chip','\/legendary-monuments\/locator-chip\.webp',2,'locator-chip-roulette'\]/);
+  assert.match(appJs, /'locator-chip-roulette':'Com 4 ferros e 4 redstones, fabrica o Poké Radar para rastrear estruturas lendárias\.'/);
+  assert.ok(fs.existsSync(path.join(root, 'public', 'legendary-monuments', 'locator-chip.webp')));
 });
 
 test('cartão do Agiota reutiliza o personagem do diálogo no lugar da nave', () => {
@@ -116,6 +147,22 @@ test('Feed incorpora somente links válidos do YouTube e preserva seleção de t
   assert.match(html, /community-feed\.js\?v=20260918-196/);
 });
 
+test('publicações do mural aceitam marcações e preservam o anonimato do autor', () => {
+  assert.match(serverJs, /function updatePostMentions\(post\)/);
+  assert.match(serverJs, /candidate\.displayName, candidate\.username/);
+  assert.match(serverJs, /updatePostMentions\(post\);\s*db\.dailyPhrases\.push\(post\)/);
+  assert.match(serverJs, /updatePostMentions\(post\);\s*db\.dailyMemes\.push\(post\)/);
+  assert.match(serverJs, /id: 'mention-post:' \+ post\.id/);
+  assert.match(serverJs, /anonymous \? 'Alguém marcou você em uma publicação anônima'/);
+  assert.match(serverJs, /targetId: 'feed-post-' \+ post\.id/);
+  assert.match(communityFeed, /function highlightedPost\(post\)/);
+  assert.match(communityFeed, /person\.displayName, person\.username/);
+  assert.match(communityFeed, /id="feed-post-\$\{escapeHtml\(post\.id\)\}" class="feed-post"/);
+  assert.match(communityFeed, /class="mentionable-field"/);
+  assert.match(html, /id="memeCaption" class="mentionable-field"/);
+  assert.match(html, /id="dailyPhraseInput" class="mentionable-field"/);
+});
+
 test('recursos pausados somem do menu e o perfil concentra suas ações', () => {
   assert.match(appJs, /link\.hidden = Boolean\(feature && normalized\[feature\] === false\)/);
   assert.match(html, /id="profileQuickMenu"/);
@@ -176,7 +223,7 @@ test('valores financeiros aceitam centavos, mas quantidades continuam inteiras',
   assert.doesNotMatch(html, /id="flightBet"/);
   assert.match(html, /id="giftCreditsAmount" type="number" min="0\.01" max="500" step="0\.01" inputmode="decimal"/);
   assert.match(appJs, /id="stellarRepayAmount" type="number" min="0\.01".*step="0\.01" inputmode="decimal"/);
-  assert.match(appJs, /20260923-delivery-history-v116/);
+  assert.match(appJs, /20261002-locator-chip-roulette-v181/);
 });
 
 test('Apostômetro contabiliza apenas apostas pagas com saldo da Loja 51 sem repetir o histórico inteiro', () => {
@@ -323,6 +370,27 @@ test('fluxo Cobblemon mantém as ações de baú, roleta, entrega, caça e bolas
   assert.match(appJs, /data-cobblemon-candidate-sell/);
 });
 
+test('Baú Premium e Caixa das Pedras usam catálogo explícito e o resultado é decidido no servidor', () => {
+  assert.match(serverJs, /master: \{ name: 'Baú Premium', price: 1499\.90, forceDelivery: true/);
+  assert.match(serverJs, /Tábua do Despertar — 100% cheia/);
+  assert.match(serverJs, /legendarymonuments:aurora_essence/);
+  assert.match(serverJs, /Essência de Aurora ×16/);
+  assert.match(serverJs, /minecraft:netherite_pickaxe/);
+  assert.match(serverJs, /A Caixa de Treinador foi aposentada/);
+  assert.match(serverJs, /status: reward\.forceDelivery \|\| box\.forceDelivery \? 'awaiting-delivery'/);
+  assert.match(appJs, /master: \{ name: 'Baú Premium', price: 1499\.90/);
+  assert.match(appJs, /Pedra do Fogo ×4/);
+  assert.match(appJs, /Pedra Brilhante ×1/);
+  assert.doesNotMatch(appJs, /Pedra evolutiva sortida ×4/);
+  assert.match(appJs, /1 recompensa definida/);
+  assert.match(appJs, /resultado e chance visíveis antes da compra/);
+});
+
+test('Baú Lendário mantém o perfil retornado pelo servidor após a abertura', () => {
+  assert.match(appJs, /showCobblemonOpening\(box\?\.name \|\| 'Baú Cobblemon', \{ \.\.\.data\.reward, profile: data\.profile \|\| data\.reward\?\.profile \|\| appState\.profile \}\)/);
+  assert.match(appJs, /const nextProfile = decided\?\.profile \|\| data\?\.profile \|\| appState\.profile/);
+});
+
 test('radar do mercado lista todos os ativos e o gráfico inclui a janela anterior', () => {
   assert.match(appJs, /function marketRadarMarkup\(assets\)/);
   assert.match(appJs, /marketRadarMarkup\(assets\)/);
@@ -381,7 +449,7 @@ test('extrato e notificações arredondam bônus em centavos', () => {
   assert.match(serverJs, /amount: roundMoney\(Number\(item\.after\) - Number\(item\.before\)\)/);
   assert.match(serverJs, /Você recebeu ' \+ roundMoney\(item\.amount\) \+ ' Créditos 51/);
   assert.match(serverJs, /detail: item\.type === 'credits' \? roundMoney\(item\.amount\)/);
-  assert.match(appJs, /20260923-delivery-history-v116/);
+  assert.match(appJs, /20261002-locator-chip-roulette-v181/);
 });
 
 test('Mentirometro remove contas apagadas das votações pendentes', () => {
@@ -389,7 +457,7 @@ test('Mentirometro remove contas apagadas das votações pendentes', () => {
   assert.match(serverJs, /required\.filter\(\(id\) => activeVoterIds\.has\(id\)\)/);
   assert.match(serverJs, /item\.cancelReason = 'Não há participantes ativos para validar'/);
   assert.match(serverJs, /sanitizePendingLieVoters\(\);\s+db\.submissions/);
-  assert.match(appJs, /20260923-delivery-history-v116/);
+  assert.match(appJs, /20261002-locator-chip-roulette-v181/);
 });
 
 test('lembrete de água é avaliado globalmente, sem depender da página Água', () => {
@@ -421,7 +489,7 @@ test('Cobblemon separa Caça e Pokédex em abas sem duplicar consultas', () => {
   assert.match(appJs, /nextTab === 'hunt' && appState\?\.me\?\.id/);
   assert.match(appJs, /\$\('#cobblemonCaptureButton'\)\?\.addEventListener\('click'/);
   assert.match(appJs, /function setCobblemonDexFilter\(filter = 'all'\)/);
-  assert.match(appJs, /button\.addEventListener\('click', \(event\) =>/);
+  assert.match(appJs, /event\.target\?\.closest\?\.\('\[data-cobblemon-tab\]'\)/);
   assert.match(appJs, /Sua sessão ainda está carregando/);
   assert.match(appJs, /Você não possui nenhuma Poké Ball disponível para a caça/);
   assert.match(appJs, /page\.dataset\.cobblemonTab = nextTab/);
@@ -529,7 +597,13 @@ test('poder consumível usado não fica marcado como item da coleção', () => {
 });
 
 test('Agiota oferece empréstimos maiores e aceita item para abater dívida', () => {
-  assert.match(serverJs, /\[300, 600, 900\]\.includes\(principal\)/);
+  assert.match(serverJs, /const STELLAR_LOAN_LIMITS = \[900, 1200, 1500, 1800, 2100, 2400\]/);
+  assert.match(serverJs, /const trust = stellarLoanTrustFor\(user\.id\)/);
+  assert.match(serverJs, /principal > trust\.maxPrincipal/);
+  assert.match(appJs, /id="stellarBorrowAmount" type="number" min="300"/);
+  assert.match(appJs, /agiota-raygun-v1\.png/);
+  assert.match(appJs, /Raspa daqui, sem vergonha/);
+  assert.match(appJs, /Confiança \$\{loanTrust\.level\}/);
   assert.match(serverJs, /method: 'item'/);
   assert.match(serverJs, /stellar-loan-item-payment/);
 });

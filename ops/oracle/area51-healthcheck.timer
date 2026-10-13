@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Area 51 backend health check every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+RandomizedDelaySec=8s
+Persistent=true
+Unit=area51-healthcheck.service
+
+[Install]
+WantedBy=timers.target

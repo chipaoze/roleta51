@@ -1,0 +1,32 @@
+[Unit]
+Description=Area 51 backend
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=8
+
+[Service]
+Type=simple
+User=area51
+Group=area51
+WorkingDirectory=/opt/area51
+EnvironmentFile=/etc/area51/backend.env
+ExecStart=/usr/local/bin/node /opt/area51/backend/server.mjs
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+# Se houver um pico anormal, derrube e reinicie somente o Node antes que a
+# micro-VM (e SSH/Caddy junto) fique sem memória.
+Environment=NODE_OPTIONS=--max-old-space-size=256
+MemoryHigh=300M
+MemoryMax=350M
+OOMScoreAdjust=500
+TasksMax=128
+LimitNOFILE=8192
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/area51
+
+[Install]
+WantedBy=multi-user.target

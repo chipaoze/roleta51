@@ -1,0 +1,82 @@
+/*
+ * Camada final para telefones. Mantém os componentes existentes, mas impede
+ * colunas rígidas, ações cortadas e diálogos maiores que a viewport.
+ * Carregada por último de propósito: novas páginas não precisam repetir o
+ * mesmo conjunto de exceções em cada CSS de recurso.
+ */
+@media (max-width: 760px) {
+  html { overflow-x: clip; }
+  body, .app, main, section, .section, .card, .admin-card, .modal-card { min-width: 0; }
+
+  /* Campos e textos extensos não podem abrir rolagem horizontal. */
+  :is(input, select, textarea, button) { max-width: 100%; }
+  :is(.card, .shop-item, .market-asset-card, .ranking-row, .finance-row, .direct-trade-card, .trade-summary, .cobblemon-box-card) :is(strong, b, p, small, span) { overflow-wrap: anywhere; }
+
+  /* Cabeçalho: preserva os atalhos e deixa o conteúdo respirar. */
+  .topbar { min-width: 0; }
+  .account { min-width: 0; }
+  .topbar .account > :is(button, a, .top-wallet) { flex: 0 1 auto; }
+
+  /* Formulários, filtros e rodapés de cards passam a ter uma única coluna. */
+  :is(.admin-grid, .dialog-form, .market-order-fields, .card-trade-form, .trade-form, .profile-actions) { grid-template-columns: minmax(0, 1fr) !important; }
+  :is(.form-actions, .card-actions, .trade-actions, .admin-user-actions, .market-actions) { align-items:stretch; }
+  :is(.form-actions, .card-actions, .trade-actions, .admin-user-actions, .market-actions) > :is(button, a) { flex: 1 1 140px; min-height: 42px; }
+
+  /* Loja, agiota e mercado: preço e ação não ficam espremidos lado a lado. */
+  .shop-item > footer { align-items: stretch !important; flex-direction: column; gap: 9px !important; }
+  .shop-item > footer > :is(strong, .shop-status-stack, .shop-credit-value) { white-space: normal; }
+  .shop-item > footer > button { width: 100%; min-height: 42px; }
+  .stellar-loan-card { grid-template-columns: 46px minmax(0, 1fr); gap: 11px; padding: 14px; }
+  .stellar-loan-card > span { width: 46px; height: 46px; border-radius: 14px; }
+  .stellar-loan-actions { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); max-width: none; }
+  .stellar-loan-actions input, .stellar-loan-actions button { width: 100%; }
+
+  /* O conteúdo denso da roleta financeira continua legível sem corte. */
+  .casino-layout, .casino-grid, .market-overview-grid, .market-income-grid, .market-totals, .market-portfolio-breakdown { grid-template-columns: minmax(0, 1fr) !important; }
+  .casino-status { min-width: 0; }
+  .casino-bet-legend { grid-template-columns: 1fr !important; }
+
+  /* Trocas e classificações: números continuam visíveis abaixo do nome. */
+  .ranking-row, .finance-row { grid-template-columns: 24px 38px minmax(0, 1fr); gap: 8px; }
+  .ranking-row .rank-value, .finance-row .finance-fortune { grid-column: 3; justify-self: start; white-space: normal; }
+  .direct-trade-card, .trade-summary { grid-template-columns: minmax(0, 1fr) !important; }
+  .trade-arrow { justify-self: center; transform: rotate(90deg); }
+
+  /* Cobblemon: botões tocáveis, cartões e painéis sem conteúdo escondido. */
+  .cobblemon-tabs { overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 8px; }
+  .cobblemon-tabs button { flex: 0 0 auto; min-height: 44px; }
+  .cobblemon-roulette-actions { align-items: stretch; flex-direction: column; max-width: none; }
+  .cobblemon-roulette-actions .button, .cobblemon-roulette-actions .button.cycle-closed { width: 100%; min-width: 0; }
+  .cobblemon-roulette-guide { max-width: none; }
+  .cobblemon-capture-bonuses header, .cobblemon-delivery-history-row { align-items: flex-start; flex-direction: column; }
+  .cobblemon-delivery-history-row > :last-child { align-self: stretch; width: 100%; }
+  .cobblemon-ball-buy { grid-template-columns: 1fr; }
+  .cobblemon-ball-buy button { width: 100%; }
+
+  /* Painéis flutuantes e modais respeitam a área útil real, incluindo notch. */
+  :is(dialog, .modal-card, .winner-dialog, .card-pack-dialog, .cobblemon-odds-dialog, .stellar-offer) {
+    box-sizing: border-box;
+    max-width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    margin: auto;
+  }
+  .feedback-panel { right: 10px; bottom: 10px; width: calc(100vw - 20px); max-height: calc(100dvh - 20px); border-radius: 18px; }
+  .feedback-launcher { right: 10px; bottom: 10px; width: auto; height: auto; min-height: 54px; grid-template-columns: 44px auto; padding: 5px 10px 5px 5px; border-radius: 18px; }
+  .feedback-alien-crop { width: 44px; height: 44px; border-radius: 13px; }
+  .feedback-launcher-copy small { display: none; }
+}
+
+@media (max-width: 430px) {
+  .section { padding-left: 12px; padding-right: 12px; }
+  .card, .shop-item, .ranking-card, .finance-ranking-card { padding-left: 13px; padding-right: 13px; }
+  .stellar-loan-actions { grid-template-columns: 1fr; }
+  .profile-stats, .season-pass-xp-sources, .today-quick-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shop-item.shop-type-cardPack { grid-template-columns: 74px minmax(0, 1fr); min-height: 168px; }
+  .shop-item.shop-type-cardPack > .shop-pack-art, .shop-item.shop-type-cardPack > .shop-pack-art img { width: 74px !important; height: 96px !important; }
+  .cobblemon-page .cobblemon-roulette-card { padding-left: 7px !important; padding-right: 7px !important; }
+  .cobblemon-page .cobblemon-roulette-machine { --roulette-scale: .58; min-height: 348px; }
+  .cobblemon-page #cobblemonRouletteWheel { width: min(330px, calc(100vw - 38px)); height: min(330px, calc(100vw - 38px)); }
+  .season-pass-track { max-height: 480px; }
+  .season-pass-track-labels, .season-pass-track article { grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); gap: 4px; }
+  .season-pass-track article > div { padding: 8px 6px; }
+}

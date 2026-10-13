@@ -36,4 +36,8 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+/.migration-backups/
 /.deploy-stage/
+/.deploy-stage*/
+/.live-*
+/.verify-live-*.mjs

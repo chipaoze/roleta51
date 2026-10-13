@@ -146,13 +146,15 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /api\('\/api\/admin\/settings', \{ method: 'PATCH', timeoutMs: 60000/);
   assert.match(app, /api\('\/api\/admin\/visual-theme\/clear', \{ method: 'POST', timeoutMs: 60000/);
   assert.match(app, /setButtonBusy\(button, true\)/);
-  assert.match(app, /data = await api\('\/api\/state', \{ timeoutMs: 15000 \}, false\)/);
+  assert.match(app, /const fresh = await api\('\/api\/state'\)/);
   assert.match(app, /showApp\(data\)/);
   assert.match(app, /Sua sessão foi verificada, mas a tela não terminou de carregar/);
   assert.doesNotMatch(app, /cobblemonBallOptions'\)\?\.addEventListener\('pointerdown',[\s\S]{0,300}event\.stopPropagation\(\)/);
   assert.match(app, /if \(isNativeInteractiveTarget\(event\.target\)\) \{\s*suppressClick = false;\s*return;\s*\}/);
   assert.match(app, /replace\(\/\\D\/g, ''\)/);
   assert.match(app, /mountCobblemonHuntBallPanel\(/);
+  assert.match(app, /\$\('#cobblemonCaptureBonuses'\)\?\.remove\(\);/, 'o painel de bônus não acompanha a caçada para outras telas');
+  assert.match(app, /const bonusAnchor = card\.querySelector\('\.cobblemon-ball-help'\);/, 'o bônus usa uma âncora fixa da Pokédex, não as bolas móveis');
   assert.match(app, /restoreCobblemonBallPanel\(/);
   assert.match(app, /const actionLabel = !encounterReady \? \(quantity > 0 \? 'Disponível na caça' : 'Sem estoque'\)/);
   assert.match(app, /ballType: cobblemonSelectedBall/);
@@ -162,6 +164,7 @@ test('Pokédex permite comprar e escolher bolas especiais com chance calculada n
   assert.match(app, /!cobblemonHasAvailableBall\(balls\)/);
   assert.match(html, /id="cobblemonBallOptions"/);
   const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  assert.match(styles, /\.cobblemon-hunt-ball-panel \.cobblemon-capture-bonuses\{display:none!important\}/, 'o painel da caça nunca exibe bônus mesmo se uma renderização antiga tentar inseri-lo');
   assert.match(styles, /\.cobblemon-ball-option\.empty\{opacity:1\}/);
   assert.match(styles, /\.cobblemon-ball-purchase\{[^}]*opacity:1/);
   assert.match(styles, /\.cobblemon-hunt-ball-panel \.cobblemon-ball-price\{display:none\}/);
@@ -228,6 +231,16 @@ test('a bola que aparece para arremesso sempre tem estoque real', () => {
   assert.equal(helpers.selected(), 'great');
   helpers.syncCobblemonSelectedBall({ remaining: 0, special: { great: { quantity: 0 }, ultra: { quantity: 1 } } });
   assert.equal(helpers.selected(), 'ultra');
+});
+
+test('resultado da caçada desaparece e não apaga uma tentativa nova', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(app, /function scheduleCobblemonCaptureResultClear\(delay = 8000\)/);
+  assert.match(app, /let cobblemonCaptureResultGeneration = 0/);
+  assert.match(app, /const generation = \+\+cobblemonCaptureResultGeneration/);
+  assert.match(app, /generation === cobblemonCaptureResultGeneration && current/);
+  assert.match(app, /clearTimeout\(cobblemonCaptureResultTimer\)/);
+  assert.match(app, /resultBox\.innerHTML[\s\S]*scheduleCobblemonCaptureResultClear\(\)/);
 });
 
 test('Cobblemon mantém rolagem leve e preço de cápsula padronizado', () => {
@@ -437,4 +450,51 @@ test('capturas shiny e bônus da Pokédex são sorteados e pagos somente no serv
   assert.match(app, /id = 'cobblemonCaptureBonuses'/);
   assert.match(styles, /\.cobblemon-encounter-target\.shiny/);
   assert.match(styles, /\.cobblemon-capture-bonuses/);
+});
+
+test('Pokédex filtra raros, lendários e shiny sem alterar a coleção existente', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, /data-cobblemon-filter="rare">Raros/);
+  assert.match(html, /data-cobblemon-filter="legendary">Lendários/);
+  assert.match(html, /data-cobblemon-filter="shiny">Shiny/);
+  assert.match(app, /function cobblemonDexTier\(mon = \{\}, entry = \{\}\)/);
+  assert.match(app, /cobblemonDexFilter === 'rare' \? owned && tier === 3/);
+  assert.match(app, /cobblemonDexFilter === 'legendary' \? owned && tier === 4/);
+  assert.match(app, /cobblemonDexFilter === 'shiny' \? owned && Boolean\(ownedEntry\?\.isShiny\)/);
+  assert.match(app, /\['all', 'caught', 'rare', 'legendary', 'shiny', 'locked'\]/);
+  assert.match(server, /isShiny: Boolean\(entry\.isShiny\)/, 'a coleção pública preserva o estado shiny');
+  assert.ok(app.includes("$('#cobblemonDexCard')?.addEventListener('click'"), 'a Pokédex tem listener próprio');
+  assert.ok(app.includes("const pager = event.target?.closest?.('#cobblemonDexPrev, #cobblemonDexNext')"), 'a paginação aceita clique no conteúdo do botão');
+  assert.ok(app.includes("const filter = event.target?.closest?.('#cobblemonDexFilters [data-cobblemon-filter]')"), 'os filtros usam o mesmo listener local');
+});
+
+test('Pokédex corrige a raridade de capturas históricas pela classificação do catálogo', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const start = app.indexOf('function cobblemonDexTier(');
+  const end = app.indexOf('\nfunction renderCobblemonDex(', start);
+  const tierFor = vm.runInNewContext(`${app.slice(start, end)}; cobblemonDexTier`, {});
+  assert.equal(tierFor({ l: 'gen2,legendary,restricted' }, { tier: 1 }), 4, 'Lugia antigo continua lendário');
+  assert.equal(tierFor({ l: 'gen1,powerhouse' }, { tier: 1 }), 3, 'powerhouse permanece raro');
+  assert.equal(tierFor({ l: 'gen1,starter' }, { tier: 1 }), 2, 'inicial permanece incomum');
+  assert.equal(tierFor({ l: 'gen1' }, { tier: 3 }), 3, 'um tier salvo sem tag especial é preservado');
+});
+
+test('capturas raras, lendárias e shiny geram um aviso coletivo sem mexer na Pokédex', () => {
+  const server = fs.readFileSync(new URL('../legacy-server.mjs', import.meta.url), 'utf8');
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(server, /cobblemonCaptureHighlights/);
+  assert.match(server, /captured && \(tier >= 3 \|\| isShiny\)/);
+  assert.match(server, /id: 'cobblemon-capture:' \+ capture\.id/);
+  assert.match(server, /title: \(capture\.userName \|\| 'Um participante'\) \+ ' capturou '/);
+  assert.match(server, /pokemonId: Number\(capture\.pokemonId\)/);
+  assert.match(server, /captureUserId: capture\.userId/);
+  assert.match(server, /db\.economy\.cobblemonCaptureHighlights\.length > 120/);
+  assert.match(app, /data-notification-pokemon=/);
+  assert.match(app, /data-notification-capture-user=/);
+  assert.match(app, /id\.startsWith\('cobblemon-capture:'\)/);
+  assert.match(app, /cobblemonDexOwnerId = captureUserId/);
+  assert.match(app, /dexSearch\.value = String\(pokemonId\)/);
+  assert.match(app, /id="cobblemonDexPokemon-\$\{Number\(mon\.i\)\}"/);
 });

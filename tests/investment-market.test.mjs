@@ -19,6 +19,13 @@ test('mercado interno inicializa oito ativos e cotação controlada pelo servido
   assert.equal(market.portfolios.user?.nebula || 0, 0);
 });
 
+test('mercado mantém histórico intradiário mensal e fechamento diário anual', () => {
+  const economy = {};
+  const market = ensureMarketState(economy);
+  assert.deepEqual(market.dailyHistory, []);
+  assert.ok(Array.isArray(market.history));
+});
+
 test('novas moedas entram antes da janela sem alterar preços ou posições existentes', () => {
   const economy = { investmentMarket: { prices: { nebula: 151.23, void: 488.75 }, portfolios: { user: { nebula: 2 } }, ledger: [{ id: 'old' }], history: [], dividendSlots: [], previousPrices: {}, dayOpenPrices: {}, slotKey: '2026-09-22:u32', scheduleVersion: 36, pricingVersion: 4 } };
   const market = ensureMarketState(economy);
@@ -28,7 +35,7 @@ test('novas moedas entram antes da janela sem alterar preços ou posições exis
   assert.equal(market.prices.comet, 65);
   assert.deepEqual(market.portfolios, { user: { nebula: 2 } });
   assert.deepEqual(market.ledger, [{ id: 'old' }]);
-  assert.equal(advanceMarket(economy, new Date('2026-09-22T19:10:00Z')), false);
+  assert.equal(advanceMarket(economy, new Date('2026-09-22T19:10:00Z')), true);
   assert.equal(advanceMarket(economy, new Date('2026-09-22T19:15:00Z')), true);
   assert.ok(market.history.at(-1).prices.solar > 0);
   assert.ok(market.history.at(-1).prices.comet > 0);
@@ -104,7 +111,7 @@ test('motor de mercado novo preserva preço, compras e carteira existentes ao se
   assert.deepEqual(market.prices, prices);
   assert.deepEqual(market.portfolios, { user: { void: 2 } });
   assert.deepEqual(market.ledger, ledger);
-  assert.equal(market.pricingVersion, 4);
+  assert.equal(market.pricingVersion, 5);
   assert.equal(market.history.length, 0);
   assert.deepEqual(market.dividendSlots, ['2026-09-21:u11', '2026-09-22:u0']);
 });
@@ -152,4 +159,58 @@ test('novas janelas têm oscilação perceptível sem superar o teto por atualiz
   }
   assert.ok(voidMoves.some((move) => move >= 0.02));
   assert.ok(voidMoves.some((move) => move <= -0.015));
+});
+
+test('boom armado na próxima janela deixa cada posição aberta acima do custo médio e volta automaticamente à cotação anterior', () => {
+  const economy = {}; const market = ensureMarketState(economy);
+  const start = new Date('2026-09-29T11:00:00.000Z');
+  advanceMarket(economy, start); // inicializa a sessão sem alterar a cotação
+  market.prices.nebula = 100;
+  market.prices.void = 400;
+  market.portfolios.ana = { nebula: 3 };
+  market.portfolios.bruno = { nebula: 2, void: 1 };
+  market.ledger.push(
+    { id: 'ana-buy', userId: 'ana', assetId: 'nebula', side: 'buy', quantity: 3, price: 151, total: 453, createdAt: '2026-09-29T10:30:00.000Z' },
+    { id: 'bruno-nebula', userId: 'bruno', assetId: 'nebula', side: 'buy', quantity: 2, price: 163, total: 326, createdAt: '2026-09-29T10:31:00.000Z' },
+    { id: 'bruno-void', userId: 'bruno', assetId: 'void', side: 'buy', quantity: 1, price: 700, total: 700, createdAt: '2026-09-29T10:32:00.000Z' },
+  );
+  const beforePrices = { ...market.prices };
+  market.boom = { id: 'silent-market-boom', status: 'armed', restorePrices: beforePrices };
+  assert.equal(advanceMarket(economy, new Date('2026-09-29T11:15:00.000Z')), true);
+  assert.equal(market.boom.status, 'restore-armed');
+  assert.ok(market.prices.nebula >= 167.89);
+  assert.ok(market.prices.void >= 721);
+  assert.ok(marketForUser(economy, 'ana').assets.find((asset) => asset.id === 'nebula').unrealizedPnl > 0);
+  assert.ok(marketForUser(economy, 'bruno').assets.filter((asset) => asset.quantity > 0).every((asset) => asset.unrealizedPnl > 0));
+  assert.ok(Object.values(market.lastDrivers).every((driver) => driver.phase === 'up' && driver.phaseLabel === 'Em alta'));
+  assert.equal(advanceMarket(economy, new Date('2026-09-29T11:30:00.000Z')), true);
+  assert.equal(market.boom.status, 'restore-active');
+  assert.deepEqual(market.prices, beforePrices);
+  assert.equal(advanceMarket(economy, new Date('2026-09-29T11:45:00.000Z')), true);
+  assert.equal(market.boom.status, 'restored');
+});
+
+test('reversão armada restaura as cotações de referência sem expor um evento na interface', () => {
+  const economy = {}; const market = ensureMarketState(economy);
+  const start = new Date('2026-09-29T11:00:00.000Z');
+  advanceMarket(economy, start);
+  market.prices.nebula = 240;
+  market.prices.void = 500;
+  const restorePrices = Object.fromEntries(MARKET_ASSETS.map((asset) => [asset.id, Math.round(asset.initialPrice * 1.37 * 100) / 100]));
+  restorePrices.nebula = 186.64;
+  restorePrices.void = 166.73;
+  market.boom = {
+    id: 'silent-market-restore',
+    status: 'restore-armed',
+    scheduledAt: '2026-09-29T11:30:00.000Z',
+    restorePrices,
+  };
+  assert.equal(advanceMarket(economy, new Date('2026-09-29T11:15:00.000Z')), true);
+  assert.equal(market.boom.status, 'restore-armed');
+  assert.equal(advanceMarket(economy, new Date('2026-09-29T11:30:00.000Z')), true);
+  assert.equal(market.boom.status, 'restore-active');
+  assert.deepEqual(market.prices, restorePrices);
+  assert.ok(Object.values(market.lastDrivers).every((driver) => driver.phase === 'flat' && driver.phaseLabel === 'Oscilando'));
+  assert.equal(advanceMarket(economy, new Date('2026-09-29T11:45:00.000Z')), true);
+  assert.equal(market.boom.status, 'restored');
 });
