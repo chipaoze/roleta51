@@ -1,5 +1,5 @@
 {
-  "version": "20261014-cobblemon-lapras-v292",
-  "title": "Cobblemon e Cursor Dragão corrigidos",
-  "notes": "O Tema Cobblemon agora aplica o cenário com Lapras da prévia e o Cursor Dragão acompanha a ponta de clique sem atraso. Atualize para carregar."
+  "version": "20261014-cursor-dragao-v293",
+  "title": "Cursor Dragão atualizado",
+  "notes": "O Cursor Dragão agora recarrega a mesma arte nova da prévia quando equipado e mantém a ponta como área de clique. Atualize para carregar."
 }

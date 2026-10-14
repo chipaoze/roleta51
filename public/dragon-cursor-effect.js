@@ -8,7 +8,7 @@
   const remove = (node) => node?.remove();
   function ensureDragon() {
     if (dragon) return dragon;
-    dragon = document.createElement('img'); dragon.className = 'dragon-ember-cursor'; dragon.src = '/cursor-dragon-fire.png'; dragon.alt = '';
+    dragon = document.createElement('img'); dragon.className = 'dragon-ember-cursor'; dragon.src = '/cursor-dragon-fire.png?v=2'; dragon.alt = '';
     document.body.append(dragon); return dragon;
   }
   function position() { if (active()) { ensureDragon().style.transform = `translate3d(${x - HOTSPOT_X}px,${y - HOTSPOT_Y}px,0)`; } }
