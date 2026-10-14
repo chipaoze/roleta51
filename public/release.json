@@ -1,5 +1,5 @@
 {
-  "version": "20261014-light-loading-v280",
-  "title": "Portal mais leve na abertura",
-  "notes": "O clima agora só consulta a previsão quando você abrir o botão. A Poké Ball básica passou a usar o arquivo próprio do portal, reduzindo dependências externas."
+  "version": "20261014-local-cobblemon-assets-v281",
+  "title": "Itens Cobblemon hospedados no portal",
+  "notes": "Bolas, pedras e recompensas fixas passaram a usar arquivos próprios do portal, com menos dependência externa e sem mudar capturas ou prêmios."
 }

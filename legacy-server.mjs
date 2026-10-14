@@ -868,6 +868,11 @@ async function ensureDatabase(seedDatabase) {
     db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
     changed = true;
   }
+  if (!db.settings.localCobblemonAssetsReleaseV281) {
+    db.settings.localCobblemonAssetsReleaseV281 = new Date().toISOString();
+    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
   // A chave é independente da janela da temporada. Ela permanece ligada para
   // que a ativação antecipada de 29/09 continue ativa após reinícios.
   if (db.settings.nextCardSeasonEnabled !== true) { db.settings.nextCardSeasonEnabled = true; changed = true; }
@@ -1101,10 +1106,20 @@ function retailPriceWithCents(value) {
 // Bolas especiais ficam no inventário até serem usadas. A Poké Ball básica
 // continua sendo o limite diário gratuito; as demais substituem o arremesso
 // escolhido pelo jogador e melhoram a chance calculada no servidor.
+const COBBLEMON_ITEM_ASSETS = Object.freeze({
+  poke: '/capture-ball-cobblemon.png', great: '/cobblemon-items/great-ball.png', ultra: '/cobblemon-items/ultra-ball.png', ancient: '/cobblemon-items/ancient-poke-ball.png', quick: '/cobblemon-items/quick-ball.png',
+  fire: '/cobblemon-items/fire-stone.png', water: '/cobblemon-items/water-stone.png', thunder: '/cobblemon-items/thunder-stone.png', leaf: '/cobblemon-items/leaf-stone.png', ice: '/cobblemon-items/ice-stone.png', sun: '/cobblemon-items/sun-stone.png', moon: '/cobblemon-items/moon-stone.png', dawn: '/cobblemon-items/dawn-stone.png', dusk: '/cobblemon-items/dusk-stone.png', shinyStone: '/cobblemon-items/shiny-stone.png',
+  rareCandy: '/cobblemon-items/rare-candy.png', expCandyL: '/cobblemon-items/exp-candy-l.png', expCandyXL: '/cobblemon-items/exp-candy-xl.png', abilityCapsule: '/cobblemon-items/ability-capsule.png', cherish: '/cobblemon-items/cherish-ball.png', master: '/cobblemon-items/master-ball.png', luckyEgg: '/cobblemon-items/lucky-egg.png', domeFossil: '/cobblemon-items/dome-fossil.png',
+});
+function localCobblemonItemSprite(sprite) {
+  const value = String(sprite || '');
+  const aliases = [['Poke_Ball', COBBLEMON_ITEM_ASSETS.poke], ['Great_Ball', COBBLEMON_ITEM_ASSETS.great], ['Ultra_Ball', COBBLEMON_ITEM_ASSETS.ultra], ['Ancient_Poke_Ball', COBBLEMON_ITEM_ASSETS.ancient], ['Quick_Ball', COBBLEMON_ITEM_ASSETS.quick], ['Fire_Stone', COBBLEMON_ITEM_ASSETS.fire], ['Water_Stone', COBBLEMON_ITEM_ASSETS.water], ['Thunder_Stone', COBBLEMON_ITEM_ASSETS.thunder], ['Leaf_Stone', COBBLEMON_ITEM_ASSETS.leaf], ['Ice_Stone', COBBLEMON_ITEM_ASSETS.ice], ['Sun_Stone', COBBLEMON_ITEM_ASSETS.sun], ['Moon_Stone', COBBLEMON_ITEM_ASSETS.moon], ['Dawn_Stone', COBBLEMON_ITEM_ASSETS.dawn], ['Dusk_Stone', COBBLEMON_ITEM_ASSETS.dusk], ['Shiny_Stone', COBBLEMON_ITEM_ASSETS.shinyStone], ['Rare_Candy', COBBLEMON_ITEM_ASSETS.rareCandy], ['Exp._Candy_L', COBBLEMON_ITEM_ASSETS.expCandyL], ['Exp._Candy_XL', COBBLEMON_ITEM_ASSETS.expCandyXL], ['Ability_Capsule', COBBLEMON_ITEM_ASSETS.abilityCapsule], ['Cherish_Ball', COBBLEMON_ITEM_ASSETS.cherish], ['Master_Ball', COBBLEMON_ITEM_ASSETS.master], ['Lucky_Egg', COBBLEMON_ITEM_ASSETS.luckyEgg], ['Dome_Fossil', COBBLEMON_ITEM_ASSETS.domeFossil]];
+  return aliases.find(([needle]) => value.includes(needle))?.[1] || value;
+}
 const COBBLEMON_CAPTURE_BALLS = {
   poke: { id: 'poke', name: 'Poké Ball', shortName: 'Básica', sprite: '/capture-ball-cobblemon.png', multiplier: 1, price: 0, daily: true },
-  great: { id: 'great', name: 'Great Ball', shortName: 'Melhor chance', sprite: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', multiplier: 1.35, price: 75 },
-  ultra: { id: 'ultra', name: 'Ultra Ball', shortName: 'Alta chance', sprite: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', multiplier: 1.7, price: 180 },
+  great: { id: 'great', name: 'Great Ball', shortName: 'Melhor chance', sprite: COBBLEMON_ITEM_ASSETS.great, multiplier: 1.35, price: 75 },
+  ultra: { id: 'ultra', name: 'Ultra Ball', shortName: 'Alta chance', sprite: COBBLEMON_ITEM_ASSETS.ultra, multiplier: 1.7, price: 180 },
 };
 
 const COBBLEMON_DAILY_SPECIAL_BALL_BONUS = Object.freeze({ great: 1, ultra: 1 });
@@ -5216,7 +5231,7 @@ async function handleApi(req, res, route) {
     const price = roundMoney(box.price);
     if (walletFor(user.id) < price) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const before = walletFor(user.id), reward = weightedCobblemonReward(box), createdAt = new Date().toISOString(); addCredits(user.id, -price);
-    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, rewardId: reward.id, name: reward.name, sprite: reward.sprite, sellPrice: reward.sellPrice, status: reward.forceDelivery || box.forceDelivery ? 'awaiting-delivery' : 'decision-pending', forceDelivery: Boolean(reward.forceDelivery || box.forceDelivery), deliveryNote: reward.deliveryNote || null, pokemonId: reward.pokemonId || null, rarity: reward.rarity || null, isShiny: Boolean(reward.isShiny), purchasePrice: price, createdAt };
+    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, rewardId: reward.id, name: reward.name, sprite: localCobblemonItemSprite(reward.sprite), sellPrice: reward.sellPrice, status: reward.forceDelivery || box.forceDelivery ? 'awaiting-delivery' : 'decision-pending', forceDelivery: Boolean(reward.forceDelivery || box.forceDelivery), deliveryNote: reward.deliveryNote || null, pokemonId: reward.pokemonId || null, rarity: reward.rarity || null, isShiny: Boolean(reward.isShiny), purchasePrice: price, createdAt };
     db.economy.cobblemonDeliveries.push(delivery); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box', amount: -price, before, after: roundMoney(before - price), reason: box.name, createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
   }
@@ -5227,7 +5242,7 @@ async function handleApi(req, res, route) {
     if (cycleSpins.filter((entry) => !entry.freeSpin).length >= COBBLEMON_ROULETTE.weeklyLimit) throw new HttpError(409, 'Você já usou os sete giros deste ciclo. Um novo ciclo começa no sábado.');
     if (walletFor(user.id) < COBBLEMON_ROULETTE.price) throw new HttpError(409, 'Créditos 51 insuficientes para girar.');
     const price = roundMoney(COBBLEMON_ROULETTE.price); const before = walletFor(user.id), reward = weightedCobblemonReward(COBBLEMON_ROULETTE), createdAt = new Date(now).toISOString(); addCredits(user.id, -price);
-    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: 'roulette', boxName: 'Roleta Cobblemon', rewardId: reward.id, itemId: reward.itemId || null, name: reward.name, sprite: reward.sprite, sellPrice: reward.sellPrice, status: reward.noPrize ? 'no-prize' : reward.forceDelivery ? 'awaiting-delivery' : 'decision-pending', noPrize: Boolean(reward.noPrize), forceDelivery: Boolean(reward.forceDelivery), deliveryNote: reward.deliveryNote || null, createdAt };
+    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: 'roulette', boxName: 'Roleta Cobblemon', rewardId: reward.id, itemId: reward.itemId || null, name: reward.name, sprite: localCobblemonItemSprite(reward.sprite), sellPrice: reward.sellPrice, status: reward.noPrize ? 'no-prize' : reward.forceDelivery ? 'awaiting-delivery' : 'decision-pending', noPrize: Boolean(reward.noPrize), forceDelivery: Boolean(reward.forceDelivery), deliveryNote: reward.deliveryNote || null, createdAt };
     if (!reward.noPrize) db.economy.cobblemonDeliveries.push(delivery);
     db.economy.cobblemonRouletteSpins.push({ id: randomUUID(), userId: user.id, rewardId: reward.id, rewardName: reward.name, spinNumber: cycleSpins.length + 1, cycleId, dayKey, createdAt });
     if (db.economy.cobblemonRouletteSpins.length > 1000) db.economy.cobblemonRouletteSpins = db.economy.cobblemonRouletteSpins.slice(-1000);
