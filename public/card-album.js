@@ -29,9 +29,9 @@ function insigniaVisualMarkup(item={},className=''){
   const tier=insigniaTierFor(item),collectionId=insigniaCollectionId(item),label=albumBadgeTiers[tier];
   if(!String(item?.id||'').startsWith('album:')&&!item?.medal&&!item?.tier&&!item?.collectionId&&item?.kind!=='Insígnia')return '';
   const classes='insignia-visual insignia-'+tier+(className?' '+escapeHtml(className):'');
-  // As 20 artes raster da temporada foram exportadas com partes fora do
-  // quadro. Esta versão vetorial completa é a fonte única no Álbum, Perfil e
-  // vitrine, sem risco de recortar a base em qualquer nível.
+  // Cada coleção e nível tem sua arte própria refeita em quadro completo.
+  // A mesma fonte é usada no Álbum, Perfil e vitrine, sem recortar a base.
+  if(seasonBadgeCollections.has(collectionId))return '<img class="'+classes+'" src="/card-season-2026-10/badges/'+escapeHtml(collectionId)+'/'+tier+'-full.png" alt="'+escapeHtml((item?.name||item?.badge||'Insígnia')+' · '+label)+'">';
   const palette={bronze:['#7b351d','#d98a46','#ffd78e'],silver:['#52647a','#b8cde0','#eff8ff'],gold:['#805b10','#e7af28','#fff0a3'],diamond:['#246b87','#61d8ee','#defdff']}[tier];
   const gradient='insignia-'+tier;
   return '<svg class="'+classes+'" viewBox="0 0 64 64" role="img" aria-label="'+escapeHtml((item?.name||item?.badge||'Insígnia')+' · '+label)+'"><defs><linearGradient id="'+gradient+'" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+palette[2]+'"/><stop offset=".48" stop-color="'+palette[1]+'"/><stop offset="1" stop-color="'+palette[0]+'"/></linearGradient></defs><path d="M17 5h12l3 18-12 7-8-11z" fill="'+palette[0]+'"/><path d="M35 5h12l-3 18-12 7-8-11z" fill="'+palette[1]+'"/><circle cx="32" cy="38" r="20" fill="#081527" stroke="url(#'+gradient+')" stroke-width="4"/><circle cx="32" cy="38" r="15" fill="url(#'+gradient+')"/><path d="m32 25 3.6 7.2 8 1.2-5.8 5.6 1.4 7.9-7.2-3.8-7.2 3.8 1.4-7.9-5.8-5.6 8-1.2z" fill="#fff7ce"/><circle cx="32" cy="38" r="4" fill="'+palette[0]+'"/></svg>';
