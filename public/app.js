@@ -2806,7 +2806,9 @@ $('#nextSeasonPassPreview')?.addEventListener('click', async (event) => {
   const button = premium || claim; button.disabled = true;
   try {
     const data = await api(premium ? '/api/card-season/pass-premium' : '/api/card-season/pass-claim', { method: 'POST', body: premium ? {} : { track: claim.dataset.seasonPassClaim, level: Number(claim.dataset.seasonPassLevel) } });
-    applyState(data); nextSeasonPassLoaded = false; await renderNextSeasonPassPreview(); showToast(premium ? 'Passe Premium ativado.' : 'Recompensa resgatada.');
+    // O endpoint já confirmou o resgate. Não redesenhamos o portal inteiro aqui:
+    // isso trocava momentaneamente de seção e fazia a trilha parecer que sumia.
+    nextSeasonPassLoaded = false; await renderNextSeasonPassPreview(); showToast(premium ? 'Passe Premium ativado.' : 'Recompensa resgatada.');
   } catch (error) { showToast(error.message, 'error'); }
   finally { if (button.isConnected) button.disabled = false; }
 });
@@ -3858,7 +3860,7 @@ function renderProfileEconomy(profile = {}, globalOnly = false) {
     frameItem && ['🖼️', 'Moldura: ' + frameItem.name],
     nameItem && ['🎨', 'Nome: ' + nameItem.name],
     badgeItem && [badgeItem.value, 'Emblema: ' + badgeItem.name],
-    albumBadge && [albumBadge.icon, 'Insígnia: ' + albumBadge.badge],
+    albumBadge && [insigniaVisualMarkup({ id: 'album:' + albumBadge.id, name: albumBadge.badge, medal: albumBadge.medal }, 'active-insignia-art'), 'Insígnia: ' + albumBadge.badge],
     titleItem && ['🏷️', 'Título: ' + titleItem.name],
     ...liveTitles.map((item) => [item.icon, 'Título vivo: ' + item.name]),
   ].filter(Boolean);
@@ -4129,7 +4131,7 @@ function renderTodayHub(data) {
 
 function renderTrophyRoom(profile = {}) {
   const showcase = profile.showcase || { selected: [], selectedIds: [], options: [], max: 4 };
-  const tile = (item, selectable = false) => `<label class="${selectable ? 'trophy-option' : 'trophy-item'}">${selectable ? `<input type="checkbox" value="${escapeHtml(item.id)}"${showcase.selectedIds.includes(item.id) ? ' checked' : ''}>` : ''}<span>${item.icon}</span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.kind || item.description || '')}</small></label>`;
+  const tile = (item, selectable = false) => `<label class="${selectable ? 'trophy-option' : 'trophy-item'}">${selectable ? `<input type="checkbox" value="${escapeHtml(item.id)}"${showcase.selectedIds.includes(item.id) ? ' checked' : ''}>` : ''}<span>${insigniaVisualMarkup(item, 'trophy-insignia-art') || escapeHtml(item.icon)}</span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.kind || item.description || '')}</small></label>`;
   $('#trophyRoomDisplay').innerHTML = showcase.selected.length ? showcase.selected.map((item) => tile(item)).join('') : '<p class="trophy-room-empty">Sua vitrine ainda está vazia. Escolha conquistas desbloqueadas.</p>';
   $('#trophyRoomOptions').innerHTML = showcase.options.length ? showcase.options.map((item) => tile(item, true)).join('') : '<p class="trophy-room-empty">Continue participando para liberar conquistas.</p>';
   $('#saveTrophyRoomButton').disabled = !showcase.options.length;
