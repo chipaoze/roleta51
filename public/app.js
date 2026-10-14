@@ -1,5 +1,10 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+// O HTML inicial também usa o arquivo local antes de a área Cobblemon ser montada.
+// Isso evita qualquer piscada da Poké Ball antiga vinda da Wiki.
+document.querySelectorAll('img[src*="wiki.cobblemon.com"][src*="Poke_Ball"]').forEach((image) => {
+  image.src = '/capture-ball-cobblemon.png';
+});
 const NATIVE_POINTER_SELECTOR = 'input,textarea,select,button,a,summary,label,[role="button"],[contenteditable="true"]';
 const isNativeInteractiveTarget = (target) => Boolean(target?.closest?.(NATIVE_POINTER_SELECTOR));
 // O campo de quantidade precisa vencer qualquer efeito global de cursor.

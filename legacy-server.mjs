@@ -1483,7 +1483,8 @@ const COBBLEMON_ROULETTE = {
 
 function weightedCobblemonReward(box) {
   let roll = Math.random() * box.rewards.reduce((sum, entry) => sum + entry.weight, 0);
-  return box.rewards.find((entry) => ((roll -= entry.weight) <= 0)) || box.rewards[0];
+  const reward = box.rewards.find((entry) => ((roll -= entry.weight) <= 0)) || box.rewards[0];
+  return { ...reward, sprite: localCobblemonItemSprite(reward.sprite) };
 }
 
 function cobblemonCapsuleDeliverySpec(pokemonId, rarity) {
