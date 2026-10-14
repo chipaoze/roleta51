@@ -1,5 +1,5 @@
 {
-  "version": "20261014-dragao-de-brasa-v289",
+  "version": "20261014-dragao-de-brasa-v290",
   "title": "Dragão de Brasa e novos visuais",
-  "notes": "Nova coleção liberada: tema premium, cursor com bola de fogo e sopro em F, rastro, emblema, nome e moldura. Atualize para carregar os novos arquivos."
+  "notes": "Ajuste de desempenho no Cursor Dragão de Brasa: agora ele acompanha o mouse sem atraso. Atualize para carregar a correção."
 }

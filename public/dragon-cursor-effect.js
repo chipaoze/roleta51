@@ -9,7 +9,7 @@
     dragon = document.createElement('img'); dragon.className = 'dragon-ember-cursor'; dragon.src = '/cursor-dragon-fire.png'; dragon.alt = '';
     document.body.append(dragon); return dragon;
   }
-  function position() { if (active()) { ensureDragon().style.transform = `translate(${x - 27}px,${y - 32}px)`; } }
+  function position() { if (active()) { ensureDragon().style.transform = `translate3d(${x - 27}px,${y - 32}px,0)`; } }
   function ember() {
     const dot = document.createElement('i'); dot.className = 'dragon-ember-spark'; dot.style.left = `${x - 5}px`; dot.style.top = `${y + 13}px`;
     dot.style.setProperty('--dx', `${-42 + Math.random() * 84}px`); dot.style.setProperty('--dy', `${14 + Math.random() * 42}px`); document.body.append(dot); setTimeout(() => remove(dot), 760);
@@ -39,7 +39,7 @@
     context.globalCompositeOperation = 'source-over'; context.filter = 'none'; frame = requestAnimationFrame(draw);
   }
   function stopBreath() { cancelAnimationFrame(frame); frame = 0; remove(stream); stream = null; clearInterval(growTimer); growTimer = 0; }
-  addEventListener('pointermove', (event) => { x = event.clientX; y = event.clientY; if (!active()) return; position(); if (Math.random() < .72) ember(); if (stream) ensureStream(); });
+  addEventListener('pointermove', (event) => { x = event.clientX; y = event.clientY; if (!active()) return; position(); if (stream) ensureStream(); });
   addEventListener('keydown', (event) => { if (event.key.toLowerCase() !== 'f' || keyStarted || !active() || typing()) return; event.preventDefault(); keyStarted = Date.now(); setTimeout(() => { if (!keyStarted || !active()) return; held = true; range = 145; ensureStream(); draw(); growTimer = setInterval(() => { range = Math.min(390, range + 42); ensureStream(); }, 260); }, 190); });
   addEventListener('keyup', (event) => { if (event.key.toLowerCase() !== 'f' || !keyStarted) return; if (!held) fireball(); keyStarted = 0; held = false; stopBreath(); });
   addEventListener('blur', () => { keyStarted = 0; held = false; stopBreath(); });
