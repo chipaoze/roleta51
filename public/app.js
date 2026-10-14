@@ -4131,7 +4131,7 @@ function renderTodayHub(data) {
 
 function renderTrophyRoom(profile = {}) {
   const showcase = profile.showcase || { selected: [], selectedIds: [], options: [], max: 4 };
-  const tile = (item, selectable = false) => `<label class="${selectable ? 'trophy-option' : 'trophy-item'}">${selectable ? `<input type="checkbox" value="${escapeHtml(item.id)}"${showcase.selectedIds.includes(item.id) ? ' checked' : ''}>` : ''}<span>${insigniaVisualMarkup(item, 'trophy-insignia-art') || escapeHtml(item.icon)}</span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.kind || item.description || '')}</small></label>`;
+  const tile = (item, selectable = false) => `<label class="${selectable ? 'trophy-option' : 'trophy-item'}">${selectable ? `<input type="checkbox" value="${escapeHtml(item.id)}"${showcase.selectedIds.includes(item.id) ? ' checked' : ''}>` : ''}<span>${insigniaVisualMarkup(item, 'trophy-insignia-art') || (item.name === 'Filósofo alienígena' ? '<img class="catalog-art-icon" src="/roulette51/shop-icons/achievements/filosofo-alienigena.svg" alt="">' : escapeHtml(item.icon))}</span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.kind || item.description || '')}</small></label>`;
   $('#trophyRoomDisplay').innerHTML = showcase.selected.length ? showcase.selected.map((item) => tile(item)).join('') : '<p class="trophy-room-empty">Sua vitrine ainda está vazia. Escolha conquistas desbloqueadas.</p>';
   $('#trophyRoomOptions').innerHTML = showcase.options.length ? showcase.options.map((item) => tile(item, true)).join('') : '<p class="trophy-room-empty">Continue participando para liberar conquistas.</p>';
   $('#saveTrophyRoomButton').disabled = !showcase.options.length;

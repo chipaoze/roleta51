@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Medalha Filósofo alienígena">
+  <defs><linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b86cff"/><stop offset=".52" stop-color="#6a42ca"/><stop offset="1" stop-color="#25154b"/></linearGradient></defs>
+  <path d="M25 7h18l5 30-17 12-14-18z" fill="#6b3ec5"/><path d="M53 7h18l-6 30-17 12-13-18z" fill="#a96aff"/>
+  <circle cx="48" cy="57" r="31" fill="#0b1830" stroke="url(#p)" stroke-width="5"/><circle cx="48" cy="57" r="24" fill="url(#p)"/>
+  <path d="M29 45h38a5 5 0 0 1 5 5v18a5 5 0 0 1-5 5H51l-11 8 2-8H29a5 5 0 0 1-5-5V50a5 5 0 0 1 5-5z" fill="#e9dbff"/>
+  <circle cx="39" cy="59" r="3" fill="#5a35a2"/><circle cx="48" cy="59" r="3" fill="#5a35a2"/><circle cx="57" cy="59" r="3" fill="#5a35a2"/>
+</svg>
