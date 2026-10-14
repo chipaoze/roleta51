@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-    version: '20261014-cobblemon-hunt-visibility-v279',
-    title: 'Caçada Pokémon: alvo visível no setor sorteado',
-    notes: 'A caçada continua sorteando uma página sem revelar qual é. Ao visitar o setor escolhido, o Pokémon agora permanece visível corretamente até a captura ou o fim do tempo.'
+    version: '20261014-light-loading-v280',
+    title: 'Portal mais leve na abertura',
+    notes: 'O clima agora só consulta a previsão quando você abrir o botão. A Poké Ball básica passou a usar o arquivo próprio do portal, reduzindo dependências externas.'
   };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -3152,7 +3152,7 @@ let cobblemonDexGridKey = '';
 const cobblemonBallPurchaseQuantities = { poke: 1, great: 1, ultra: 1 };
 let cobblemonOpeningLocked = false;
 const COBBLEMON_ITEM_SPRITES = {
-  poke: 'https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png', great: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', ancient: 'https://wiki.cobblemon.com/images/4/4e/Ancient_Poke_Ball.png', quick: 'https://wiki.cobblemon.com/images/b/be/Quick_Ball.png', ultra: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', candy: 'https://wiki.cobblemon.com/images/a/a2/Rare_Candy.png', expCandy: 'https://wiki.cobblemon.com/images/c/c6/Exp._Candy_XL.png', capsule: 'https://wiki.cobblemon.com/images/9/90/Ability_Capsule.png', stone: 'https://wiki.cobblemon.com/images/6/63/Fire_Stone.png', cherish: 'https://wiki.cobblemon.com/images/c/c3/Cherish_Ball.png', master: 'https://wiki.cobblemon.com/images/e/ee/Master_Ball.png'
+  poke: '/capture-ball-cobblemon.png', great: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', ancient: 'https://wiki.cobblemon.com/images/4/4e/Ancient_Poke_Ball.png', quick: 'https://wiki.cobblemon.com/images/b/be/Quick_Ball.png', ultra: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', candy: 'https://wiki.cobblemon.com/images/a/a2/Rare_Candy.png', expCandy: 'https://wiki.cobblemon.com/images/c/c6/Exp._Candy_XL.png', capsule: 'https://wiki.cobblemon.com/images/9/90/Ability_Capsule.png', stone: 'https://wiki.cobblemon.com/images/6/63/Fire_Stone.png', cherish: 'https://wiki.cobblemon.com/images/c/c3/Cherish_Ball.png', master: 'https://wiki.cobblemon.com/images/e/ee/Master_Ball.png'
 };
 const COBBLEMON_CAPTURE_BALLS = {
   poke: { id: 'poke', name: 'Poké Ball', shortName: 'Básica', sprite: COBBLEMON_ITEM_SPRITES.poke, multiplier: 1, price: 0 },

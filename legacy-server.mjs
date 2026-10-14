@@ -863,6 +863,11 @@ async function ensureDatabase(seedDatabase) {
     db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
     changed = true;
   }
+  if (!db.settings.lightLoadingReleaseV280) {
+    db.settings.lightLoadingReleaseV280 = new Date().toISOString();
+    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
   // A chave é independente da janela da temporada. Ela permanece ligada para
   // que a ativação antecipada de 29/09 continue ativa após reinícios.
   if (db.settings.nextCardSeasonEnabled !== true) { db.settings.nextCardSeasonEnabled = true; changed = true; }
@@ -1097,7 +1102,7 @@ function retailPriceWithCents(value) {
 // continua sendo o limite diário gratuito; as demais substituem o arremesso
 // escolhido pelo jogador e melhoram a chance calculada no servidor.
 const COBBLEMON_CAPTURE_BALLS = {
-  poke: { id: 'poke', name: 'Poké Ball', shortName: 'Básica', sprite: 'https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png', multiplier: 1, price: 0, daily: true },
+  poke: { id: 'poke', name: 'Poké Ball', shortName: 'Básica', sprite: '/capture-ball-cobblemon.png', multiplier: 1, price: 0, daily: true },
   great: { id: 'great', name: 'Great Ball', shortName: 'Melhor chance', sprite: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', multiplier: 1.35, price: 75 },
   ultra: { id: 'ultra', name: 'Ultra Ball', shortName: 'Alta chance', sprite: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', multiplier: 1.7, price: 180 },
 };

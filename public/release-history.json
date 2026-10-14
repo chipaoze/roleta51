@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20261014-light-loading-v280",
+      "publishedAt": "2026-10-14",
+      "title": "Portal mais leve na abertura",
+      "notes": [
+        "O clima só consulta a previsão quando o botão de clima é aberto.",
+        "A Poké Ball básica usa o arquivo próprio do portal nos pontos principais, reduzindo uma dependência externa.",
+        "Sorteios, capturas, saldos, regras e sincronização ao vivo permanecem iguais."
+      ]
+    },
+    {
       "version": "20261014-cobblemon-hunt-visibility-v279",
       "publishedAt": "2026-10-14",
       "title": "Caçada Pokémon: alvo visível no setor sorteado",

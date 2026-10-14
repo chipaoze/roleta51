@@ -43,7 +43,14 @@
     const top = Math.max(12, Math.min(window.innerHeight - panelHeight - 12, rect.bottom + 9));
     panel.style.left = Math.round(left) + 'px'; panel.style.top = Math.round(top) + 'px';
   };
-  const setOpen = (open) => { panel.classList.toggle('hidden', !open); button.setAttribute('aria-expanded', String(open)); if (open) requestAnimationFrame(positionPanel); };
+  const setOpen = (open) => {
+    panel.classList.toggle('hidden', !open);
+    button.setAttribute('aria-expanded', String(open));
+    if (open) {
+      requestAnimationFrame(positionPanel);
+      void loadWeather();
+    }
+  };
   const loadWeather = async () => {
     let saved = null;
     try {
@@ -75,5 +82,4 @@
   document.addEventListener('click', (event) => { if (!event.target.closest('.weather-widget')) setOpen(false); });
   window.addEventListener('resize', positionPanel, { passive: true });
   window.addEventListener('scroll', positionPanel, { passive: true });
-  loadWeather();
 })();
