@@ -3523,6 +3523,11 @@ function updatePostMentions(post) {
 
 function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   const roundId = db.settings.currentRoundId; const items = [];
+  const latestJackpot = [...(db.economy.casinoPlays || [])].reverse().find((play) => play.resultType === 'casinoJackpot');
+  if (latestJackpot) {
+    const winner = db.users.find((person) => person.id === latestJackpot.userId);
+    items.push({ id: 'casino-jackpot:' + latestJackpot.id, icon: '✦', title: 'Jackpot da Tripulação liberado!', detail: `${winner?.displayName || latestJackpot.userName || 'Um participante'} recebeu ${formatCredits(latestJackpot.payout)} Créditos 51. O acumulado reiniciou para uma nova disputa.`, page: 'jogos', targetId: 'casinoJackpotValue', createdAt: latestJackpot.createdAt });
+  }
   for (const dispute of (db.lieDisputes || []).filter((item) => item.status === 'open' && item.participantIds.includes(user.id)).slice(-4)) {
     const lie = db.lieAccusations.find((item) => item.id === dispute.lieId);
     const pending = dispute.participantIds.filter((id) => !dispute.decisions?.[id]).length;
