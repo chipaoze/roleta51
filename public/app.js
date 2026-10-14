@@ -31,9 +31,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-    version: '20261002-locator-chip-roulette-v181',
-    title: 'Locator Chip na Roleta Cobblemon',
-    notes: 'O novo item raro chegou à roleta com sprite, chance e explicação de uso no Poké Radar.'
+    version: '20261014-cobblemon-hunt-visibility-v279',
+    title: 'Caçada Pokémon: alvo visível no setor sorteado',
+    notes: 'A caçada continua sorteando uma página sem revelar qual é. Ao visitar o setor escolhido, o Pokémon agora permanece visível corretamente até a captura ou o fim do tempo.'
   };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;
@@ -2624,17 +2624,20 @@ function renderDraws() {
   const latest = appState.draws.slice(0, 3);
   const drawLabel = (item) => item.type === 'theme' ? 'Tema da rodada' : item.type === 'gay' ? 'Gay da Rodada' : 'Wallpaper recebido: ' + (item.wallpaperTitle || item.detail || 'imagem da rodada');
   const drawType = (item) => item.type === 'theme' ? 'TEMA' : item.type === 'gay' ? 'GAY DA RODADA' : 'DISTRIBUIÇÃO';
+  const markedGayDownload = (item) => item.type === 'gay' && item.watermarkedFilename && item.imageUrl && item.imageUrl !== '/gay-da-rodada.png'
+    ? `<a class="history-watermarked-download" href="${escapeHtml(item.imageUrl)}" download="gay-da-rodada-${escapeHtml(String(item.winner || 'wallpaper').toLowerCase().replace(/[^a-z0-9]+/g, '-'))}.png">Baixar wallpaper marcado</a>`
+    : '';
   $('#latestDraws').classList.toggle('empty-state', !latest.length);
   $('#latestDraws').innerHTML = latest.length ? latest.map((item) =>
     '<div class="latest-item">' + (item.imageUrl ? '<img class="latest-thumb" src="' + escapeHtml(item.imageUrl) + '" alt="" loading="lazy" decoding="async">' : '<span class="latest-thumb secret-thumb" aria-hidden="true">👽</span>') +
-    '<p><strong>' + escapeHtml(item.winner) + '</strong><small>' + escapeHtml(drawLabel(item)) + '</small></p></div>'
+    '<p><strong>' + escapeHtml(item.winner) + '</strong><small>' + escapeHtml(drawLabel(item)) + '</small>' + markedGayDownload(item) + '</p></div>'
   ).join('') : 'Ainda não houve sorteio.';
 
   const history = $('#historyGrid');
   history.innerHTML = appState.draws.length ? appState.draws.map((item) =>
     '<article class="history-card">' + (item.imageUrl ? '<img src="' + escapeHtml(item.imageUrl) + '" alt="" loading="lazy" decoding="async">' : '<span class="history-secret" aria-hidden="true">👽</span>') +
     '<p><small>' + drawType(item) + '</small>' +
-    '<strong>' + escapeHtml(item.type === 'wallpaper' ? (item.wallpaperTitle || item.detail || 'Wallpaper da rodada') : item.winner) + '</strong><span>' + escapeHtml(item.type === 'wallpaper' ? 'Recebido por ' + item.winner : item.detail) + ' · ' + formatDate(item.createdAt) + '</span></p></article>'
+    '<strong>' + escapeHtml(item.type === 'wallpaper' ? (item.wallpaperTitle || item.detail || 'Wallpaper da rodada') : item.winner) + '</strong><span>' + escapeHtml(item.type === 'wallpaper' ? 'Recebido por ' + item.winner : item.detail) + ' · ' + formatDate(item.createdAt) + '</span>' + markedGayDownload(item) + '</p></article>'
   ).join('') : '<div class="history-empty"><span aria-hidden="true">🏆</span><strong>A memória da equipe começa na primeira rodada</strong><small>Os vencedores e resultados aparecerão aqui automaticamente.</small></div>';
   $$('#latestDraws img, #historyGrid img').forEach((image) => image.addEventListener('error', () => {
     if (!image.src.endsWith('/gay-da-rodada.png')) image.src = '/gay-da-rodada.png';
@@ -4382,10 +4385,9 @@ function renderActivePortalPage(data = appState) {
   renderingActivePortalPage = true;
   try {
     const page = currentPortalPage();
-    // Durante uma caçada, o encontro já está montado no body. Evite reconstruir
-    // galerias e cards pesados a cada setor visitado; a página normal volta a
-    // ser renderizada assim que o encontro termina.
-    if (cobblemonPageEncounter && page !== 'cobblemon') {
+    // Durante a caça, o alvo é uma camada global. Não recrie a Pokédex nem os
+    // setores, pois uma cópia oculta poderia fazê-lo sumir na página sorteada.
+    if (cobblemonPageEncounter) {
       optimizeRenderedImages();
       renderedPortalPage = page;
       return;
@@ -4844,6 +4846,13 @@ function finishLiveDraw(result) {
 function receiveLiveDraw(payload) {
   const result = payload && payload.result;
   if (!appState || !result || handledDraws.has(result.id)) return;
+  // A tela do sorteio é aberta antes do horário único definido pelo servidor.
+  // Assim, uma pessoa que estava navegando em outra área não descobre o
+  // resultado apenas depois que a roleta acabou.
+  if (currentPortalPage() !== 'sorteio') showPortalPage('sorteio', false, false);
+  if (Number.isFinite(Number(payload.serverTime))) {
+    serverClockOffset = Number(payload.serverTime) - Date.now();
+  }
   handledDraws.add(result.id);
   if (handledDraws.size > 40) handledDraws.delete(handledDraws.values().next().value);
   clearTimeout(liveSpinStartTimer); clearTimeout(liveSpinFinishTimer);
@@ -6738,6 +6747,7 @@ function updateCobblemonHuntSector(page = currentPortalPage()) {
   const encounterPageEnabled = !encounterFeature || appState?.settings?.featureFlags?.[encounterFeature] !== false;
   const visible = encounterPageEnabled && (!cobblemonPageEncounter.huntPage || cobblemonPageEncounter.huntPage === page);
   target.classList.toggle('sector-hidden', !visible);
+  target.classList.toggle('hidden', !visible);
   const ball = $('#cobblemonPageBall');
   if (ball && !cobblemonPageCaptureBusy) ball.classList.toggle('hidden', !visible);
   renderCobblemonBallOptions(appState.profile?.cobblemon?.balls || {}, cobblemonPageEncounter);

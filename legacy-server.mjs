@@ -53,6 +53,9 @@ const MAX_IMAGE_CACHE = 16 * 1024 * 1024;
 const WALL_EMOJIS = ['😂','👽','🤨','💀','❤️','👍','🔥','👏','😮','😢','😡','🤣'];
 const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
 const LIVE_DRAW_DURATION = Math.max(80, Number(process.env.LIVE_DRAW_DURATION || 5900));
+// Dá tempo para o SSE e o modo de sincronização por consulta alcançarem todas
+// as telas antes de a roleta começar a girar.
+const LIVE_DRAW_START_DELAY = Math.max(1800, Number(process.env.LIVE_DRAW_START_DELAY || 2800));
 const MUSIC_EPOCH = Date.now();
 const MUSIC_LOOP_MS = 8000;
 // Uma votação pode ser ignorada por alguns minutos para a pessoa terminar a
@@ -852,6 +855,11 @@ async function ensureDatabase(seedDatabase) {
   }
   if (!db.settings.cobblemonTierRepairReleaseV168) {
     db.settings.cobblemonTierRepairReleaseV168 = new Date().toISOString();
+    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
+  if (!db.settings.cobblemonHuntVisibilityReleaseV279) {
+    db.settings.cobblemonHuntVisibilityReleaseV279 = new Date().toISOString();
     db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
     changed = true;
   }
@@ -2736,7 +2744,8 @@ function broadcastRefresh(reason) {
 }
 
 function startLiveDraw(result, candidates, notify = true) {
-  const startedAt = Date.now() + 450;
+  const serverTime = Date.now();
+  const startedAt = serverTime + LIVE_DRAW_START_DELAY;
   const safeResult = publicDraw(result);
   const items = candidates.map((item) => result.type === 'theme'
     ? { id: item, label: item, detail: 'Tema' }
@@ -2746,7 +2755,7 @@ function startLiveDraw(result, candidates, notify = true) {
   liveDraw = {
     id: result.id, mode: result.type, result: safeResult, items,
     recipientUserId: result.winnerUserId || null,
-    startedAt, duration: LIVE_DRAW_DURATION, endsAt: startedAt + LIVE_DRAW_DURATION,
+    serverTime, startedAt, duration: LIVE_DRAW_DURATION, endsAt: startedAt + LIVE_DRAW_DURATION,
   };
   db.settings.liveDraw = liveDraw;
   if (notify) broadcastLive('draw', liveDraw);

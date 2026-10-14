@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20261014-cobblemon-hunt-visibility-v279",
+      "publishedAt": "2026-10-14",
+      "title": "Caçada Pokémon: alvo visível no setor sorteado",
+      "notes": [
+        "A página da caça continua sendo sorteada aleatoriamente e não é revelada ao jogador.",
+        "Ao abrir o setor escolhido, o Pokémon permanece visível corretamente até a captura ou o fim do cronômetro.",
+        "A correção evita que a Pokédex recrie uma cópia escondida do alvo durante a busca."
+      ]
+    },
+    {
       "version": "20261005-cobblemon-ball-counter-v183",
       "publishedAt": "2026-10-05",
       "title": "Caçada Pokémon: consumo correto das Balls",

@@ -1,5 +1,5 @@
 {
-  "version": "20261005-cobblemon-ball-counter-v183",
-  "title": "Caçada Pokémon: consumo correto das Balls",
-  "notes": "Great Ball e Ultra Ball agora consomem somente o próprio estoque. O contador de Poké Balls básicas não diminui ao trocar a Ball durante uma captura."
+  "version": "20261014-cobblemon-hunt-visibility-v279",
+  "title": "Caçada Pokémon: alvo visível no setor sorteado",
+  "notes": "A caçada continua sorteando uma página sem revelar qual é. Ao visitar o setor escolhido, o Pokémon agora permanece visível corretamente até a captura ou o fim do tempo."
 }
