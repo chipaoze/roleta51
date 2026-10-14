@@ -1,5 +1,5 @@
 {
-  "version": "20261014-vitrine-fit-v285",
-  "title": "Vitrine de insígnias ajustada",
-  "notes": "As artes das medalhas e insígnias agora cabem inteiras, centralizadas e sem cortar o conteúdo dentro da vitrine."
+  "version": "20261014-vitrine-insignias-fit-v286",
+  "title": "Insígnias da vitrine sem corte",
+  "notes": "As insígnias agora usam uma área reservada, centralizada e menor na vitrine para preservar a arte inteira e os títulos."
 }
