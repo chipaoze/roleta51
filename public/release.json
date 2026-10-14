@@ -1,5 +1,5 @@
 {
-  "version": "20261014-dragao-de-brasa-v291",
-  "title": "Dragão de Brasa e novos visuais",
-  "notes": "Correção visual: o teste do Tema Dragão de Brasa agora aplica o cenário completo e as coleções premium voltaram a usar artes nos ícones. Atualize para carregar."
+  "version": "20261014-cobblemon-lapras-v292",
+  "title": "Cobblemon e Cursor Dragão corrigidos",
+  "notes": "O Tema Cobblemon agora aplica o cenário com Lapras da prévia e o Cursor Dragão acompanha a ponta de clique sem atraso. Atualize para carregar."
 }

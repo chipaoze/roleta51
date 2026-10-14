@@ -1,6 +1,8 @@
 (() => {
   const ACTIVE = 'dragon-ember';
   let dragon, stream, x = innerWidth / 2, y = innerHeight / 2, keyStarted = 0, held = false, growTimer = 0, frame = 0, range = 145;
+  // A ponta do focinho é o ponto real de clique, sem inércia visual.
+  const HOTSPOT_X = 12, HOTSPOT_Y = 7;
   const active = () => document.documentElement.dataset.activeCursor === ACTIVE;
   const typing = () => /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable;
   const remove = (node) => node?.remove();
@@ -9,7 +11,7 @@
     dragon = document.createElement('img'); dragon.className = 'dragon-ember-cursor'; dragon.src = '/cursor-dragon-fire.png'; dragon.alt = '';
     document.body.append(dragon); return dragon;
   }
-  function position() { if (active()) { ensureDragon().style.transform = `translate3d(${x - 27}px,${y - 32}px,0)`; } }
+  function position() { if (active()) { ensureDragon().style.transform = `translate3d(${x - HOTSPOT_X}px,${y - HOTSPOT_Y}px,0)`; } }
   function ember() {
     const dot = document.createElement('i'); dot.className = 'dragon-ember-spark'; dot.style.left = `${x - 5}px`; dot.style.top = `${y + 13}px`;
     dot.style.setProperty('--dx', `${-42 + Math.random() * 84}px`); dot.style.setProperty('--dy', `${14 + Math.random() * 42}px`); document.body.append(dot); setTimeout(() => remove(dot), 760);
