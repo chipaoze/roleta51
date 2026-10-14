@@ -1,5 +1,5 @@
 {
-  "version": "20261014-cursor-dragao-v293",
-  "title": "Cursor Dragão atualizado",
-  "notes": "O Cursor Dragão agora recarrega a mesma arte nova da prévia quando equipado e mantém a ponta como área de clique. Atualize para carregar."
+  "version": "20261014-cursor-dragao-v294",
+  "title": "Arte do Cursor Dragão unificada",
+  "notes": "O Cursor Dragão equipado agora usa a mesma arte com ponta de clique exibida no card e na prévia. Atualize para carregar."
 }

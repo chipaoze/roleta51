@@ -2972,7 +2972,7 @@ function shopVisualPreview(item) {
   const previewName = escapeHtml(formatDisplayName(appState?.me?.displayName || 'Seu nome'));
   if (item.type === 'cursorStyle') {
     const cursorEffectPreview = (source, alt, name, effect) => `<div class="shop-visual-preview cursor-preview cursor-preview-effect"><small>PRÉVIA DO CURSOR · TESTE COM EFEITO</small><span><img src="${source}" alt="${alt}"><b>${name}</b><em>${effect}</em></span></div>`;
-    const premiumCursorSources = { 'gta-neon': '/cursor-gta-neon-v2.png', cobblemon: '/cursor-cobblemon-v2.png', wolverine: '/cursor-wolverine-v2.png', 'god-war': '/cursor-god-war-v2.png', samurai: '/cursor-samurai.svg?v=2', 'dragon-ember': '/cursor-dragon-fire.png?v=2' };
+    const premiumCursorSources = { 'gta-neon': '/cursor-gta-neon-v2.png', cobblemon: '/cursor-cobblemon-v2.png', wolverine: '/cursor-wolverine-v2.png', 'god-war': '/cursor-god-war-v2.png', samurai: '/cursor-samurai.svg?v=2', 'dragon-ember': '/dragon-premium-icons/dragon-premium-cursor.png?v=2' };
     if (item.value === 'thor') return cursorEffectPreview('/cursor-thor.svg', 'Mjölnir', 'Mjölnir Retornável', 'CLIQUE + ARRASTE + SOLTE · T OU CLIQUE PARA CHAMAR');
     if (item.value === 'web-slinger') return cursorEffectPreview('/cursor-web-slinger-v2.png', 'Luva lançadora de teia', 'Cursor Lançador de Teia', 'CLIQUE + ARRASTE + SOLTE PARA DISPARAR');
     if (item.value === 'halloween-broom') return '<div class="shop-visual-preview cursor-preview"><small>PRÉVIA DO CURSOR</small><span><img src="/cursor-halloween-broom.png?v=2" alt="Cursor Vassoura Fantasma"><b>Cursor Vassoura Fantasma</b></span></div>';
