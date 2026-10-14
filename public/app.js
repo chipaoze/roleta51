@@ -36,9 +36,9 @@ function formatCredits(value) {
 }
 // Altere esta versão e o texto a cada publicação; cada navegador verá o aviso uma vez.
 const RELEASE_NOTICE = {
-    version: '20261014-local-cobblemon-assets-v281',
-    title: 'Itens Cobblemon hospedados no portal',
-    notes: 'Bolas, pedras e recompensas fixas passaram a usar arquivos próprios do portal, com menos dependência externa e sem mudar capturas ou prêmios.'
+    version: '20261014-hunt-menu-layer-v282',
+    title: 'Menu nítido durante a caçada',
+    notes: 'Na caça de Pokémon, somente o conteúdo ao fundo fica desfocado. O menu e a navegação permanecem nítidos para procurar o setor sorteado.'
   };
 const APP_RELEASE_VERSION = RELEASE_NOTICE.version;
 let appState = null;

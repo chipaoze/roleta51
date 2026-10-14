@@ -873,6 +873,11 @@ async function ensureDatabase(seedDatabase) {
     db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
     changed = true;
   }
+  if (!db.settings.huntMenuLayerReleaseV282) {
+    db.settings.huntMenuLayerReleaseV282 = new Date().toISOString();
+    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
   // A chave é independente da janela da temporada. Ela permanece ligada para
   // que a ativação antecipada de 29/09 continue ativa após reinícios.
   if (db.settings.nextCardSeasonEnabled !== true) { db.settings.nextCardSeasonEnabled = true; changed = true; }
