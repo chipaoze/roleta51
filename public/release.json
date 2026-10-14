@@ -1,5 +1,5 @@
 {
-  "version": "20261014-dragao-de-brasa-v290",
+  "version": "20261014-dragao-de-brasa-v291",
   "title": "Dragão de Brasa e novos visuais",
-  "notes": "Ajuste de desempenho no Cursor Dragão de Brasa: agora ele acompanha o mouse sem atraso. Atualize para carregar a correção."
+  "notes": "Correção visual: o teste do Tema Dragão de Brasa agora aplica o cenário completo e as coleções premium voltaram a usar artes nos ícones. Atualize para carregar."
 }

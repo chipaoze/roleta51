@@ -22,3 +22,19 @@ body.profile-theme-dragon-ember .section,body.profile-theme-dragon-ember .card{b
 
 /* Sem inércia: o cursor acompanha cada posição do ponteiro diretamente. */
 .dragon-ember-cursor{will-change:transform;transform:translate3d(0,0,0)}
+
+/* A loja possui uma camada opaca própria; por isso o tema precisa atingir essa camada, não só o fundo da página. */
+body.profile-theme-dragon-ember #appView{
+  background:linear-gradient(90deg,rgba(8,6,6,.42),rgba(42,14,8,.20) 52%,rgba(12,6,5,.42)),url('/theme-dragon-ember.png') center/cover fixed!important;
+}
+body.profile-theme-dragon-ember .profile-shop-section{
+  background:linear-gradient(115deg,rgba(17,8,8,.76),rgba(37,12,8,.49) 55%,rgba(12,7,8,.74))!important;
+}
+body.profile-theme-dragon-ember .profile-shop-section .shop-item{
+  background:linear-gradient(135deg,rgba(20,15,18,.89),rgba(44,16,12,.72))!important;
+  border-color:#9a4120!important;
+  backdrop-filter:blur(3px);
+}
+body.profile-theme-dragon-ember .profile-shop-section .shop-visual-preview{border-color:#c75b28!important}
+/* Thumbnails de coleções usam recorte central da própria arte, não os emojis antigos. */
+.shop-item.shop-type-siteTheme .shop-item-art img{object-fit:cover;object-position:center}
