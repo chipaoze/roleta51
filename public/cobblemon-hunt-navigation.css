@@ -22,3 +22,12 @@ body.cobblemon-hunt-active .profile-menu-wrap{position:relative;z-index:21474830
 /* Painéis que se abrem a partir do topo também não podem herdar o véu. */
 body.cobblemon-hunt-active #weatherPanel,
 body.cobblemon-hunt-active #profileQuickMenu{z-index:2147483100!important}
+
+/* O backdrop-filter do menu lateral é o que desfocava o próprio menu em
+   alguns compositores de navegador. Na caçada ele escurece o conteúdo, sem
+   usar desfoque nessa camada; o restante da caça permanece inalterado. */
+body.cobblemon-hunt-active #menuBackdrop{
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+body.cobblemon-hunt-active #siteMenu{contain:paint;will-change:transform}

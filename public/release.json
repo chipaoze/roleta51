@@ -1,5 +1,5 @@
 {
-  "version": "20261015-caca-menu-nitido-v295",
-  "title": "Menu nítido durante a caça",
-  "notes": "Na caça Cobblemon, apenas o conteúdo ao fundo recebe o efeito visual. O menu e o topo permanecem nítidos para procurar o Pokémon. Atualize para carregar."
+  "version": "20261015-caca-menu-sem-blur-v297",
+  "title": "Caça com menu legível",
+  "notes": "Corrigimos a camada do menu durante a caça Cobblemon: ela não desfoca mais a navegação. Atualize para carregar."
 }
