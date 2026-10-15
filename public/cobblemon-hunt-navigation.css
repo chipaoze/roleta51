@@ -1,0 +1,24 @@
+/* Caça Cobblemon: o véu da busca pode desfocar o conteúdo, nunca a navegação.
+   Mantemos menu, topo e os seus painéis em uma camada acima da caça em todos
+   os navegadores, inclusive quando o menu lateral já estava aberto. */
+body.cobblemon-hunt-active .topbar,
+body.cobblemon-hunt-active #siteMenu,
+body.cobblemon-hunt-active #menuBackdrop,
+body.cobblemon-hunt-active #notificationPanel,
+body.cobblemon-hunt-active .weather-widget,
+body.cobblemon-hunt-active .profile-menu-wrap{
+  isolation:isolate;
+  filter:none!important;
+  -webkit-filter:none!important;
+}
+
+body.cobblemon-hunt-active .topbar{position:relative;z-index:2147482900!important}
+body.cobblemon-hunt-active #menuBackdrop{z-index:2147482800!important}
+body.cobblemon-hunt-active #siteMenu{z-index:2147483000!important}
+body.cobblemon-hunt-active #notificationPanel,
+body.cobblemon-hunt-active .weather-widget,
+body.cobblemon-hunt-active .profile-menu-wrap{position:relative;z-index:2147483050!important}
+
+/* Painéis que se abrem a partir do topo também não podem herdar o véu. */
+body.cobblemon-hunt-active #weatherPanel,
+body.cobblemon-hunt-active #profileQuickMenu{z-index:2147483100!important}
