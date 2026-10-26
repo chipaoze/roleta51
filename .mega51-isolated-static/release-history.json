@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "20261026-session-api-wheel-v1",
+      "publishedAt": "2026-10-26",
+      "title": "Acesso e jogos mais estáveis",
+      "notes": [
+        "Entrar em outro aparelho não encerra uma sessão ainda válida. A tela de login distingue melhor uma sessão expirada de um acesso sem sessão.",
+        "O histórico antigo do cassino foi preservado fora do estado ativo para reduzir o processamento de votos, roleta e caça-níquel em momentos de maior uso.",
+        "Se a resposta de uma aposta ou voto confirmado se perder, repetir a mesma ação recupera a confirmação sem cobrar ou registrar outra vez.",
+        "A roleta mantém roda e números sincronizados ao trocar de página; resultado, aviso e saldo aparecem depois que o giro termina."
+      ]
+    },
+    {
       "version": "20261025-givaldo-wallpaper-v1",
       "publishedAt": "2026-10-25",
       "title": "Maldição Givaldo e wallpaper com logo",
