@@ -1,0 +1,5 @@
+.feed-post-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.feed-post-text.feed-text-collapsed{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.feed-expand{padding:0;border:0;background:none;color:#8edfff;font-weight:700;cursor:pointer}
+.feed-edit-form{display:grid;gap:8px;margin:12px 0}.feed-edit-form label{display:grid;gap:6px}.feed-edit-form textarea{width:100%;min-height:120px;box-sizing:border-box;resize:vertical}.feed-edit-form small{color:#b9c9dc}
+.daily-reactions{display:flex;flex-wrap:wrap;gap:6px}

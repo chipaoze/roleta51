@@ -1,0 +1,15 @@
+{
+  "name": "Área 51 — Role da Rodada",
+  "short_name": "Área 51",
+  "description": "Portal interno da tripulação Área 51.",
+  "start_url": "/?pagina=memes",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#10284a",
+  "icons": [
+    { "src": "/area51-app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/area51-app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/area51-app-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

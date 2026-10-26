@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "roleta51",
-  "main": "dist/server/index.js",
+  "main": "dist/server/worker-entry.js",
   "no_bundle": true,
   "rules": [
     {

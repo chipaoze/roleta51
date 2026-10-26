@@ -1,0 +1,40 @@
+/* Correções do pacote Dragão de Brasa: a arte substitui o identificador interno. */
+.participant-identity[data-badge="dragon-ember"]:after,
+#profileDisplayName[data-badge="dragon-ember"]:after,
+#userName[data-badge="dragon-ember"]:after,
+#menuUserName[data-badge="dragon-ember"]:after{
+  content:""!important;
+  display:inline-block;
+  width:1.28em;
+  height:1.28em;
+  min-width:1.28em;
+  margin-left:.22em;
+  background:url('/dragon-premium-icons/dragon-premium-badge.png') center/contain no-repeat;
+  vertical-align:-.34em;
+  filter:drop-shadow(0 1px 2px #0008);
+}
+
+/* A prévia e o tema aplicado usam a mesma base visual; o dragão fica no cenário, não sobre a interface. */
+body.profile-theme-dragon-ember .app:before{content:none!important;display:none!important}
+body.profile-theme-dragon-ember .app{background:linear-gradient(90deg,#090806e8,#3c180a70),url('/theme-dragon-ember.png') center/cover fixed!important}
+body.profile-theme-dragon-ember .topbar{border-color:#ff9b3d!important;box-shadow:0 2px 22px #ff6a263d!important}
+body.profile-theme-dragon-ember .section,body.profile-theme-dragon-ember .card{border-color:#8f3b1e!important;background-color:#100e13e8!important}
+
+/* Sem inércia: o cursor acompanha cada posição do ponteiro diretamente. */
+.dragon-ember-cursor{will-change:transform;transform:translate3d(0,0,0)}
+
+/* A loja possui uma camada opaca própria; por isso o tema precisa atingir essa camada, não só o fundo da página. */
+body.profile-theme-dragon-ember #appView{
+  background:linear-gradient(90deg,rgba(8,6,6,.42),rgba(42,14,8,.20) 52%,rgba(12,6,5,.42)),url('/theme-dragon-ember.png') center/cover fixed!important;
+}
+body.profile-theme-dragon-ember .profile-shop-section{
+  background:linear-gradient(115deg,rgba(17,8,8,.76),rgba(37,12,8,.49) 55%,rgba(12,7,8,.74))!important;
+}
+body.profile-theme-dragon-ember .profile-shop-section .shop-item{
+  background:linear-gradient(135deg,rgba(20,15,18,.89),rgba(44,16,12,.72))!important;
+  border-color:#9a4120!important;
+  backdrop-filter:blur(3px);
+}
+body.profile-theme-dragon-ember .profile-shop-section .shop-visual-preview{border-color:#c75b28!important}
+/* Thumbnails de coleções usam recorte central da própria arte, não os emojis antigos. */
+.shop-item.shop-type-siteTheme .shop-item-art img{object-fit:cover;object-position:center}

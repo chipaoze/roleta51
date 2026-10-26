@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 340" role="img" aria-labelledby="title">
+<title id="title">Agiota Estelar — ET de terno e maleta</title>
+<defs><linearGradient id="skin" x2="1" y2="1"><stop stop-color="#b9ff8e"/><stop offset="1" stop-color="#46a782"/></linearGradient><linearGradient id="suit" x2="1" y2="1"><stop stop-color="#45516a"/><stop offset="1" stop-color="#151b31"/></linearGradient></defs>
+<ellipse cx="122" cy="326" rx="85" ry="10" fill="#8673bb" opacity=".2"/>
+<path d="M85 242 80 310 103 313 121 258 137 313 162 310 155 240" fill="#20263c" stroke="#0c1425" stroke-width="3"/>
+<path d="M78 305 102 308 105 320Q86 330 63 321Q60 313 78 305M138 308 161 305Q187 313 180 323L138 324Z" fill="#101626" stroke="#65728a" stroke-width="2"/>
+<path d="M83 141Q57 141 46 170L35 222 54 232 78 183 81 251Q120 266 163 251L162 181 180 229 201 220 185 165Q178 146 151 141Z" fill="url(#suit)" stroke="#101626" stroke-width="3"/>
+<path d="M96 140 120 218 144 140" fill="#f3f1e7"/><path d="m113 147 14 0 4 14-10 48-11-47Z" fill="#a73767"/>
+<path d="m96 138-16 32 17 5-8 13 31 39M144 138l17 32-16 5 9 13-33 39" fill="none" stroke="#73819c" stroke-width="3"/>
+<circle cx="125" cy="232" r="3" fill="#edc46b"/><path d="M93 124v23q24 18 50 0v-24" fill="url(#skin)"/>
+<path d="M66 62Q58 14 116 12q61-1 60 51-1 49-55 78Q68 118 66 62Z" fill="url(#skin)" stroke="#276a58" stroke-width="3"/>
+<path d="m68 59 44 7-2 25Q81 101 72 76Zm58 7 47-8-8 29q-26 15-36 0Z" fill="#151b2c" stroke="#cda451" stroke-width="3"/><path d="M112 71h14M81 66l15 16M140 69l12 11" stroke="#8493b2" stroke-width="3"/>
+<path d="M101 109q17 13 33-1" fill="none" stroke="#285147" stroke-width="3" stroke-linecap="round"/>
+<path d="M65 30Q112 44 178 27l-6-13Q114-6 75 11Z" fill="#24263c"/><path d="M68 29q56 14 109-2" stroke="#dbb463" stroke-width="5"/>
+<path d="M99 169q20 28 43 0" fill="none" stroke="#f1c65c" stroke-width="3"/><circle cx="121" cy="190" r="9" fill="#edb642"/><text x="121" y="194" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="10" fill="#624112">51</text>
+<path d="M36 219q-9 11 0 23t18-14M181 220q-4 22 11 24t12-24" fill="url(#skin)" stroke="#276a58" stroke-width="2"/>
+<rect x="153" y="248" width="68" height="54" rx="8" fill="#513a31" stroke="#dbb463" stroke-width="3"/><path d="M176 248v-12h23v12" fill="none" stroke="#dbb463" stroke-width="4"/><path d="M155 269h64" stroke="#dbb463" stroke-width="2"/><rect x="181" y="264" width="11" height="13" rx="2" fill="#f1c65c"/>
+<path d="m25 194 19-5 9 31-19 5Z" fill="#b0d890" stroke="#356246" stroke-width="2"/><text x="37" y="211" fill="#356246" font-family="sans-serif" font-size="12" font-weight="bold">$</text>
+</svg>

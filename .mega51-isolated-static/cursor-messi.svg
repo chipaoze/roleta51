@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 64 64" aria-label="Cursor Messi">
+  <path d="M6 4v48l15-12 10 19 9-5-10-19 23-2z" fill="#87d9ff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M10 10h16l-5 7h-9zm-1 14h16l-5 7H9zm0 14h16l-5 7H9z" fill="#fff" opacity=".96"/>
+  <circle cx="19" cy="13" r="7" fill="#f0bf91"/><path d="M12 11c1-8 13-9 15 0l-4 2-3-3-5 4z" fill="#252935"/><path d="M15 17c2 5 8 5 10 0-1 5-3 8-5 8s-4-3-5-8z" fill="#5a3227"/>
+  <path d="M13 33l7-5 7 5-2 10H15z" fill="#77bdf0"/><text x="20" y="41" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="900" fill="#fff">10</text>
+</svg>

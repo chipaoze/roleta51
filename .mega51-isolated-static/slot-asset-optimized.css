@@ -1,0 +1,8 @@
+/* Same slot artwork in smaller files, so the machine paints promptly on mobile. */
+.slot-machine,
+.slot-machine:has(.slot-lever.is-pulled) {
+  background-image: url('/slot51/cabinet-v3.webp') !important;
+}
+.slot-symbol {
+  background-image: url('/slot51/symbols-v1.webp') !important;
+}

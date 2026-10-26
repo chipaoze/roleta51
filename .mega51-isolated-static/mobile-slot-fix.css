@@ -1,0 +1,39 @@
+/* Casino 51: keep the complete cabinet and lever inside narrow screens. */
+@media (max-width: 760px) {
+  .casino-games-shell,
+  .casino-layout,
+  #casinoSlotsPanel { min-width: 0; }
+
+  #casinoSlotsPanel { box-sizing: border-box; padding: 16px 12px; }
+  #casinoSlotsPanel .slot-machine {
+    box-sizing: border-box;
+    width: min(100%, 500px);
+    max-width: 100%;
+    aspect-ratio: 1;
+    margin: 10px auto 12px;
+    overflow: visible;
+    background-position: center center !important;
+  }
+  #casinoSlotsPanel .slot-machine .slot-lever {
+    right: 0;
+    top: 25%;
+    width: 30%;
+    max-width: 150px;
+  }
+  #casinoSlotsPanel .slot-reels {
+    box-sizing: border-box;
+    gap: clamp(2px, 1vw, 6px);
+    padding: clamp(2px, 1vw, 6px) !important;
+  }
+  #casinoSlotsPanel .slot-reel .slot-symbol { width: min(38px, 88%); }
+  #casinoSlotsPanel .slot-payout-card,
+  #casinoSlotsPanel #slotForm,
+  #casinoSlotsPanel .casino-result { box-sizing: border-box; max-width: 100%; }
+}
+
+@media (max-width: 380px) {
+  #casinoSlotsPanel { padding: 14px 8px; }
+  #casinoSlotsPanel .slot-machine header strong { display: none; }
+  #casinoSlotsPanel .slot-machine footer { gap: 3px; font-size: 6px !important; letter-spacing: 0; }
+  #casinoSlotsPanel .slot-payouts { grid-template-columns: minmax(0, 1fr); }
+}

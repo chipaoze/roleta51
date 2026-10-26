@@ -1,0 +1,14 @@
+#avatarCropDialog { width: min(440px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; box-sizing: border-box; margin: auto; padding: 22px; border: 1px solid var(--line, #50617a); border-radius: 20px; background: var(--paper, #142035); color: var(--ink, #f5f7ff); }
+#avatarCropDialog::backdrop { background: #000a; }
+#avatarCropDialog h2 { margin: 0 0 10px; font: 700 24px/1.2 system-ui, sans-serif; }
+#avatarCropDialog p { font: 400 15px/1.5 system-ui, sans-serif; margin: 10px 0; }
+#avatarCropDialog canvas { display: block; width: min(100%, 320px, 42dvh); height: auto; aspect-ratio: 1; margin: 16px auto; border-radius: 16px; outline: 2px solid var(--line, #8395b0); touch-action: none; cursor: grab !important; }
+#avatarCropDialog canvas:active { cursor: grabbing !important; }
+#avatarCropDialog canvas:focus-visible { outline: 3px solid #ff922e; }
+#avatarCropDialog label { display: flex; justify-content: space-between; font: 600 16px/1.5 system-ui, sans-serif; }
+#avatarCropDialog input { display: block; width: 100%; margin: 12px 0 18px; accent-color: #ff922e; }
+#avatarCropDialog button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--line, #73839a); border-radius: 10px; background: var(--paper, #142035); color: var(--ink, #f5f7ff); font: 600 15px/1.2 system-ui, sans-serif; cursor: pointer; }
+#avatarCropDialog button:disabled { opacity: .6; cursor: wait; }
+#avatarCropDialog [data-save] { background: #ff922e; color: #171717; border-color: #ff922e; }
+#avatarCropDialog [data-error] { color: var(--ink, #f5f7ff); font-weight: 600; }
+#avatarCropDialog .avatar-crop-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }

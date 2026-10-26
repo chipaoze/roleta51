@@ -1,0 +1,38 @@
+# O HTML e as respostas de /api não entram neste arquivo: eles seguem sem
+# cache no navegador porque contêm sessão, saldo e conteúdo atualizado.
+
+/styles.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/app.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.avif
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.gif
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.ico
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.jpg
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.jpeg
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.svg
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.webp
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.woff
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/*.woff2
+  Cache-Control: public, max-age=86400, must-revalidate

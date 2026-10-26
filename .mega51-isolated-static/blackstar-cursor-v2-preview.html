@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prévia — Cursor Blackstar</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,Segoe UI,sans-serif;background:#080d1d;color:#f5f7ff}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:clamp(28px,7vw,90px);background:radial-gradient(circle at 16% 13%,#223d6955,transparent 28%),linear-gradient(130deg,#080d1d,#11102b 58%,#071928)}
+    main{max-width:850px;margin:auto;padding:28px;border:1px solid #6350a8;border-radius:24px;background:#0d132be8;box-shadow:0 26px 80px #0008}h1{margin:0 0 8px;font-size:clamp(26px,4vw,42px)}p{color:#bdc9df;line-height:1.55}.swatches{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0}.swatches button{border:1px solid #7e86b9;border-radius:99px;padding:10px 15px;background:#17213c;color:#f5f7ff;font-weight:800;cursor:pointer}.swatches button.active{border-color:#72e9ff;box-shadow:0 0 0 3px #2fcbff22;background:#203a56}.test-zone{min-height:330px;padding:26px;border:1px dashed #62779f;border-radius:18px;background:radial-gradient(circle at 68% 38%,#2ba7d22c,transparent 22%),#091123}.test-zone h2{margin-top:0}.test-zone button{margin-top:110px;padding:15px 22px;border:1px solid #8deeff;border-radius:12px;background:#174362;color:white;font-weight:900}.tip{font-size:13px;color:#8edcff}.cyan,.cyan *{cursor:url('/season-workshop/cursor-blackstar-cyan-cursor.png') 5 4,auto!important}.gold,.gold *{cursor:url('/season-workshop/cursor-blackstar-gold-cursor.png') 5 4,auto!important}.crimson,.crimson *{cursor:url('/season-workshop/cursor-blackstar-crimson-cursor.png') 5 4,auto!important}
+    .blackstar-spark{position:fixed;z-index:9999;pointer-events:none;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle,#fff 0 16%,var(--spark-core) 24%,var(--spark-core) 42%,transparent 70%);box-shadow:0 0 7px var(--spark-core),0 0 14px var(--spark-glow);translate:-50% -50%;animation:blackstarSpark .54s cubic-bezier(.12,.7,.35,1) forwards}@keyframes blackstarSpark{from{opacity:.95;transform:translate(0,0) scale(1)}to{opacity:0;transform:translate(var(--spark-x),var(--spark-y)) scale(.12)}}.cyan .blackstar-spark{--spark-core:#61e8ff;--spark-glow:#677eff}.gold .blackstar-spark{--spark-core:#ffe278;--spark-glow:#e39d39}.crimson .blackstar-spark{--spark-core:#ff708f;--spark-glow:#b75cff}@media(prefers-reduced-motion:reduce){.blackstar-spark{display:none}}
+  </style>
+</head>
+<body class="cyan">
+  <main>
+    <h1>Cursor Blackstar · padrão</h1>
+    <p>Mova o mouse pelo painel e pelo botão. A ponta luminosa do ponteiro é o ponto exato de clique; o desenho inteiro tem 40 px.</p>
+    <div class="swatches"><button class="active" data-skin="cyan">Azul elétrico</button><button data-skin="gold">Obsidiana e ouro</button><button data-skin="crimson">Carmesim lunar</button></div>
+    <section class="test-zone"><h2>Área de clique</h2><span class="tip">Clique no botão usando a ponta clara do cursor.</span><br><button type="button">Botão de teste</button></section>
+  </main>
+  <script>
+    document.querySelectorAll('[data-skin]').forEach(button=>button.addEventListener('click',()=>{document.body.className=button.dataset.skin;document.querySelectorAll('[data-skin]').forEach(item=>item.classList.toggle('active',item===button));}));
+    let lastSparkAt=0;
+    document.addEventListener('pointermove',(event)=>{
+      if(event.pointerType==='touch'||event.timeStamp-lastSparkAt<62)return;
+      lastSparkAt=event.timeStamp;
+      // A ponta é o hotspot. O rastro nasce na cauda do cursor e se afasta dela,
+      // para baixo/direita, como uma trilha — nunca como algo disparado da ponta.
+      for(let index=0;index<2;index+=1){const spark=document.createElement('i');const angle=.78+(Math.random()-.5)*1.05;const distance=9+Math.random()*16;spark.className='blackstar-spark';spark.style.left=(event.clientX+17)+'px';spark.style.top=(event.clientY+18)+'px';spark.style.setProperty('--spark-x',Math.cos(angle)*distance+'px');spark.style.setProperty('--spark-y',Math.sin(angle)*distance+'px');document.body.append(spark);spark.addEventListener('animationend',()=>spark.remove(),{once:true});}
+    });
+  </script>
+</body>
+</html>

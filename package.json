@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "postbuild": "node ops/install-worker-entry.mjs",
+    "deploy:isolated": "node ops/install-worker-entry.mjs && wrangler deploy --config wrangler.cloudflare.jsonc --assets .mega51-isolated-static --no-bundle",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "test": "node --test tests/*.test.mjs",
