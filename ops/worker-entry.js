@@ -35,7 +35,9 @@ async function forward(request, env) {
   const attempts = safeRead ? 5 : 1;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8_000);
+    // A gravação entra na fila do backend. O limite inclui a espera nessa fila;
+    // oito segundos encerravam ações que ainda seriam confirmadas pelo servidor.
+    const timeout = setTimeout(() => controller.abort(), safeRead ? 8_000 : 25_000);
     try {
       const init = { method: request.method, headers, signal: controller.signal, redirect: 'manual' };
       if (!['GET', 'HEAD'].includes(request.method)) {

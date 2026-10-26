@@ -110,6 +110,7 @@ let deferredInstallPrompt = null;
 let votingDraft = { votingId: null, bestId: null, worstId: null };
 let notificationsReadAtLocal = null;
 let casinoWheelRotation = 0;
+let casinoWheelVisualRotation = 0;
 let casinoSpinInProgress = false;
 let casinoWheelTickFrame = null;
 let casinoWheelLabelFrame = null;
@@ -1653,7 +1654,7 @@ async function requestApi(url, options = {}, retry = true) {
     else externalSignal.addEventListener('abort', abortFromExternal, { once: true });
   }
   const timeout = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 25000));
-  const config = { ...requestOptions, signal: controller.signal, headers: { ...(options.headers || {}) } };
+  const config = { ...requestOptions, credentials: 'same-origin', signal: controller.signal, headers: { ...(options.headers || {}) } };
   const isHalloweenPreview = location.hostname === 'localhost' && new URLSearchParams(location.search).get('preview') === 'halloween';
   if (isHalloweenPreview && /^\/api\/(state|sync)$/.test(url)) config.headers['X-Area51-Halloween-Preview'] = 'true';
   if ((!config.method || String(config.method).toUpperCase() === 'GET') && !config.cache) config.cache = 'no-store';
@@ -1677,7 +1678,11 @@ async function requestApi(url, options = {}, retry = true) {
   if (response.status === 204) return null;
   if (retry && response.status >= 500 && (!config.method || config.method === 'GET')) return api(url, options, false);
   if (!response.ok) {
-    if (response.status === 401 && !url.endsWith('/login')) { showAuth(); showToast('Sua sessão expirou. Entre novamente para continuar.', 'error'); }
+    if (response.status === 401 && !url.endsWith('/login')) {
+      const hadActiveSession = Boolean(appState);
+      showAuth();
+      if (hadActiveSession) showToast('Sua sessão expirou. Entre novamente para continuar.', 'error');
+    }
     if (response.status === 423 && url !== '/api/state' && appState?.me) {
       try { applyState(await requestApi('/api/state', {}, false)); } catch {}
     }
@@ -2843,7 +2848,7 @@ function drawCasinoWheel() {
   if (wheel.width !== 620 || wheel.height !== 620) { wheel.width = 620; wheel.height = 620; }
   const context = wheel.getContext('2d'); const size = wheel.width;
   context.clearRect(0, 0, size, size);
-  drawCasinoWheelLabels(casinoWheelRotation);
+  drawCasinoWheelLabels(casinoWheelVisualRotation);
 }
 
 function casinoWheelLabelsCanvas() {
@@ -2854,7 +2859,7 @@ function casinoWheelLabelsCanvas() {
   return labels;
 }
 
-function drawCasinoWheelLabels(rotation = casinoWheelRotation) {
+function drawCasinoWheelLabels(rotation = casinoWheelVisualRotation) {
   const labels = casinoWheelLabelsCanvas(); if (!labels) return;
   const context = labels.getContext('2d'); const size = labels.width; const radius = size / 2; const edge = radius * .802;
   const boxIconIndex = { 'box-sonda': 0, 'box-cosmic': 1, 'box-area51': 2 };
@@ -2880,19 +2885,27 @@ function drawCasinoWheelLabels(rotation = casinoWheelRotation) {
 
 function animateCasinoWheel(segmentIndex, wheelValue) {
   const wheel = $('#casinoWheel'); const normalizedValue = Number(wheelValue) === 5 || Number(wheelValue) === 10 ? 3 : wheelValue; const matching = casinoWheelDisplaySlices.map((slice, index) => slice.value === normalizedValue ? index : -1).filter((index) => index >= 0); const totalOccurrences = casinoWheelValues.filter((value) => value === normalizedValue).length || 1; const seenOccurrences = Number.isInteger(segmentIndex) ? casinoWheelValues.slice(0, segmentIndex + 1).filter((value) => value === normalizedValue).length : 1; const sliceIndex = matching.length ? matching[Math.min(matching.length - 1, Math.floor((Math.max(1, seenOccurrences) - 1) / totalOccurrences * matching.length))] : 0; const sectorDegrees = 360 / casinoWheelDisplaySlices.length; const desired = 360 - ((sliceIndex + .5) * sectorDegrees); const rotationStart = casinoWheelRotation; casinoWheelRotation += 360 * 7 + ((desired - casinoWheelRotation) % 360 + 360) % 360;
-  startCasinoWheelSound(5200, casinoWheelRotation - rotationStart);
   if (casinoWheelLabelFrame) cancelAnimationFrame(casinoWheelLabelFrame);
-  const labelsStartedAt = performance.now(); const rotationEnd = casinoWheelRotation;
-  const moveLabels = () => {
-    const progress = Math.min(1, (performance.now() - labelsStartedAt) / 5200);
-    drawCasinoWheelLabels(rotationStart + (rotationEnd - rotationStart) * casinoWheelEase(progress));
-    if (progress < 1) casinoWheelLabelFrame = requestAnimationFrame(moveLabels);
-    else casinoWheelLabelFrame = null;
-  };
-  moveLabels();
-  wheel.style.transition = 'transform 5.2s cubic-bezier(.08,.72,.04,1)';
-  wheel.style.transform = `rotate(${casinoWheelRotation}deg)`;
-  return new Promise((resolve) => setTimeout(resolve, 5300));
+  const rotationEnd = casinoWheelRotation;
+  const totalTicks = Math.max(1, Math.floor(Math.abs(rotationEnd - rotationStart) / sectorDegrees));
+  let playedTicks = 0;
+  const startedAt = performance.now();
+  wheel.style.transition = 'none';
+  return new Promise((resolve) => {
+    const moveWheel = (now) => {
+      const progress = Math.min(1, Math.max(0, (now - startedAt) / 5200));
+      casinoWheelVisualRotation = rotationStart + (rotationEnd - rotationStart) * casinoWheelEase(progress);
+      wheel.style.transform = `rotate(${casinoWheelVisualRotation}deg)`;
+      drawCasinoWheelLabels(casinoWheelVisualRotation);
+      const visibleTicks = Math.min(totalTicks, Math.floor(casinoWheelEase(progress) * totalTicks));
+      const audible = !document.hidden && currentPortalPage() === 'jogos' && casinoActiveGame === 'roulette';
+      if (audible && progress < 1) while (playedTicks < visibleTicks) { playCasinoOscillator(860 - progress * 215, .038, .027); playedTicks += 1; }
+      else playedTicks = visibleTicks;
+      if (progress >= 1) { casinoWheelLabelFrame = null; resolve(); return; }
+      casinoWheelLabelFrame = requestAnimationFrame(moveWheel);
+    };
+    casinoWheelLabelFrame = requestAnimationFrame(moveWheel);
+  });
 }
 
 // O próprio clique de aposta libera o áudio. O efeito é gerado no navegador,
@@ -6707,7 +6720,7 @@ async function submitRouletteBet(bet, walletSource) {
   } catch { throw new Error('Não foi possível proteger a aposta neste navegador. Nenhum pedido foi enviado.'); }
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const data = await api('/api/casino/play', { method:'POST', body:pending });
+      const data = await api('/api/casino/play', { method:'POST', body:pending, timeoutMs:35000 });
       try { localStorage.removeItem(key); } catch { /* Same ID remains safe on the next attempt. */ }
       return data;
     } catch (error) {
@@ -6754,7 +6767,7 @@ async function submitPlinkoBet(bet, walletSource, risk) {
   try { localStorage.setItem(key, JSON.stringify(pending)); }
   catch { throw new Error('Não foi possível proteger esta esfera neste navegador. Nenhum pedido foi enviado.'); }
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    try { const data = await api('/api/casino/plinko/play', { method: 'POST', body: pending }); try { localStorage.removeItem(key); } catch {} return data; }
+    try { const data = await api('/api/casino/plinko/play', { method: 'POST', body: pending, timeoutMs: 35000 }); try { localStorage.removeItem(key); } catch {} return data; }
     catch (error) {
       const rejected = [400, 401, 403].includes(error.status) || (error.status === 409 && /insuficiente/i.test(error.message));
       if (rejected) { try { localStorage.removeItem(key); } catch {} throw error; }
@@ -6826,7 +6839,7 @@ async function submitSlotBet(bet, walletSource) {
   try { pending = JSON.parse(localStorage.getItem(key) || 'null'); if (!pending) { pending = { requestId: crypto.randomUUID(), bet, walletSource, compact: false }; localStorage.setItem(key, JSON.stringify(pending)); } }
   catch { throw new Error('Não foi possível proteger esta rodada neste navegador. Nenhum pedido foi enviado.'); }
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    try { const data = await api('/api/casino/slots/play', { method: 'POST', body: pending }); try { localStorage.removeItem(key); } catch {} return data; }
+    try { const data = await api('/api/casino/slots/play', { method: 'POST', body: pending, timeoutMs: 35000 }); try { localStorage.removeItem(key); } catch {} return data; }
     catch (error) { const rejected = [400, 401, 403].includes(error.status) || (error.status === 409 && /insuficiente/i.test(error.message)); if (rejected) { try { localStorage.removeItem(key); } catch {} throw error; } if (attempt) throw new Error('Ainda não foi possível confirmar a rodada. Clique novamente para recuperar esta mesma jogada, sem criar outra.'); }
   }
 }
@@ -7353,7 +7366,7 @@ $('#votingForm').addEventListener('submit', async (event) => {
   if (values.bestId === values.worstId) { $('#voteError').textContent = 'O melhor e o pior precisam ser imagens diferentes.'; return; }
   setBusy(form, true);
   try {
-    applyState(await api('/api/vote', { method: 'POST', body: values }));
+    applyState(await api('/api/vote', { method: 'POST', body: values, timeoutMs: 35000 }));
     votingDraft = { votingId: null, bestId: null, worstId: null };
     showToast('Voto registrado em segredo.');
   } catch (error) { $('#voteError').textContent = error.message; }
