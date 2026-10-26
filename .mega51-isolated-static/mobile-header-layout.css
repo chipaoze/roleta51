@@ -31,7 +31,7 @@
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    justify-content: center !important;
+    justify-content: flex-start !important;
     width: 100%;
     min-width: 0;
     height: 42px;
@@ -49,6 +49,8 @@
     overflow: hidden;
   }
   .topbar .top-wallet strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .topbar .account > .top-cobblemon-hunt-button { margin-left: auto; }
+  .topbar .account > .top-cobblemon-hunt-button.hidden + .notification-button { margin-left: auto; }
   .topbar .account > .icon-button,
   .topbar .account > .feedback-top-button {
     box-sizing: border-box;
