@@ -4587,17 +4587,24 @@ function renderCobblemonDex(profile = {}) {
   rouletteStatusElement.classList.toggle('is-closed', !roulette.canSpin);
   rouletteStatusElement.textContent = rouletteStatus;
   const search = ($('#cobblemonDexSearch')?.value || '').trim().toLowerCase();
+  const filterCounts = { all: 0, caught: 0, rare: 0, legendary: 0, shiny: 0, locked: 0 };
   const visible = catalog.filter((mon) => {
+    if (search && !mon.n.toLowerCase().includes(search) && String(mon.i) !== search && !mon.t.toLowerCase().includes(search)) return false;
     const ownedEntry = caught.get(Number(mon.i));
     const owned = Boolean(ownedEntry);
     const tier = cobblemonDexTier(mon, ownedEntry);
+    filterCounts.all += 1;
+    filterCounts[owned ? 'caught' : 'locked'] += 1;
+    if (owned && tier === 3) filterCounts.rare += 1;
+    if (owned && tier === 4) filterCounts.legendary += 1;
+    if (owned && ownedEntry?.isShiny) filterCounts.shiny += 1;
     const matchesFilter = cobblemonDexFilter === 'caught' ? owned
       : cobblemonDexFilter === 'locked' ? !owned
         : cobblemonDexFilter === 'rare' ? owned && tier === 3
           : cobblemonDexFilter === 'legendary' ? owned && tier === 4
             : cobblemonDexFilter === 'shiny' ? owned && Boolean(ownedEntry?.isShiny)
               : true;
-    return matchesFilter && (!search || mon.n.toLowerCase().includes(search) || String(mon.i) === search || mon.t.toLowerCase().includes(search));
+    return matchesFilter;
   });
   const pageSize = 24, pages = Math.max(1, Math.ceil(visible.length / pageSize)); cobblemonDexPage = Math.min(cobblemonDexPage, pages - 1);
   $('#cobblemonDexProgress').textContent = caught.size + ' / ' + (profile.cobblemon?.total || catalog.length);
@@ -4625,7 +4632,12 @@ function renderCobblemonDex(profile = {}) {
   if (!cobblemonPageEncounter) $('#cobblemonCaptureButton').disabled = !viewingMine || !cobblemonHasAvailableBall(balls);
   $('#cobblemonDexPage').textContent = 'Página ' + (cobblemonDexPage + 1) + ' de ' + pages;
   $('#cobblemonDexPrev').disabled = cobblemonDexPage === 0; $('#cobblemonDexNext').disabled = cobblemonDexPage >= pages - 1;
-  $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => button.classList.toggle('active', button.dataset.cobblemonFilter === cobblemonDexFilter));
+  const filterLabels = { all: 'Todos', caught: 'Capturados', rare: 'Raros', legendary: 'Lendários', shiny: 'Shiny', locked: 'Bloqueados' };
+  $$('#cobblemonDexFilters [data-cobblemon-filter]').forEach((button) => {
+    const filter = button.dataset.cobblemonFilter;
+    button.classList.toggle('active', filter === cobblemonDexFilter);
+    button.textContent = `${filterLabels[filter]} (${filterCounts[filter]})`;
+  });
   const dexGridKey = [cobblemonDexOwnerId, cobblemonDexFilter, search, cobblemonDexPage, visible.map((mon) => { const owned = caught.get(Number(mon.i)); return `${mon.i}:${owned?.level || 0}:${owned?.isShiny ? 1 : 0}:${cobblemonDexTier(mon, owned)}`; }).join(',')].join('|');
   if (dexGridKey !== cobblemonDexGridKey) {
     cobblemonDexGridKey = dexGridKey;
