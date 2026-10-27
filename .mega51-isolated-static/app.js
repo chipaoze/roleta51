@@ -6734,7 +6734,7 @@ function applyCompactCasinoPlay(data, game) {
   appState.casino.closedBoxes = balances.closedBoxes;
   appState.casino.playsToday = Number(appState.casino.playsToday || 0) + 1;
   appState.casino.totalPlays = Number(appState.casino.totalPlays || 0) + 1;
-  appState.casino.totalWagered = Math.round((Number(appState.casino.totalWagered || 0) + Number(play.bet || 0)) * 100) / 100;
+  if (play.walletSource === 'shop') appState.casino.totalWagered = Math.round((Number(appState.casino.totalWagered || 0) + Number(play.bet || 0)) * 100) / 100;
   const historyKey = game === 'slots' ? 'recentSlots' : 'recentRoulette';
   appState.casino[historyKey] = [play, ...(appState.casino[historyKey] || [])].slice(0, 6);
   appState.profile.wallet = balances.shop;

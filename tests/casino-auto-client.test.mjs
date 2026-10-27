@@ -20,17 +20,19 @@ test('compact result updates only the selected wallet and current game history',
   };
   vm.createContext(context);
   vm.runInContext(section('function applyCompactCasinoPlay(', '\nasync function finishCasinoAuto('), context);
-  const play = { requestId: 'request-1', bet: 2, resultType: 'slots' };
+  const play = { requestId: 'request-1', bet: 2, walletSource: 'promotional', resultType: 'slots' };
   context.applyCompactCasinoPlay({ casinoResult: play, casinoBalances: { promotional: 47, shop: 100, jackpot: 505, closedBoxes: 0 } }, 'slots');
   assert.equal(context.appState.casino.wallet, 47);
   assert.equal(context.appState.profile.wallet, 100);
   assert.equal(context.appState.casino.recentSlots[0].requestId, 'request-1');
   assert.equal(context.appState.casino.recentRoulette.length, 0);
+  assert.equal(context.appState.casino.totalWagered, 0, 'promotional plays do not count toward the shop-only meter');
   assert.equal(elements.get('#casinoWallet').textContent, '47.00');
-  context.applyCompactCasinoPlay({ casinoResult: { requestId: 'request-2', bet: 3, resultType: 'multiplier' }, casinoBalances: { promotional: 47, shop: 97, jackpot: 510, closedBoxes: 0 } }, 'roulette');
+  context.applyCompactCasinoPlay({ casinoResult: { requestId: 'request-2', bet: 3, walletSource: 'shop', resultType: 'multiplier' }, casinoBalances: { promotional: 47, shop: 97, jackpot: 510, closedBoxes: 0 } }, 'roulette');
   assert.equal(context.appState.profile.wallet, 97);
   assert.equal(context.appState.casino.recentRoulette[0].requestId, 'request-2');
   assert.equal(elements.get('#topWalletValue').textContent, '97.00');
+  assert.equal(context.appState.casino.totalWagered, 3);
 });
 
 test('automatic sequence buys only the next spin and respects stop and count limit', () => {
