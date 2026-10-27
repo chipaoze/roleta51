@@ -1,5 +1,5 @@
 {
-  "version": "20261027-wallpaper-voters-v1",
-  "title": "Veja quem votou em cada wallpaper",
-  "notes": "A pauta do Rafael foi implementada: quando todos concluírem a votação e o resultado for revelado, passe o mouse sobre o total de votos para ver quem escolheu cada wallpaper como melhor ou pior. No celular, toque no total. Os nomes continuam ocultos enquanto a votação estiver aberta."
+  "version": "20261027-wallpaper-once-v1",
+  "title": "Envio definitivo do wallpaper",
+  "notes": "A pauta do Rafael foi implementada: escolha e confira a imagem antes de enviar. O site pede confirmação e só envia após você aceitar. Depois do envio, o wallpaper não pode ser removido nem trocado nesta rodada."
 }

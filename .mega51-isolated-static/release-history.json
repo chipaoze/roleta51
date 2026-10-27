@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20261027-wallpaper-once-v1",
+      "publishedAt": "2026-10-27",
+      "title": "Envio definitivo do wallpaper",
+      "notes": [
+        "A pauta aprovada do Rafael foi implementada: antes de enviar o wallpaper, você confirma se escolheu a imagem certa.",
+        "Se responder Não, a imagem continua na prévia e você pode escolher outra. Se responder Sim, o envio é concluído e não pode ser removido nem trocado nesta rodada.",
+        "A mesma regra vale para envios assistidos pela administração. Uma nova escolha fica disponível apenas na próxima rodada."
+      ]
+    },
+    {
       "version": "20261027-wallpaper-voters-v1",
       "publishedAt": "2026-10-27",
       "title": "Veja quem votou em cada wallpaper",

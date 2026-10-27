@@ -50,6 +50,7 @@ const feedbackPostTimes = new Map();
 const memePostTimes = new Map();
 const anonymousPostTimes = new Map();
 const imageStore = new Map();
+const wallpaperUploadsInFlight = new Set();
 const MAX_IMAGE_MEMORY = 200 * 1024 * 1024;
 const MAX_IMAGE_CACHE = 16 * 1024 * 1024;
 const WALL_EMOJIS = ['😂','👽','🤨','💀','❤️','👍','🔥','👏','😮','😢','😡','🤣','😍','😎','🤯','🤔','🥳','🤡','🙌','🚀'];
@@ -4551,7 +4552,7 @@ function buildStateFor(user, options = {}) {
       id: item.id, title: item.title,
       imageUrl: roundUsers.some((person) => person.id === user.id) || user.role === 'admin' ? '/uploads/' + item.filename : null,
       size: item.size, createdAt: item.createdAt, isMine: item.userId === user.id,
-      canDelete: roundAssignments.length === 0 && (item.userId === user.id || user.role === 'admin'),
+      canDelete: false,
       assigned: assignedSubmissionIds.has(item.id),
       revealed: revealedIds.has(item.id) || authorRevealedForUser,
       uploader: revealedIds.has(item.id) || authorRevealedForUser ? item.uploader : null,
@@ -4678,10 +4679,10 @@ function buildStateFor(user, options = {}) {
       }),
       teamMission: teamMissionFor(),
     },
-    meHasSubmitted: activeSubmitterIds.has(user.id),
-    meCanUpload: phase === 'uploads' && roundUsers.some((item) => item.id === user.id) && !activeSubmitterIds.has(user.id),
+    meHasSubmitted: db.submissions.some((item) => item.roundId === roundId && item.userId === user.id),
+    meCanUpload: phase === 'uploads' && roundUsers.some((item) => item.id === user.id) && !db.submissions.some((item) => item.roundId === roundId && item.userId === user.id),
     adminUploadOptions: user.role === 'admin' && phase === 'uploads' ? roundUsers.map((person) => {
-      const submission = activeItems.find((item) => item.userId === person.id);
+      const submission = db.submissions.find((item) => item.roundId === roundId && item.userId === person.id);
       return { id: person.id, displayName: person.displayName, hasSubmission: Boolean(submission), assisted: Boolean(submission?.uploadedByAdminId), submittedAt: submission?.createdAt || null };
     }) : undefined,
     adminUsers: user.role === 'admin' ? db.users.map((person) => {
@@ -6818,8 +6819,12 @@ async function handleApi(req, res, route) {
     if (!roundId || !db.settings.currentTheme) throw new HttpError(409, 'Aguarde o administrador sortear o tema antes de enviar.');
     if (!eligibleUsers().some((item) => item.id === user.id)) throw new HttpError(403, 'Sua conta entrará somente na próxima rodada.');
     if (db.assignments.some((item) => item.roundId === roundId)) throw new HttpError(409, 'Os envios foram encerrados porque a distribuição já começou.');
-    if (db.submissions.some((item) => item.roundId === roundId && item.userId === user.id && item.active))
-      throw new HttpError(400, 'Cada pessoa pode enviar somente 1 wallpaper por rodada.');
+    if (db.submissions.some((item) => item.roundId === roundId && item.userId === user.id))
+      throw new HttpError(409, 'Seu wallpaper desta rodada já foi confirmado e não pode ser removido ou trocado.');
+    const uploadKey = roundId + ':' + user.id;
+    if (wallpaperUploadsInFlight.has(uploadKey)) throw new HttpError(409, 'O envio deste wallpaper já está em andamento. Aguarde a confirmação.');
+    wallpaperUploadsInFlight.add(uploadKey);
+    try {
     const { dataUrl = '' } = await readJson(req);
     const { image, mimeType, extension } = decodeWallpaperDataUrl(dataUrl);
     const usedMemory = [...imageStore.values()].reduce((total, entry) => total + entry.buffer.length, 0);
@@ -6833,6 +6838,7 @@ async function handleApi(req, res, route) {
       title: 'Wallpaper ' + anonymousCode,
       filename, mimeType, size: image.length, active: true, createdAt: new Date().toISOString() });
     await persist(); broadcastRefresh('submissions'); json(res, 201, stateFor(user)); return;
+    } finally { wallpaperUploadsInFlight.delete(uploadKey); }
   }
 
   if (req.method === 'POST' && route === '/api/admin/uploads') {
@@ -6845,33 +6851,29 @@ async function handleApi(req, res, route) {
     const { targetUserId = '', dataUrl = '' } = await readJson(req);
     const target = eligibleUsers().find((item) => item.id === String(targetUserId));
     if (!target) throw new HttpError(404, 'Esta pessoa não participa da rodada atual.');
-    const existing = db.submissions.find((item) => item.roundId === roundId && item.userId === target.id && item.active);
+    if (db.submissions.some((item) => item.roundId === roundId && item.userId === target.id))
+      throw new HttpError(409, 'O wallpaper desta pessoa já foi confirmado e não pode ser removido ou trocado.');
+    const uploadKey = roundId + ':' + target.id;
+    if (wallpaperUploadsInFlight.has(uploadKey)) throw new HttpError(409, 'O envio do wallpaper desta pessoa já está em andamento.');
+    wallpaperUploadsInFlight.add(uploadKey);
+    try {
     const { image, mimeType, extension } = decodeWallpaperDataUrl(dataUrl);
     const usedMemory = [...imageStore.values()].reduce((total, entry) => total + entry.buffer.length, 0);
-    if (usedMemory - Number(existing?.size || 0) + image.length > MAX_IMAGE_MEMORY) throw new HttpError(507, 'O limite de 200 MB de imagens desta rodada foi atingido.');
+    if (usedMemory + image.length > MAX_IMAGE_MEMORY) throw new HttpError(507, 'O limite de 200 MB de imagens desta rodada foi atingido.');
     const filename = randomUUID() + '.' + extension;
     await storeImage(filename, image, mimeType);
-    if (existing) existing.active = false;
     const anonymousCode = randomBytes(2).toString('hex').toUpperCase();
     db.submissions.push({ id: randomUUID(), roundId, userId: target.id, uploader: target.displayName,
       title: 'Wallpaper ' + anonymousCode, filename, mimeType, size: image.length, active: true,
       uploadedByAdminId: admin.id, uploadedByAdminName: admin.displayName, createdAt: new Date().toISOString() });
-    if (existing && !db.draws.some((draw) => draw.imageUrl === '/uploads/' + existing.filename)) await deleteStoredImage(existing.filename);
     await persist(); broadcastRefresh('submissions'); json(res, 201, stateFor(admin)); return;
+    } finally { wallpaperUploadsInFlight.delete(uploadKey); }
   }
 
   const deleteMatch = route.match(/^\/api\/uploads\/([a-f0-9-]+)$/);
   if (req.method === 'DELETE' && deleteMatch) {
-    const { user } = requireAuth(req);
-    const roundId = db.settings.currentRoundId;
-    if (db.assignments.some((entry) => entry.roundId === roundId)) throw new HttpError(409, 'Não é possível remover imagens depois que a distribuição começou.');
-    const item = db.submissions.find((entry) => entry.id === deleteMatch[1] && entry.active && entry.roundId === roundId);
-    if (!item) throw new HttpError(404, 'Wallpaper não encontrado.');
-    if (item.userId !== user.id && user.role !== 'admin') throw new HttpError(403, 'Você não pode excluir esta inscrição.');
-    item.active = false; await persist(); broadcastRefresh('submissions');
-    const usedInHistory = db.draws.some((draw) => draw.imageUrl === '/uploads/' + item.filename);
-    if (!usedInHistory) await deleteStoredImage(item.filename);
-    json(res, 200, stateFor(user)); return;
+    requireAuth(req);
+    throw new HttpError(409, 'O wallpaper confirmado não pode ser removido ou trocado nesta rodada.');
   }
 
   if (req.method === 'POST' && route === '/api/draw/gay-shield') {

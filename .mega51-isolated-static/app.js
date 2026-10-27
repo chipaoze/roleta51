@@ -2427,7 +2427,6 @@ function renderGallery() {
       : '<div class="secret-wallpaper"><span>✦</span><strong>ENVIO RECEBIDO</strong><small>A imagem aparece quando todos enviarem</small></div>';
     return '<article class="gallery-card">' +
       visual +
-      (item.canDelete ? '<button class="delete-upload" data-delete-upload="' + item.id + '" title="Remover wallpaper" aria-label="Remover wallpaper">×</button>' : '') +
       (item.assistedUpload ? '<span class="assisted-gallery-badge">🛰️ Envio assistido</span>' : '') +
       '<div class="gallery-overlay"><strong>' + escapeHtml(item.title) + '</strong><span>' + author + '</span></div></article>';
   }).join('');
@@ -5082,12 +5081,12 @@ function renderAdmin() {
   }
   const assistedCard = $('#adminAssistedUploadForm');
   const uploadOptions = appState.adminUploadOptions || [];
-  assistedCard.classList.toggle('hidden', !showAttendance);
+  assistedCard.classList.toggle('hidden', !showAttendance || !uploadOptions.some((person) => !person.hasSubmission));
   if (showAttendance) {
     const select = $('#adminUploadUser');
     const selectedId = select.value;
-    select.innerHTML = uploadOptions.map((person) => '<option value="' + escapeHtml(person.id) + '" data-has-submission="' + person.hasSubmission + '">' + escapeHtml(formatDisplayName(person.displayName)) + (person.hasSubmission ? ' — já enviou' : ' — aguardando') + '</option>').join('');
-    if (uploadOptions.some((person) => person.id === selectedId)) select.value = selectedId;
+    select.innerHTML = uploadOptions.filter((person) => !person.hasSubmission).map((person) => '<option value="' + escapeHtml(person.id) + '">' + escapeHtml(formatDisplayName(person.displayName)) + ' — aguardando</option>').join('');
+    if (uploadOptions.some((person) => person.id === selectedId && !person.hasSubmission)) select.value = selectedId;
     updateAdminUploadAction();
     const assisted = uploadOptions.filter((person) => person.assisted);
     $('#adminAssistedUploadList').innerHTML = assisted.length ? '<strong>ENVIOS FEITOS POR VOCÊ</strong>' + assisted.map((person) => '<span>✓ ' + escapeHtml(formatDisplayName(person.displayName)) + '</span>').join('') : '<small>Nenhum envio assistido nesta rodada.</small>';
@@ -6377,6 +6376,7 @@ $('#clearFile').addEventListener('click', () => {
 $('#uploadForm').addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.currentTarget; $('#uploadError').textContent = '';
   if (!selectedFile) { $('#uploadError').textContent = 'Escolha uma imagem primeiro.'; return; }
+  if (!confirm('Deseja realmente enviar este wallpaper? Depois de confirmar, você não poderá removê-lo ou trocá-lo nesta rodada.')) return;
   setBusy(form, true);
   try {
     const dataUrl = await normalizeWallpaperDataUrl(selectedFile);
@@ -6393,12 +6393,9 @@ $('#uploadForm').addEventListener('submit', async (event) => {
 function updateAdminUploadAction() {
   const select = $('#adminUploadUser');
   const option = select.selectedOptions[0];
-  const replacing = option?.dataset.hasSubmission === 'true';
-  $('#adminUploadSubmit').textContent = replacing ? 'Substituir wallpaper desta pessoa' : 'Enviar em nome da pessoa';
-  $('#adminUploadStatus').textContent = replacing
-    ? '⚠ Esta pessoa já enviou. A imagem atual será substituída antes da distribuição.'
-    : '🔒 Somente o administrador verá quem realizou o envio assistido.';
-  $('#adminUploadStatus').classList.toggle('warning', replacing);
+  $('#adminUploadSubmit').textContent = 'Enviar em nome da pessoa';
+  $('#adminUploadStatus').textContent = '🔒 Somente o administrador verá quem realizou o envio assistido. Após confirmar, o wallpaper não poderá ser trocado.';
+  $('#adminUploadStatus').classList.remove('warning');
 }
 
 function clearAdminUploadSelection() {
@@ -6427,7 +6424,7 @@ $('#adminAssistedUploadForm').addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.currentTarget; const option = $('#adminUploadUser').selectedOptions[0];
   $('#adminUploadError').textContent = '';
   if (!selectedAdminUploadFile) { $('#adminUploadError').textContent = 'Escolha um wallpaper primeiro.'; return; }
-  if (option?.dataset.hasSubmission === 'true' && !confirm('Esta pessoa já enviou um wallpaper. Deseja substituir a imagem atual?')) return;
+  if (!confirm('Deseja realmente enviar este wallpaper para ' + option?.textContent?.trim() + '? Depois de confirmar, ele não poderá ser removido ou trocado nesta rodada.')) return;
   setBusy(form, true);
   try {
     const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(selectedAdminUploadFile); });
@@ -6440,13 +6437,6 @@ $('#adminAssistedUploadForm').addEventListener('submit', async (event) => {
 $('#closeAnnouncement').addEventListener('click', acknowledgeAnnouncement);
 $('#acknowledgeAnnouncement').addEventListener('click', acknowledgeAnnouncement);
 $('#announcementDialog').addEventListener('cancel', (event) => { event.preventDefault(); acknowledgeAnnouncement(); });
-
-$('#gallery').addEventListener('click', async (event) => {
-  const button = event.target.closest('[data-delete-upload]');
-  if (!button || !confirm('Remover este wallpaper da rodada?')) return;
-  try { applyState(await api('/api/uploads/' + button.dataset.deleteUpload, { method: 'DELETE' })); showToast('Wallpaper removido.'); }
-  catch (error) { showToast(error.message, 'error'); }
-});
 
 function clearMemeSelection() {
   selectedMemeFile = null;
