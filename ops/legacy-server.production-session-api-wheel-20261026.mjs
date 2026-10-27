@@ -3231,6 +3231,44 @@ function broadcastRefresh(reason) {
   broadcastLive('refresh', { reason, serverTime: Date.now() });
 }
 
+// Automatic casino plays have their own result response. Coalesce their
+// economy broadcasts so six players do not cause six full state reads per spin.
+let casinoAutoRefreshTimer = null;
+function broadcastCasinoPlayRefresh(autoSessionId) {
+  if (!autoSessionId) { broadcastRefresh('economy'); return; }
+  if (casinoAutoRefreshTimer) return;
+  casinoAutoRefreshTimer = setTimeout(() => {
+    casinoAutoRefreshTimer = null;
+    broadcastRefresh('economy');
+  }, 6000);
+}
+
+const casinoAutoOwners = new Map();
+function authorizeCasinoAuto(userId, sessionId, game, bet, walletSource) {
+  const current = casinoAutoOwners.get(userId);
+  if (!sessionId) {
+    if (current && current.expiresAt > Date.now()) throw new HttpError(409, 'Há um giro automático ativo nesta conta. Pare a sequência antes de apostar manualmente.');
+    return;
+  }
+  if (!/^[a-zA-Z0-9-]{16,80}$/.test(sessionId)) throw new HttpError(400, 'Identificação do giro automático inválida.');
+  if (current && current.expiresAt > Date.now() && current.sessionId !== sessionId)
+    throw new HttpError(409, 'Já existe um giro automático nesta conta. Pare o outro antes de começar.');
+  if (current?.sessionId === sessionId && (current.game !== game || current.bet !== bet || current.walletSource !== walletSource))
+    throw new HttpError(409, 'Não altere o jogo, valor ou saldo durante o giro automático.');
+  if (current?.sessionId === sessionId && current.count >= 30)
+    throw new HttpError(409, 'O limite de 30 giros desta sequência foi atingido.');
+  casinoAutoOwners.set(userId, { sessionId, game, bet, walletSource, count: (current?.sessionId === sessionId ? current.count : 0) + 1, expiresAt: Date.now() + 45000 });
+}
+
+function compactCasinoPlayResponse(user, play) {
+  return { casinoResult: play, casinoBalances: {
+    promotional: Number(casinoAccountFor(user.id, true).balance),
+    shop: walletFor(user.id),
+    jackpot: Number(db.economy.casinoJackpot?.amount || CASINO_JACKPOT.seed),
+    closedBoxes: db.economy.mysteryBoxes.filter((item) => item.userId === user.id).length,
+  } };
+}
+
 function startLiveDraw(result, candidates, notify = true) {
   // A resposta HTTP do administrador e os eventos dos demais precisam chegar
   // antes do início. O término é absoluto e igual para toda a tripulação.
@@ -5284,13 +5322,21 @@ async function handleApi(req, res, route) {
   }
   if (await handleCommunityExtras(req, res, route)) return;
 
+  if (req.method === 'POST' && route === '/api/casino/auto/stop') {
+    const { user } = requireAuth(req);
+    const body = await readJson(req);
+    const current = casinoAutoOwners.get(user.id);
+    if (current?.sessionId === String(body.autoSessionId || '')) casinoAutoOwners.delete(user.id);
+    json(res, 200, { stopped: true }); return;
+  }
   if (req.method === 'POST' && route === '/api/casino/play') {
     const { user } = requireAuth(req);
-    const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
+    const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional'; const autoSessionId = body.autoSessionId == null ? null : String(body.autoSessionId);
     const requestId = body.requestId == null ? null : String(body.requestId);
     if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da aposta inválida.');
     const previous = requestId && (db.economy.casinoPlays.find(play => play.userId === user.id && play.requestId === requestId && play.resultType !== 'flight') || await archivedCasinoPlay(user.id, requestId, 'roulette'));
-    if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra aposta.'); json(res, 200, body.compact ? { casinoResult: previous } : { ...stateFor(user), casinoResult: previous }); return; }
+    if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra aposta.'); json(res, 200, body.compact ? compactCasinoPlayResponse(user, previous) : { ...stateFor(user), casinoResult: previous }); return; }
+    authorizeCasinoAuto(user.id, autoSessionId, 'roulette', bet, walletSource);
     if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
     const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
     if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta aposta.' : 'Saldo promocional do cassino insuficiente para esta aposta.');
@@ -5310,7 +5356,7 @@ async function handleApi(req, res, route) {
     else casinoAccount.balance = roundMoney(before + net);
     const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : roundMoney(casinoAccount.balance);
     const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType, segmentIndex, wheelValue: outcome, multiplier, payout, net, mysteryBox, jackpotWon, jackpotContribution: jackpotEligible ? roundMoney(bet * CASINO_JACKPOT.contribution) : 0, balanceAfter, createdAt, ...(resultType === 'casinoJackpot' ? { notifyJackpot: true } : {}) };
-    db.economy.casinoPlays.push(play); await persistCasinoPlay(user.id, play, adjustment, resultType === 'mysteryBox' ? db.economy.mysteryBoxes.at(-1) : null, jackpot); broadcastRefresh('economy'); json(res, 200, body.compact ? { casinoResult: play } : { ...stateFor(user), casinoResult: play }); return;
+    db.economy.casinoPlays.push(play); await persistCasinoPlay(user.id, play, adjustment, resultType === 'mysteryBox' ? db.economy.mysteryBoxes.at(-1) : null, jackpot); broadcastCasinoPlayRefresh(autoSessionId); json(res, 200, body.compact ? compactCasinoPlayResponse(user, play) : { ...stateFor(user), casinoResult: play }); return;
   }
 
   if (req.method === 'POST' && route === '/api/casino/plinko/play') {
@@ -5330,10 +5376,11 @@ async function handleApi(req, res, route) {
   }
 
   if (req.method === 'POST' && route === '/api/casino/slots/play') {
-    const { user } = requireAuth(req); const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional'; const requestId = body.requestId == null ? null : String(body.requestId);
+    const { user } = requireAuth(req); const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional'; const requestId = body.requestId == null ? null : String(body.requestId); const autoSessionId = body.autoSessionId == null ? null : String(body.autoSessionId);
     if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da rodada inválida.');
     const previous = requestId && (db.economy.casinoPlays.find((play) => play.userId === user.id && play.requestId === requestId && play.resultType === 'slots') || await archivedCasinoPlay(user.id, requestId, 'slots'));
-    if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra rodada.'); json(res, 200, body.compact ? { casinoResult: previous } : { ...stateFor(user), casinoResult: previous }); return; }
+    if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra rodada.'); json(res, 200, body.compact ? compactCasinoPlayResponse(user, previous) : { ...stateFor(user), casinoResult: previous }); return; }
+    authorizeCasinoAuto(user.id, autoSessionId, 'slots', bet, walletSource);
     if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
     const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
     if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta rodada.' : 'Saldo promocional do cassino insuficiente para esta rodada.');
@@ -5341,7 +5388,7 @@ async function handleApi(req, res, route) {
     if (walletSource === 'shop') { addCredits(user.id, net); if (net !== 0) { adjustment = { id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before: sourceBalance, after: roundMoney(sourceBalance + net), reason: 'Resultado do Caça-Níquel 51 usando saldo da loja', createdAt }; db.economy.creditAdjustments.push(adjustment); } }
     else casinoAccount.balance = roundMoney(sourceBalance + net);
     const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : roundMoney(casinoAccount.balance); const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType: 'slots', multiplier, payout, net, slots: { id: outcome.id, label: outcome.label, symbols: outcome.symbols }, balanceAfter, createdAt };
-    db.economy.casinoPlays.push(play); await persistCasinoPlay(user.id, play, adjustment, null); broadcastRefresh('economy'); json(res, 200, body.compact ? { casinoResult: play } : { ...stateFor(user), casinoResult: play }); return;
+    db.economy.casinoPlays.push(play); await persistCasinoPlay(user.id, play, adjustment, null); broadcastCasinoPlayRefresh(autoSessionId); json(res, 200, body.compact ? compactCasinoPlayResponse(user, play) : { ...stateFor(user), casinoResult: play }); return;
   }
 
   if (req.method === 'POST' && route === '/api/lottery/entry') {

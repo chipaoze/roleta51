@@ -1,5 +1,5 @@
 {
-  "version": "20261026-session-api-wheel-v1",
-  "title": "Acesso e jogos mais estáveis",
-  "notes": "Melhoramos a estabilidade do acesso em mais de um aparelho e reduzimos o processamento do histórico do cassino. Votos e apostas confirmados podem ser recuperados pela mesma tentativa, sem registrar ou cobrar outra vez. A roleta agora sincroniza roda, números e resultado mesmo quando você troca de página; saldo e aviso aparecem após o giro."
+  "version": "20261027-casino-auto-v1",
+  "title": "Giro automático na Roleta e no Caça-Níquel",
+  "notes": "A pauta do Pastel chegou aos dois jogos: escolha 10, 20 ou 30 giros, defina a aposta por giro e use bônus diário ou saldo da Loja 51. Cada giro é cobrado separadamente e pode ser interrompido após o giro em andamento. Reduzimos as consultas de estado durante a sequência para manter o portal leve."
 }
