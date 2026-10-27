@@ -1,5 +1,5 @@
 {
-  "version": "20261027-wallpaper-once-v1",
-  "title": "Envio definitivo do wallpaper",
-  "notes": "A pauta do Rafael foi implementada: escolha e confira a imagem antes de enviar. O site pede confirmação e só envia após você aceitar. Depois do envio, o wallpaper não pode ser removido nem trocado nesta rodada."
+  "version": "20261027-pautas-obrigatorias-v1",
+  "title": "Voto obrigatório nas pautas",
+  "notes": "A proposta do Davi foi implementada: ao abrir uma pauta, cada participante elegível precisa votar A favor ou Contra para continuar usando o portal. Se houver mais de uma, elas aparecem uma por vez. O resultado histórico da proposta permanece como não aprovada por prazo; a implementação foi decisão administrativa."
 }

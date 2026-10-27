@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "20261027-pautas-obrigatorias-v1",
+      "publishedAt": "2026-10-27",
+      "title": "Voto obrigatório nas pautas",
+      "notes": [
+        "A proposta do Davi foi implementada: cada participante elegível precisa votar A favor ou Contra em uma pauta aberta antes de continuar usando o portal.",
+        "Se houver várias pautas pendentes, elas aparecem uma por vez, começando pela que encerra primeiro. Após votar, a próxima aparece automaticamente.",
+        "A votação continua com prazo de 48 horas e encerra ao atingir a maioria. A ausência de quem não acessou não vira voto.",
+        "A pauta original terminou como não aprovada por falta de votos no prazo; esse resultado e os votos foram preservados. A implementação ocorreu por decisão administrativa."
+      ]
+    },
+    {
       "version": "20261027-wallpaper-once-v1",
       "publishedAt": "2026-10-27",
       "title": "Envio definitivo do wallpaper",

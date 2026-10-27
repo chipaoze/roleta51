@@ -2450,3 +2450,4 @@ html[data-workshop-cursor-preview="cyan"],html[data-workshop-cursor-preview="cya
 #shopFilters .shop-filter-icon[src="/roulette51/menu-icons/perfil.png"]{content:url('/roulette51/menu-icons/v2/menu-perfil-v2.png')}
 .hydration-glass{background-image:url('/roulette51/menu-icons/v2/menu-agua-v2.png')!important}.water-entry>span,.water-reminder-drop{background-image:url('/roulette51/menu-icons/v2/menu-agua-v2.png')!important}
 
+.community-admin-decision{margin:0;padding:10px 12px;border:1px solid rgba(66,191,133,.4);border-radius:10px;background:rgba(28,117,82,.18);color:#a9f0c7;font-size:12px;font-weight:700}

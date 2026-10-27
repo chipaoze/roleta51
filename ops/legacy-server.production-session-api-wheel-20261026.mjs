@@ -2980,8 +2980,9 @@ function enforceLieVoteGate(req, route) {
   if (!auth || auth.user.role === 'admin') return;
   const stateRoute = req.method === 'GET' && (route === '/api/state' || route === '/api/sync');
   const logoutRoute = req.method === 'POST' && route === '/api/logout';
-  const voteRoute = req.method === 'POST' && /^\/api\/lie-meter\/[^/]+\/vote$/.test(route);
-  if (stateRoute || logoutRoute || voteRoute) return;
+  const announcementRoute = req.method === 'POST' && route === '/api/announcement/seen';
+  const voteRoute = req.method === 'POST' && (/^\/api\/lie-meter\/[^/]+\/vote$/.test(route) || /^\/api\/community-votes\/[^/]+\/vote$/.test(route));
+  if (stateRoute || logoutRoute || announcementRoute || voteRoute) return;
   const required = requiredLieVoteForUser(auth.user.id);
   if (required) throw new HttpError(423, 'Você precisa votar na mentira pendente antes de continuar.');
 }
@@ -2991,8 +2992,10 @@ function enforceCommunityVoteGate(req, route) {
   if (!auth || auth.user.role === 'admin') return;
   const stateRoute = req.method === 'GET' && (route === '/api/state' || route === '/api/sync');
   const logoutRoute = req.method === 'POST' && route === '/api/logout';
-  const voteRoute = req.method === 'POST' && /^\/api\/community-votes\/[^/]+\/vote$/.test(route);
-  if (stateRoute || logoutRoute || voteRoute) return;
+  const announcementRoute = req.method === 'POST' && route === '/api/announcement/seen';
+  const voteRoute = req.method === 'POST' && (/^\/api\/community-votes\/[^/]+\/vote$/.test(route) || /^\/api\/lie-meter\/[^/]+\/vote$/.test(route));
+  const imageRoute = req.method === 'GET' && /^\/api\/community-votes\/[^/]+\/image$/.test(route);
+  if (stateRoute || logoutRoute || announcementRoute || voteRoute || imageRoute) return;
   const required = requiredCommunityVoteForUser(auth.user.id);
   if (required) throw new HttpError(423, 'Você precisa votar na pauta pendente antes do prazo terminar.');
 }
@@ -3416,7 +3419,6 @@ function feedbackForClient(user) {
 }
 
 const COMMUNITY_VOTE_DURATION_MS = 48 * 60 * 60 * 1000;
-const COMMUNITY_VOTE_FINAL_GATE_MS = 10 * 60 * 1000;
 function communityVotePeople() { return db.users.filter((person) => person.active && person.approved !== false); }
 function communityVoteExpiresAt(item) {
   const createdAt = Date.parse(item?.createdAt || '');
@@ -3448,10 +3450,8 @@ function settleCommunityVoteByMajority(item, now = new Date().toISOString()) {
 }
 function requiredCommunityVoteForUser(userId, now = Date.now()) {
   const item = (db.communityVotes || []).filter((entry) => entry.status === 'open' && Array.isArray(entry.eligibleVoterIds) && entry.eligibleVoterIds.includes(userId) && !(entry.votes || []).some((vote) => vote.userId === userId))
-    .filter((entry) => {
-      const expiresAt = communityVoteExpiresAt(entry);
-      return now < expiresAt && now >= expiresAt - COMMUNITY_VOTE_FINAL_GATE_MS;
-    }).sort((left, right) => communityVoteExpiresAt(left) - communityVoteExpiresAt(right))[0];
+    .filter((entry) => now < communityVoteExpiresAt(entry))
+    .sort((left, right) => communityVoteExpiresAt(left) - communityVoteExpiresAt(right) || String(left.createdAt).localeCompare(String(right.createdAt)))[0];
   if (!item) return null;
   return { id: item.id, subject: item.subject, expiresAt: new Date(communityVoteExpiresAt(item)).toISOString() };
 }
@@ -3475,13 +3475,13 @@ function communityVotesForClient(user) {
     const outcome = item.outcome || (item.status === 'closed' ? (favor > against ? 'approved' : 'rejected') : null);
     return {
       id: item.id, subject: item.subject, imageUrl: item.imageFilename ? '/api/community-votes/' + encodeURIComponent(item.id) + '/image' : null, status: item.status === 'open' ? 'open' : item.status === 'archived' ? 'archived' : 'closed',
-      createdAt: item.createdAt, closedAt: item.closedAt || null, archivedAt: item.archivedAt || null,
+      createdAt: item.createdAt, closedAt: item.closedAt || null, closedBy: item.closedBy || null, archivedAt: item.archivedAt || null,
       authorId: item.authorId, authorName: people.get(item.authorId)?.displayName || item.authorName || 'Conta removida', authorAvatarDataUrl: people.get(item.authorId)?.avatarDataUrl || null,
       voters, comments, favor, against, eligibleTotal, majorityThreshold: item.majorityThreshold || Math.floor(eligibleTotal / 2) + 1,
-      outcome, implementationStatus: item.implementationStatus || (outcome === 'approved' ? 'pending' : null), implementedAt: item.implementedAt || null,
+      outcome, implementationStatus: item.implementationStatus || (outcome === 'approved' ? 'pending' : null), implementationReason: item.implementationReason || null, implementedAt: item.implementedAt || null,
       myVote: ballot?.vote || null, canVote: item.status === 'open' && item.eligibleVoterIds.includes(user.id) && !ballot,
       expiresAt: new Date(communityVoteExpiresAt(item)).toISOString(),
-      mandatoryAt: new Date(communityVoteExpiresAt(item) - COMMUNITY_VOTE_FINAL_GATE_MS).toISOString(),
+      mandatoryAt: item.createdAt,
     };
   });
   return { votes, requiredVote: user.role === 'admin' ? null : requiredCommunityVoteForUser(user.id) };
