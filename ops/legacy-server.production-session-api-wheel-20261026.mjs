@@ -3675,6 +3675,9 @@ function votingForClient(voting, user) {
   if (!voting) return null;
   const votes = voting.votes || [];
   const closed = voting.status === 'closed';
+  const votersRevealed = closed && votes.length >= voting.requiredVoterIds.length;
+  const voterNames = votersRevealed ? new Map(db.users.map((person) => [person.id, person.displayName])) : null;
+  const voterName = (vote) => voterNames.get(vote.userId) || 'Conta removida';
   const canViewEntries = closed || voting.requiredVoterIds.includes(user.id);
   const entries = voting.submissionIds.map((id) => {
     const item = db.submissions.find((submission) => submission.id === id);
@@ -3686,6 +3689,8 @@ function votingForClient(voting, user) {
       isMine: item.userId === user.id,
       revealed: closed, uploader: closed ? item.uploader : null,
       bestVotes: closed ? bestVotes : null, worstVotes: closed ? worstVotes : null,
+      bestVoters: votersRevealed ? votes.filter((vote) => vote.bestId === id).map(voterName) : null,
+      worstVoters: votersRevealed ? votes.filter((vote) => vote.worstId === id).map(voterName) : null,
       isBestWinner: closed && voting.bestWinnerId === item.id,
       isWorstWinner: closed && voting.worstWinnerId === item.id,
     };

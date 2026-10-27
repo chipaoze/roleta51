@@ -1,5 +1,5 @@
 {
-  "version": "20261027-casino-auto-v2",
-  "title": "Giro automático na Roleta e no Caça-Níquel",
-  "notes": "A pauta do Pastel chegou aos dois jogos: escolha 10, 20 ou 30 giros, defina a aposta por giro e use bônus diário ou saldo da Loja 51. Cada giro é cobrado separadamente e pode ser interrompido após o giro em andamento. Reduzimos as consultas de estado durante a sequência para manter o portal leve."
+  "version": "20261027-wallpaper-voters-v1",
+  "title": "Veja quem votou em cada wallpaper",
+  "notes": "A pauta do Rafael foi implementada: quando todos concluírem a votação e o resultado for revelado, passe o mouse sobre o total de votos para ver quem escolheu cada wallpaper como melhor ou pior. No celular, toque no total. Os nomes continuam ocultos enquanto a votação estiver aberta."
 }

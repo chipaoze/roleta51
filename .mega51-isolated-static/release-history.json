@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20261027-wallpaper-voters-v1",
+      "publishedAt": "2026-10-27",
+      "title": "Veja quem votou em cada wallpaper",
+      "notes": [
+        "A pauta aprovada do Rafael foi implementada: ao terminar a votação de wallpapers, os totais de melhor e pior mostram quem votou em cada opção ao passar o mouse.",
+        "No celular, toque no total para abrir a lista; toque novamente ou fora dela para fechar. Os nomes permanecem ocultos até todos os participantes elegíveis votarem.",
+        "A lista usa os votos já registrados e chega na resposta normal da página, sem novas consultas à API."
+      ]
+    },
+    {
       "version": "20261027-casino-auto-v2",
       "publishedAt": "2026-10-27",
       "title": "Giro automático na Roleta e no Caça-Níquel",

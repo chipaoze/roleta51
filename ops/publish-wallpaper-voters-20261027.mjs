@@ -1,0 +1,46 @@
+import { DatabaseSync } from 'node:sqlite';
+import { randomUUID } from 'node:crypto';
+
+const VOTE_ID = '89f952be-2c97-415f-a28b-44a05a36b19f';
+const database = new DatabaseSync(process.argv[2] || '/var/lib/area51/data/area51.sqlite');
+try {
+  database.exec('BEGIN IMMEDIATE');
+  const row = database.prepare('SELECT data, revision FROM app_state WHERE id = 1').get();
+  if (!row) throw new Error('Estado principal não encontrado');
+  const state = JSON.parse(String(row.data));
+  state.settings ||= {};
+  const vote = (state.communityVotes || []).find((item) => item.id === VOTE_ID);
+  if (!vote || vote.status !== 'closed' || vote.outcome !== 'approved') throw new Error('Pauta aprovada não encontrada ou ainda aberta');
+  if (state.settings.wallpaperVoterRevealRelease20261027) {
+    database.exec('ROLLBACK');
+    console.log(JSON.stringify({ alreadyPublished: true, releaseVersion: state.settings.releaseVersion, implementationStatus: vote.implementationStatus }));
+  } else {
+    const now = new Date().toISOString();
+    vote.implementationStatus = 'done';
+    vote.implementedAt ||= now;
+    vote.implementedBy ||= 'Administração';
+    state.settings.wallpaperVoterRevealRelease20261027 = now;
+    state.settings.releaseVersion = Math.max(0, Number(state.settings.releaseVersion || 0)) + 1;
+    state.settings.releasePublishedAt = now;
+    state.settings.releasePublishedBy = 'Administração';
+    state.settings.announcement = {
+      id: randomUUID(),
+      title: 'Veja quem votou em cada wallpaper',
+      message: 'A pauta do Rafael foi implementada! Depois que todos votarem e o resultado aparecer, passe o mouse sobre o total de votos de melhor ou pior para ver quem escolheu cada wallpaper. No celular, toque no total. A lista desaparece ao sair ou fechar; durante a votação, os nomes continuam ocultos. Veja os detalhes em Atualizações.',
+      imageFilename: null,
+      createdAt: now,
+      createdBy: 'Administração',
+      seenUserIds: [],
+    };
+    const result = database.prepare('UPDATE app_state SET data = ?, revision = revision + 1, updated_at = ? WHERE id = 1 AND revision = ?')
+      .run(JSON.stringify(state), now, row.revision);
+    if (result.changes !== 1) throw new Error('Conflito de revisão; publicação cancelada');
+    database.exec('COMMIT');
+    console.log(JSON.stringify({ publishedAt: now, releaseVersion: state.settings.releaseVersion, voteId: vote.id, implementationStatus: vote.implementationStatus, announcementId: state.settings.announcement.id }));
+  }
+} catch (error) {
+  try { database.exec('ROLLBACK'); } catch {}
+  throw error;
+} finally {
+  database.close();
+}

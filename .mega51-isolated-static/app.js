@@ -3240,6 +3240,15 @@ document.addEventListener('click',async event=>{const button=event.target.closes
 $('#closePublicProfileDialog')?.addEventListener('click',()=>$('#publicProfileDialog').close());
 $('#publicProfileCommentForm')?.addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget;if(!openedPublicProfileId||!form.reportValidity())return;setBusy(form,true);try{const data=await api('/api/profiles/'+encodeURIComponent(openedPublicProfileId),{method:'POST',body:{message:form.elements.message.value}});form.reset();renderPublicProfile(data.profile);showToast('Comentário publicado no perfil.');}catch(error){showToast(error.message,'error');}finally{setBusy(form,false);}});
 
+function voteVotersMarkup(item, kind, summary = false) {
+  const best = kind === 'best';
+  const count = Number(best ? item.bestVotes : item.worstVotes) || 0;
+  const names = best ? item.bestVoters : item.worstVoters;
+  const label = summary ? `${count} ${count === 1 ? 'voto' : 'votos'}` : `${best ? '▲' : '▼'} ${count} ${best ? 'melhor' : 'pior'}`;
+  if (!Array.isArray(names)) return summary ? escapeHtml(label) : `<span class="vote-badge ${kind}">${escapeHtml(label)}</span>`;
+  return `<span class="vote-voters-wrap${summary ? ' summary' : ''}"><button class="${summary ? 'vote-voters-summary' : `vote-badge ${kind}`} vote-voters-trigger" type="button" data-vote-voters-toggle aria-expanded="false" aria-label="${escapeHtml(label)}. Passe o mouse ou toque para ver quem votou.">${escapeHtml(label)}</button><span class="vote-voters-tooltip" role="tooltip"><strong>Votaram como ${best ? 'melhor' : 'pior'}</strong><span>${names.length ? names.map((name) => escapeHtml(name)).join('<br>') : 'Nenhum voto'}</span></span></span>`;
+}
+
 function renderVoting() {
   const panel = $('#votingPanel');
   const voting = appState.voting;
@@ -3262,9 +3271,8 @@ function renderVoting() {
   const worstTieText = voting.result?.worstTiebreakByOppositeVote ? ' · desempate por votos de melhor' : voting.result?.worstTiebreak ? ' · desempate automático' : '';
   const resultLeader = (item, kind, tieText) => {
     const best = kind === 'best';
-    const count = Number(best ? item.bestVotes : item.worstVotes) || 0;
     const image = item.imageUrl ? '<button class="result-leader-image" type="button" data-wallpaper-preview-url="' + escapeHtml(item.imageUrl) + '" data-wallpaper-preview-title="' + escapeHtml(item.title) + '" aria-label="Ampliar wallpaper ' + escapeHtml(item.title) + '"><img src="' + escapeHtml(item.imageUrl) + '" alt="" loading="lazy" decoding="async"></button>' : '';
-    return '<article class="result-leader ' + kind + '">' + image + '<div class="result-leader-details"><span class="result-leader-label">' + (best ? '★ MELHOR WALLPAPER' : '▼ PIOR WALLPAPER') + '</span><small class="result-leader-author-label">ENVIADO POR</small><strong class="result-leader-author">' + escapeHtml(formatDisplayName(item.uploader)) + '</strong><span class="result-leader-title">' + escapeHtml(item.title) + '</span><small class="result-leader-meta">' + count + (count === 1 ? ' voto' : ' votos') + tieText + ' · ' + (best ? '+120 créditos' : 'tema castigo') + '</small></div></article>';
+    return '<article class="result-leader ' + kind + '">' + image + '<div class="result-leader-details"><span class="result-leader-label">' + (best ? '★ MELHOR WALLPAPER' : '▼ PIOR WALLPAPER') + '</span><small class="result-leader-author-label">ENVIADO POR</small><strong class="result-leader-author">' + escapeHtml(formatDisplayName(item.uploader)) + '</strong><span class="result-leader-title">' + escapeHtml(item.title) + '</span><small class="result-leader-meta">' + voteVotersMarkup(item, kind, true) + tieText + ' · ' + (best ? '+120 créditos' : 'tema castigo') + '</small></div></article>';
   };
   summary.innerHTML = closed && bestItem && worstItem ? resultLeader(bestItem, 'best', bestTieText) + resultLeader(worstItem, 'worst', worstTieText) : '';
   const canChoose = !closed && voting.userCanVote && !voting.userHasVoted;
@@ -3276,8 +3284,7 @@ function renderVoting() {
     const choices = canChoose ? '<div class="vote-options">' +
       '<label class="vote-option best"><input type="radio" name="bestId" value="' + item.id + '"><span>▲ Melhor</span></label>' +
       '<label class="vote-option worst"><input type="radio" name="worstId" value="' + item.id + '"><span>▼ Pior</span></label></div>' : '';
-    const results = closed ? '<div class="vote-results"><span class="vote-badge best">▲ ' + item.bestVotes + ' melhor</span>' +
-      '<span class="vote-badge worst">▼ ' + item.worstVotes + ' pior</span></div>' : '';
+    const results = closed ? '<div class="vote-results">' + voteVotersMarkup(item, 'best') + voteVotersMarkup(item, 'worst') + '</div>' : '';
     const highlight = closed ? (item.isBestWinner ? ' winner-best' : '') + (item.isWorstWinner ? ' winner-worst' : '') : '';
     const visual = item.imageUrl ? '<button class="vote-image-open" type="button" data-wallpaper-preview-url="' + escapeHtml(item.imageUrl) + '" data-wallpaper-preview-title="' + escapeHtml(item.title) + '" aria-label="Ampliar wallpaper ' + escapeHtml(item.title) + '"><img src="' + escapeHtml(item.imageUrl) + '" alt="' + escapeHtml(item.title) + '" loading="lazy" decoding="async"></button>' :
       '<div class="vote-secret-visual"><span>👽</span><strong>IMAGEM RESERVADA</strong></div>';
@@ -7480,6 +7487,27 @@ $('#voteGrid').addEventListener('change', (event) => {
   votingDraft.votingId = appState.voting.id;
   if (input.name === 'bestId') votingDraft.bestId = input.value;
   if (input.name === 'worstId') votingDraft.worstId = input.value;
+});
+
+document.addEventListener('click', (event) => {
+  const trigger = event.target.closest?.('[data-vote-voters-toggle]');
+  const current = trigger?.closest('.vote-voters-wrap') || null;
+  document.querySelectorAll('.vote-voters-wrap.is-open').forEach((wrap) => {
+    if (wrap === current) return;
+    wrap.classList.remove('is-open');
+    wrap.querySelector('[data-vote-voters-toggle]')?.setAttribute('aria-expanded', 'false');
+  });
+  // Mouse hover is handled by CSS and always disappears when the pointer leaves.
+  if (!trigger || (window.matchMedia('(hover:hover)').matches && event.detail > 0)) return;
+  const opened = current.classList.toggle('is-open');
+  trigger.setAttribute('aria-expanded', String(opened));
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  document.querySelectorAll('.vote-voters-wrap.is-open').forEach((wrap) => {
+    wrap.classList.remove('is-open');
+    wrap.querySelector('[data-vote-voters-toggle]')?.setAttribute('aria-expanded', 'false');
+  });
 });
 
 $('#closeVotingButton').addEventListener('click', async () => {
