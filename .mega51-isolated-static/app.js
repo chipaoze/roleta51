@@ -5243,8 +5243,14 @@ async function refreshRuntimeHealth() {
 function renderAnnouncement(announcement) {
   const dialog = $('#announcementDialog');
   // Publicações de versão já possuem um fluxo próprio (atualizar → notas da
-  // versão). Não abrir também o anúncio genérico para a mesma publicação.
-  if (!announcement || String(announcement.id || '').startsWith('release-') || !announcement.unread || dialog.dataset.announcementId === announcement.id) return;
+  // versão). Alguns anúncios anteriores têm UUID comum, mas compartilham o
+  // instante exato da publicação; também são notas da mesma versão.
+  const isReleaseAnnouncement = announcement && (String(announcement.id || '').startsWith('release-') ||
+    Boolean(announcement.createdAt && announcement.createdAt === appState?.settings?.releasePublishedAt));
+  if (!announcement || isReleaseAnnouncement || !announcement.unread || dialog.dataset.announcementId === announcement.id) {
+    if (isReleaseAnnouncement && dialog.open && dialog.dataset.announcementId === announcement.id) dialog.close();
+    return;
+  }
   dialog.dataset.announcementId = announcement.id;
   const title = String(announcement.title || '').trim(); const message = String(announcement.message || '').trim(); const image = $('#announcementDialogImage');
   $('#announcementDialogTitle').textContent = title;
