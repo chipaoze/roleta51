@@ -96,3 +96,57 @@ test('six concurrent accounts can each complete 30 independent compact casino pl
     database.close();
   }
 });
+
+test('both games stop before charging when either selected balance reaches zero', { timeout: 30000 }, async () => {
+  const root = path.resolve(import.meta.dirname, '..');
+  const source = (await readFile(path.join(root, 'ops/legacy-server.production-session-api-wheel-20261026.mjs'), 'utf8'))
+    .replaceAll("from './lib/", `from '${pathToFileURL(path.join(root, 'lib')).href}/`);
+  const module = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}#insufficient`);
+  const database = createSqliteD1(':memory:');
+  const seed = JSON.parse(await readFile(path.join(root, 'seed-database.json'), 'utf8'));
+  const salt = 'casino-low-balance-test';
+  const cases = ['slots', 'roulette'].flatMap((game) => ['shop', 'promotional'].map((walletSource) => ({ game, walletSource })));
+  const users = cases.map(({ game, walletSource }) => ({ id: `low-${game}-${walletSource}`, username: `low-${game}-${walletSource}`, displayName: `${game} ${walletSource}`, role: 'participant', active: true, approved: true, eligible: true, passwordSalt: salt, passwordHash: scryptSync('senha-local', salt, 64).toString('hex') }));
+  const dayKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  seed.users = users;
+  seed.economy = { wallets: Object.fromEntries(users.map((user) => [user.id, 2])), casinoAccounts: Object.fromEntries(users.map((user) => [user.id, { dayKey, balance: 2, cashedOut: false }])), casinoPlays: [], casinoFairnessRefundV1: true };
+  for (const key of ['submissions', 'draws', 'votings', 'assignments', 'feedbackMessages', 'dailyMemes', 'dailyPhrases', 'anonymousPosts', 'waterEntries', 'rememberTokens', 'lieAccusations', 'gateAuthorizations']) seed[key] = [];
+  seed.scores = {}; seed.communityVotes = [];
+  let server;
+  const originalRandom = Math.random;
+  try {
+    await module.initializeOnline({ DB: database, MEDIA: { get: async () => null, put: async () => {} } }, seed);
+    server = http.createServer((req, res) => void module.requestHandler(req, res));
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    for (const [index, user] of users.entries()) {
+      const { game, walletSource } = cases[index];
+      Math.random = () => game === 'slots' ? .99 : .27; // A zero-payout result in both local games.
+      const route = game === 'slots' ? '/api/casino/slots/play' : '/api/casino/play';
+      const login = await fetch(base + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: user.username, password: 'senha-local' }) });
+      assert.equal(login.status, 200);
+      const cookie = login.headers.get('set-cookie').split(';')[0];
+      const autoSessionId = randomUUID();
+      for (let spin = 0; spin < 3; spin += 1) {
+        const response = await fetch(base + route, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ requestId: randomUUID(), autoSessionId, bet: 1, walletSource, compact: true }) });
+        if (spin < 2) {
+          assert.equal(response.status, 200);
+          const data = await response.json();
+          assert.equal(data.casinoResult.net, -1);
+          assert.equal(data.casinoBalances[walletSource], 1 - spin);
+        } else {
+          assert.equal(response.status, 409);
+          assert.match((await response.json()).error, /saldo.*insuficiente/i);
+        }
+      }
+      const state = await (await fetch(base + '/api/state', { headers: { cookie } })).json();
+      assert.equal(state.casino[walletSource === 'shop' ? 'shopWallet' : 'wallet'], 0);
+    }
+    const stored = JSON.parse(String((await database.prepare('SELECT data FROM app_state WHERE id = 1').first()).data));
+    assert.equal(stored.economy.casinoPlays.length, 8, 'only the two confirmed spins for each game and balance were recorded');
+  } finally {
+    Math.random = originalRandom;
+    if (server?.listening) await new Promise((resolve) => server.close(resolve));
+    database.close();
+  }
+});

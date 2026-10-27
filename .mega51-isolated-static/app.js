@@ -6828,6 +6828,7 @@ $('#casinoForm').addEventListener('submit', async (event) => {
   if (casinoAutoRun && !autoRun) return;
   if (autoRun) autoRun.triggering = false;
   let completed = false;
+  let autoStopMessage = 'Parada após erro. Confira o resultado antes de tentar novamente.';
   const form = event.currentTarget; const bet = autoRun ? autoRun.bet : Number($('#casinoBet').value); const walletSource = autoRun ? autoRun.walletSource : $('#casinoWalletSource').value;
   if (!Number.isFinite(bet) || bet < 0.01 || Math.abs(Math.round(bet * 100) - bet * 100) > 0.000001) { showToast('Aposte um valor de pelo menos 0,01 crédito, com no máximo duas casas decimais.', 'error'); return; }
   casinoSpinInProgress = true; casinoAudioContext(); setBusy(form, true); $('#casinoResult').textContent = 'Confirmando sua aposta…';
@@ -6851,8 +6852,8 @@ $('#casinoForm').addEventListener('submit', async (event) => {
     casinoSpinInProgress = false;
     if (autoRun) applyCompactCasinoPlay(data, 'roulette'); else applyState(data);
     completed = true;
-  } catch (error) { $('#casinoResult').textContent = error.message; showToast(error.message, 'error'); }
-  finally { stopCasinoWheelSound(); casinoSpinInProgress = false; setBusy(form, false); renderCasino(appState?.casino); if (autoRun) { if (completed) queueNextCasinoAuto(autoRun); else finishCasinoAuto(autoRun, 'Parada após erro. Confira o resultado antes de tentar novamente.'); } }
+  } catch (error) { $('#casinoResult').textContent = error.message; showToast(error.message, 'error'); if (/saldo.*insuficiente/i.test(error.message)) autoStopMessage = 'Saldo insuficiente para o próximo giro. Nenhuma nova aposta foi cobrada.'; }
+  finally { stopCasinoWheelSound(); casinoSpinInProgress = false; setBusy(form, false); renderCasino(appState?.casino); if (autoRun) { if (completed) queueNextCasinoAuto(autoRun); else finishCasinoAuto(autoRun, autoStopMessage); } }
 });
 
 async function submitPlinkoBet(bet, walletSource, risk) {
@@ -7006,12 +7007,13 @@ $('#slotForm')?.addEventListener('submit', async (event) => {
   if (casinoAutoRun && !autoRun) return;
   if (autoRun) autoRun.triggering = false;
   let completed = false;
+  let autoStopMessage = 'Parada após erro. Confira o resultado antes de tentar novamente.';
   const form = event.currentTarget; const bet = autoRun ? autoRun.bet : Number($('#slotBet').value); const walletSource = autoRun ? autoRun.walletSource : $('#slotWalletSource').value;
   if (!Number.isFinite(bet) || bet < .01 || Math.abs(Math.round(bet * 100) - bet * 100) > .000001) { showToast('Aposte um valor de pelo menos 0,01 crédito, com até duas casas decimais.', 'error'); return; }
   slotSpinInProgress = true; setSlotLeverVisual(1); casinoAudioContext(); setBusy(form, true); $('#slotResult').textContent = 'Os rolos começaram a girar…'; startSlotPreSpin();
   try { const data = await submitSlotBet(bet, walletSource, autoRun?.id); const result = data.casinoResult; $('#slotResult').textContent = 'Resultado confirmado. Os rolos estão parando…'; await animateSlotResult(result); const message = result.net > 0 ? `${result.slots?.label || 'Combinação'}! Você ganhou ${formatCredits(result.net)} créditos.` : result.net === 0 ? 'A aposta voltou inteira.' : 'Sem combinação desta vez.'; $('#slotResult').textContent = `${result.slots?.label || 'Resultado'} · x${String(result.multiplier).replace('.', ',')} · retorno ${formatCredits(result.payout)} créditos · ${message}`; if (!autoRun) showToast(message); if (result.net > 0) playSlotCoinSound(); else playCasinoRewardSound(result.net === 0 ? 'neutral' : false); if (!autoRun) offerStellarLoan(result); if (autoRun) applyCompactCasinoPlay(data, 'slots'); else applyState(data); completed = true; }
-  catch (error) { $('#slotResult').textContent = error.message; showToast(error.message, 'error'); }
-  finally { stopSlotGameMusic(); $$('[data-slot-reel]').forEach((reel) => reel.classList.remove('pre-spinning')); slotSpinInProgress = false; setSlotLeverVisual(0); setBusy(form, false); renderCasino(appState?.casino); if (autoRun) { if (completed) queueNextCasinoAuto(autoRun); else finishCasinoAuto(autoRun, 'Parada após erro. Confira o resultado antes de tentar novamente.'); } }
+  catch (error) { $('#slotResult').textContent = error.message; showToast(error.message, 'error'); if (/saldo.*insuficiente/i.test(error.message)) autoStopMessage = 'Saldo insuficiente para o próximo giro. Nenhuma nova aposta foi cobrada.'; }
+  finally { stopSlotGameMusic(); $$('[data-slot-reel]').forEach((reel) => reel.classList.remove('pre-spinning')); slotSpinInProgress = false; setSlotLeverVisual(0); setBusy(form, false); renderCasino(appState?.casino); if (autoRun) { if (completed) queueNextCasinoAuto(autoRun); else finishCasinoAuto(autoRun, autoStopMessage); } }
 });
 
 $('#lotteryNumbers')?.addEventListener('click', (event) => {
