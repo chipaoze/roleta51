@@ -2449,6 +2449,11 @@ function renderWorkflow() {
 }
 
 function notificationIconMarkup(item) {
+  // O assunto pode mencionar créditos, maldição ou mercado. A identidade da
+  // notificação é a pauta, portanto o ícone não deve depender desse texto.
+  if (String(item?.id || '').startsWith('community-vote-')) {
+    return '<img class="catalog-art-icon notification-art-icon" src="/roulette51/menu-icons/v2/menu-votacoes-v2.png" alt="">';
+  }
   // Os destaques da Pokédex já carregam o ID do Pokémon. Usamos a própria
   // arte dele no sino, em vez do ícone genérico da área Cobblemon.
   if (String(item?.id || '').startsWith('cobblemon-capture:') && Number(item?.pokemonId) > 0) {
