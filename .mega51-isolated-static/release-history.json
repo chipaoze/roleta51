@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "20261028-mercado-devolucao-v1",
+      "publishedAt": "2026-10-28",
+      "title": "Devolução dos investimentos do Mercado 51",
+      "notes": [
+        "Devolvemos ao saldo de cada participante o custo pago pelas ações do Mercado 51 que ainda estavam em sua carteira. Ações já vendidas não foram pagas novamente.",
+        "Todas as posições antigas do Mercado 51 foram zeradas e as ordens de venda automática relacionadas foram canceladas. O saldo devolvido pode ser usado para comprar ações novamente.",
+        "O histórico registra as operações como Devolução para conferência. As cotações, tendências, variações e demais regras do Mercado 51 seguem iguais.",
+        "A Cripto 51 e suas posições não foram alteradas."
+      ]
+    },
+    {
       "version": "20261028-postagem-agua-v1",
       "publishedAt": "2026-10-28",
       "title": "Postagem e água diárias",
