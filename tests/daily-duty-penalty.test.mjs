@@ -13,7 +13,8 @@ test('daily post and water duties, game lock and permanent water record', async 
   const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() - 86400000));
   const source = (await readFile(path.join(root, 'ops/legacy-server.production-session-api-wheel-20261026.mjs'), 'utf8'))
     .replaceAll("from './lib/", `from '${pathToFileURL(path.join(root, 'lib')).href}/`)
-    .replace("const DAILY_DUTY_FIRST_DAY = '2026-10-28';", `const DAILY_DUTY_FIRST_DAY = '${yesterday}';`);
+    .replace("const DAILY_DUTY_FIRST_DAY = '2026-10-28';", `const DAILY_DUTY_FIRST_DAY = '${yesterday}';`)
+    + '\nexport const testDailyDutyPenaltyFor = dailyDutyPenaltyFor;';
   const module = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
   const database = createSqliteD1(':memory:');
   const seed = JSON.parse(await readFile(path.join(root, 'seed-database.json'), 'utf8'));
@@ -53,6 +54,10 @@ test('daily post and water duties, game lock and permanent water record', async 
     assert.equal((await fetch(base + '/api/water/water-complete', { method: 'DELETE', headers: { cookie: cookies.complete } })).status, 409);
     assert.equal((await fetch(base + '/api/water', { method: 'POST', headers: { cookie: cookies['no-water'], 'content-type': 'application/json' }, body: JSON.stringify({ ml: 100 }) })).status, 201);
     assert.equal((await state('no-water')).dailyDutyPenalty.dayKey, today);
+    assert.equal((await fetch(base + '/api/daily-wall/phrases', { method: 'POST', headers: { cookie: cookies['no-water'], 'content-type': 'application/json' }, body: JSON.stringify({ phrase: 'Cumpri a missão hoje' }) })).status, 200);
+    const tomorrow = new Date(Date.parse(today + 'T12:00:00-03:00') + 86400000);
+    assert.equal(module.testDailyDutyPenaltyFor(seed.users.find((user) => user.id === 'no-water'), tomorrow), null);
+    assert.equal(module.testDailyDutyPenaltyFor(seed.users.find((user) => user.id === 'neither'), tomorrow)?.missingPost, true);
   } finally {
     if (server?.listening) await new Promise((resolve) => server.close(resolve));
     database.close();
