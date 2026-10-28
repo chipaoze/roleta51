@@ -122,6 +122,38 @@ let lotteryDrawTimer = null;
 let lotteryDrawInProgress = false;
 let mysteryOpeningInProgress = false;
 let forcedCursorExpiryTimer = null;
+let curseRemainingInterval = null;
+function syncCurseRemainingTimer(profile = {}) {
+  const badge = document.querySelector('#curseRemainingTimer');
+  if (!badge) return;
+  clearInterval(curseRemainingInterval);
+  curseRemainingInterval = null;
+  const curse = profile.haterCurse || profile.givaldoCurse || (profile.forcedCursor && !profile.forcedCursor.automatic && !profile.forcedCursor.debt ? profile.forcedCursor : null);
+  const expiresAt = Date.parse(curse?.expiresAt || '');
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now() + serverClockOffset) {
+    badge.classList.add('hidden');
+    return;
+  }
+  const names = { hater: 'Hater', givaldo: 'Givaldo', 'giant-slow': 'Mouse Gigante', adhd: 'TDAH', 'dev-dark': 'Dev', cleaning: 'Limpeza', gay: 'Seta Gay' };
+  document.querySelector('#curseRemainingName').textContent = 'Maldição ' + (names[curse.style] || 'ativa');
+  const value = document.querySelector('#curseRemainingValue');
+  const tick = () => {
+    const seconds = Math.max(0, Math.ceil((expiresAt - Date.now() - serverClockOffset) / 1000));
+    if (!seconds) {
+      clearInterval(curseRemainingInterval);
+      curseRemainingInterval = null;
+      badge.classList.add('hidden');
+      return;
+    }
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor(seconds % 3600 / 60);
+    const remainder = seconds % 60;
+    value.textContent = [hours, minutes, remainder].map((part) => String(part).padStart(2, '0')).join(':');
+  };
+  badge.classList.remove('hidden');
+  tick();
+  curseRemainingInterval = setInterval(tick, 1000);
+}
 let announcedForcedCursorId = null;
 const FORCED_CURSE_NOTICE_KEY = 'area51:seen-forced-curse-id';
 let pendingShieldDialogIdShown = null;
@@ -4735,6 +4767,7 @@ $('#cobblemonDexCard')?.addEventListener('click', (event) => {
 });
 
 function renderProfileEconomy(profile = {}, globalOnly = false) {
+  syncCurseRemainingTimer(profile);
   if(typeof renderNextCardSeasonShopPreview==='function')renderNextCardSeasonShopPreview();
   const profilePage = currentPortalPage();
   // applyState() chama esta função em modo global para atualizar apenas o
