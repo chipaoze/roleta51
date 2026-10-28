@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "20261028-postagem-agua-v1",
+      "publishedAt": "2026-10-28",
+      "title": "Postagem e água diárias",
+      "notes": [
+        "A partir de 28/10, todos devem publicar ao menos uma frase ou imagem no feed e registrar água ao menos uma vez por dia. Uma única meta não substitui a outra.",
+        "À meia-noite de Brasília, quem não cumpriu alguma meta do dia anterior recebe o Site Desconfigurado por 24 horas, sem Antídoto e com a página de Jogos bloqueada.",
+        "A punição mostra qual meta faltou e o tempo restante. Cumprir as metas durante o dia punido evita nova punição no dia seguinte.",
+        "Maldições compradas continuam independentes e podem ser tratadas com Antídoto conforme suas regras. Registros de água agora são definitivos e não podem ser removidos."
+      ]
+    },
+    {
       "version": "20261027-pautas-obrigatorias-v1",
       "publishedAt": "2026-10-27",
       "title": "Voto obrigatório nas pautas",

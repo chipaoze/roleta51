@@ -1913,9 +1913,36 @@ function currentPortalPage() {
   return portalPages.includes(requested) ? requested : 'sorteio';
 }
 
+let dailyDutyCountdownInterval = null;
+function syncDailyDutyPenalty(penalty) {
+  const active = Boolean(penalty?.expiresAt && Date.parse(penalty.expiresAt) > Date.now() + serverClockOffset);
+  document.body.classList.toggle('daily-duty-penalty', active);
+  const banner = $('#dailyDutyBanner');
+  if (!banner) return;
+  banner.classList.toggle('hidden', !active);
+  clearInterval(dailyDutyCountdownInterval);
+  dailyDutyCountdownInterval = null;
+  if (!active) return;
+  const missing = [penalty.missingPost && 'postagem no feed', penalty.missingWater && 'registro de água'].filter(Boolean).join(' e ');
+  $('#dailyDutyReason').textContent = 'Ontem faltou ' + missing + '.';
+  const tick = () => {
+    const seconds = Math.max(0, Math.ceil((Date.parse(penalty.expiresAt) - Date.now() - serverClockOffset) / 1000));
+    if (!seconds) {
+      clearInterval(dailyDutyCountdownInterval);
+      dailyDutyCountdownInterval = null;
+      api('/api/state', {}, false).then(applyState).catch(() => {});
+      return;
+    }
+    $('#dailyDutyCountdown').textContent = [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map((part) => String(part).padStart(2, '0')).join(':');
+  };
+  tick();
+  dailyDutyCountdownInterval = setInterval(tick, 1000);
+}
+
 function showPortalPage(page, pushState = false, resetScroll = true) {
   if (!portalPages.includes(page) || (page === 'admin' && appState?.me?.role !== 'admin')) page = 'sorteio';
   if (appState?.communityVotes?.requiredVote && page !== 'votacoes') { page = 'votacoes'; if (pushState) showToast('Há uma votação obrigatória aguardando sua escolha.', 'error'); }
+  if (page === 'jogos' && appState?.dailyDutyPenalty) { page = 'memes'; if (pushState) showToast('Jogos bloqueados até a meia-noite pela punição diária.', 'error'); }
   const requiredFeature = featurePageMap[page];
   if (requiredFeature && appState?.settings?.featureFlags?.[requiredFeature] === false) {
     if (pushState) showToast('Esta área foi pausada temporariamente pelo administrador.', 'error');
@@ -3467,7 +3494,7 @@ function renderHydration(hydration = {}) {
   }).join('') : '<p class="water-empty">Nenhum participante ativo.</p>';
   const entries = Array.isArray(hydration.entries) ? hydration.entries : [];
   $('#waterEntryList').innerHTML = entries.length ? entries.map((entry) =>
-    `<article class="water-entry"><span aria-hidden="true">💧</span><p><strong>${escapeHtml(formatDisplayName(entry.displayName))}</strong><small>${escapeHtml(formatDate(entry.createdAt))}</small></p><b>+ ${Number(entry.ml).toLocaleString('pt-BR')} ml</b>${entry.canDelete ? `<button type="button" data-delete-water="${escapeHtml(entry.id)}">Desfazer</button>` : ''}</article>`
+    `<article class="water-entry"><span aria-hidden="true">💧</span><p><strong>${escapeHtml(formatDisplayName(entry.displayName))}</strong><small>${escapeHtml(formatDate(entry.createdAt))}</small></p><b>+ ${Number(entry.ml).toLocaleString('pt-BR')} ml</b></article>`
   ).join('') : '<p class="water-empty">Ninguém registrou água hoje.</p>';
 }
 
@@ -5197,14 +5224,15 @@ function renderFeatureAvailability(flags = {}) {
   const normalized = { casino: true, impostor: true, mystery: true, shop: true, uploads: true, ...flags };
   $$('#siteMenu a[data-page]').forEach((link) => {
     const feature = featurePageMap[link.dataset.page];
-    link.classList.toggle('feature-paused', Boolean(feature && normalized[feature] === false));
-    link.hidden = Boolean(feature && normalized[feature] === false);
-    link.setAttribute('aria-disabled', String(Boolean(feature && normalized[feature] === false)));
+    const blocked = Boolean((feature && normalized[feature] === false) || (link.dataset.page === 'jogos' && appState?.dailyDutyPenalty));
+    link.classList.toggle('feature-paused', blocked);
+    link.hidden = blocked;
+    link.setAttribute('aria-disabled', String(link.hidden));
   });
   const form = $('#featureFlagsForm');
   if (form && document.activeElement?.form !== form) Object.entries(normalized).forEach(([key, enabled]) => { if (form.elements[key]) form.elements[key].checked = enabled; });
   const current = currentPortalPage(); const required = featurePageMap[current];
-  if (required && normalized[required] === false) showPortalPage('memes', false, false);
+  if ((required && normalized[required] === false) || (current === 'jogos' && appState?.dailyDutyPenalty)) showPortalPage('memes', false, false);
   const giftItemButton = $('#giftItemForm button[type="submit"]');
   if (giftItemButton) { giftItemButton.disabled = normalized.shop === false; giftItemButton.title = normalized.shop === false ? 'A Loja 51 está pausada.' : ''; }
 }
@@ -5786,6 +5814,8 @@ function applyState(data) {
     releaseNoticeChecked = false;
   }
   appState = data;
+  serverClockOffset = Number(data.serverTime || Date.now()) - Date.now();
+  syncDailyDutyPenalty(data.dailyDutyPenalty);
   // Desde a abertura, a pauta pendente assume a tela também após atualizar
   // o navegador. O servidor mantém o mesmo bloqueio nas ações protegidas.
   if (data.communityVotes?.requiredVote && currentPortalPage() !== 'votacoes') {
@@ -6705,14 +6735,6 @@ $('#customWaterForm').addEventListener('submit', async (event) => {
     form.reset(); showToast(ml.toLocaleString('pt-BR') + ' ml registrados.' + (earned > 0 ? ' Você ganhou ' + earned + ' Créditos 51! 🪙' : ' Saúde! 💧'));
   } catch (error) { showToast(error.message, 'error'); }
   finally { setBusy(form, false); }
-});
-$('#waterEntryList').addEventListener('click', async (event) => {
-  const button = event.target.closest('[data-delete-water]');
-  if (!button || !confirm('Desfazer este registro de água?')) return;
-  try {
-    applyState(await api('/api/water/' + encodeURIComponent(button.dataset.deleteWater), { method: 'DELETE' }));
-    showToast('Registro de água removido.');
-  } catch (error) { showToast(error.message, 'error'); }
 });
 function closeWaterReminder() { $('#waterReminderDialog').close(); }
 $('#closeWaterReminder').addEventListener('click', closeWaterReminder);
@@ -8496,7 +8518,8 @@ async function runPortalSync() {
     if (Array.isArray(sync.onlinePeople)) { appState.onlinePeople = sync.onlinePeople; renderOnlinePeople(); }
     serverClockOffset = Number(sync.serverTime || Date.now()) - Date.now();
     if (sync.liveDraw) receiveLiveDraw(sync.liveDraw);
-    const changed = Number(sync.revision) !== Number(appState.serverRevision) || Boolean(sync.loanOverdue) !== Boolean(appState.profile?.loan?.overdue);
+    const changed = Number(sync.revision) !== Number(appState.serverRevision) || Boolean(sync.loanOverdue) !== Boolean(appState.profile?.loan?.overdue)
+      || (sync.dailyDutyPenalty?.dayKey || null) !== (appState.dailyDutyPenalty?.dayKey || null);
     const currentRequiredLieVoteId = appState.lieMeter?.requiredVote?.id || null;
     const incomingRequiredLieVoteId = sync.requiredLieVote?.id || null;
     const requiredLieVoteChanged = currentRequiredLieVoteId !== incomingRequiredLieVoteId;

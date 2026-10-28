@@ -1,5 +1,5 @@
 {
-  "version": "20261027-pautas-obrigatorias-v1",
-  "title": "Voto obrigatório nas pautas",
-  "notes": "A proposta do Davi foi implementada: ao abrir uma pauta, cada participante elegível precisa votar A favor ou Contra para continuar usando o portal. Se houver mais de uma, elas aparecem uma por vez. O resultado histórico da proposta permanece como não aprovada por prazo; a implementação foi decisão administrativa."
+  "version": "20261028-postagem-agua-v1",
+  "title": "Postagem e água diárias",
+  "notes": "A partir de hoje, cada participante deve publicar uma frase ou imagem no feed e registrar água ao menos uma vez por dia. Na virada para amanhã, quem deixou faltar qualquer uma das duas metas recebe por 24 horas o Site Desconfigurado, com Jogos bloqueados e sem Antídoto. Outras maldições continuam independentes. Registros de água não podem mais ser removidos."
 }

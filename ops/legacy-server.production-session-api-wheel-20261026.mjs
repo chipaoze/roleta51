@@ -421,6 +421,18 @@ async function ensureDatabase(seedDatabase) {
     if (db.economy.wallets[userId] !== normalized) { db.economy.wallets[userId] = normalized; changed = true; }
   });
   if (!Array.isArray(db.economy.waterRewardDays)) { db.economy.waterRewardDays = []; changed = true; }
+  if (!Array.isArray(db.economy.dailyDutyPosts)) { db.economy.dailyDutyPosts = []; changed = true; }
+  if (!db.settings.dailyDutyPostBackfill20261028) {
+    const existingPosts = [...db.dailyPhrases, ...db.dailyMemes, ...db.dailyWallHistory.flatMap((archive) => [...(archive.phrases || []), ...(archive.memes || [])])];
+    for (const post of existingPosts) {
+      const dayKey = dayKeyForTimestamp(post.createdAt);
+      if (dayKey !== DAILY_DUTY_FIRST_DAY || !post.userId || db.economy.dailyDutyPosts.some((entry) => entry.userId === post.userId && entry.dayKey === dayKey)) continue;
+      db.economy.dailyDutyPosts.push({ userId: post.userId, dayKey });
+      changed = true;
+    }
+    db.settings.dailyDutyPostBackfill20261028 = true;
+    changed = true;
+  }
   if (!Array.isArray(db.economy.purchases)) { db.economy.purchases = []; changed = true; }
   if (!Array.isArray(db.economy.freeShopUses)) { db.economy.freeShopUses = []; changed = true; }
   if (!db.economy.equipped || typeof db.economy.equipped !== 'object') { db.economy.equipped = {}; changed = true; }
@@ -1129,6 +1141,29 @@ function saoPauloDayKey(date = new Date()) {
   const parts = dayFormatter.formatToParts(date);
   const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return value.year + '-' + value.month + '-' + value.day;
+}
+
+// A primeira apuração é a virada de 28 para 29/10/2026 em Brasília.
+const DAILY_DUTY_FIRST_DAY = '2026-10-28';
+function previousSaoPauloDayKey(dayKey) {
+  return saoPauloDayKey(new Date(Date.parse(dayKey + 'T12:00:00-03:00') - 86400000));
+}
+function dailyDutyPostRecorded(userId, dayKey) {
+  const matches = (post) => post.userId === userId && dayKeyForTimestamp(post.createdAt) === dayKey;
+  return (db.economy.dailyDutyPosts || []).some((entry) => entry.userId === userId && entry.dayKey === dayKey)
+    || db.dailyPhrases.some(matches) || db.dailyMemes.some(matches)
+    || db.dailyWallHistory.some((archive) => (archive.phrases || []).some(matches) || (archive.memes || []).some(matches));
+}
+function dailyDutyPenaltyFor(user, now = new Date()) {
+  const today = saoPauloDayKey(now);
+  if (today <= DAILY_DUTY_FIRST_DAY || !user?.active || user.approved === false) return null;
+  const checkedDay = previousSaoPauloDayKey(today);
+  if (checkedDay < DAILY_DUTY_FIRST_DAY || saoPauloDayKey(new Date(user.createdAt || 0)) > checkedDay) return null;
+  const posted = dailyDutyPostRecorded(user.id, checkedDay);
+  const drankWater = db.waterEntries.some((entry) => entry.userId === user.id && entry.dayKey === checkedDay);
+  if (posted && drankWater) return null;
+  return { dayKey: today, checkedDay, missingPost: !posted, missingWater: !drankWater,
+    expiresAt: new Date(Date.parse(today + 'T00:00:00-03:00') + 86400000).toISOString() };
 }
 
 function wallpaperDeadlineAt() {
@@ -4133,6 +4168,11 @@ function updatePostMentions(post) {
 
 function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   const roundId = db.settings.currentRoundId; const items = [];
+  const dailyPenalty = dailyDutyPenaltyFor(user);
+  if (dailyPenalty) {
+    const missing = [dailyPenalty.missingPost && 'postagem no feed', dailyPenalty.missingWater && 'registro de água'].filter(Boolean).join(' e ');
+    items.push({ id: 'daily-duty:' + dailyPenalty.dayKey + ':' + user.id, icon: '⚠️', title: 'Punição diária ativa', detail: 'Ontem faltou ' + missing + '. A aparência do portal mudou e os Jogos ficam bloqueados até a próxima meia-noite. Esta punição não aceita Antídoto.', page: 'memes', createdAt: new Date(Date.parse(dailyPenalty.dayKey + 'T00:00:00-03:00')).toISOString() });
+  }
   for (const play of (db.economy.casinoPlays || []).filter((entry) => entry.resultType === 'casinoJackpot' && entry.notifyJackpot).slice(-5)) {
     const winner = db.users.find((person) => person.id === play.userId);
     items.push({ id: 'casino-jackpot:' + play.id, icon: '🏆', title: 'Jackpot da Tripulação saiu!', detail: (winner?.displayName || 'Um participante') + ' ganhou ' + roundMoney(play.jackpotWon).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' créditos no jackpot.', page: 'jogos', targetId: 'casinoRoulettePanel', createdAt: play.createdAt });
@@ -4477,6 +4517,7 @@ function buildStateFor(user, options = {}) {
     serverTime: Date.now(), musicEpoch: MUSIC_EPOCH, musicLoopMs: MUSIC_LOOP_MS,
     realtimeTransport: runtimeEnv ? 'adaptive-poll' : 'sse',
     me: { ...safeUser(user), cosmetics: cosmeticsFor(user.id) }, settings: { ...db.settings, featureFlags: featureFlags(), announcement: undefined },
+    dailyDutyPenalty: dailyDutyPenaltyFor(user),
     // A foto do próprio usuário já está em `me`; não a duplique no payload.
     avatars: Object.fromEntries(db.users.filter((item) => item.active && item.id !== user.id).map((item) => [item.id, item.avatarDataUrl || null])),
     identities: Object.fromEntries(db.users.filter((item) => item.active).map((item) => [item.id, publicIdentityFor(item.id, localHalloweenPreview)])),
@@ -4674,7 +4715,7 @@ function buildStateFor(user, options = {}) {
           id: entry.id, ml: entry.ml, createdAt: entry.createdAt,
           displayName: person ? person.displayName : 'Participante',
           isMine: entry.userId === user.id,
-          canDelete: entry.userId === user.id,
+          canDelete: false,
         };
       }),
       teamMission: teamMissionFor(),
@@ -4730,7 +4771,7 @@ function buildStateFor(user, options = {}) {
 
 function stateFor(user, options = {}) {
   const localHalloweenPreview = Boolean(options.localHalloweenPreview);
-  const key = stateRevision + ':' + user.id + (localHalloweenPreview ? ':halloween-preview' : '');
+  const key = stateRevision + ':' + user.id + ':' + saoPauloDayKey() + (localHalloweenPreview ? ':halloween-preview' : '');
   const cached = stateResponseCache.get(key);
   const now = Date.now();
   if (cached && now - cached.createdAt < STATE_RESPONSE_CACHE_MS) return cached.value;
@@ -5111,6 +5152,7 @@ async function handleApi(req, res, route) {
       revision: stateRevision,
       lotteryReminder,
       requiredLieVote: user.role === 'admin' ? null : requiredLieVoteForUser(user.id),
+      dailyDutyPenalty: dailyDutyPenaltyFor(user),
       loanOverdue: Boolean(overdueLoanFor(user.id)),
       serverTime: Date.now(),
       releaseVersion: Math.max(0, Number(db.settings.releaseVersion || 0)),
@@ -5342,6 +5384,7 @@ async function handleApi(req, res, route) {
     if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da aposta inválida.');
     const previous = requestId && (db.economy.casinoPlays.find(play => play.userId === user.id && play.requestId === requestId && play.resultType !== 'flight') || await archivedCasinoPlay(user.id, requestId, 'roulette'));
     if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra aposta.'); json(res, 200, body.compact ? compactCasinoPlayResponse(user, previous) : { ...stateFor(user), casinoResult: previous }); return; }
+    if (dailyDutyPenaltyFor(user)) throw new HttpError(423, 'Jogos bloqueados hoje: faltou uma postagem ou um registro de água ontem. O acesso volta à meia-noite.');
     authorizeCasinoAuto(user.id, autoSessionId, 'roulette', bet, walletSource);
     if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
     const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
@@ -5371,6 +5414,7 @@ async function handleApi(req, res, route) {
     if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da esfera inválida.');
     const previous = requestId && (db.economy.casinoPlays.find(play => play.userId === user.id && play.requestId === requestId && play.resultType === 'plinko') || await archivedCasinoPlay(user.id, requestId, 'plinko'));
     if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource || previous.plinko?.risk !== risk) throw new HttpError(400, 'Esta identificação já pertence a outra jogada.'); json(res, 200, body.compact ? { casinoResult: previous } : { ...stateFor(user), casinoResult: previous }); return; }
+    if (dailyDutyPenaltyFor(user)) throw new HttpError(423, 'Jogos bloqueados hoje: faltou uma postagem ou um registro de água ontem. O acesso volta à meia-noite.');
     if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
     const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
     if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta esfera.' : 'Saldo promocional do cassino insuficiente para esta esfera.');
@@ -5386,6 +5430,7 @@ async function handleApi(req, res, route) {
     if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da rodada inválida.');
     const previous = requestId && (db.economy.casinoPlays.find((play) => play.userId === user.id && play.requestId === requestId && play.resultType === 'slots') || await archivedCasinoPlay(user.id, requestId, 'slots'));
     if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra rodada.'); json(res, 200, body.compact ? compactCasinoPlayResponse(user, previous) : { ...stateFor(user), casinoResult: previous }); return; }
+    if (dailyDutyPenaltyFor(user)) throw new HttpError(423, 'Jogos bloqueados hoje: faltou uma postagem ou um registro de água ontem. O acesso volta à meia-noite.');
     authorizeCasinoAuto(user.id, autoSessionId, 'slots', bet, walletSource);
     if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
     const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
@@ -5637,6 +5682,8 @@ async function handleApi(req, res, route) {
     };
     updatePostMentions(post);
     db.dailyPhrases.push(post);
+    db.economy.dailyDutyPosts ||= [];
+    if (!db.economy.dailyDutyPosts.some((entry) => entry.userId === user.id && entry.dayKey === saoPauloDayKey())) db.economy.dailyDutyPosts.push({ userId: user.id, dayKey: saoPauloDayKey() });
     awardEngagementCard(db,user.id,'phrase',saoPauloDayKey(),Math.random,engagementCardOptions());
     recordActivity(user.id, 'phrase');
     rewardDailyMissions(user.id);
@@ -5761,6 +5808,8 @@ async function handleApi(req, res, route) {
     };
     updatePostMentions(post);
     db.dailyMemes.push(post);
+    db.economy.dailyDutyPosts ||= [];
+    if (!db.economy.dailyDutyPosts.some((entry) => entry.userId === user.id && entry.dayKey === saoPauloDayKey())) db.economy.dailyDutyPosts.push({ userId: user.id, dayKey: saoPauloDayKey() });
     awardEngagementCard(db,user.id,'meme',saoPauloDayKey(),Math.random,engagementCardOptions());
     recordActivity(user.id, 'meme');
     rewardDailyMissions(user.id);
@@ -6682,13 +6731,8 @@ async function handleApi(req, res, route) {
 
   const deleteWaterMatch = route.match(/^\/api\/water\/([^/]+)$/);
   if (req.method === 'DELETE' && deleteWaterMatch) {
-    const { user } = requireAuth(req);
-    const entryIndex = db.waterEntries.findIndex((item) => item.id === deleteWaterMatch[1]);
-    if (entryIndex < 0) throw new HttpError(404, 'Registro de água não encontrado.');
-    const entry = db.waterEntries[entryIndex];
-    if (entry.userId !== user.id) throw new HttpError(403, 'Você só pode desfazer o seu próprio registro de água.');
-    db.waterEntries.splice(entryIndex, 1);
-    await persist(); broadcastRefresh('hydration'); json(res, 200, stateFor(user)); return;
+    requireAuth(req);
+    throw new HttpError(409, 'O registro de água é definitivo e não pode ser removido.');
   }
 
   const deleteAnonymousMatch = route.match(/^\/api\/admin\/anonymous-posts\/([^/]+)$/);

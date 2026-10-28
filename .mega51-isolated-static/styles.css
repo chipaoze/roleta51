@@ -2453,3 +2453,12 @@ html[data-workshop-cursor-preview="cyan"],html[data-workshop-cursor-preview="cya
 
 .community-admin-decision{margin:0;padding:10px 12px;border:1px solid rgba(66,191,133,.4);border-radius:10px;background:rgba(28,117,82,.18);color:#a9f0c7;font-size:12px;font-weight:700}
 .cobblemon-global-outcome.cobblemon-result-escape{top:auto;right:auto;height:auto;min-height:0;max-height:none}
+
+/* Punição diária: visual propositalmente cafona, mantendo todos os controles legíveis. */
+.daily-duty-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;padding:10px 15px;border-bottom:4px dashed #191919;background:#ffea00;color:#201036;font:900 13px/1.35 "Comic Sans MS",cursive;text-align:center}.daily-duty-banner.hidden{display:none}.daily-duty-banner b{padding:4px 8px;border:2px solid #121212;background:#fff;color:#bd004f;font-variant-numeric:tabular-nums}.daily-duty-banner small{font-size:11px}
+body.daily-duty-penalty .app{background:repeating-linear-gradient(45deg,#ffea00 0 34px,#ff72ce 34px 68px,#58e7ff 68px 102px)!important;font-family:"Comic Sans MS",cursive!important}
+body.daily-duty-penalty .topbar{background:#5c168d!important;border-bottom:4px dashed #ffea00!important}
+body.daily-duty-penalty .section,body.daily-duty-penalty .hero,body.daily-duty-penalty .card{border:3px dashed #5c168d!important;background:#fff9bc!important;color:#25182f!important;box-shadow:6px 6px 0 #ff41b7!important}
+body.daily-duty-penalty .section :is(h1,h2,h3,h4,p,small),body.daily-duty-penalty .card :is(h1,h2,h3,h4,p,small){color:#25182f}
+body.daily-duty-penalty .site-menu{border-right:5px dashed #ffea00;background:#3e106b!important}
+@media(max-width:760px){.daily-duty-banner{font-size:11px;padding:8px}.daily-duty-banner small{width:100%}}
