@@ -8,6 +8,7 @@ import { HALLOWEEN_2026, halloween2026State, isSeasonalShopItemAvailable } from 
 import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, marketForUser, marketHoldingsValueForUser, transactMarket } from './lib/investment-market.mjs';
 import { CRYPTO_ASSETS, CRYPTO_REFRESH_MS, readCryptoSources, ensureCryptoMarketState, syncCryptoMarket, cryptoMarketForUser, cryptoHoldingsValueForUser, transactCryptoMarket } from './lib/crypto-market.mjs';
 import { ROULETTE_BOX_MIN_BET, ROULETTE_MIN_BET, rouletteBoxChance } from './lib/roulette-economy.mjs';
+import { rouletteTrafficDecision } from './lib/roulette-traffic.mjs';
 import { casinoPlayStatePatch } from './lib/casino-state-patch.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { cobblemonDeliveryMinimumLevel, cobblemonDeliverySpec, rollCobblemonDeliveryGender } from './lib/cobblemon-delivery-metadata.mjs';
@@ -222,7 +223,9 @@ function persistCasinoPlay(userId, play, adjustment, inventoryItem, jackpot) {
     const patch = casinoPlayStatePatch({
       userId, play, account: db.economy.casinoAccounts[userId],
       wallet: play.walletSource === 'shop' ? db.economy.wallets[userId] : undefined,
-      adjustment, inventoryItem, jackpot, revision: expectedRevision, updatedAt: new Date().toISOString(),
+      adjustment, inventoryItem, jackpot,
+      rouletteDailyCounts: play.resultType !== 'plinko' && play.resultType !== 'slots' && play.resultType !== 'flight' ? db.economy.rouletteDailyCounts : undefined,
+      revision: expectedRevision, updatedAt: new Date().toISOString(),
     });
     const result = await runtimeEnv.DB.prepare(patch.sql).bind(...patch.values).run();
     if (Number(result.meta?.changes || 0) !== 1) {
@@ -3390,6 +3393,21 @@ function broadcastCasinoPlayRefresh(autoSessionId) {
 }
 
 const casinoAutoOwners = new Map();
+const rouletteTrafficWindows = new Map();
+function authorizeRouletteTraffic(userId, dayKey) {
+  db.economy.rouletteDailyCounts ||= {};
+  const key = dayKey + ':' + userId;
+  const dayCount = Number(db.economy.rouletteDailyCounts[key] || 0);
+  const decision = rouletteTrafficDecision({ ...rouletteTrafficWindows.get(userId), dayCount });
+  if (!decision.allowed) throw new HttpError(429, decision.reason === 'daily'
+    ? 'Limite diário de giros da Roleta 51 atingido. Volte amanhã.'
+    : 'Muitos giros na Roleta 51 em pouco tempo. Aguarde alguns minutos.');
+  rouletteTrafficWindows.set(userId, { windowStartedAt: decision.windowStartedAt, windowCount: decision.windowCount });
+  db.economy.rouletteDailyCounts[key] = dayCount + 1;
+  if (dayCount === 0) for (const oldKey of Object.keys(db.economy.rouletteDailyCounts)) {
+    if (!oldKey.startsWith(dayKey + ':')) delete db.economy.rouletteDailyCounts[oldKey];
+  }
+}
 function authorizeCasinoAuto(userId, sessionId, game, bet, walletSource) {
   const current = casinoAutoOwners.get(userId);
   if (!sessionId) {
@@ -5550,6 +5568,7 @@ async function handleApi(req, res, route) {
     authorizeCasinoAuto(user.id, autoSessionId, 'roulette', bet, walletSource);
     const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
     if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta aposta.' : 'Saldo promocional do cassino insuficiente para esta aposta.');
+    authorizeRouletteTraffic(user.id, dayKey);
     const jackpot = db.economy.casinoJackpot ||= { amount: CASINO_JACKPOT.seed, updatedAt: new Date().toISOString() };
     const jackpotEligible = bet >= CASINO_JACKPOT.minBet;
     if (jackpotEligible) { jackpot.amount = roundMoney(Math.max(CASINO_JACKPOT.seed, Number(jackpot.amount || CASINO_JACKPOT.seed)) + bet * CASINO_JACKPOT.contribution); jackpot.updatedAt = new Date().toISOString(); }

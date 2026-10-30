@@ -45,11 +45,15 @@ test('aposta promocional com baú preserva carteira e registra o item uma vez', 
   const play = { id: 'play-2', userId: 'user-1', walletSource: 'promotional', bet: 10, resultType: 'mysteryBox' };
   const item = { id: 'box-1', userId: 'user-1', boxId: 'box-sonda' };
   const account = { dayKey: '2026-09-22', balance: 240, cashedOut: false };
-  const patch = casinoPlayStatePatch({ userId: 'user-1', play, account, inventoryItem: item, revision: 7, updatedAt: 'new' });
+  const rouletteDailyCounts = { '2026-09-22:user-1': 1 };
+  const jackpot = { amount: 500 };
+  const patch = casinoPlayStatePatch({ userId: 'user-1', play, account, inventoryItem: item, jackpot, rouletteDailyCounts, revision: 7, updatedAt: 'new' });
   sql.prepare(patch.sql).run(...patch.values);
   const updated = JSON.parse(sql.prepare('SELECT data FROM app_state').get().data);
   assert.deepEqual(updated.economy.wallets, original.economy.wallets);
   assert.deepEqual(updated.economy.creditAdjustments, original.economy.creditAdjustments);
   assert.deepEqual(updated.economy.mysteryBoxes, [item]);
+  assert.deepEqual(updated.economy.rouletteDailyCounts, rouletteDailyCounts);
+  assert.deepEqual(updated.economy.casinoJackpot, jackpot);
   assert.deepEqual(updated.economy.casinoAccounts['user-1'], account);
 });
