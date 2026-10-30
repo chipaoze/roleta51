@@ -1,5 +1,5 @@
 {
-  "version": "20261030-roleta-baus-v1",
-  "title": "Roleta 51: economia dos baús corrigida",
-  "notes": "Corrigimos a obtenção excessiva de baús por apostas mínimas na Roleta 51. A aposta mínima agora é 0,10 Crédito 51 e a chance de baú acompanha o valor apostado. Rafael explorou repetidamente giros de 0,01; 471 caixas obtidas nessa condição foram removidas da conta. Não encontramos venda dessas caixas. Também corrigimos os ícones dos baús e dos resultados na abertura em massa."
+  "version": "20261030-roleta-automacao-v1",
+  "title": "Roleta 51: proteção contra automações externas",
+  "notes": "Detectamos automações da Roleta feitas fora do site. A API agora exige 5 segundos entre apostas novas da mesma conta, acompanhando o tempo do giro na tela. O giro manual não tem cota diária; o modo automático aceita até 120 giros em 10 minutos e 1.000 por dia, além do limite de 30 por sequência. A aposta mínima continua em 0,10 Crédito 51 e qualquer baú só pode sair a partir de 100 Créditos 51."
 }

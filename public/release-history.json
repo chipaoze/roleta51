@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20261030-roleta-automacao-v1",
+      "title": "Roleta 51: proteção contra automações externas",
+      "notes": [
+        "Detectamos automações da Roleta feitas fora do site e ajustamos a API para aceitar uma nova aposta da mesma conta somente após 5 segundos, acompanhando o tempo da animação.",
+        "O giro manual não tem cota diária. O modo automático tem até 120 giros em 10 minutos, 1.000 por dia e 30 por sequência.",
+        "A aposta mínima continua em 0,10 Crédito 51; qualquer baú exige aposta de pelo menos 100 Créditos 51. Repetir uma requisição já concluída não cria outra aposta."
+      ],
+      "publishedAt": "2026-10-30"
+    },
+    {
       "version": "20261030-roleta-baus-v1",
       "title": "Roleta 51: economia dos baús corrigida",
       "notes": [

@@ -7084,7 +7084,7 @@ async function submitRouletteBet(bet, walletSource, autoSessionId = null) {
       try { localStorage.removeItem(key); } catch { /* Same ID remains safe on the next attempt. */ }
       return data;
     } catch (error) {
-      const rejected = [400,401,403].includes(error.status) || (error.status === 409 && /insuficiente/i.test(error.message));
+      const rejected = [400,401,403,429].includes(error.status) || (error.status === 409 && /insuficiente/i.test(error.message));
       if (rejected) { try { localStorage.removeItem(key); } catch {} throw error; }
       if (attempt === 1) throw new Error('Ainda não foi possível confirmar a aposta. Clique novamente para recuperar esta mesma jogada, sem criar outra.');
       $('#casinoResult').textContent = 'Conferindo a mesma aposta… não feche esta tela.';

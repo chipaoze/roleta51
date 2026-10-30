@@ -37,6 +37,7 @@ test('aposta altera apenas jogada, conta, carteira e extrato na mesma revisão',
   assert.deepEqual(updated.economy.creditAdjustments, [...original.economy.creditAdjustments, adjustment]);
   assert.deepEqual(updated.economy.investmentMarket, original.economy.investmentMarket);
   assert.deepEqual(updated.settings, original.settings);
+  assert.equal(updated.economy.rouletteAutoDailyCounts, undefined, 'giro manual não deve gravar cota automática');
   assert.equal(sql.prepare(patch.sql).run(...patch.values).changes, 0, 'a revisão antiga não pode sobrescrever uma jogada');
 });
 
@@ -45,15 +46,15 @@ test('aposta promocional com baú preserva carteira e registra o item uma vez', 
   const play = { id: 'play-2', userId: 'user-1', walletSource: 'promotional', bet: 10, resultType: 'mysteryBox' };
   const item = { id: 'box-1', userId: 'user-1', boxId: 'box-sonda' };
   const account = { dayKey: '2026-09-22', balance: 240, cashedOut: false };
-  const rouletteDailyCounts = { '2026-09-22:user-1': 1 };
+  const rouletteAutoDailyCounts = { '2026-09-22:user-1': 1 };
   const jackpot = { amount: 500 };
-  const patch = casinoPlayStatePatch({ userId: 'user-1', play, account, inventoryItem: item, jackpot, rouletteDailyCounts, revision: 7, updatedAt: 'new' });
+  const patch = casinoPlayStatePatch({ userId: 'user-1', play, account, inventoryItem: item, jackpot, rouletteAutoDailyCounts, revision: 7, updatedAt: 'new' });
   sql.prepare(patch.sql).run(...patch.values);
   const updated = JSON.parse(sql.prepare('SELECT data FROM app_state').get().data);
   assert.deepEqual(updated.economy.wallets, original.economy.wallets);
   assert.deepEqual(updated.economy.creditAdjustments, original.economy.creditAdjustments);
   assert.deepEqual(updated.economy.mysteryBoxes, [item]);
-  assert.deepEqual(updated.economy.rouletteDailyCounts, rouletteDailyCounts);
+  assert.deepEqual(updated.economy.rouletteAutoDailyCounts, rouletteAutoDailyCounts);
   assert.deepEqual(updated.economy.casinoJackpot, jackpot);
   assert.deepEqual(updated.economy.casinoAccounts['user-1'], account);
 });

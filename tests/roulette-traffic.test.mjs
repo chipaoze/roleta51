@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ROULETTE_DAILY_LIMIT, ROULETTE_WINDOW_LIMIT, rouletteTrafficDecision } from '../lib/roulette-traffic.mjs';
+import { ROULETTE_DAILY_LIMIT, ROULETTE_WINDOW_LIMIT, roulettePaceAllowed, rouletteTrafficDecision } from '../lib/roulette-traffic.mjs';
+
+test('direct API spins must wait for the visible wheel to finish', () => {
+  assert.equal(roulettePaceAllowed(1000, 5999), false);
+  assert.equal(roulettePaceAllowed(1000, 6000), true);
+});
 
 test('normal groups of 30 spins fit within the traffic window', () => {
   let state = { dayCount: 0 };
