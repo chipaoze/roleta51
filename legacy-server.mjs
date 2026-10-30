@@ -7,7 +7,7 @@ import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
 import { HALLOWEEN_2026, halloween2026State, isSeasonalShopItemAvailable } from './lib/halloween-season.mjs';
 import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, marketForUser, marketHoldingsValueForUser, transactMarket } from './lib/investment-market.mjs';
 import { CRYPTO_ASSETS, CRYPTO_REFRESH_MS, readCryptoSources, ensureCryptoMarketState, syncCryptoMarket, cryptoMarketForUser, cryptoHoldingsValueForUser, transactCryptoMarket } from './lib/crypto-market.mjs';
-import { ROULETTE_MIN_BET, rouletteBoxChance } from './lib/roulette-economy.mjs';
+import { ROULETTE_BOX_MIN_BET, ROULETTE_MIN_BET, rouletteBoxChance } from './lib/roulette-economy.mjs';
 import { casinoPlayStatePatch } from './lib/casino-state-patch.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { cobblemonDeliveryMinimumLevel, cobblemonDeliverySpec, rollCobblemonDeliveryGender } from './lib/cobblemon-delivery-metadata.mjs';
@@ -5555,7 +5555,7 @@ async function handleApi(req, res, route) {
     if (jackpotEligible) { jackpot.amount = roundMoney(Math.max(CASINO_JACKPOT.seed, Number(jackpot.amount || CASINO_JACKPOT.seed)) + bet * CASINO_JACKPOT.contribution); jackpot.updatedAt = new Date().toISOString(); }
     const segments = CASINO_WHEEL_OUTCOMES.map((value, index) => ({ value, index })); const numericSegments = segments.filter(({ value }) => typeof value === 'number');
     const boxChance = rouletteBoxChance(bet); let eligibleSegments = numericSegments;
-    if (Math.random() < boxChance) { const desiredBox = bet >= 70 ? (Math.random() < .38 ? 'box-area51' : Math.random() < .62 ? 'box-cosmic' : 'box-sonda') : bet >= 30 ? (Math.random() < .48 ? 'box-cosmic' : 'box-sonda') : 'box-sonda'; eligibleSegments = segments.filter(({ value }) => value === desiredBox); }
+    if (Math.random() < boxChance) { const desiredBox = bet >= ROULETTE_BOX_MIN_BET ? (Math.random() < .38 ? 'box-area51' : Math.random() < .62 ? 'box-cosmic' : 'box-sonda') : 'box-sonda'; eligibleSegments = segments.filter(({ value }) => value === desiredBox); }
     const segmentIndex = eligibleSegments[Math.floor(Math.random() * eligibleSegments.length)].index; const outcome = CASINO_WHEEL_OUTCOMES[segmentIndex]; const before = sourceBalance; const createdAt = new Date().toISOString();
     let multiplier = null; let payout = 0; let net = -bet; let mysteryBox = null; let resultType = 'multiplier'; let jackpotWon = 0;
     if (jackpotEligible && Math.random() < CASINO_JACKPOT.chance) { resultType = 'casinoJackpot'; jackpotWon = roundMoney(Math.max(CASINO_JACKPOT.seed, Number(jackpot.amount || CASINO_JACKPOT.seed))); payout = jackpotWon; net = roundMoney(payout - bet); multiplier = roundMoney(payout / bet); jackpot.amount = CASINO_JACKPOT.seed; jackpot.updatedAt = createdAt; }
