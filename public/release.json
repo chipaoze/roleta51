@@ -1,5 +1,5 @@
 {
-  "version": "20261030-mega-tue-thu-v1",
-  "title": "Mega 51 agora sorteia às terças e quintas",
-  "notes": "A Mega 51 passa a sortear 6 números entre 50 às terças e quintas, às 16h. Os bilhetes já comprados para a rodada atual continuam válidos no próximo sorteio. O prêmio começa em 50.000 Créditos 51 em cada nova rodada e as faixas sem ganhador acumulam para o sorteio seguinte. As demais regras e preços dos bilhetes permanecem iguais."
+  "version": "20261030-roleta-baus-v1",
+  "title": "Roleta 51: economia dos baús corrigida",
+  "notes": "Corrigimos a obtenção excessiva de baús por apostas mínimas na Roleta 51. A aposta mínima agora é 0,10 Crédito 51 e a chance de baú acompanha o valor apostado. Rafael explorou repetidamente giros de 0,01; 471 caixas obtidas nessa condição foram removidas da conta. Não encontramos venda dessas caixas. Também corrigimos os ícones dos baús e dos resultados na abertura em massa."
 }

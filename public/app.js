@@ -3370,15 +3370,15 @@ async function showMysteryOpening(box, reward, { skipAnimation = false } = {}) {
 
 async function showMysteryBatchResults(results) {
   const dialog = document.createElement('dialog'); dialog.className = 'mystery-opening-dialog mystery-batch-results';
-  const rows = results.map(({ openedBox, mysteryReward }) => `<li><span>${escapeHtml(mysteryReward.icon || openedBox.icon || '🎁')}</span><strong>${escapeHtml(openedBox.name)}:</strong> ${escapeHtml(mysteryReward.name || 'Prêmio revelado')}</li>`).join('');
-  dialog.innerHTML = `<div class="mystery-opening-head"><span>🎁</span><p><small>ABERTURA EM MASSA CONCLUÍDA</small><strong>${results.length} ${results.length === 1 ? 'baú aberto' : 'baús abertos'}</strong></p></div><ul class="mystery-batch-result-list">${rows}</ul><button type="button" class="button button-primary button-wide" data-close-batch-results>Concluir</button>`;
+  const rows = results.map(({ openedBox, mysteryReward }) => `<li><span class="mystery-batch-box-art">${rouletteBoxIconMarkup(openedBox) || rouletteBoxIconMarkup('sonda')}</span><span class="mystery-batch-reward-art">${openingRewardIconMarkup(mysteryReward) || creditIconMarkup()}</span><span class="mystery-batch-result-text"><strong>${escapeHtml(openedBox.name)}:</strong> ${escapeHtml(mysteryReward.name || 'Prêmio revelado')}</span></li>`).join('');
+  dialog.innerHTML = `<div class="mystery-opening-head"><span class="mystery-opening-box-icon">${rouletteBoxIconMarkup('sonda')}</span><p><small>ABERTURA EM MASSA CONCLUÍDA</small><strong>${results.length} ${results.length === 1 ? 'baú aberto' : 'baús abertos'}</strong></p></div><ul class="mystery-batch-result-list">${rows}</ul><button type="button" class="button button-primary button-wide" data-close-batch-results>Concluir</button>`;
   document.body.appendChild(dialog); dialog.addEventListener('click', (event) => { if (event.target === dialog || event.target.closest('[data-close-batch-results]')) dialog.close(); }); dialog.addEventListener('close', () => dialog.remove()); dialog.showModal();
   await new Promise((resolve) => dialog.addEventListener('close', resolve, { once: true }));
 }
 
 async function chooseMysteryBatchAnimation(count) {
   const dialog = document.createElement('dialog'); dialog.className = 'mystery-opening-dialog mystery-batch-choice';
-  dialog.innerHTML = `<div class="mystery-opening-head"><span>🎁</span><p><small>ABERTURA EM MASSA</small><strong>${count} baús selecionados</strong></p></div><p>Como você quer revelar os resultados?</p><div class="mystery-batch-choice-actions"><button type="button" data-batch-animation="yes">Ver animação de cada baú</button><button type="button" data-batch-animation="no">Ver resultados direto</button><button type="button" data-batch-cancel>Cancelar</button></div>`;
+  dialog.innerHTML = `<div class="mystery-opening-head"><span class="mystery-opening-box-icon">${rouletteBoxIconMarkup('sonda')}</span><p><small>ABERTURA EM MASSA</small><strong>${count} baús selecionados</strong></p></div><p>Como você quer revelar os resultados?</p><div class="mystery-batch-choice-actions"><button type="button" data-batch-animation="yes">Ver animação de cada baú</button><button type="button" data-batch-animation="no">Ver resultados direto</button><button type="button" data-batch-cancel>Cancelar</button></div>`;
   document.body.appendChild(dialog);
   const result = new Promise((resolve) => { dialog.addEventListener('click', (event) => { const choice = event.target.closest('[data-batch-animation]'); if (choice) { dialog.close(); resolve(choice.dataset.batchAnimation === 'no'); return; } if (event.target === dialog || event.target.closest('[data-batch-cancel]')) { dialog.close(); resolve(null); } }); dialog.addEventListener('cancel', (event) => { event.preventDefault(); dialog.close(); resolve(null); }, { once: true }); dialog.addEventListener('close', () => dialog.remove(), { once: true }); });
   dialog.showModal(); return result;
@@ -7048,7 +7048,7 @@ document.querySelectorAll('[data-auto-game]').forEach((panel) => {
     const count = Number(panel.querySelector('[data-auto-count]').value);
     const bet = Number($(game === 'slots' ? '#slotBet' : '#casinoBet').value);
     const walletSource = $(game === 'slots' ? '#slotWalletSource' : '#casinoWalletSource').value;
-    if (![10, 20, 30].includes(count) || !Number.isFinite(bet) || bet < .01 || Math.abs(Math.round(bet * 100) - bet * 100) > .000001) { showToast('Escolha 10, 20 ou 30 giros e uma aposta válida.', 'error'); return; }
+    if (![10, 20, 30].includes(count) || !Number.isFinite(bet) || bet < (game === 'roulette' ? .10 : .01) || Math.abs(Math.round(bet * 100) - bet * 100) > .000001) { showToast('Escolha 10, 20 ou 30 giros e uma aposta válida.', 'error'); return; }
     const balance = Number(walletSource === 'shop' ? appState?.casino?.shopWallet : appState?.casino?.wallet);
     if (balance < bet) { showToast('Saldo insuficiente para o primeiro giro.', 'error'); return; }
     const maximum = formatCredits(count * bet);
@@ -7101,7 +7101,7 @@ $('#casinoForm').addEventListener('submit', async (event) => {
   let completed = false;
   let autoStopMessage = 'Parada após erro. Confira o resultado antes de tentar novamente.';
   const form = event.currentTarget; const bet = autoRun ? autoRun.bet : Number($('#casinoBet').value); const walletSource = autoRun ? autoRun.walletSource : $('#casinoWalletSource').value;
-  if (!Number.isFinite(bet) || bet < 0.01 || Math.abs(Math.round(bet * 100) - bet * 100) > 0.000001) { showToast('Aposte um valor de pelo menos 0,01 crédito, com no máximo duas casas decimais.', 'error'); return; }
+  if (!Number.isFinite(bet) || bet < 0.10 || Math.abs(Math.round(bet * 100) - bet * 100) > 0.000001) { showToast('Aposte um valor de pelo menos 0,10 crédito, com no máximo duas casas decimais.', 'error'); return; }
   casinoSpinInProgress = true; casinoAudioContext(); setBusy(form, true); $('#casinoResult').textContent = 'Confirmando sua aposta…';
   try {
     const data = await submitRouletteBet(bet, walletSource, autoRun?.id);

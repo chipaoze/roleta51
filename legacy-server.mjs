@@ -7,6 +7,7 @@ import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
 import { HALLOWEEN_2026, halloween2026State, isSeasonalShopItemAvailable } from './lib/halloween-season.mjs';
 import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, marketForUser, marketHoldingsValueForUser, transactMarket } from './lib/investment-market.mjs';
 import { CRYPTO_ASSETS, CRYPTO_REFRESH_MS, readCryptoSources, ensureCryptoMarketState, syncCryptoMarket, cryptoMarketForUser, cryptoHoldingsValueForUser, transactCryptoMarket } from './lib/crypto-market.mjs';
+import { ROULETTE_MIN_BET, rouletteBoxChance } from './lib/roulette-economy.mjs';
 import { casinoPlayStatePatch } from './lib/casino-state-patch.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { cobblemonDeliveryMinimumLevel, cobblemonDeliverySpec, rollCobblemonDeliveryGender } from './lib/cobblemon-delivery-metadata.mjs';
@@ -5539,21 +5540,21 @@ async function handleApi(req, res, route) {
   }
   if (req.method === 'POST' && route === '/api/casino/play') {
     const { user } = requireAuth(req);
-    const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional'; const autoSessionId = body.autoSessionId == null ? null : String(body.autoSessionId);
+    const body = await readJson(req); const bet = parseMoney(body.bet, { min: ROULETTE_MIN_BET }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional'; const autoSessionId = body.autoSessionId == null ? null : String(body.autoSessionId);
+    if (bet === null) throw new HttpError(400, 'A aposta na Roleta 51 deve ter pelo menos 0,10 crédito e no máximo duas casas decimais.');
     const requestId = body.requestId == null ? null : String(body.requestId);
     if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da aposta inválida.');
     const previous = requestId && (db.economy.casinoPlays.find(play => play.userId === user.id && play.requestId === requestId && play.resultType !== 'flight') || await archivedCasinoPlay(user.id, requestId, 'roulette'));
     if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra aposta.'); json(res, 200, body.compact ? compactCasinoPlayResponse(user, previous) : { ...stateFor(user), casinoResult: previous }); return; }
     if (dailyDutyPenaltyFor(user)) throw new HttpError(423, 'Jogos bloqueados pela punição diária até o fim da contagem regressiva.');
     authorizeCasinoAuto(user.id, autoSessionId, 'roulette', bet, walletSource);
-    if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
     const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
     if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta aposta.' : 'Saldo promocional do cassino insuficiente para esta aposta.');
     const jackpot = db.economy.casinoJackpot ||= { amount: CASINO_JACKPOT.seed, updatedAt: new Date().toISOString() };
     const jackpotEligible = bet >= CASINO_JACKPOT.minBet;
     if (jackpotEligible) { jackpot.amount = roundMoney(Math.max(CASINO_JACKPOT.seed, Number(jackpot.amount || CASINO_JACKPOT.seed)) + bet * CASINO_JACKPOT.contribution); jackpot.updatedAt = new Date().toISOString(); }
     const segments = CASINO_WHEEL_OUTCOMES.map((value, index) => ({ value, index })); const numericSegments = segments.filter(({ value }) => typeof value === 'number');
-    const boxChance = Math.min(.12, .01 + Math.log10(Math.max(1, bet)) / 50); let eligibleSegments = numericSegments;
+    const boxChance = rouletteBoxChance(bet); let eligibleSegments = numericSegments;
     if (Math.random() < boxChance) { const desiredBox = bet >= 70 ? (Math.random() < .38 ? 'box-area51' : Math.random() < .62 ? 'box-cosmic' : 'box-sonda') : bet >= 30 ? (Math.random() < .48 ? 'box-cosmic' : 'box-sonda') : 'box-sonda'; eligibleSegments = segments.filter(({ value }) => value === desiredBox); }
     const segmentIndex = eligibleSegments[Math.floor(Math.random() * eligibleSegments.length)].index; const outcome = CASINO_WHEEL_OUTCOMES[segmentIndex]; const before = sourceBalance; const createdAt = new Date().toISOString();
     let multiplier = null; let payout = 0; let net = -bet; let mysteryBox = null; let resultType = 'multiplier'; let jackpotWon = 0;

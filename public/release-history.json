@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "20261030-roleta-baus-v1",
+      "title": "Roleta 51: economia dos baús corrigida",
+      "notes": [
+        "A Roleta 51 agora exige aposta mínima de 0,10 Crédito 51; a chance de baú acompanha o valor apostado.",
+        "Rafael explorou repetidamente apostas de 0,01 para obter caixas. Removemos 471 caixas dessa origem ainda guardadas na conta. Não encontramos venda dessas caixas.",
+        "Corrigimos os ícones do baú, dos itens e dos créditos na abertura em massa, além do contador de baús fechados."
+      ],
+      "publishedAt": "2026-10-30"
+    },
+    {
       "version": "20261030-mega-tue-thu-v1",
       "title": "Mega 51 agora sorteia às terças e quintas",
       "notes": [
