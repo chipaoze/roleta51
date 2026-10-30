@@ -1,6 +1,6 @@
 // Ao publicar app.js com query nova, esta versão também invalida o cache
 // anterior do PWA. Assim, mudanças operacionais não ficam presas no navegador.
-const CACHE_NAME = 'area51-static-v75';
+const CACHE_NAME = 'area51-static-v80';
 const STATIC_EXTENSIONS = /\.(?:js|css|png|jpe?g|webp|svg|ico|mp3|woff2?)(?:\?.*)?$/i;
 
 self.addEventListener('install', () => self.skipWaiting());

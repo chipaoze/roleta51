@@ -1,0 +1,36 @@
+/* A miniatura usa uma camada frontal; perfil, cabeçalho e menu compartilham a mesma arte. */
+.frame-preview[class*="frame-"]{min-height:0!important;padding:0!important;gap:6px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+.frame-preview[class*="frame-"]>span{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;height:126px!important;min-height:126px!important;box-sizing:border-box!important;border:0!important;background:transparent!important;outline:0!important;box-shadow:none!important;padding:0!important;overflow:visible!important}
+/* A arte precisa ficar na frente do cartão de nome; border-image no próprio
+   contêiner era desenhado atrás do filho e parecia uma moldura cortada. */
+.frame-preview[class*="frame-"]>span:before{content:""!important;position:absolute!important;z-index:2!important;inset:0!important;box-sizing:border-box!important;border:38px solid transparent!important;border-image:var(--frame-art) 110 / 38px / 0 stretch!important;pointer-events:none!important}
+.frame-preview .frame-preview-profile{position:relative!important;z-index:1!important;width:64%!important;min-width:0;min-height:42px;height:42px;margin:auto;padding:5px 8px;background:#111c2d!important;overflow:hidden}
+.frame-preview .frame-preview-profile>em{color:#eef4ff!important;-webkit-text-fill-color:#eef4ff!important}
+.frame-preview.frame-halloween-rune>span:after{content:none!important}
+.frame-preview.frame-team-dragon,.frame-preview.frame-cyberpunk-premium{border:0!important;border-image:none!important;box-shadow:none!important}
+.frame-preview.frame-team-dragon{--frame-art:url('/team-themes/dragon-frame.png')}
+.frame-preview.frame-cyberpunk-premium{--frame-art:url('/team-themes/cyber-frame.png')}
+.frame-preview.frame-dragon-ember{--frame-art:url('/dragon-premium-icons/dragon-premium-frame.png')}
+:is(.profile-identity-card,.top-profile-button,.site-menu-user).frame-dragon-ember{--frame-art:url('/dragon-premium-icons/dragon-premium-frame.png');border:10px solid transparent!important;border-image:var(--frame-art) 110 / 10px / 0 stretch!important}
+:is(.top-profile-button,.site-menu-user).frame-dragon-ember{border-width:6px!important;border-image-width:6px!important}
+.frame-preview.frame-team-dragon>span{border-image-slice:92!important}
+.frame-preview.frame-cyberpunk-premium>span{border-image-slice:65!important}
+.frame-preview.frame-sovereign-halloween{--frame-art:url('/frame-commander-halloween-v2.png')}
+.frame-preview.frame-sovereign-halloween>span{border-image-slice:112!important}
+
+.frame-preview[class*="frame-"]>span>*{position:relative!important;z-index:1!important}
+
+/* A arte da moldura é a única borda visual. As regras antigas acrescentavam
+   gradientes e brilho por trás dela em alguns contextos, parecendo uma segunda
+   moldura que não existe no item comprado. */
+:is(.profile-identity-card,.top-profile-button,.site-menu-user)[class*="frame-"]{
+  background:#111c2d!important;
+  box-shadow:none!important;
+  outline:0!important;
+}
+.profile-identity-card[class*="frame-"]:before{display:none!important}
+
+/* Capas de coleções podem trazer arte maior do que o ícone. Ela fica contida
+   no quadrado da loja, sem invadir o título ou o card ao lado. */
+.shop-item-icon.shop-item-art{position:relative!important;overflow:hidden!important}
+.shop-item-icon.shop-item-art>img{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important;border-radius:inherit!important}

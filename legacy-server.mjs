@@ -6,6 +6,7 @@ import { SEASON_PASS, SEASON_PASS_COSMETIC_REWARDS, awardSeasonPassXp, claimSeas
 import { seasonalChallengeProgress } from './lib/season-challenges.mjs';
 import { HALLOWEEN_2026, halloween2026State, isSeasonalShopItemAvailable } from './lib/halloween-season.mjs';
 import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, marketForUser, marketHoldingsValueForUser, transactMarket } from './lib/investment-market.mjs';
+import { CRYPTO_ASSETS, CRYPTO_REFRESH_MS, readCryptoSources, ensureCryptoMarketState, syncCryptoMarket, cryptoMarketForUser, cryptoHoldingsValueForUser, transactCryptoMarket } from './lib/crypto-market.mjs';
 import { casinoPlayStatePatch } from './lib/casino-state-patch.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { cobblemonDeliveryMinimumLevel, cobblemonDeliverySpec, rollCobblemonDeliveryGender } from './lib/cobblemon-delivery-metadata.mjs';
@@ -20,6 +21,7 @@ const CARD_SEASON_LOCAL_PREVIEW = process.env.AREA51_CARD_SEASON_PREVIEW === 'tr
 const currentHalloweenEvent = (localPreview = false) => (HALLOWEEN_LOCAL_PREVIEW || localPreview) ? { ...HALLOWEEN_2026, active: true, preview: true } : halloween2026State();
 const isHalloweenShopAvailable = (item, localPreview = false) => HALLOWEEN_LOCAL_PREVIEW || localPreview || isSeasonalShopItemAvailable(item);
 const isShopItemAvailable = (item, localPreview = false, now = new Date()) => isHalloweenShopAvailable(item, localPreview)
+  && (!item.cursePowerV2 || Boolean(db?.settings?.cursePowersReleasedAt))
   && (!item.availableFrom || CARD_SEASON_LOCAL_PREVIEW || now.getTime() >= Date.parse(item.availableFrom))
   && (!item.availableUntil || now.getTime() < Date.parse(item.availableUntil));
 const seasonalAlbumOptions = (localPreview = false) => {
@@ -48,14 +50,12 @@ const feedbackPostTimes = new Map();
 const memePostTimes = new Map();
 const anonymousPostTimes = new Map();
 const imageStore = new Map();
+const wallpaperUploadsInFlight = new Set();
 const MAX_IMAGE_MEMORY = 200 * 1024 * 1024;
 const MAX_IMAGE_CACHE = 16 * 1024 * 1024;
-const WALL_EMOJIS = ['😂','👽','🤨','💀','❤️','👍','🔥','👏','😮','😢','😡','🤣'];
+const WALL_EMOJIS = ['😂','👽','🤨','💀','❤️','👍','🔥','👏','😮','😢','😡','🤣','😍','😎','🤯','🤔','🥳','🤡','🙌','🚀'];
 const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
 const LIVE_DRAW_DURATION = Math.max(80, Number(process.env.LIVE_DRAW_DURATION || 5900));
-// Dá tempo para o SSE e o modo de sincronização por consulta alcançarem todas
-// as telas antes de a roleta começar a girar.
-const LIVE_DRAW_START_DELAY = Math.max(1800, Number(process.env.LIVE_DRAW_START_DELAY || 2800));
 const MUSIC_EPOCH = Date.now();
 const MUSIC_LOOP_MS = 8000;
 // Uma votação pode ser ignorada por alguns minutos para a pessoa terminar a
@@ -63,7 +63,6 @@ const MUSIC_LOOP_MS = 8000;
 // restante do portal; a própria rota de voto continua liberada para não criar
 // um bloqueio impossível de resolver.
 const LIE_VOTE_GRACE_MS = 10 * 60 * 1000;
-const WEEKLY_CREDIT_GIFT_LIMIT = 500;
 const liveClients = new Map();
 let sharedOnlinePeople = [];
 // O portal reduz a sincronização para uma vez por minuto quando a pessoa está
@@ -79,8 +78,12 @@ function presencePeople(rows, users, now = Date.now()) {
   return users.filter((user) => user.active && ids.has(user.id)).map((user) => ({ id: user.id, displayName: user.displayName }));
 }
 
-const PRESENCE_WRITE_INTERVAL = 20000;
-const PRESENCE_REFRESH_INTERVAL = 5000;
+// A leitura de quem está online continua frequente. Já a gravação do mesmo
+// pulso não precisa acontecer em toda sincronização: um pulso por minuto,
+// dentro da janela de três minutos, preserva a lista e reduz gravações
+// repetidas em dias cheios.
+const PRESENCE_WRITE_INTERVAL = 60000;
+const PRESENCE_REFRESH_INTERVAL = 15000;
 const PRESENCE_CLEANUP_INTERVAL = 10 * 60 * 1000;
 const presenceHeartbeatAt = new Map();
 let presenceSnapshotAt = 0;
@@ -133,12 +136,16 @@ let databaseBytes = 0;
 // revisão só muda após uma gravação, reaproveitamos respostas idênticas por
 // um instante quando várias abas fazem a mesma leitura em sequência.
 const stateResponseCache = new Map();
+function invalidateStateResponseCache() { stateResponseCache.clear(); }
 // Respostas completas são caras para montar e serializar. Reaproveitamos o
 // JSON pronto enquanto a revisão não mudou, sem deixar dados de uma alteração
 // anterior escaparem para o cliente.
 const serializedJsonCache = new WeakMap();
 const STATE_RESPONSE_CACHE_MS = 5000;
-const STATE_RESPONSE_CACHE_MAX = 16;
+// Full per-user states can be expensive to retain in the small backend VM.
+// Four hot responses still cover rapid polling while avoiding a cache full of
+// large, user-specific snapshots.
+const STATE_RESPONSE_CACHE_MAX = 4;
 // A mesma instância recebe o boot, o polling e leituras da tela em sequência.
 // Consultar a revisão no D1 a cada uma dessas requisições não traz informação
 // nova e aumenta a pressão no Worker. Uma janela curta mantém a sincronização
@@ -191,11 +198,13 @@ function persist() {
         db = JSON.parse(String(stored.data));
         stateRevision = Number(stored.revision || expectedRevision);
         liveDraw = db.settings?.liveDraw?.endsAt > Date.now() ? db.settings.liveDraw : null;
+        invalidateStateResponseCache();
       }
       throw new HttpError(409, 'Outra pessoa atualizou o site ao mesmo tempo. Tente sua ação novamente.', { retryableConcurrency: true });
     }
     stateRevision = nextRevision;
     lastStateRefreshAt = Date.now();
+    invalidateStateResponseCache();
   });
   return saveQueue.catch((error) => {
     // The database may have committed even when its response was lost.
@@ -206,13 +215,13 @@ function persist() {
   });
 }
 
-function persistCasinoPlay(userId, play, adjustment, inventoryItem) {
+function persistCasinoPlay(userId, play, adjustment, inventoryItem, jackpot) {
   saveQueue = saveQueue.catch(() => undefined).then(async () => {
     const expectedRevision = stateRevision;
     const patch = casinoPlayStatePatch({
       userId, play, account: db.economy.casinoAccounts[userId],
       wallet: play.walletSource === 'shop' ? db.economy.wallets[userId] : undefined,
-      adjustment, inventoryItem, revision: expectedRevision, updatedAt: new Date().toISOString(),
+      adjustment, inventoryItem, jackpot, revision: expectedRevision, updatedAt: new Date().toISOString(),
     });
     const result = await runtimeEnv.DB.prepare(patch.sql).bind(...patch.values).run();
     if (Number(result.meta?.changes || 0) !== 1) {
@@ -221,11 +230,13 @@ function persistCasinoPlay(userId, play, adjustment, inventoryItem) {
         db = JSON.parse(String(stored.data));
         stateRevision = Number(stored.revision || expectedRevision);
         liveDraw = db.settings?.liveDraw?.endsAt > Date.now() ? db.settings.liveDraw : null;
+        invalidateStateResponseCache();
       }
       throw new HttpError(409, 'Outra pessoa atualizou o site ao mesmo tempo. Tente sua ação novamente.', { retryableConcurrency: true });
     }
     stateRevision = expectedRevision + 1;
     lastStateRefreshAt = Date.now();
+    invalidateStateResponseCache();
   });
   return saveQueue.catch((error) => {
     stateRevision = -1;
@@ -297,6 +308,7 @@ async function ensureDatabase(seedDatabase) {
     payload TEXT NOT NULL
   )`).run();
   await runtimeEnv.DB.prepare('CREATE INDEX IF NOT EXISTS idx_casino_play_archive_user_created ON casino_play_archive(user_id, created_at)').run();
+  await runtimeEnv.DB.prepare("CREATE INDEX IF NOT EXISTS idx_casino_play_archive_request ON casino_play_archive(user_id, json_extract(payload, '$.requestId'))").run();
   await runtimeEnv.DB.prepare('INSERT OR IGNORE INTO app_state (id, data, revision, updated_at) VALUES (1, ?, 1, ?)')
     .bind(JSON.stringify(seedDatabase), new Date().toISOString()).run();
   const stored = await runtimeEnv.DB.prepare('SELECT data, revision FROM app_state WHERE id = 1').first();
@@ -365,7 +377,6 @@ async function ensureDatabase(seedDatabase) {
   if (!db.scores || typeof db.scores !== 'object') { db.scores = {}; changed = true; }
   if (!Array.isArray(db.feedbackMessages)) { db.feedbackMessages = []; changed = true; }
   if (!Array.isArray(db.communityVotes)) { db.communityVotes = []; changed = true; }
-  if (!Array.isArray(db.democracyVotes)) { db.democracyVotes = []; changed = true; }
   if (!Array.isArray(db.profileComments)) { db.profileComments = []; changed = true; }
   if (!Array.isArray(db.impostorGames)) { db.impostorGames = []; changed = true; }
   const completedFeedback = {
@@ -377,6 +388,7 @@ async function ensureDatabase(seedDatabase) {
     '3f758671-7bb6-401c-9fe6-f44f3db70c8c': 'Concluído: três coleções novas entraram nos pacotes e a montagem exibe o tier Bronze, Prata, Ouro ou Diamante.',
     '5c7e94b3-a9d2-4ec9-b9b4-3918bd2c2265': 'Concluído: a insígnia do Álbum não substitui o emblema comprado; os dois ficam ativos juntos.',
     'bd7f3f79-3328-4a92-b1da-50a03f9ff8d0': 'Concluído: os votos do Mentirômetro agora usam os rótulos Mentiu e Não mentiu em toda a votação e no histórico.',
+    'b20729dc-32ac-4ca4-b85a-4ae40d5ff6de': 'Concluído: a votação de mentira agora oferece Mentiu forte. Quando essa opção recebe a maioria absoluta, a marcação vale dois pontos; as demais confirmações continuam valendo um.',
     '1b9549d0-27db-4243-8035-3f8356628e23': 'Concluído: a temporada atual recebeu nome, período e contagem regressiva; a troca para a próxima temporada ficou automática.',
     '73beebc7-87dc-4fb8-89ba-2131f1c6998b': 'Concluído: o mural de cartas agora aceita ofertas em créditos, com reserva de saldo e transferência segura ao aceitar.',
     '0ee51576-6d43-45d5-a861-b18fd80feb59': 'Concluído: a foto do próprio usuário agora aparece corretamente em suas publicações do mural.',
@@ -388,7 +400,6 @@ async function ensureDatabase(seedDatabase) {
     'c0efa151-2f8c-4b7b-ab65-cae004ca7fd6': 'Concluído: o histórico coletivo agora lista quem aprovou a mentira, com nome e foto quando disponíveis, em vez de mostrar “Não registrado”.',
     'e6381aa9-2539-4f96-8119-dd7b2c5910a6': 'Concluído: o Livro de cotações agora filtra uma moeda específica, e o gráfico ganhou seleção de moeda, resumo da variação e períodos maiores para leitura mais clara.',
     '8419bab5-53cf-4dd9-8d8f-d18403a2d311': 'Concluído: a nova área Votações 51 permite que qualquer participante proponha pautas, com voto único A favor/Contra, participantes visíveis e administração apenas para encerrar ou arquivar.',
-    '8419bab5-53cf-4dd9-8d8f-d18403a2d311': 'Concluído: criamos as Votações 51. Qualquer participante ativo propõe um tema, a equipe vota A favor ou Contra e a administração apenas encerra ou arquiva a pauta.',
   };
   db.feedbackMessages.forEach((item) => {
     if (completedFeedback[item.id] && (item.status !== 'done' || item.adminComment !== completedFeedback[item.id])) { item.status = 'done'; item.adminComment = completedFeedback[item.id]; item.updatedAt = new Date().toISOString(); changed = true; }
@@ -407,7 +418,6 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.waterEntries)) { db.waterEntries = []; changed = true; }
   if (!Array.isArray(db.rememberTokens)) { db.rememberTokens = []; changed = true; }
   if (!Array.isArray(db.lieAccusations)) { db.lieAccusations = []; changed = true; }
-  if (sanitizeDemocracyVoters()) changed = true;
   if (sanitizePendingLieVoters()) changed = true;
   if (!Array.isArray(db.lieDisputes)) { db.lieDisputes = []; changed = true; }
   if (!Array.isArray(db.mysteries)) { db.mysteries = []; changed = true; }
@@ -419,6 +429,24 @@ async function ensureDatabase(seedDatabase) {
     if (db.economy.wallets[userId] !== normalized) { db.economy.wallets[userId] = normalized; changed = true; }
   });
   if (!Array.isArray(db.economy.waterRewardDays)) { db.economy.waterRewardDays = []; changed = true; }
+  if (!Array.isArray(db.economy.dailyDutyPosts)) { db.economy.dailyDutyPosts = []; changed = true; }
+  if (!Array.isArray(db.economy.dailyDutyPenaltyClears)) { db.economy.dailyDutyPenaltyClears = []; changed = true; }
+  if (!Array.isArray(db.economy.dailyDutyBasketCollections)) { db.economy.dailyDutyBasketCollections = []; changed = true; }
+  if (!db.settings.dailyDutyBasketActivatedAt) { db.settings.dailyDutyBasketActivatedAt = new Date().toISOString(); changed = true; }
+  const basketRetentionCutoff = saoPauloDayKey(new Date(Date.now() - 90 * 86400000));
+  const retainedBasketCollections = db.economy.dailyDutyBasketCollections.filter((entry) => String(entry.dayKey || '') >= basketRetentionCutoff);
+  if (retainedBasketCollections.length !== db.economy.dailyDutyBasketCollections.length) { db.economy.dailyDutyBasketCollections = retainedBasketCollections; changed = true; }
+  if (!db.settings.dailyDutyPostBackfill20261028) {
+    const existingPosts = [...db.dailyPhrases, ...db.dailyMemes, ...db.dailyWallHistory.flatMap((archive) => [...(archive.phrases || []), ...(archive.memes || [])])];
+    for (const post of existingPosts) {
+      const dayKey = dayKeyForTimestamp(post.createdAt);
+      if (dayKey !== DAILY_DUTY_FIRST_DAY || !post.userId || db.economy.dailyDutyPosts.some((entry) => entry.userId === post.userId && entry.dayKey === dayKey)) continue;
+      db.economy.dailyDutyPosts.push({ userId: post.userId, dayKey });
+      changed = true;
+    }
+    db.settings.dailyDutyPostBackfill20261028 = true;
+    changed = true;
+  }
   if (!Array.isArray(db.economy.purchases)) { db.economy.purchases = []; changed = true; }
   if (!Array.isArray(db.economy.freeShopUses)) { db.economy.freeShopUses = []; changed = true; }
   if (!db.economy.equipped || typeof db.economy.equipped !== 'object') { db.economy.equipped = {}; changed = true; }
@@ -433,6 +461,9 @@ async function ensureDatabase(seedDatabase) {
   // Registro separado e persistente: impede que o campeão receba duas vezes
   // caso a primeira requisição do mês seja repetida ou a página seja recarregada.
   if (!Array.isArray(db.economy.seasonChampionRewards)) { db.economy.seasonChampionRewards = []; changed = true; }
+  // O placar do mês fechado não pode variar se um dado antigo for corrigido
+  // depois. Este retrato também é a fonte da conquista de campeão.
+  if (!Array.isArray(db.economy.seasonChampionSnapshots)) { db.economy.seasonChampionSnapshots = []; changed = true; }
   if (!Array.isArray(db.economy.gifts)) { db.economy.gifts = []; changed = true; }
   if (!db.economy.activityTotals || typeof db.economy.activityTotals !== 'object') { db.economy.activityTotals = {}; changed = true; }
   if (!Array.isArray(db.economy.powerUses)) { db.economy.powerUses = []; changed = true; }
@@ -441,9 +472,12 @@ async function ensureDatabase(seedDatabase) {
   if (!Array.isArray(db.economy.authorReveals)) { db.economy.authorReveals = []; changed = true; }
   if (!Array.isArray(db.economy.creditAdjustments)) { db.economy.creditAdjustments = []; changed = true; }
   if (!Array.isArray(db.economy.bulkCreditGrants)) { db.economy.bulkCreditGrants = []; changed = true; }
+  if (!Array.isArray(db.economy.casinoBulkBonusGrants)) { db.economy.casinoBulkBonusGrants = []; changed = true; }
   if (!Array.isArray(db.economy.dailyIncomeClaims)) { db.economy.dailyIncomeClaims = []; changed = true; }
+  if (!Array.isArray(db.economy.cryptoDailyIncomeClaims)) { db.economy.cryptoDailyIncomeClaims = []; changed = true; }
   if (!Array.isArray(db.economy.marketMissionClaims)) { db.economy.marketMissionClaims = []; changed = true; }
   if (!db.economy.investmentMarket || typeof db.economy.investmentMarket !== 'object') { ensureMarketState(db.economy); changed = true; }
+  if (!db.economy.cryptoMarket || typeof db.economy.cryptoMarket !== 'object') { ensureCryptoMarketState(db.economy); changed = true; }
   ensureMarketState(db.economy);
   if (!Array.isArray(db.economy.forcedCursors)) { db.economy.forcedCursors = []; changed = true; }
   if (!Array.isArray(db.economy.wallpaperDeadlinePenalties)) { db.economy.wallpaperDeadlinePenalties = []; changed = true; }
@@ -549,10 +583,153 @@ async function ensureDatabase(seedDatabase) {
     db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
     changed = true;
   }
+  // Sextou: cada conta recebe 500 promocionais. Quem já tinha o bônus diário
+  // intacto soma os dois saldos e precisa dobrar esse total; quem já apostou
+  // ou resgatou mantém a própria trajetória e não recebe saldo duplicado.
+  if (!db.economy.casinoFridayBonusV2 && saoPauloDayKey() === CASINO_FRIDAY_BONUS_DAY) {
+    const grantedAt = new Date().toISOString();
+    const grantedUserIds = []; const carriedDailyBonusUserIds = [];
+    db.users.filter((user) => user.active && user.approved !== false).forEach((user) => {
+      let account = db.economy.casinoAccounts[user.id];
+      if (!account || account.dayKey !== CASINO_FRIDAY_BONUS_DAY) {
+        account = { dayKey: CASINO_FRIDAY_BONUS_DAY, balance: CASINO_FRIDAY_EXTRA_BONUS, cashedOut: false, createdAt: grantedAt };
+        db.economy.casinoAccounts[user.id] = account;
+        account.cashoutThreshold = roundMoney(CASINO_FRIDAY_EXTRA_BONUS * 2);
+        grantedUserIds.push(user.id);
+        return;
+      }
+      const hasPromotionalPlay = db.economy.casinoPlays.some((play) => play.userId === user.id && play.dayKey === CASINO_FRIDAY_BONUS_DAY && play.walletSource !== 'shop');
+      const dailyBonusIntact = !account.cashedOut && !hasPromotionalPlay && Number(account.balance || 0) === CASINO_DAILY_BONUS;
+      if (!dailyBonusIntact) return;
+      account.balance = roundMoney(Number(account.balance || 0) + CASINO_FRIDAY_EXTRA_BONUS);
+      account.cashoutThreshold = roundMoney(Number(account.balance || 0) * 2);
+      account.fridayBonusAt = grantedAt;
+      account.fridayBonusAmount = CASINO_FRIDAY_EXTRA_BONUS;
+      grantedUserIds.push(user.id);
+      carriedDailyBonusUserIds.push(user.id);
+    });
+    db.economy.casinoFridayBonusV2 = { dayKey: CASINO_FRIDAY_BONUS_DAY, amount: CASINO_FRIDAY_EXTRA_BONUS, grantedAt, grantedUserIds, carriedDailyBonusUserIds };
+    db.settings.announcement = {
+      id: randomUUID(),
+      title: '🎉 Bônus de Sextou liberado',
+      message: 'Todos de pau duro e coração mole: o Cassino liberou 500 créditos promocionais. Quem ainda tinha os 250 diários intactos ficou com 750 e saca ao dobrar para 1.500; quem abriu depois recebe 500 e saca ao dobrar para 1.000. Amanhã volta ao normal: 250 diários e meta 500.',
+      createdAt: grantedAt,
+      createdBy: 'Área 51',
+      seenUserIds: [],
+    };
+    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
+  // Correção da liberação do Sextou: a promoção é saldo para toda a
+  // tripulação. Algumas pessoas abriram o Cassino nos segundos anteriores à
+  // inicialização e fizeram uma aposta antes de a V2 percorrer as contas.
+  // Elas não podem perder os 500 por essa corrida de inicialização.
+  if (!db.economy.casinoFridayBonusCorrectionV3 && saoPauloDayKey() === CASINO_FRIDAY_BONUS_DAY) {
+    const grantedAt = new Date().toISOString();
+    const originallyGranted = new Set(db.economy.casinoFridayBonusV2?.grantedUserIds || []);
+    const correctedUserIds = [];
+    db.users.filter((user) => user.active && user.approved !== false).forEach((user) => {
+      if (originallyGranted.has(user.id)) return;
+      let account = db.economy.casinoAccounts[user.id];
+      if (!account || account.dayKey !== CASINO_FRIDAY_BONUS_DAY) {
+        account = { dayKey: CASINO_FRIDAY_BONUS_DAY, balance: 0, cashedOut: false, createdAt: grantedAt };
+        db.economy.casinoAccounts[user.id] = account;
+      }
+      account.balance = roundMoney(Number(account.balance || 0) + CASINO_FRIDAY_EXTRA_BONUS);
+      // Para quem já havia usado o bônus diário, os 500 são uma nova banca do
+      // Sextou: a meta é 1.000, sem apagar o saldo que sobrou da tentativa.
+      account.cashoutThreshold = roundMoney(CASINO_FRIDAY_EXTRA_BONUS * 2);
+      account.cashedOut = false;
+      account.fridayBonusAt = grantedAt;
+      account.fridayBonusAmount = CASINO_FRIDAY_EXTRA_BONUS;
+      account.fridayBonusCorrection = true;
+      correctedUserIds.push(user.id);
+    });
+    db.economy.casinoFridayBonusCorrectionV3 = { dayKey: CASINO_FRIDAY_BONUS_DAY, amount: CASINO_FRIDAY_EXTRA_BONUS, grantedAt, correctedUserIds };
+    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
+  // A meta é sempre o dobro da banca existente após a liberação. A V3 usou
+  // indevidamente 1.000 fixos para quem tinha saldo remanescente do diário.
+  // Reconstituímos a banca naquele instante, sem punir nem premiar jogadas
+  // feitas depois do crédito.
+  if (!db.economy.casinoFridayCashoutThresholdV4 && saoPauloDayKey() === CASINO_FRIDAY_BONUS_DAY) {
+    const correction = db.economy.casinoFridayBonusCorrectionV3;
+    const grantedAt = correction?.grantedAt;
+    const correctedUserIds = Array.isArray(correction?.correctedUserIds) ? correction.correctedUserIds : [];
+    const recalculatedUserIds = [];
+    if (grantedAt) correctedUserIds.forEach((userId) => {
+      const account = db.economy.casinoAccounts[userId];
+      if (!account || account.dayKey !== CASINO_FRIDAY_BONUS_DAY) return;
+      const postBonusNet = db.economy.casinoPlays
+        .filter((play) => play.userId === userId && play.walletSource !== 'shop' && String(play.createdAt || '') >= grantedAt)
+        .reduce((sum, play) => sum + Number(play.net || 0), 0);
+      const balanceAfterBonus = roundMoney(Number(account.balance || 0) - postBonusNet);
+      account.fridayCashoutBase = balanceAfterBonus;
+      account.cashoutThreshold = roundMoney(balanceAfterBonus * 2);
+      recalculatedUserIds.push(userId);
+    });
+    db.economy.casinoFridayCashoutThresholdV4 = { dayKey: CASINO_FRIDAY_BONUS_DAY, recalculatedAt: new Date().toISOString(), recalculatedUserIds };
+    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
+  // Corrige somente as metas dos dois envios de 19/10 quando a banca estava
+  // zerada antes do primeiro envio e a meta ainda é a registrada no segundo.
+  if (!db.economy.casinoBulkBonusThresholdRuleV2) {
+    const dayKey = '2026-10-19';
+    const grants = (db.economy.casinoBulkBonusGrants || [])
+      .filter((grant) => grant?.dayKey === dayKey && Array.isArray(grant.recipients))
+      .sort((left, right) => Date.parse(left.createdAt || 0) - Date.parse(right.createdAt || 0));
+    const correctedUserIds = [];
+    const recipientIds = new Set(grants.flatMap((grant) => grant.recipients.map((recipient) => recipient.userId)));
+    recipientIds.forEach((userId) => {
+      const entries = grants.map((grant) => ({ grant, recipient: grant.recipients.find((item) => item.userId === userId) })).filter((entry) => entry.recipient);
+      const account = db.economy.casinoAccounts[userId];
+      if (!account || account.dayKey !== dayKey || account.cashedOut || entries.length !== 2) return;
+      const [first, last] = entries;
+      if (first.grant.amount !== 250 || last.grant.amount !== 250 || Number(first.recipient.beforeBalance) !== 0 || first.recipient.reopened || Number(account.cashoutThreshold) !== Number(last.recipient.cashoutThreshold)) return;
+      account.cashoutThreshold = 1000;
+      correctedUserIds.push(userId);
+      changed = true;
+    });
+    db.economy.casinoBulkBonusThresholdRuleV2 = { dayKey, correctedAt: new Date().toISOString(), correctedUserIds };
+    if (correctedUserIds.length) db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
+  if (!db.settings.loanRankingReleaseV317) {
+    const createdAt = new Date().toISOString();
+    db.settings.announcement = {
+      id: randomUUID(),
+      title: '📋 Classificação do Agiota Estelar',
+      message: 'A Classificação ganhou o quadro Maiores devedores: saldo pendente, valor do contrato, prazo e tempo de atraso. Saldo da Loja e pagamentos anteriores continuam privados.',
+      createdAt,
+      createdBy: 'Área 51',
+      seenUserIds: [],
+    };
+    db.settings.loanRankingReleaseV317 = { createdAt };
+    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
+  if (!db.settings.seasonPassWorkshopReleaseV318) {
+    const createdAt = new Date().toISOString();
+    db.settings.announcement = {
+      id: randomUUID(),
+      title: '✦ Passe Blackstar: Oficina liberada',
+      message: 'A trilha do Passe agora fica em uma página própria, junto do saldo de Fragmentos Blackstar e da Forja. Fragmentos já resgatados foram migrados para o saldo. Premium rende mais fragmentos e, ao concluir o nível 30, devolve 590 Créditos 51 para renovar o próximo Passe ou usar na Loja.',
+      createdAt,
+      createdBy: 'Sistema Área 51',
+      seenUserIds: [],
+    };
+    db.settings.seasonPassWorkshopReleaseV318 = { createdAt };
+    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
+    changed = true;
+  }
   if (!db.economy.lottery || typeof db.economy.lottery !== 'object') { db.economy.lottery = { rounds: [], entries: [] }; changed = true; }
   if (!Array.isArray(db.economy.lottery.rounds)) { db.economy.lottery.rounds = []; changed = true; }
   if (!Array.isArray(db.economy.lottery.entries)) { db.economy.lottery.entries = []; changed = true; }
   if (!Array.isArray(db.economy.mysteryBoxes)) { db.economy.mysteryBoxes = []; changed = true; }
+  if (!db.economy.casinoJackpot || typeof db.economy.casinoJackpot !== 'object') { db.economy.casinoJackpot = { amount: CASINO_JACKPOT.seed, updatedAt: new Date().toISOString() }; changed = true; }
+  if (!Number.isFinite(Number(db.economy.casinoJackpot.amount)) || Number(db.economy.casinoJackpot.amount) < CASINO_JACKPOT.seed) { db.economy.casinoJackpot.amount = CASINO_JACKPOT.seed; db.economy.casinoJackpot.updatedAt = new Date().toISOString(); changed = true; }
   if (!db.economy.cobblemonDex || typeof db.economy.cobblemonDex !== 'object') { db.economy.cobblemonDex = {}; changed = true; }
   if (!Array.isArray(db.economy.cobblemonDeliveries)) { db.economy.cobblemonDeliveries = []; changed = true; }
   if (!Array.isArray(db.economy.cobblemonRouletteSpins)) { db.economy.cobblemonRouletteSpins = []; changed = true; }
@@ -733,6 +910,22 @@ async function ensureDatabase(seedDatabase) {
     db.economy.cobblemonCapsuleResetV5 = { at: now, refunded };
     changed = true;
   }
+  // Confirmar uma recompensa de outra origem (Roleta ou Baú Premium) jamais
+  // pode cancelar o Pokémon já escolhido para entrega. Repara as escolhas do
+  // ciclo atual afetadas pela regra antiga e preserva o bloqueio semanal.
+  if (!db.economy.cobblemonPokemonDeliveryProtectionV1) {
+    const restored = [];
+    const currentCycleId = pokemonCapsuleCycleKey();
+    db.economy.cobblemonDeliveries.filter((entry) => entry.boxId === 'pokemon' && entry.cycleId === currentCycleId && entry.status === 'replaced' && entry.lockReason === 'Escolha antecipada para entrega do Davi' && Number(entry.rolls?.length || entry.openCount || 0) >= 3).forEach((entry) => {
+      entry.status = 'awaiting-delivery';
+      entry.deliveryLocked = true;
+      entry.restoredAt = new Date().toISOString();
+      entry.restoreReason = 'Proteção da entrega Pokémon contra confirmação de outra recompensa';
+      restored.push(entry.id);
+    });
+    db.economy.cobblemonPokemonDeliveryProtectionV1 = { restored, at: new Date().toISOString() };
+    changed = true;
+  }
   if (!Array.isArray(db.economy.scoreTrades)) { db.economy.scoreTrades = []; changed = true; }
   if (!Array.isArray(db.economy.loans)) { db.economy.loans = []; changed = true; }
   if (!Array.isArray(db.economy.flights)) { db.economy.flights = []; changed = true; }
@@ -835,6 +1028,7 @@ async function ensureDatabase(seedDatabase) {
     changed = true;
   }
   if (!Object.hasOwn(db.settings, 'announcement')) { db.settings.announcement = null; changed = true; }
+  if (!db.settings.cobblemonServerRoster || typeof db.settings.cobblemonServerRoster !== 'object') { db.settings.cobblemonServerRoster = {}; changed = true; }
   if (!db.settings.featureFlags || typeof db.settings.featureFlags !== 'object') { db.settings.featureFlags = { ...DEFAULT_FEATURE_FLAGS }; changed = true; }
   for (const [key, enabled] of Object.entries(DEFAULT_FEATURE_FLAGS)) {
     if (typeof db.settings.featureFlags[key] !== 'boolean') { db.settings.featureFlags[key] = enabled; changed = true; }
@@ -858,32 +1052,54 @@ async function ensureDatabase(seedDatabase) {
     db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
     changed = true;
   }
-  if (!db.settings.cobblemonHuntVisibilityReleaseV279) {
-    db.settings.cobblemonHuntVisibilityReleaseV279 = new Date().toISOString();
-    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
-    changed = true;
-  }
-  if (!db.settings.lightLoadingReleaseV280) {
-    db.settings.lightLoadingReleaseV280 = new Date().toISOString();
-    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
-    changed = true;
-  }
-  if (!db.settings.localCobblemonAssetsReleaseV281) {
-    db.settings.localCobblemonAssetsReleaseV281 = new Date().toISOString();
-    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
-    changed = true;
-  }
-  if (!db.settings.huntMenuLayerReleaseV282) {
-    db.settings.huntMenuLayerReleaseV282 = new Date().toISOString();
-    db.settings.releaseVersion = Math.max(0, Number(db.settings.releaseVersion || 0)) + 1;
-    changed = true;
-  }
   // A chave é independente da janela da temporada. Ela permanece ligada para
   // que a ativação antecipada de 29/09 continue ativa após reinícios.
   if (db.settings.nextCardSeasonEnabled !== true) { db.settings.nextCardSeasonEnabled = true; changed = true; }
   if (!db.settings.missionEconomyStartWeek) {
     const start = new Date(saoPauloWeekKey() + 'T12:00:00Z'); start.setUTCDate(start.getUTCDate() + 7);
     db.settings.missionEconomyStartWeek = start.toISOString().slice(0, 10); changed = true;
+  }
+  // O sorteio extraordinário de 10 mil encerrou a rodada comum daquela data.
+  // Reabrimos somente a janela semanal que ficou anulada, com segredo novo e
+  // com o acúmulo já existente, para que a semana seguinte volte ao fluxo
+  // normal de palpites e ao piso de 1.500 créditos.
+  if (!db.settings.lotteryWeeklyWindowRepairV239) {
+    ensureLotteryState();
+    const window = lotteryWindowFor(new Date());
+    const weeklyRound = db.economy.lottery.rounds.find((item) => item.id === window.id);
+    if (weeklyRound?.status === 'void' && Date.parse(weeklyRound.closeAt) > Date.now()) {
+      const secret = randomBytes(32).toString('hex');
+      Object.assign(weeklyRound, {
+        status: 'open', secret, commitHash: createHash('sha256').update(secret).digest('hex'),
+        startAt: window.startAt, closeAt: window.closeAt,
+        carryOver: roundMoney(weeklyRound.carryOver || weeklyRound.rolloverAmount || 0),
+        realWagered: 0, houseMargin: 0, contribution: 0, basePrizePool: 0, apostometerTopUp: 0, prizePool: 0,
+        winningNumbers: [], winnerIds: [], payouts: [], rolloverAmount: 0, drawnAt: null, revealedSecret: null,
+        reopenedForWeeklyScheduleAt: new Date().toISOString(),
+      });
+      db.economy.lottery.entries = db.economy.lottery.entries.filter((entry) => entry.roundId !== weeklyRound.id);
+      changed = true;
+    }
+    db.settings.lotteryWeeklyWindowRepairV239 = new Date().toISOString();
+    changed = true;
+  }
+  if (!db.settings.communityVoteDeadlineV240) {
+    for (const vote of db.communityVotes || []) {
+      if (vote.status === 'open' && !vote.expiresAt) {
+        vote.expiresAt = new Date(Date.parse(vote.createdAt) + COMMUNITY_VOTE_DURATION_MS).toISOString();
+        changed = true;
+      }
+    }
+    db.settings.communityVoteDeadlineV240 = new Date().toISOString();
+    changed = true;
+  }
+  // Quem já resgatou o emblema no Passe antes desta correção também o recebe
+  // equipado. Um emblema escolhido manualmente continua tendo prioridade.
+  for (const purchase of db.economy?.purchases || []) {
+    if (purchase.source !== 'season-pass' || purchase.itemId !== 'badge-operacao-blackstar') continue;
+    db.economy.equipped ||= {};
+    const equipped = (db.economy.equipped[purchase.userId] ||= {});
+    if (!equipped.badge) { equipped.badge = purchase.itemId; changed = true; }
   }
   db.users.forEach((user) => { if (typeof user.approved !== 'boolean') { user.approved = true; changed = true; } });
   if (db.settings.dailyPhrase.trim()) {
@@ -896,13 +1112,19 @@ async function ensureDatabase(seedDatabase) {
     db.settings.dailyPhraseUpdatedBy = null;
     changed = true;
   }
-  if (await archiveCasinoPlaysBefore(lotteryWindowFor().startAt)) changed = true;
+  if (await archiveCasinoPlaysBefore(new Date().toISOString())) changed = true;
   if (changed) await persist();
 }
 
 export async function initializeOnline(environment, seedDatabase) {
   runtimeEnv = environment;
   await ensureDatabase(seedDatabase);
+  db.economy.curseHistory ||= [];
+  db.economy.curseAuthorReveals ||= [];
+  if (!db.settings.cursePowersReleasedAt) {
+    db.settings.cursePowersReleasedAt = new Date().toISOString();
+    await persist();
+  }
 }
 
 export async function refreshOnlineState() {
@@ -916,6 +1138,7 @@ export async function refreshOnlineState() {
     databaseBytes = Buffer.byteLength(String(stored.data));
     stateRevision = remoteRevision;
     liveDraw = db.settings?.liveDraw?.endsAt > Date.now() ? db.settings.liveDraw : null;
+    invalidateStateResponseCache();
   }
 }
 
@@ -935,6 +1158,113 @@ function saoPauloDayKey(date = new Date()) {
   return value.year + '-' + value.month + '-' + value.day;
 }
 
+// A primeira apuração é a virada de 28 para 29/10/2026 em Brasília.
+const DAILY_DUTY_FIRST_DAY = '2026-10-28';
+// A partir de 30/10, um dia de aviso com uma cesta individual antecede cada punição.
+const DAILY_DUTY_BASKET_START_DAY = '2026-10-30';
+const DAILY_DUTY_BASKET_TOTAL = 10;
+const DAILY_DUTY_BASKET_WINDOW_MS = 10 * 60 * 1000;
+const DAILY_DUTY_BASKET_FOODS = [
+  { id: 'rice', name: 'Arroz', spriteIndex: 0 },
+  { id: 'beans', name: 'Feijão', spriteIndex: 1 },
+  { id: 'oil', name: 'Óleo', spriteIndex: 2 },
+  { id: 'pasta', name: 'Macarrão', spriteIndex: 3 },
+  { id: 'sugar', name: 'Açúcar', spriteIndex: 4 },
+  { id: 'coffee', name: 'Café', spriteIndex: 5 },
+  { id: 'milk', name: 'Leite', spriteIndex: 6 },
+  { id: 'salt', name: 'Sal', spriteIndex: 7 },
+  { id: 'flour', name: 'Farinha', spriteIndex: 8 },
+  { id: 'sardines', name: 'Sardinha', spriteIndex: 9 },
+];
+const DAILY_DUTY_BASKET_PAGES = ['sorteio', 'inscricoes', 'memes', 'anonimos', 'agua', 'mentirometro', 'misterio', 'impostor', 'perfil', 'cobblemon', 'album', 'loja', 'loteria', 'mercado', 'crypto51', 'votacoes', 'classificacao', 'passe', 'atualizacoes'];
+function previousSaoPauloDayKey(dayKey) {
+  return saoPauloDayKey(new Date(Date.parse(dayKey + 'T12:00:00-03:00') - 86400000));
+}
+function dailyDutyPostRecorded(userId, dayKey) {
+  const matches = (post) => post.userId === userId && dayKeyForTimestamp(post.createdAt) === dayKey;
+  return (db.economy.dailyDutyPosts || []).some((entry) => entry.userId === userId && entry.dayKey === dayKey)
+    || db.dailyPhrases.some(matches) || db.dailyMemes.some(matches)
+    || db.dailyWallHistory.some((archive) => (archive.phrases || []).some(matches) || (archive.memes || []).some(matches));
+}
+function dailyDutySeededRandom(seedText) {
+  let seed = 2166136261;
+  for (const character of String(seedText)) seed = Math.imul(seed ^ character.charCodeAt(0), 16777619);
+  return () => {
+    seed = (seed + 0x6D2B79F5) | 0;
+    let value = seed;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function dailyDutyBasketScheduleFor(userId, dayKey, now = new Date()) {
+  const random = dailyDutySeededRandom(userId + ':' + dayKey + ':basket-v1');
+  const foods = [...DAILY_DUTY_BASKET_FOODS];
+  const pages = [...DAILY_DUTY_BASKET_PAGES];
+  for (let index = foods.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(random() * (index + 1));
+    [foods[index], foods[other]] = [foods[other], foods[index]];
+  }
+  for (let index = pages.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(random() * (index + 1));
+    [pages[index], pages[other]] = [pages[other], pages[index]];
+  }
+  const dayStart = Date.parse(dayKey + 'T08:00:00-03:00');
+  const dayEnd = Date.parse(dayKey + 'T23:20:00-03:00');
+  const activationAt = Date.parse(db.settings.dailyDutyBasketActivatedAt || '');
+  const activationDay = Number.isFinite(activationAt) ? saoPauloDayKey(new Date(activationAt)) : '';
+  const startAt = Math.max(dayStart, activationDay === dayKey ? activationAt + 60 * 1000 : dayStart);
+  const span = Math.max(0, dayEnd - startAt);
+  const step = span / DAILY_DUTY_BASKET_TOTAL;
+  return foods.map((food, index) => {
+    const availableAt = Math.round(startAt + step * (index + random() * 0.55));
+    return { id: 'basket-' + food.id, ...food, page: pages[index % pages.length], availableAt, expiresAt: Math.min(availableAt + DAILY_DUTY_BASKET_WINDOW_MS, dayEnd) };
+  });
+}
+function dailyDutyBasketTaskForDay(user, dayKey, now = new Date()) {
+  if (dayKey < DAILY_DUTY_BASKET_START_DAY || !user?.active || user.approved === false) return null;
+  const checkedDay = previousSaoPauloDayKey(dayKey);
+  if (checkedDay < DAILY_DUTY_FIRST_DAY || saoPauloDayKey(new Date(user.createdAt || 0)) > checkedDay) return null;
+  const posted = dailyDutyPostRecorded(user.id, checkedDay);
+  const drankWater = db.waterEntries.some((entry) => entry.userId === user.id && entry.dayKey === checkedDay);
+  if (posted && drankWater) return null;
+  const nowMs = now instanceof Date ? now.getTime() : Number(now);
+  const schedule = dailyDutyBasketScheduleFor(user.id, dayKey, now instanceof Date ? now : new Date(nowMs));
+  const collections = (db.economy.dailyDutyBasketCollections || []).filter((entry) => entry.userId === user.id && entry.dayKey === dayKey);
+  const collectedById = new Map(collections.map((entry) => [entry.itemId, entry]));
+  const foundItems = schedule.filter((item) => collectedById.has(item.id)).map((item) => ({ ...item, collectedAt: collectedById.get(item.id).collectedAt })).sort((a, b) => String(a.collectedAt).localeCompare(String(b.collectedAt)));
+  const missedItems = schedule.filter((item) => !collectedById.has(item.id) && item.expiresAt <= nowMs);
+  const activeItem = schedule.find((item) => !collectedById.has(item.id) && item.availableAt <= nowMs && item.expiresAt > nowMs) || null;
+  const nextItem = schedule.find((item) => !collectedById.has(item.id) && item.availableAt > nowMs) || null;
+  const completed = foundItems.length === DAILY_DUTY_BASKET_TOTAL;
+  const penaltyHoursIfIncomplete = completed ? 0 : Math.max(0, Math.round((24 - foundItems.length * 2.4) * 10) / 10);
+  return {
+    dayKey, checkedDay, missingPost: !posted, missingWater: !drankWater, total: DAILY_DUTY_BASKET_TOTAL,
+    collectedCount: foundItems.length, missedCount: missedItems.length, remainingCount: DAILY_DUTY_BASKET_TOTAL - foundItems.length - missedItems.length,
+    foundItems, missedItemIds: missedItems.map((item) => item.id), activeItem: activeItem ? { ...activeItem } : null,
+    nextItemAt: nextItem ? new Date(nextItem.availableAt).toISOString() : null,
+    nextChangeAt: activeItem ? new Date(activeItem.expiresAt).toISOString() : nextItem ? new Date(nextItem.availableAt).toISOString() : null,
+    itemWindowMinutes: 10, hoursPerItem: 2.4, penaltyHoursIfIncomplete, completed,
+  };
+}
+function dailyDutyBasketTaskFor(user, now = new Date()) {
+  const today = saoPauloDayKey(now);
+  return dailyDutyBasketTaskForDay(user, today, now);
+}
+function dailyDutyPenaltyFor(user, now = new Date()) {
+  const today = saoPauloDayKey(now);
+  if (today <= DAILY_DUTY_BASKET_START_DAY || !user?.active || user.approved === false) return null;
+  const checkedDay = previousSaoPauloDayKey(today);
+  if ((db.economy.dailyDutyPenaltyClears || []).some((entry) => entry.userId === user.id && entry.dayKey === today)) return null;
+  const warningTask = dailyDutyBasketTaskForDay(user, checkedDay, new Date(Date.parse(today + 'T00:00:00-03:00') - 1));
+  if (!warningTask || warningTask.completed) return null;
+  const durationHours = warningTask.penaltyHoursIfIncomplete;
+  const expiresAt = new Date(Date.parse(today + 'T00:00:00-03:00') + durationHours * 3600000).toISOString();
+  if (Date.parse(expiresAt) <= now.getTime()) return null;
+  return { dayKey: today, checkedDay, taskDay: checkedDay, missingPost: warningTask.missingPost, missingWater: warningTask.missingWater,
+    collectedCount: warningTask.collectedCount, missedCount: warningTask.missedCount, durationHours, expiresAt };
+}
+
 function wallpaperDeadlineAt() {
   const drawDate = String(db.settings?.roundSchedule?.drawAt || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(drawDate)) return null;
@@ -952,13 +1282,11 @@ function settleWallpaperDeadline(now = Date.now()) {
   if (!roundId || !db.settings.currentTheme || !deadlineAt || now < deadlineAt) return false;
   if (db.settings.wallpaperDeadlineSettledRoundId === roundId) return false;
   if (db.assignments.some((item) => item.roundId === roundId) || db.votings.some((item) => item.roundId === roundId)) return false;
-
   const participantIds = [...new Set(db.settings.currentParticipantIds || [])];
   const submittedIds = new Set(db.submissions.filter((item) => item.active && item.roundId === roundId).map((item) => item.userId));
   const readyIds = participantIds.filter((id) => submittedIds.has(id) && db.users.some((item) => item.id === id && item.active && item.approved !== false));
   const missingIds = participantIds.filter((id) => !submittedIds.has(id) && db.users.some((item) => item.id === id && item.active && item.approved !== false));
   const createdAt = new Date(now).toISOString();
-
   for (const userId of readyIds) db.economy.wallpaperMissStreaks[userId] = 0;
   for (const userId of missingIds) {
     if (db.economy.wallpaperDeadlinePenalties.some((item) => item.roundId === roundId && item.userId === userId)) continue;
@@ -973,7 +1301,6 @@ function settleWallpaperDeadline(now = Date.now()) {
     db.economy.wallpaperDeadlinePenalties.push({ id: randomUUID(), roundId, userId, userName: user?.displayName || 'Participante', streak, scheduledAmount, amount, before, after, createdAt, clearedAt: null });
     db.economy.creditAdjustments.push({ id: randomUUID(), userId, mode: 'wallpaper-deadline-penalty', amount: -amount, before, after, reason: `Falta de envio até 15h30 · ${streak}ª ausência consecutiva`, createdAt, roundId });
   }
-
   db.settings.currentParticipantIds = readyIds;
   db.settings.currentParticipantsLocked = true;
   db.settings.wallpaperDeadlineSettledRoundId = roundId;
@@ -1035,6 +1362,17 @@ function cobblemonCandidateSellPrice(rarity) {
   return ({ common: 300, shiny: 400, rare: 450, legendary: 500 })[String(rarity || '').toLowerCase()] || 300;
 }
 
+// O Baú Premium tem prêmios físicos com raridades explícitas pela chance.
+// O valor é decidido no servidor — a interface apenas o exibe — para que
+// recarregar a página ou alterar o navegador nunca mude a revenda.
+function premiumCobblemonSellPrice(weight) {
+  const chance = Number(weight || 0);
+  if (chance <= 1.25) return 1100; // mítico
+  if (chance <= 2.08) return 900;  // relíquia
+  if (chance <= 3.33) return 700;  // raro
+  return 550;                      // especial
+}
+
 function sellPokemonCapsuleCandidates(entries, chosenEntry, userId, now, reason = 'Venda automática das opções não escolhidas') {
   let count = 0;
   let total = 0;
@@ -1090,6 +1428,21 @@ function settlePokemonCapsules() {
       continue;
     }
     const paidCapsules = entries.filter((entry) => !['cycle-discarded', 'cycle-expired', 'replaced', 'reset-refunded'].includes(entry.status));
+    // Uma decisão semanal só é final quando não resta nenhum Baú Pokémon em
+    // aberto. Se uma compra paga ainda precisa de sorteios ou da escolha dos
+    // três resultados, devolvemos a decisão semanal à lista de candidatos.
+    // Isso preserva todos os Pokémon e impede uma seleção antecipada de
+    // bloquear a conclusão do próprio ciclo.
+    const hasUnfinishedBox = entries.some((entry) => ['box-closed', 'box-open', 'choice-pending'].includes(entry.status));
+    if (hasUnfinishedBox) {
+      entries.filter((entry) => entry.status === 'weekly-choice-pending').forEach((entry) => {
+        entry.status = 'cycle-candidate';
+        delete entry.choices;
+        entry.weeklyChoiceDeferredAt = new Date().toISOString();
+        changed = true;
+      });
+      continue;
+    }
     if (deliveryLocked || !pokemonCapsuleIsFriday() || paidCapsules.length < 7 || entries.some((entry) => entry.status === 'weekly-choice-pending')) continue;
     if (active.length === 1) finalizePokemonCapsuleCycle(entries, active[0], 'Única opção da semana');
     else if (active.length > 1) {
@@ -1111,20 +1464,10 @@ function retailPriceWithCents(value) {
 // Bolas especiais ficam no inventário até serem usadas. A Poké Ball básica
 // continua sendo o limite diário gratuito; as demais substituem o arremesso
 // escolhido pelo jogador e melhoram a chance calculada no servidor.
-const COBBLEMON_ITEM_ASSETS = Object.freeze({
-  poke: '/capture-ball-cobblemon.png', great: '/cobblemon-items/great-ball.png', ultra: '/cobblemon-items/ultra-ball.png', ancient: '/cobblemon-items/ancient-poke-ball.png', quick: '/cobblemon-items/quick-ball.png',
-  fire: '/cobblemon-items/fire-stone.png', water: '/cobblemon-items/water-stone.png', thunder: '/cobblemon-items/thunder-stone.png', leaf: '/cobblemon-items/leaf-stone.png', ice: '/cobblemon-items/ice-stone.png', sun: '/cobblemon-items/sun-stone.png', moon: '/cobblemon-items/moon-stone.png', dawn: '/cobblemon-items/dawn-stone.png', dusk: '/cobblemon-items/dusk-stone.png', shinyStone: '/cobblemon-items/shiny-stone.png',
-  rareCandy: '/cobblemon-items/rare-candy.png', expCandyL: '/cobblemon-items/exp-candy-l.png', expCandyXL: '/cobblemon-items/exp-candy-xl.png', abilityCapsule: '/cobblemon-items/ability-capsule.png', cherish: '/cobblemon-items/cherish-ball.png', master: '/cobblemon-items/master-ball.png', luckyEgg: '/cobblemon-items/lucky-egg.png', domeFossil: '/cobblemon-items/dome-fossil.png',
-});
-function localCobblemonItemSprite(sprite) {
-  const value = String(sprite || '');
-  const aliases = [['Poke_Ball', COBBLEMON_ITEM_ASSETS.poke], ['Great_Ball', COBBLEMON_ITEM_ASSETS.great], ['Ultra_Ball', COBBLEMON_ITEM_ASSETS.ultra], ['Ancient_Poke_Ball', COBBLEMON_ITEM_ASSETS.ancient], ['Quick_Ball', COBBLEMON_ITEM_ASSETS.quick], ['Fire_Stone', COBBLEMON_ITEM_ASSETS.fire], ['Water_Stone', COBBLEMON_ITEM_ASSETS.water], ['Thunder_Stone', COBBLEMON_ITEM_ASSETS.thunder], ['Leaf_Stone', COBBLEMON_ITEM_ASSETS.leaf], ['Ice_Stone', COBBLEMON_ITEM_ASSETS.ice], ['Sun_Stone', COBBLEMON_ITEM_ASSETS.sun], ['Moon_Stone', COBBLEMON_ITEM_ASSETS.moon], ['Dawn_Stone', COBBLEMON_ITEM_ASSETS.dawn], ['Dusk_Stone', COBBLEMON_ITEM_ASSETS.dusk], ['Shiny_Stone', COBBLEMON_ITEM_ASSETS.shinyStone], ['Rare_Candy', COBBLEMON_ITEM_ASSETS.rareCandy], ['Exp._Candy_L', COBBLEMON_ITEM_ASSETS.expCandyL], ['Exp._Candy_XL', COBBLEMON_ITEM_ASSETS.expCandyXL], ['Ability_Capsule', COBBLEMON_ITEM_ASSETS.abilityCapsule], ['Cherish_Ball', COBBLEMON_ITEM_ASSETS.cherish], ['Master_Ball', COBBLEMON_ITEM_ASSETS.master], ['Lucky_Egg', COBBLEMON_ITEM_ASSETS.luckyEgg], ['Dome_Fossil', COBBLEMON_ITEM_ASSETS.domeFossil]];
-  return aliases.find(([needle]) => value.includes(needle))?.[1] || value;
-}
 const COBBLEMON_CAPTURE_BALLS = {
-  poke: { id: 'poke', name: 'Poké Ball', shortName: 'Básica', sprite: '/capture-ball-cobblemon.png', multiplier: 1, price: 0, daily: true },
-  great: { id: 'great', name: 'Great Ball', shortName: 'Melhor chance', sprite: COBBLEMON_ITEM_ASSETS.great, multiplier: 1.35, price: 75 },
-  ultra: { id: 'ultra', name: 'Ultra Ball', shortName: 'Alta chance', sprite: COBBLEMON_ITEM_ASSETS.ultra, multiplier: 1.7, price: 180 },
+  poke: { id: 'poke', name: 'Poké Ball', shortName: 'Básica', sprite: 'https://wiki.cobblemon.com/images/6/6f/Poke_Ball.png', multiplier: 1, price: 0, daily: true },
+  great: { id: 'great', name: 'Great Ball', shortName: 'Melhor chance', sprite: 'https://wiki.cobblemon.com/images/4/45/Great_Ball.png', multiplier: 1.35, price: 75 },
+  ultra: { id: 'ultra', name: 'Ultra Ball', shortName: 'Alta chance', sprite: 'https://wiki.cobblemon.com/images/3/34/Ultra_Ball.png', multiplier: 1.7, price: 180 },
 };
 
 const COBBLEMON_DAILY_SPECIAL_BALL_BONUS = Object.freeze({ great: 1, ultra: 1 });
@@ -1203,23 +1546,30 @@ const SHOP_CATALOG = [
   { id: 'card-pack-sector51', name: 'Pacote Setor 51', icon: '📁', packArt: '/card-season-2026-10/pack-setor-51.webp', type: 'cardPack', value: 'sector51', consumable: true, cardPack: true, price: 120, availableFrom: NEXT_CARD_SEASON.startsAt, description: '3 cartas da Operação Ecos do Setor 51. Cada carta tem 10% de chance de ser rara.' },
   { id: 'card-pack-orbit', name: 'Pacote Órbita', icon: '🛰️', packArt: '/card-season-2026-10/pack-orbita.webp', type: 'cardPack', value: 'orbit', consumable: true, cardPack: true, price: 260, cardPackDailyLimit: 3, availableFrom: NEXT_CARD_SEASON.startsAt, description: '3 cartas da nova temporada. Cada carta tem 18% de chance de ser rara.' },
   { id: 'card-pack-core', name: 'Pacote Núcleo', icon: '⚛️', packArt: '/card-season-2026-10/pack-nucleo.webp', type: 'cardPack', value: 'core', consumable: true, cardPack: true, price: 520, cardPackDailyLimit: 1, availableFrom: NEXT_CARD_SEASON.startsAt, description: '3 cartas da nova temporada. Cada carta tem 28% de chance de ser rara.' },
-  { id: 'title-operador-blackstar', name: 'Título Operador Blackstar', description: 'Título exclusivo concluído no nível 30 da trilha gratuita Operação: Ecos do Setor 51.', price: 0, type: 'title', value: 'Operador Blackstar', icon: '✦', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
-  { id: 'badge-operacao-blackstar', name: 'Emblema da Operação', description: 'Emblema exclusivo do Passe Premium, exibido ao lado do seu nome.', price: 0, type: 'badge', value: '◈', icon: '◈', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
-  { id: 'frame-blackstar', name: 'Moldura Blackstar', description: 'Moldura violeta e dourada desbloqueada pelo Passe Premium.', price: 0, type: 'frame', value: 'blackstar', icon: '✦', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
-  { id: 'trail-taquion', name: 'Rastro Táquion', description: 'Rastro de energia violeta para o cursor, exclusivo do Passe Premium.', price: 0, type: 'trailStyle', value: 'taquion', icon: '〰️', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
-  { id: 'cursor-khepri', name: 'Cursor Khepri', description: 'Cursor exclusivo com ponta precisa e arte da Sonda Khepri.', price: 0, type: 'cursorStyle', value: 'khepri', icon: '🛰️', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
-  { id: 'site-camara-vanta', name: 'Tema Premium Câmara Vanta', description: 'Tema preto-violeta da Operação, exclusivo do nível 30 do Passe Premium.', price: 0, type: 'siteTheme', value: 'camara-vanta', icon: '◈', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'title-operador-blackstar', name: 'Título Operador Blackstar', description: 'Título exclusivo concluído no nível 30 da trilha gratuita Operação: Ecos do Setor 51.', price: 300, type: 'title', value: 'Operador Blackstar', icon: '✦', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'badge-operacao-blackstar', name: 'Emblema da Operação', description: 'Emblema exclusivo do Passe Premium, exibido ao lado do seu nome.', price: 240, type: 'badge', value: '◈', icon: '◈', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'frame-blackstar', name: 'Moldura Blackstar', description: 'Moldura violeta e dourada desbloqueada pelo Passe Premium.', price: 420, type: 'frame', value: 'blackstar', icon: '✦', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'badge-relic-rift', name: 'Relíquia da Fenda', description: 'Emblema visual forjado com Fragmentos Blackstar. Pode ser equipado no Perfil.', price: 0, type: 'badge', value: 'relic-rift', icon: '✦', iconAsset: '/season-workshop/reliquia-fenda.png', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'trail-taquion', name: 'Rastro Táquion', description: 'Rastro de energia violeta para o cursor, exclusivo do Passe Premium.', price: 300, type: 'trailStyle', value: 'taquion', icon: '〰️', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'cursor-khepri', name: 'Cursor Khepri', description: 'Cursor exclusivo com ponta precisa e arte da Sonda Khepri.', price: 450, type: 'cursorStyle', value: 'khepri', icon: '🛰️', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'site-camara-vanta', name: 'Tema Premium Câmara Vanta', description: 'Tema preto-violeta da Operação, exclusivo do nível 30 do Passe Premium.', price: 600, type: 'siteTheme', value: 'camara-vanta', icon: '◈', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'cursor-blackstar-cyan', name: 'Lança Blackstar: Azul Elétrico', description: 'Cursor forjado com Fragmentos Blackstar. A ponta é a área precisa de clique.', price: 0, type: 'cursorStyle', value: 'blackstar-cyan', icon: '✦', iconAsset: '/season-workshop/cursor-blackstar-cyan.png', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'cursor-blackstar-gold', name: 'Lança Blackstar: Obsidiana e Ouro', description: 'Cursor forjado com Fragmentos Blackstar. A ponta é a área precisa de clique.', price: 0, type: 'cursorStyle', value: 'blackstar-gold', icon: '✦', iconAsset: '/season-workshop/cursor-blackstar-gold.png', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'cursor-blackstar-crimson', name: 'Lança Blackstar: Carmesim Lunar', description: 'Cursor forjado com Fragmentos Blackstar. A ponta é a área precisa de clique.', price: 0, type: 'cursorStyle', value: 'blackstar-crimson', icon: '✦', iconAsset: '/season-workshop/cursor-blackstar-crimson.png', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'site-blackstar-cyan', name: 'Câmara Blackstar: Aurora Azul', description: 'Tema forjado com Fragmentos Blackstar.', price: 0, type: 'siteTheme', value: 'blackstar-cyan', icon: '✦', iconAsset: '/season-workshop/theme-blackstar-cyan.png', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'site-blackstar-gold', name: 'Câmara Blackstar: Obsidiana Dourada', description: 'Tema forjado com Fragmentos Blackstar.', price: 0, type: 'siteTheme', value: 'blackstar-gold', icon: '✦', iconAsset: '/season-workshop/theme-blackstar-gold.png', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
+  { id: 'site-blackstar-crimson', name: 'Câmara Blackstar: Nebulosa Rubra', description: 'Tema forjado com Fragmentos Blackstar.', price: 0, type: 'siteTheme', value: 'blackstar-crimson', icon: '✦', iconAsset: '/season-workshop/theme-blackstar-crimson.png', passExclusive: true, availableFrom: NEXT_CARD_SEASON.startsAt },
   { id: 'cursor-crystal', name: 'Seta Cristal Lunar', description: 'Seta facetada azul e violeta, com ponta precisa e contorno contrastante. Combine com seus rastros.', price: 360, type: 'cursorStyle', value: 'crystal', icon: '💠' },
   { id: 'cursor-solar', name: 'Seta Lâmina Solar', description: 'Seta dourada e laranja em forma de lâmina solar. Ponta clara e tamanho próprio para clicar.', price: 390, type: 'cursorStyle', value: 'solar', icon: '☀️' },
   { id: 'name-ice', name: 'Nome Gelo Lunar', description: 'Letras azul-gelo com brilho no perfil, topo e menu.', price: 270, type: 'nameStyle', value: 'ice', icon: '🧊' },
   { id: 'frame-rose', name: 'Moldura Quartzo Rosa', description: 'Acabamento rosa e violeta no perfil, topo e menu.', price: 330, type: 'frame', value: 'rose', icon: '🔮' },
   { id: 'title-master-guardian', name: 'Título Guardião Master', description: 'Exibe Guardião Master no perfil, topo e menu.', price: 300, type: 'title', value: 'Guardião Master', icon: '🏅' },
   { id: 'box-master-aurora', name: 'Baú Master Aurora', description: 'Visual ou poder de 340 a 680 créditos, ou 100 a 240 créditos. Sorte aleatória: o prêmio pode valer menos que o baú.', price: 800, sellPrice: 200, type: 'mysteryBox', value: 'master-aurora', icon: '💠', mysteryBox: true, master: true, tier: 'master-aurora', creditChance: .2, powerChance: .3, minRewardPrice: 340, maxRewardPrice: 680, creditMin: 100, creditMax: 240 },
-  { id: 'box-master-imperial', name: 'Baú Master Imperial', description: 'Visual ou poder de 400 a 800 créditos, ou 150 a 320 créditos. Sem garantia de lucro; itens repetidos podem virar créditos.', price: 1100, sellPrice: 280, type: 'mysteryBox', value: 'master-imperial', icon: '👑', mysteryBox: true, master: true, tier: 'master-imperial', creditChance: .15, powerChance: .4, minRewardPrice: 400, maxRewardPrice: 800, creditMin: 150, creditMax: 320 },
+  { id: 'box-master-imperial', name: 'Baú Master Imperial', description: 'Visual ou poder de 400 a 800 créditos, com exceção da Moldura Cyberpunk, ou 150 a 320 créditos. Sem garantia de lucro; itens repetidos podem virar créditos.', price: 1100, sellPrice: 280, type: 'mysteryBox', value: 'master-imperial', icon: '👑', mysteryBox: true, master: true, tier: 'master-imperial', creditChance: .15, powerChance: .4, minRewardPrice: 400, maxRewardPrice: 800, creditMin: 150, creditMax: 320 },
   { id: 'badge-comet', name: 'Emblema Cometa', description: 'Um cometa junto ao nome no perfil, topo e menu.', price: 220, type: 'badge', value: '☄️', icon: '☄️' },
   { id: 'name-ruby', name: 'Nome Rubi Estelar', description: 'Brilho rubi no nome do perfil, topo e menu.', price: 240, type: 'nameStyle', value: 'ruby', icon: '💎' },
   { id: 'frame-orbit', name: 'Moldura Órbita Prateada', description: 'Borda metálica prateada no perfil, topo e menu.', price: 310, type: 'frame', value: 'orbit', icon: '🪩' },
-  { id: 'power-cleanse-cursor', name: 'Antídoto de Maldição', description: 'Remove uma maldição de cursor comprada aplicada em você. Não remove sorteio nem dívida.', price: 260, type: 'power', value: 'cleanseCursor', icon: '🧪', consumable: true },
+  { id: 'power-cleanse-cursor', name: 'Antídoto de Maldição', description: 'Remove uma maldição comprada comum aplicada em você. Não remove maldição lacrada, sorteio nem dívida.', price: 360, type: 'power', value: 'cleanseCursor', icon: '🧪', consumable: true },
   { id: 'power-loan-extension', name: 'Acordo Estelar', description: 'Acrescenta 24 horas ao prazo do seu empréstimo. Uma prorrogação por contrato; não reduz a dívida.', price: 120, type: 'power', value: 'loanExtension', icon: '🤝', consumable: true },
   { id: 'service-sell-best-win', name: 'Venda de Vitória', description: 'Troque 1 ponto de primeiro lugar em wallpaper por 500 Créditos 51. A vitória sai do seu ranking.', price: 0, reward: 500, type: 'service', value: 'sellBestWin', icon: '🏆', service: true },
   { id: 'title-star', name: 'Título Estrela 51', description: 'Exibe “Estrela da Área 51” no perfil, cabeçalho e menu.', price: 120, type: 'title', value: 'Estrela da Área 51', icon: '⭐' },
@@ -1259,9 +1609,26 @@ const SHOP_CATALOG = [
   { id: 'site-lunar-tide', name: 'Tema Maré Lunar', description: 'Azul profundo, água luminosa e reflexos prateados com leitura reforçada.', price: 410, type: 'siteTheme', value: 'lunar-tide', icon: '🌊' },
   { id: 'site-coral-signal', name: 'Tema Sinal Coral', description: 'Coral, violeta e âmbar para um visual quente de transmissão alienígena.', price: 400, type: 'siteTheme', value: 'coral-signal', icon: '📡' },
   { id: 'site-prism', name: 'Tema Prisma Cósmico', description: 'Auroras em cores vivas sobre painéis escuros, sem perder contraste.', price: 450, type: 'siteTheme', value: 'prism', icon: '🔷' },
-  { id: 'site-gta-neon', name: 'Coleção GTA 6: Neon Vice', description: 'Tema geral premium: cidade tropical em neon, cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1180, type: 'siteTheme', value: 'gta-neon', icon: '🌴', bundleItems: ['cursor-gta-neon','trail-gta-neon','name-gta-neon','badge-gta-neon'] },
-  { id: 'site-cobblemon', name: 'Coleção Cobblemon', description: 'Tema geral premium: mundo em blocos, criaturas no fundo, cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1080, type: 'siteTheme', value: 'cobblemon', icon: '⛏️', bundleItems: ['cursor-cobblemon','trail-cobblemon','name-cobblemon','badge-cobblemon'] },
-  { id: 'site-wolverine', name: 'Coleção Wolverine', description: 'Tema geral premium: metal escuro, amarelo, garras, cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1140, type: 'siteTheme', value: 'wolverine', icon: '🦾', bundleItems: ['cursor-wolverine','trail-wolverine','name-wolverine','badge-wolverine'] },
+  { id: 'site-dragon-ember', name: 'Tema Premium Dragão de Brasa', description: 'Coleção premium completa: cidadela vulcânica, Cursor Dragão de Brasa com sopro no atalho F, Rastro Brasa Viva, Nome Senhor das Brasas, Emblema Coração de Brasa e Moldura Escama de Obsidiana. Cada peça também pode ser adquirida separadamente.', price: 1540, type: 'siteTheme', value: 'dragon-ember', icon: '🐉', iconAsset: '/theme-dragon-ember.png', bundleItems: ['cursor-dragon-ember','trail-dragon-ember','name-dragon-ember','badge-dragon-ember','frame-dragon-ember'] },
+  { id: 'site-lideranca', name: 'Tema Liderança: Posto da Madrugada', description: 'Coleção premium: posto iluminado, carro rebaixado e paredão. Inclui o Cursor Combo Liderança; o cursor também pode ser adquirido separadamente.', price: 1290, type: 'siteTheme', value: 'lideranca', icon: '⛽', iconAsset: '/theme-lideranca-posto.png', bundleItems: ['cursor-lideranca'] },
+  { id: 'site-team-dragon-ball', name: 'Coleção Premium Team Dragon Ball', description: 'Tema com a arte da equipe, cursor Shenlong, moldura de nuvens e insígnia Esfera do Dragão. Inclui as três peças, também vendidas separadamente.', price: 1590, type: 'siteTheme', value: 'team-dragon-ball', icon: '🐉', iconAsset: '/team-themes/dragon-wallpaper.webp', bundleItems: ['cursor-team-dragon','frame-team-dragon','badge-team-dragon'], excludeMystery: true },
+  { id: 'cursor-team-dragon', name: 'Cursor Shenlong', description: 'Cursor inspirado em Shenlong. Equipe no Perfil.', price: 680, type: 'cursorStyle', value: 'team-dragon', icon: '🐉', iconAsset: '/team-themes/dragon-cursor.png' },
+  { id: 'frame-team-dragon', name: 'Moldura Nuvens do Dragão', description: 'Nuvens no cartão, topo e menu do Perfil.', price: 560, type: 'frame', value: 'team-dragon', icon: '☁️', iconAsset: '/team-themes/dragon-frame.png' },
+  { id: 'badge-team-dragon', name: 'Insígnia Esfera do Dragão', description: 'Uma esfera do dragão junto ao seu nome.', price: 340, type: 'badge', value: 'team-dragon', icon: '🟠', iconAsset: '/team-themes/dragon-badge.png' },
+  { id: 'site-cyberpunk-premium', name: 'Coleção Premium Cyberpunk', description: 'Cidade futurista, cursor neon ciano, moldura e insígnia Cyberpunk. Peças vendidas separadamente; o cursor âmbar é outra opção de compra.', price: 1590, type: 'siteTheme', value: 'cyberpunk-premium', icon: '🌆', iconAsset: '/team-themes/cyber-wallpaper.webp', bundleItems: ['cursor-cyber-cyan','frame-cyberpunk','badge-cyberpunk'], excludeMystery: true },
+  { id: 'cursor-cyber-cyan', name: 'Cursor Cyberpunk Ciano e Magenta', description: 'Versão ciano e magenta, adquirida e equipada separadamente da versão âmbar.', price: 750, type: 'cursorStyle', value: 'cyber-cyan', icon: '⚡', iconAsset: '/team-themes/cyber-cyan.png' },
+  { id: 'cursor-cyber-amber', name: 'Cursor Cyberpunk Âmbar e Ciano', description: 'Versão âmbar e ciano, adquirida e equipada separadamente da versão magenta.', price: 750, type: 'cursorStyle', value: 'cyber-amber', icon: '⚡', iconAsset: '/team-themes/cyber-amber.png' },
+  { id: 'frame-cyberpunk', name: 'Moldura Cyberpunk Neon', description: 'Moldura futurista neon no cartão, topo e menu.', price: 900, type: 'frame', value: 'cyberpunk-premium', icon: '▣', iconAsset: '/team-themes/cyber-frame.png' },
+  { id: 'badge-cyberpunk', name: 'Insígnia Cyberpunk Neon', description: 'Emblema futurista junto ao nome.', price: 500, type: 'badge', value: 'cyberpunk-premium', icon: '⚡', iconAsset: '/team-themes/cyber-badge.png' },
+  { id: 'cursor-lideranca', name: 'Cursor Combo Liderança', description: 'Combo de whisky e energético. A ponta da garrafa é o ponto exato de clique; ao mover, aparece “vem comigo novinha”.', price: 630, type: 'cursorStyle', value: 'lideranca', icon: '🥃', iconAsset: '/cursor-lideranca-combo.png' },
+  { id: 'cursor-dragon-ember', name: 'Cursor Dragão de Brasa', description: 'Dragão de obsidiana com fogo vivo. Pressione F para uma bola de fogo; segure F para manter o sopro.', price: 680, type: 'cursorStyle', value: 'dragon-ember', icon: '🐉', iconAsset: '/dragon-premium-icons/dragon-premium-cursor.png' },
+  { id: 'trail-dragon-ember', name: 'Rastro Brasa Viva', description: 'Faíscas, cinzas e labaredas acompanham o cursor sem bloquear cliques.', price: 360, type: 'trailStyle', value: 'dragon-ember', icon: '🔥', iconAsset: '/dragon-premium-icons/dragon-premium-trail.png' },
+  { id: 'badge-dragon-ember', name: 'Emblema Coração de Brasa', description: 'Selo ardente junto ao nome no Perfil, Feed e classificações.', price: 340, type: 'badge', value: 'dragon-ember', icon: '🜂', iconAsset: '/dragon-premium-icons/dragon-premium-badge.png' },
+  { id: 'name-dragon-ember', name: 'Nome Senhor das Brasas', description: 'Tipografia em ouro queimado com brilho de magma e sombra de carvão.', price: 420, type: 'nameStyle', value: 'dragon-ember', icon: '✦', iconAsset: '/dragon-premium-icons/dragon-premium-name.png' },
+  { id: 'frame-dragon-ember', name: 'Moldura Escama de Obsidiana', description: 'Escamas negras, veios de lava e ouro no cartão, topo e menu.', price: 560, type: 'frame', value: 'dragon-ember', icon: '⬡', iconAsset: '/dragon-premium-icons/dragon-premium-frame.png' },
+  { id: 'site-gta-neon', name: 'Coleção GTA 6: Neon Vice', description: 'Tema geral premium: cidade tropical em neon, cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1180, type: 'siteTheme', value: 'gta-neon', icon: '🌴', iconAsset: '/theme-gta-neon-v2.webp', bundleItems: ['cursor-gta-neon','trail-gta-neon','name-gta-neon','badge-gta-neon'] },
+  { id: 'site-cobblemon', name: 'Coleção Cobblemon', description: 'Tema geral premium: mundo em blocos, criaturas no fundo, cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1080, type: 'siteTheme', value: 'cobblemon', icon: '⛏️', iconAsset: '/theme-cobblemon-v3.webp', bundleItems: ['cursor-cobblemon','trail-cobblemon','name-cobblemon','badge-cobblemon'] },
+  { id: 'site-wolverine', name: 'Coleção Wolverine', description: 'Tema geral premium: metal escuro, amarelo, garras, cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1140, type: 'siteTheme', value: 'wolverine', icon: '🦾', iconAsset: '/theme-wolverine-v2.webp', bundleItems: ['cursor-wolverine','trail-wolverine','name-wolverine','badge-wolverine'] },
   { id: 'cursor-gta-neon', name: 'Cursor Neon Vice', description: 'Cursor rosa e ciano inspirado em noites tropicais de cidade.', price: 360, type: 'cursorStyle', value: 'gta-neon', icon: '🌴' },
   { id: 'trail-gta-neon', name: 'Rastro Neon Vice', description: 'Rastro magenta e ciano brilhante.', price: 270, type: 'trailStyle', value: 'gta-neon', icon: '🌆' },
   { id: 'name-gta-neon', name: 'Nome Vice Neon', description: 'Degradê rosa e azul elétrico para seu nome.', price: 330, type: 'nameStyle', value: 'gta-neon', icon: '💗' },
@@ -1274,8 +1641,8 @@ const SHOP_CATALOG = [
   { id: 'trail-wolverine', name: 'Rastro de Garras', description: 'Rastro dourado quente, como cortes rápidos no metal.', price: 280, type: 'trailStyle', value: 'wolverine', icon: '⚡' },
   { id: 'name-wolverine', name: 'Nome Fera Dourada', description: 'Nome amarelo metálico com sombra forte.', price: 340, type: 'nameStyle', value: 'wolverine', icon: '🟨' },
   { id: 'badge-wolverine', name: 'Emblema Fera de Garras', description: 'Marca selvagem junto ao nome.', price: 270, type: 'badge', value: '🐾', icon: '🐾' },
-  { id: 'site-samurai', name: 'Coleção Samurai: Névoa de Yōtei', description: 'Tema geral premium: pôr do sol japonês, pétalas ao vento, cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1160, type: 'siteTheme', value: 'samurai', icon: '⛩️', bundleItems: ['cursor-samurai','trail-samurai','name-samurai','badge-samurai'] },
-  { id: 'site-god-war', name: 'Coleção God of War: Norte Antigo', description: 'Tema geral premium: gelo, runas, fogo e metal, com cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1160, type: 'siteTheme', value: 'god-war', icon: '🪓', bundleItems: ['cursor-god-war','trail-god-war','name-god-war','badge-god-war'] },
+  { id: 'site-samurai', name: 'Coleção Samurai: Névoa de Yōtei', description: 'Tema geral premium: pôr do sol japonês, pétalas ao vento, cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1160, type: 'siteTheme', value: 'samurai', icon: '⛩️', iconAsset: '/theme-samurai-v2.webp', bundleItems: ['cursor-samurai','trail-samurai','name-samurai','badge-samurai'] },
+  { id: 'site-god-war', name: 'Coleção God of War: Norte Antigo', description: 'Tema geral premium: gelo, runas, fogo e metal, com cursor, rastro, nome e emblema combinando. Você pode trocar cada parte depois.', price: 1160, type: 'siteTheme', value: 'god-war', icon: '🪓', iconAsset: '/theme-god-war-v2.webp', bundleItems: ['cursor-god-war','trail-god-war','name-god-war','badge-god-war'] },
   { id: 'site-halloween-bloodmoon', name: 'Tema Halloween: Lua de Sangue', description: 'Tema individual em vinho, preto e vermelho lunar. Esta compra libera somente o tema.', price: 430, type: 'siteTheme', value: 'halloween-bloodmoon', icon: '🌕', seasonalEvent: HALLOWEEN_2026.id },
   { id: 'site-halloween-toxic-fog', name: 'Tema Halloween: Névoa Tóxica', description: 'Tema individual em verde ectoplasma, violeta e sombras profundas. Esta compra libera somente o tema.', price: 430, type: 'siteTheme', value: 'halloween-toxic-fog', icon: '🧪', seasonalEvent: HALLOWEEN_2026.id },
   { id: 'site-halloween-haunted', name: 'Tema Premium Halloween 51: Noite Assombrada', description: 'Coleção premium no padrão da loja: libera o tema, um Cursor Vassoura Fantasma, um Rastro Gosma Ectoplásmica, um Nome Ectoplasma 51, um Emblema Abóbora Radioativa e uma Moldura Runa Assombrada. Tudo permanece seu depois do evento.', price: 1390, type: 'siteTheme', value: 'halloween-haunted', icon: '🎃', seasonalEvent: HALLOWEEN_2026.id, bundleItems: ['cursor-halloween-broom','trail-halloween-slime','name-halloween-ectoplasm','badge-halloween-pumpkin','frame-halloween-rune'] },
@@ -1340,19 +1707,24 @@ const SHOP_CATALOG = [
   { id: 'trail-rocket', name: 'Rastro Propulsão 51', description: 'Cauda de fogo azul, laranja e amarelo inspirada em propulsão espacial.', price: 310, type: 'trailStyle', value: 'rocket', icon: '🚀' },
   { id: 'trail-alien', name: 'Rastro Pegadas Alienígenas', description: 'Trilha verde radioativa para qualquer skin de cursor da coleção.', price: 260, type: 'trailStyle', value: 'alien', icon: '👣' },
   { id: 'power-reveal-author', name: 'Raio-X Total de Autoria', description: 'Use durante uma rodada com envios. Revela todas as autorias somente para você.', price: 420, type: 'power', value: 'revealAuthor', icon: '🔎', consumable: true },
+  { id: 'power-reveal-curse-author', name: 'Rastreador de Autoria', description: 'Escolha qualquer maldição enviada após a estreia deste poder e revele a todos quem a enviou. Cada uso revela uma autoria; maldições antigas não são elegíveis.', price: 2500, fixedPrice: true, type: 'power', value: 'revealCurseAuthor', icon: '🕵️', consumable: true, cursePowerV2: true },
   { id: 'power-shield-gay', name: 'Escudo da Rodada', description: 'Fica no inventário. Se você for sorteado como Gay, poderá usar para reabrir o sorteio sem consumir o poder antes da hora.', price: 320, type: 'power', value: 'shieldGay', icon: '🛡️', consumable: true },
   { id: 'power-theme', name: 'Controle de Tema', description: 'Use entre rodadas para abrir a próxima já com o tema escolhido.', price: 450, type: 'power', value: 'chooseTheme', icon: '🎨', consumable: true },
-  { id: 'power-force-gay-cursor', name: 'Seta Gay Compulsória', description: 'Envie a um participante: a seta arco-íris cômica permanece por 24 horas.', price: 520, type: 'power', value: 'forceGayCursor', icon: '🌈', consumable: true },
+  { id: 'power-force-gay-cursor', name: 'Seta Gay Compulsória', description: 'Envie a outro participante ativo: a seta arco-íris cômica permanece por 24 horas.', price: 520, type: 'power', value: 'forceGayCursor', icon: '🌈', consumable: true },
   { id: 'power-choose-gay', name: 'Controle Gay da Rodada', description: 'Use durante a rodada, antes do sorteio especial. Escudos ativos são respeitados.', price: 650, type: 'power', value: 'chooseGay', icon: '👑', consumable: true },
   { id: 'power-choose-wallpaper', name: 'Escolha Meu Wallpaper', description: 'Depois de todos enviarem, veja os wallpapers sem autoria e reserve um deles para você.', price: 580, type: 'power', value: 'chooseWallpaper', icon: '🖼️', consumable: true },
   { id: 'power-assign-wallpaper', name: 'Definir Wallpaper de Outro Player', description: 'Depois de todos enviarem, escolha anonimamente qual wallpaper outro participante receberá.', price: 680, type: 'power', value: 'assignWallpaper', icon: '🎯', consumable: true },
-  { id: 'power-giant-slow-cursor', name: 'Maldição do Mouse Gigante', description: 'Ative a qualquer momento: um participante usa mouse gigante por 24 horas. Não depende de rodada aberta.', price: 430, type: 'power', value: 'forceGiantCursor', icon: '🐌', consumable: true },
-  { id: 'power-adhd-cursor', name: 'Maldição TDAH', description: 'Envie a um participante: aleatoriamente o cursor mostra TDAH ATIVADO e se move sozinho por cerca de 30 segundos.', price: 460, type: 'power', value: 'forceAdhdCursor', icon: '⚡', consumable: true },
+  { id: 'power-giant-slow-cursor', name: 'Maldição do Mouse Gigante', description: 'Envie a outro participante ativo: ele usa mouse gigante por 24 horas. Não depende de rodada aberta.', price: 430, type: 'power', value: 'forceGiantCursor', icon: '🐌', consumable: true },
+  { id: 'power-adhd-cursor', name: 'Maldição TDAH', description: 'Envie a outro participante: aleatoriamente o cursor mostra TDAH ATIVADO e se move sozinho por cerca de 30 segundos.', price: 460, type: 'power', value: 'forceAdhdCursor', icon: '⚡', consumable: true },
+  { id: 'power-dev-darkness', name: 'Maldição do Dev', description: 'Envie a outro participante: a tela fica escura e só a lâmpada-cursor ilumina o caminho por 24 horas.', price: 490, type: 'power', value: 'forceDevDarkness', icon: '💡', consumable: true },
+  { id: 'power-cleaning-curse', name: 'Maldição da Limpeza', description: 'Envie a outro participante: por 24 horas, uma nova camada de poeira e terra aparece a cada hora. Ele precisa varrer cada turno para usar o portal.', price: 510, type: 'power', value: 'forceCleaningCurse', icon: '🧹', consumable: true },
+  { id: 'power-hater-curse', name: 'Maldição do Hater', description: 'Envie a outro participante: provocações aparecem aleatoriamente na tela por 24 horas.', price: 490, type: 'power', value: 'forceHaterCurse', icon: '🖕', consumable: true },
+  { id: 'power-givaldo-curse', name: 'Maldição Givaldo', description: 'Envie a outro participante: fotos e frases aparecem e somem ao longo de 24 horas sem impedir o uso do site. Versão normal aceita Antídoto.', price: 490, fixedPrice: true, type: 'power', value: 'forceGivaldoCurse', icon: '🎭', iconAsset: '/givaldo/givaldo-1.png', consumable: true },
   { id: 'box-sonda', name: 'Caixa Sonda Surpresa', description: 'Vai fechada para o perfil. Abra quando quiser ou venda por créditos.', price: 140, sellPrice: 80, type: 'mysteryBox', value: 'sonda', icon: '📦', mysteryBox: true, tier: 'sonda', creditChance: .42, powerChance: .12, minRewardPrice: 120, maxRewardPrice: 300, creditMin: 110, creditMax: 180 },
   { id: 'box-cosmic', name: 'Caixa Cósmica', description: 'Vai fechada para o perfil. Pode revelar um visual especial, créditos ou um poder.', price: 300, sellPrice: 180, type: 'mysteryBox', value: 'cosmic', icon: '🎁', mysteryBox: true, tier: 'cosmic', creditChance: .32, powerChance: .24, minRewardPrice: 240, maxRewardPrice: 520, creditMin: 240, creditMax: 380 },
   { id: 'box-area51', name: 'Cofre Secreto Área 51', description: 'O baú premium mais raro. Guarde, abra com a roleta de prêmios ou venda por créditos.', price: 520, sellPrice: 330, type: 'mysteryBox', value: 'area51', icon: '🛸', mysteryBox: true, tier: 'area51', creditChance: .22, powerChance: .36, minRewardPrice: 330, maxRewardPrice: 650, creditMin: 430, creditMax: 650 },
 ];
-SHOP_CATALOG.forEach((item) => { if (item.price > 0) item.price = retailPriceWithCents(item.price); });
+SHOP_CATALOG.forEach((item) => { if (item.price > 0 && !item.fixedPrice) item.price = retailPriceWithCents(item.price); });
 
 const HALLOWEEN_ADMIN_COSMETIC_OVERRIDES = Object.freeze({
   'site-sovereign-command': { name: 'Tema Comando da Cripta 51', description: 'Durante o Halloween, a cidadela do Comando Soberano recebe lua de sangue, energia ectoplásmica e arquitetura assombrada. Depois do evento, volta automaticamente ao visual original.', value: 'sovereign-halloween', icon: '🌑' },
@@ -1369,28 +1741,51 @@ function cosmeticCatalogItemForUser(item, user, localPreview = false) {
 }
 
 function equippedCosmeticsForUser(user, equipped, localPreview = false) {
-  if (user?.role !== 'admin' || !currentHalloweenEvent(localPreview)) return equipped;
-  return {
-    ...equipped,
-    siteTheme: 'site-sovereign-command',
-    cursorStyle: 'cursor-admin-command',
-    nameStyle: 'name-sovereign-command',
-    frame: 'frame-sovereign-command',
-    badge: 'badge-crown',
-  };
+  // O Halloween pode transformar a arte dos visuais soberanos já escolhidos,
+  // mas não pode sobrescrever a coleção ativa do administrador. Forçar itens
+  // aqui fazia o botão salvar a escolha e a resposta seguinte fingir que ela
+  // não estava equipada.
+  return equipped;
 }
 
 // Cada posição representa exatamente um setor visual da roleta. O servidor
 // sorteia o índice e o navegador anima até esse mesmo setor.
 const CASINO_WHEEL_OUTCOMES = [
-  0, .5, 1, 1.5, 'box-sonda', .5, 1, 2, 1.5, .5, 0, 1, 3, 1.5, 'box-cosmic', 0, 1, 2, 1.5, 1,
-  0, .5, 'box-sonda', 1.5, 0, .5, 1, 'box-area51', 1.5, .5, 0, 1, 3, 'box-cosmic', .5, 0, 1, 2, 'box-sonda', 1,
+  0, 1, 1, 1.5, 'box-sonda', 1, 1, 1, 1.5, .5, 0, 1, 1, 1.5, 'box-cosmic', 0, 1, 2, 1.5, 1,
+  0, .5, 'box-sonda', 1.5, 0, .5, 1, 'box-area51', 1.5, .5, 0, 1, 3, 'box-cosmic', .5, 1.5, 1, 2, 'box-sonda', 1,
 ];
+const CASINO_JACKPOT = { seed: 500, minBet: 30, chance: .001, contribution: .01 };
+const PLINKO_PROFILES = {
+  low: { id: 'low', multipliers: [.4, .6, .8, .95, 1.05, 1.07, 1.05, .95, .8, .6, .4], returnPercent: 99.95 },
+  medium: { id: 'medium', multipliers: [.1, .25, .5, .8, 1.15, 1.1, 1.15, .8, .5, .25, .1], returnPercent: 97.89 },
+  high: { id: 'high', multipliers: [10, 5, 2, 1, .6, .82, .6, 1, 2, 5, 10], returnPercent: 97.54 },
+};
+// Tabela explícita do Caça-Níquel 51. Os prêmios são retorno total da aposta.
+// A soma ponderada é 97,5%, incluindo a combinação máxima x100. A distribuição
+// prioriza retornos pequenos e empates para evitar longas sequências negativas.
+const SLOT_OUTCOMES = [
+  { id: 'pair-comet', chance: .1866, multiplier: 1, symbols: ['comet', 'crystal', 'comet'], label: 'Par de Cometas' },
+  { id: 'pair-ufo', chance: .30575, multiplier: 1.2, symbols: ['ufo', 'alien', 'ufo'], label: 'Par de Discos' },
+  { id: 'pair-alien', chance: .1, multiplier: 1.5, symbols: ['alien', 'eye', 'alien'], label: 'Par de Aliens' },
+  { id: 'triple-comet', chance: .03425, multiplier: 2, symbols: ['comet', 'comet', 'comet'], label: 'Três Cometas' },
+  { id: 'triple-ufo', chance: .025, multiplier: 4, symbols: ['ufo', 'ufo', 'ufo'], label: 'Três Discos' },
+  { id: 'triple-alien', chance: .006, multiplier: 8, symbols: ['alien', 'alien', 'alien'], label: 'Três Aliens' },
+  { id: 'triple-crystal', chance: .002, multiplier: 15, symbols: ['crystal', 'crystal', 'crystal'], label: 'Três Cristais' },
+  { id: 'triple-eye', chance: .0003, multiplier: 50, symbols: ['eye', 'eye', 'eye'], label: 'Olho do Vazio' },
+  { id: 'triple-51', chance: .0001, multiplier: 100, symbols: ['fiftyone', 'fiftyone', 'fiftyone'], label: 'TRIPLA 51' },
+  { id: 'none', chance: .34, multiplier: 0, symbols: ['ufo', 'crystal', 'alien'], label: 'Sem combinação' },
+];
+const SLOT_RETURN_PERCENT = 97.5;
+function slotOutcome() {
+  let cursor = Math.random();
+  for (const outcome of SLOT_OUTCOMES) { cursor -= outcome.chance; if (cursor < 0) return outcome; }
+  return SLOT_OUTCOMES.at(-1);
+}
 
 const COBBLEMON_BOXES = {
   // Mantida apenas para leitura do histórico. Novas aberturas são bloqueadas.
   trainer: { name: 'Carga de Treinador', retired: true, price: 179.90, rewards: [{ id: 'poke-ball', name: 'Poké Ball ×64', sprite: 'https://wiki.cobblemon.com/index.php/Special:FilePath/Poke_Ball.png', sellPrice: 55, weight: 55 }, { id: 'great-ball', name: 'Great Ball ×64', sprite: 'https://wiki.cobblemon.com/index.php/Special:FilePath/Great_Ball.png', sellPrice: 80, weight: 25 }, { id: 'ancient-ball', name: 'Ancient Poké Ball ×32', sprite: 'https://wiki.cobblemon.com/index.php/Special:FilePath/Ancient_Poke_Ball.png', sellPrice: 95, weight: 12 }, { id: 'quick-ball', name: 'Quick Ball ×16', sprite: 'https://wiki.cobblemon.com/index.php/Special:FilePath/Quick_Ball.png', sellPrice: 120, weight: 8 }] },
-  evolution: { name: 'Caixa das Pedras', price: 479.90, rewards: [
+  evolution: { name: 'Baú das Pedras', price: 479.90, rewards: [
     { id: 'fire-stone', name: 'Pedra do Fogo ×4', sprite: 'https://wiki.cobblemon.com/index.php/Special:FilePath/Fire_Stone.png', sellPrice: 140, weight: 14 },
     { id: 'water-stone', name: 'Pedra da Água ×4', sprite: 'https://wiki.cobblemon.com/index.php/Special:FilePath/Water_Stone.png', sellPrice: 140, weight: 14 },
     { id: 'thunder-stone', name: 'Pedra do Trovão ×4', sprite: 'https://wiki.cobblemon.com/index.php/Special:FilePath/Thunder_Stone.png', sellPrice: 140, weight: 14 },
@@ -1435,7 +1830,7 @@ const COBBLEMON_BOXES = {
     { id: 'netherite-leggings', name: 'Calças Netherite encantadas', itemId: 'minecraft:netherite_leggings', sprite: '/legendary-monuments/premium/netherite_leggings.png', sellPrice: 0, weight: 4.17, forceDelivery: true, deliveryNote: 'Proteção IV, Inquebrável III e Remendo.' },
     { id: 'netherite-boots', name: 'Botas Netherite encantadas', itemId: 'minecraft:netherite_boots', sprite: '/legendary-monuments/premium/netherite_boots.png', sellPrice: 0, weight: 4.17, forceDelivery: true, deliveryNote: 'Proteção IV, Queda Suave IV, Passos Profundos III, Agilidade das Almas III, Inquebrável III e Remendo.' },
   ] },
-  pokemon: { name: 'Cápsula Pokémon', price: 899.90, monthlyPokemon: true },
+  pokemon: { name: 'Baú Pokémon', price: 899.90, monthlyPokemon: true },
 };
 
 const COBBLEMON_ROULETTE_LEGACY = {
@@ -1488,8 +1883,7 @@ const COBBLEMON_ROULETTE = {
 
 function weightedCobblemonReward(box) {
   let roll = Math.random() * box.rewards.reduce((sum, entry) => sum + entry.weight, 0);
-  const reward = box.rewards.find((entry) => ((roll -= entry.weight) <= 0)) || box.rewards[0];
-  return { ...reward, sprite: localCobblemonItemSprite(reward.sprite) };
+  return box.rewards.find((entry) => ((roll -= entry.weight) <= 0)) || box.rewards[0];
 }
 
 function cobblemonCapsuleDeliverySpec(pokemonId, rarity) {
@@ -1638,6 +2032,12 @@ const MARKET_DAILY_INCOME = 40;
 const MARKET_DIVIDEND_DAILY_RATE = 0.0016; // a nova cadência de preços não multiplica dividendos
 const MARKET_DIVIDEND_RATE_PER_UPDATE = MARKET_DIVIDEND_DAILY_RATE / (MARKET_UPDATE_TIMES.length / 3);
 const MARKET_DIVIDEND_DAILY_CAP = 20;
+// A renda e os dividendos do Cripto 51 não compartilham limite, resgate ou
+// lançamentos com o Mercado 51. Mantemos os mesmos parâmetros iniciais para a
+// economia continuar previsível enquanto o novo mercado ganha histórico.
+const CRYPTO_DAILY_INCOME = 40;
+const CRYPTO_DIVIDEND_DAILY_RATE = 0.0016;
+const CRYPTO_DIVIDEND_DAILY_CAP = 20;
 const MARKET_MISSIONS = [
   { id: 'market-order', icon: '📈', title: 'Primeira ordem do dia', description: 'Compre ou venda pelo menos uma unidade hoje.', reward: 10 },
   { id: 'market-hold', icon: '🪙', title: 'Mão firme', description: 'Mantenha uma posição durante uma atualização do Mercado.', reward: 15 },
@@ -1672,20 +2072,31 @@ const CASINO_CASHOUT_THRESHOLD = 500;
 const CASINO_MONTH_START_BONUS_DAY = '2026-10-01';
 const CASINO_MONTH_START_BONUS = 500;
 const CASINO_MONTH_START_CASHOUT_THRESHOLD = 1000;
+const CASINO_FRIDAY_BONUS_DAY = '2026-10-16';
+const CASINO_FRIDAY_EXTRA_BONUS = 500;
+function casinoFridayBonusActive(dayKey = saoPauloDayKey()) { return dayKey === CASINO_FRIDAY_BONUS_DAY; }
 function casinoDailyBonusForDay(dayKey = saoPauloDayKey()) {
   return dayKey === CASINO_MONTH_START_BONUS_DAY ? CASINO_MONTH_START_BONUS : CASINO_DAILY_BONUS;
 }
+function casinoInitialBonusForDay(dayKey = saoPauloDayKey()) {
+  return casinoFridayBonusActive(dayKey) ? CASINO_FRIDAY_EXTRA_BONUS : casinoDailyBonusForDay(dayKey);
+}
 function casinoCashoutThresholdForDay(dayKey = saoPauloDayKey()) {
+  if (casinoFridayBonusActive(dayKey)) return roundMoney(casinoInitialBonusForDay(dayKey) * 2);
   return dayKey === CASINO_MONTH_START_BONUS_DAY ? CASINO_MONTH_START_CASHOUT_THRESHOLD : CASINO_CASHOUT_THRESHOLD;
 }
-const LOTTERY_NUMBER_MAX = 20;
-const LOTTERY_DRAW_COUNT = 5;
-const LOTTERY_PRIZE_RATE = 0.10;
-const LOTTERY_MARGIN_SHARE = 0.50;
-const LOTTERY_MIN_POOL = 1500;
-const LOTTERY_MAX_POOL = 1500;
+function casinoCashoutThresholdForAccount(account) {
+  const individualThreshold = Number(account?.cashoutThreshold);
+  return Number.isFinite(individualThreshold) && individualThreshold > 0
+    ? roundMoney(individualThreshold)
+    : casinoCashoutThresholdForDay(account?.dayKey || saoPauloDayKey());
+}
+const LOTTERY_NUMBER_MAX = 50;
+const LOTTERY_DRAW_COUNT = 6;
+const LOTTERY_MIN_POOL = 50000;
+const LOTTERY_TICKET_PLANS = Object.freeze({ 6: 100, 7: 650, 8: 2500, 9: 7500, 10: 20000 });
+const LOTTERY_PRIZE_BANDS = Object.freeze([{ hits: 6, share: .65 }, { hits: 5, share: .20 }, { hits: 4, share: .15 }]);
 const LOTTERY_DRAW_HOUR = 16;
-const LOTTERY_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // Exceção única para a primeira transmissão do sorteio: a rodada aberta nesta
 // semana fecha às 17h; todas as rodadas seguintes continuam às 16h.
 const LOTTERY_ONE_OFF_ROUND_ID = 'lottery:2026-09-10T19:00:00.000Z';
@@ -1697,34 +2108,52 @@ const LOTTERY_ONE_OFF_RESET_VERSION = '2026-09-17T20:00-clear-v4';
 function casinoAccountFor(userId, create = false) {
   const dayKey = saoPauloDayKey(); const current = db.economy.casinoAccounts[userId];
   if (current?.dayKey === dayKey) return current;
-  const dailyBonus = casinoDailyBonusForDay(dayKey);
-  if (!create) return { dayKey, balance: dailyBonus, cashedOut: false };
-  db.economy.casinoAccounts[userId] = { dayKey, balance: dailyBonus, cashedOut: false, createdAt: new Date().toISOString() };
+  const dailyBonus = casinoInitialBonusForDay(dayKey);
+  const initialAccount = { dayKey, balance: dailyBonus, cashedOut: false };
+  if (casinoFridayBonusActive(dayKey)) initialAccount.cashoutThreshold = roundMoney(dailyBonus * 2);
+  if (!create) return initialAccount;
+  db.economy.casinoAccounts[userId] = { ...initialAccount, createdAt: new Date().toISOString() };
   return db.economy.casinoAccounts[userId];
 }
 
 function lotteryBoundaryFor(date = new Date()) {
   const dayKey = saoPauloDayKey(date);
-  const value = new Date(dayKey + 'T12:00:00Z');
-  const daysSinceThursday = (value.getUTCDay() + 7 - 4) % 7;
-  value.setUTCDate(value.getUTCDate() - daysSinceThursday);
-  let boundary = new Date(value.toISOString().slice(0, 10) + `T${String(LOTTERY_DRAW_HOUR).padStart(2, '0')}:00:00-03:00`);
-  if (boundary.getTime() > date.getTime()) boundary = new Date(boundary.getTime() - LOTTERY_WEEK_MS);
-  return boundary;
+  for (let offset = 0; offset <= 7; offset += 1) {
+    const value = new Date(dayKey + 'T12:00:00Z');
+    value.setUTCDate(value.getUTCDate() - offset);
+    if (![2, 4].includes(value.getUTCDay())) continue;
+    const boundary = new Date(value.toISOString().slice(0, 10) + `T${String(LOTTERY_DRAW_HOUR).padStart(2, '0')}:00:00-03:00`);
+    if (boundary.getTime() <= date.getTime()) return boundary;
+  }
+  throw new Error('Não foi possível calcular o próximo sorteio da Mega 51.');
 }
 
 function lotteryWindowFor(date = new Date()) {
   const start = lotteryBoundaryFor(date);
-  return { id: 'lottery:' + start.toISOString(), startAt: start.toISOString(), closeAt: new Date(start.getTime() + LOTTERY_WEEK_MS).toISOString() };
+  const daysUntilNextDraw = start.getUTCDay() === 2 ? 2 : 5;
+  return { id: 'lottery:' + start.toISOString(), startAt: start.toISOString(), closeAt: new Date(start.getTime() + daysUntilNextDraw * 24 * 60 * 60 * 1000).toISOString() };
 }
 
 async function archiveCasinoPlaysBefore(cutoffAt) {
   const cutoff = Date.parse(cutoffAt || '');
   if (!Number.isFinite(cutoff) || !Array.isArray(db?.economy?.casinoPlays)) return false;
+  // Keep the visible results for each game and the latest jackpot notices in
+  // the hot state. Older plays remain durable and searchable in the archive.
+  const retained = new Set();
+  const recentByGame = new Map();
+  let jackpotNotices = 0;
+  for (let index = db.economy.casinoPlays.length - 1; index >= 0; index -= 1) {
+    const play = db.economy.casinoPlays[index];
+    const game = play.resultType === 'slots' ? 'slots' : play.resultType === 'plinko' ? 'plinko' : play.resultType === 'flight' ? 'flight' : 'roulette';
+    const key = String(play.userId || '') + ':' + game;
+    const count = recentByGame.get(key) || 0;
+    if (count < 6) { retained.add(play.id); recentByGame.set(key, count + 1); }
+    if (play.resultType === 'casinoJackpot' && play.notifyJackpot && jackpotNotices < 5) { retained.add(play.id); jackpotNotices += 1; }
+  }
   const archived = [];
   const current = [];
   db.economy.casinoPlays.forEach((play) => {
-    if (Date.parse(play?.createdAt || '') < cutoff) archived.push(play);
+    if (Date.parse(play?.createdAt || '') < cutoff && !retained.has(play.id)) archived.push(play);
     else current.push(play);
   });
   if (!archived.length) return false;
@@ -1744,9 +2173,25 @@ async function archiveCasinoPlaysBefore(cutoffAt) {
   const summary = db.economy.casinoArchiveSummary || { totalPlays: 0, shopWagered: 0 };
   summary.totalPlays = Number(summary.totalPlays || 0) + archived.length;
   summary.shopWagered = roundMoney(Number(summary.shopWagered || 0) + archived.reduce((sum, play) => sum + (play.walletSource === 'shop' ? Number(play.bet || 0) : 0), 0));
+  summary.playsByDayUser ||= {};
+  for (const play of archived) {
+    const key = String(play.dayKey || '') + ':' + String(play.userId || '');
+    summary.playsByDayUser[key] = Number(summary.playsByDayUser[key] || 0) + 1;
+  }
+  const today = saoPauloDayKey();
+  summary.playsByDayUser = Object.fromEntries(Object.entries(summary.playsByDayUser).filter(([key]) => key.startsWith(today + ':')));
   db.economy.casinoArchiveSummary = summary;
   db.economy.casinoPlays = current;
   return true;
+}
+
+async function archivedCasinoPlay(userId, requestId, resultType) {
+  if (!requestId) return null;
+  const row = await runtimeEnv.DB.prepare("SELECT payload FROM casino_play_archive WHERE user_id = ? AND json_extract(payload, '$.requestId') = ? LIMIT 1")
+    .bind(userId, requestId).first();
+  if (!row?.payload) return null;
+  const play = JSON.parse(String(row.payload));
+  return resultType === 'roulette' ? play.resultType !== 'flight' && play.resultType !== 'slots' && play.resultType !== 'plinko' ? play : null : play.resultType === resultType ? play : null;
 }
 
 function lotterySeedForRound(round) {
@@ -1766,28 +2211,28 @@ function lotteryNumbersForRound(round) {
 }
 
 function lotteryProjectionForRound(round) {
-  const start = Date.parse(round.startAt) || 0;
-  const close = Date.parse(round.closeAt) || Number.MAX_SAFE_INTEGER;
-  const plays = db.economy.casinoPlays.filter((item) => item.walletSource === 'shop' && Date.parse(item.createdAt || '') >= start && Date.parse(item.createdAt || '') < close);
-  const realWagered = roundMoney(plays.reduce((sum, item) => sum + Number(item.bet || 0), 0));
-  // Só uma parte da margem negativa real pode financiar a loteria. Isso evita
-  // criar créditos quando a roleta estiver pagando mais do que recebeu.
-  const houseMargin = roundMoney(plays.reduce((sum, item) => sum + Math.max(0, -Number(item.net || 0)), 0));
-  const contribution = roundMoney(Math.min(realWagered * LOTTERY_PRIZE_RATE, houseMargin * LOTTERY_MARGIN_SHARE));
+  const ticketSales = roundMoney((db.economy.lottery.entries || []).filter((item) => item.roundId === round.id).reduce((sum, item) => sum + Number(item.price || 0), 0));
   const carryOver = roundMoney(round.carryOver || 0);
-  // O teto protege uma rodada nova contra um prêmio desproporcional. Quando
-  // há acúmulo, o rollover é preservado e a contribuição da nova rodada é
-  // somada sem cortar o valor acumulado.
-  const cappedContribution = carryOver > 0 ? contribution : Math.min(LOTTERY_MAX_POOL, contribution);
-  const basePrizePool = roundMoney(carryOver + cappedContribution);
-  // O Apostômetro garante o piso semanal sem mexer no saldo de nenhum
-  // participante. O complemento é registrado na rodada para manter a
-  // transparência do valor que veio do fundo interno.
-  const apostometerTopUp = roundMoney(Math.max(0, LOTTERY_MIN_POOL - basePrizePool));
+  const minimumPrizePool = Math.max(LOTTERY_MIN_POOL, Number(round.minimumPrizePool || 0));
+  const basePrizePool = roundMoney(carryOver + minimumPrizePool);
   return {
-    realWagered, houseMargin, contribution, basePrizePool, apostometerTopUp,
-    prizePool: roundMoney(basePrizePool + apostometerTopUp),
+    realWagered: ticketSales, ticketSales, houseMargin: 0, contribution: ticketSales, basePrizePool, apostometerTopUp: minimumPrizePool,
+    prizePool: basePrizePool,
   };
+}
+
+function lotteryPayoutsForEntries(pool, entries, winningNumbers) {
+  const payouts = []; let paid = 0;
+  const hitsFor = (entry) => (entry.numbers || []).filter((number) => winningNumbers.includes(Number(number))).length;
+  const sixWinners = entries.filter((entry) => hitsFor(entry) === 6);
+  const lowerWinners = entries.some((entry) => [4, 5].includes(hitsFor(entry)));
+  for (const band of LOTTERY_PRIZE_BANDS) {
+    const winners = band.hits === 6 ? sixWinners : entries.filter((entry) => hitsFor(entry) === band.hits);
+    const bandPool = roundMoney(pool * (band.hits === 6 && sixWinners.length && !lowerWinners ? 1 : band.share));
+    const shares = lotterySplitPrize(bandPool, winners.map((entry) => entry.id));
+    for (const share of shares) { const entry = winners.find((item) => item.id === share.userId); payouts.push({ userId: entry.userId, entryId: entry.id, hits: band.hits, amount: share.amount }); paid = roundMoney(paid + share.amount); }
+  }
+  return { payouts, rolloverAmount: roundMoney(Math.max(0, pool - paid)) };
 }
 
 function lotterySplitPrize(pool, winnerIds) {
@@ -1808,7 +2253,7 @@ function createLotteryRound(window, carryOver = 0) {
   const round = {
     id: window.id, startAt: window.startAt, closeAt: window.closeAt, status: 'open',
     secret, commitHash: createHash('sha256').update(secret).digest('hex'), carryOver: roundMoney(carryOver),
-    realWagered: 0, houseMargin: 0, contribution: 0, basePrizePool: 0, apostometerTopUp: 0, prizePool: 0, winningNumbers: [], winnerIds: [], payouts: [],
+    realWagered: 0, ticketSales: 0, houseMargin: 0, contribution: 0, basePrizePool: 0, apostometerTopUp: LOTTERY_MIN_POOL, prizePool: LOTTERY_MIN_POOL, winningNumbers: [], winnerIds: [], payouts: [],
     createdAt: new Date().toISOString(), drawnAt: null,
   };
   db.economy.lottery.rounds.push(round);
@@ -1925,8 +2370,21 @@ function reopenOneOffLotteryRoundIfNeeded(now = new Date()) {
 
 function currentLotteryRound(date = new Date()) {
   ensureLotteryState();
+  if (!db.settings.lotteryMega51PaidTicketsV1) {
+    const window = lotteryWindowFor(date);
+    const active = db.economy.lottery.rounds.find((item) => item.status === 'open' && Date.parse(item.startAt) <= date.getTime() && Date.parse(item.closeAt) > date.getTime());
+    if (active) {
+      const previousRoundId = active.id;
+      const secret = randomBytes(32).toString('hex');
+      Object.assign(active, { id: window.id, startAt: window.startAt, closeAt: window.closeAt, status: 'open', secret, commitHash: createHash('sha256').update(secret).digest('hex'), carryOver: 0, realWagered: 0, ticketSales: 0, houseMargin: 0, contribution: 0, basePrizePool: LOTTERY_MIN_POOL, apostometerTopUp: LOTTERY_MIN_POOL, prizePool: LOTTERY_MIN_POOL, winningNumbers: [], winnerIds: [], payouts: [], rolloverAmount: 0, drawnAt: null, revealedSecret: null, mega51PaidTicketsAt: new Date().toISOString() });
+      db.economy.lottery.entries = db.economy.lottery.entries.filter((entry) => entry.roundId !== previousRoundId && entry.roundId !== window.id);
+    }
+    db.settings.lotteryMega51PaidTicketsV1 = new Date().toISOString();
+  }
   resetOneOffLotteryForDelayedDraw(date);
   reopenOneOffLotteryRoundIfNeeded(date);
+  const specialRound = db.economy.lottery.rounds.find((item) => item.special === true && item.status === 'open' && Date.parse(item.startAt) <= date.getTime() && Date.parse(item.closeAt) > date.getTime());
+  if (specialRound) return specialRound;
   const oneOffRound = db.economy.lottery.rounds.find((item) => item.id === LOTTERY_ONE_OFF_ACTIVE_ROUND_ID && item.status === 'open' && Date.parse(item.closeAt) > date.getTime());
   if (oneOffRound) {
     if (Date.parse(oneOffRound.closeAt) !== Date.parse(LOTTERY_ONE_OFF_CLOSE_AT)) {
@@ -1937,6 +2395,11 @@ function currentLotteryRound(date = new Date()) {
   }
   const window = lotteryWindowFor(date);
   let round = db.economy.lottery.rounds.find((item) => item.id === window.id);
+  if (round?.status === 'open' && Date.parse(round.closeAt) !== Date.parse(window.closeAt)) {
+    // A rodada já aberta conserva todos os bilhetes; só antecipa o fechamento.
+    round.closeAt = window.closeAt;
+    round.scheduleHour = LOTTERY_DRAW_HOUR;
+  }
   if (!round) {
     // Se o horário da rodada mudou entre versões, reaproveitamos a rodada
     // aberta que ainda contém o momento atual, antecipando apenas o fechamento.
@@ -1950,6 +2413,13 @@ function currentLotteryRound(date = new Date()) {
       round = createLotteryRound(window, previous?.rolloverAmount || 0);
     }
   }
+  const priorScheduledRound = db.economy.lottery.rounds.find((item) => item.status === 'drawn' && item.closeAt === window.startAt);
+  if (round.status === 'open' && priorScheduledRound && Number(round.carryOver || 0) !== Number(priorScheduledRound.rolloverAmount || 0)) {
+    round.carryOver = roundMoney(priorScheduledRound.rolloverAmount || 0);
+    const projection = lotteryProjectionForRound(round);
+    round.basePrizePool = projection.basePrizePool;
+    round.prizePool = projection.prizePool;
+  }
   if (round.status === 'open' && round.id === LOTTERY_ONE_OFF_ROUND_ID && Date.parse(round.closeAt) !== Date.parse(LOTTERY_ONE_OFF_CLOSE_AT)) {
     round.closeAt = LOTTERY_ONE_OFF_CLOSE_AT;
     round.oneOffHold = true;
@@ -1959,32 +2429,34 @@ function currentLotteryRound(date = new Date()) {
 
 function settleLotteryRounds(now = new Date()) {
   ensureLotteryState();
-  const openScheduleBefore = db.economy.lottery.rounds.filter((item) => item.status === 'open').map((item) => item.id + ':' + item.closeAt).join('|');
+  const migrationBefore = Boolean(db.settings.lotteryMega51PaidTicketsV1);
+  const openScheduleBefore = db.economy.lottery.rounds.filter((item) => item.status === 'open').map((item) => item.id + ':' + item.closeAt + ':' + item.carryOver + ':' + item.prizePool).join('|');
   let changed = false;
-  // Resolve the active window first so a schedule migration that already
-  // passed its new close time is settled in this same request.
-  currentLotteryRound(now);
+  // Fecha a janela vencida antes de abrir a próxima. Abrir a próxima primeiro
+  // faria a nova rodada nascer sem o rollover que acabou de ser apurado.
   for (const round of db.economy.lottery.rounds.filter((item) => item.status === 'open' && Date.parse(item.closeAt) <= now.getTime())) {
     const projection = lotteryProjectionForRound(round);
     const entries = db.economy.lottery.entries.filter((item) => item.roundId === round.id);
     const winningNumbers = lotteryNumbersForRound(round);
-    const winnerIds = [...new Set(entries.filter((item) => winningNumbers.includes(Number(item.guess))).map((item) => item.userId))].sort((a, b) => String(a).localeCompare(String(b)));
-    const payouts = lotterySplitPrize(projection.prizePool, winnerIds);
+    const settlement = lotteryPayoutsForEntries(projection.prizePool, entries, winningNumbers);
+    const payouts = settlement.payouts;
+    const winnerIds = [...new Set(payouts.map((item) => item.userId))].sort((a, b) => String(a).localeCompare(String(b)));
     round.status = 'drawn'; round.realWagered = projection.realWagered; round.houseMargin = projection.houseMargin;
     round.contribution = projection.contribution; round.basePrizePool = projection.basePrizePool; round.apostometerTopUp = projection.apostometerTopUp;
-    round.prizePool = projection.prizePool; round.winningNumbers = winningNumbers;
-    round.winnerIds = winnerIds; round.payouts = payouts; round.rolloverAmount = winnerIds.length ? 0 : projection.prizePool;
+    round.ticketSales = projection.ticketSales; round.prizePool = projection.prizePool; round.winningNumbers = winningNumbers;
+    round.winnerIds = winnerIds; round.payouts = payouts; round.rolloverAmount = round.resetRolloverAfterDraw ? 0 : settlement.rolloverAmount;
     round.drawnAt = now.toISOString(); round.revealedSecret = round.secret;
     for (const payout of payouts) {
       const before = walletFor(payout.userId); addCredits(payout.userId, payout.amount);
-      db.economy.creditAdjustments.push({ id: randomUUID(), userId: payout.userId, mode: 'lottery-prize', amount: payout.amount, before, after: walletFor(payout.userId), reason: `Prêmio da Loteria 51 · rodada ${round.id.slice(-10)}`, createdAt: round.drawnAt, lotteryRoundId: round.id });
+      db.economy.creditAdjustments.push({ id: randomUUID(), userId: payout.userId, mode: 'lottery-prize', amount: payout.amount, before, after: walletFor(payout.userId), reason: `Prêmio da Mega 51 · ${payout.hits} acertos · rodada ${round.id.slice(-10)}`, createdAt: round.drawnAt, lotteryRoundId: round.id });
     }
     changed = true;
   }
   const beforeRoundCount = db.economy.lottery.rounds.length;
   currentLotteryRound(now);
+  if (!migrationBefore && db.settings.lotteryMega51PaidTicketsV1) changed = true;
   if (db.economy.lottery.rounds.length !== beforeRoundCount) changed = true;
-  const openScheduleAfter = db.economy.lottery.rounds.filter((item) => item.status === 'open').map((item) => item.id + ':' + item.closeAt).join('|');
+  const openScheduleAfter = db.economy.lottery.rounds.filter((item) => item.status === 'open').map((item) => item.id + ':' + item.closeAt + ':' + item.carryOver + ':' + item.prizePool).join('|');
   if (openScheduleAfter !== openScheduleBefore) changed = true;
   return changed;
 }
@@ -1994,8 +2466,16 @@ function lotteryForUser(user) {
   const round = currentLotteryRound(new Date());
   const projection = round.status === 'open' ? lotteryProjectionForRound(round) : { realWagered: round.realWagered, houseMargin: round.houseMargin, contribution: round.contribution, basePrizePool: round.basePrizePool ?? round.prizePool, apostometerTopUp: round.apostometerTopUp || 0, prizePool: round.prizePool };
   const entries = db.economy.lottery.entries.filter((item) => item.roundId === round.id);
-  const myEntry = entries.find((item) => item.userId === user.id) || null;
+  const myEntries = entries.filter((item) => item.userId === user.id);
   const names = new Map(db.users.map((item) => [item.id, item.displayName]));
+  const lastDrawnRound = [...db.economy.lottery.rounds].filter((item) => item.status === 'drawn').sort((left, right) => Date.parse(right.drawnAt || right.closeAt) - Date.parse(left.drawnAt || left.closeAt))[0] || null;
+  const lastDraw = lastDrawnRound ? {
+    id: lastDrawnRound.id, closeAt: lastDrawnRound.closeAt, drawnAt: lastDrawnRound.drawnAt,
+    winningNumbers: lastDrawnRound.winningNumbers || [],
+    myEntries: db.economy.lottery.entries.filter((entry) => entry.roundId === lastDrawnRound.id && entry.userId === user.id).map((entry) => ({
+      id: entry.id, numbers: entry.numbers || [],
+    })),
+  } : null;
   const previous = [...db.economy.lottery.rounds].filter((item) => item.id !== round.id && item.status === 'drawn').slice(-6).reverse().map((item) => ({
     id: item.id, closeAt: item.closeAt, drawnAt: item.drawnAt, prizePool: Number(item.prizePool || 0), winningNumbers: item.winningNumbers || [],
     winners: (item.payouts || []).map((payout) => ({ displayName: names.get(payout.userId) || 'Conta removida', amount: Number(payout.amount || 0) })),
@@ -2003,8 +2483,8 @@ function lotteryForUser(user) {
   return {
     id: round.id, status: round.status, startAt: round.startAt, closeAt: round.closeAt, commitHash: round.commitHash,
     numbers: Array.from({ length: LOTTERY_NUMBER_MAX }, (_, index) => index + 1), drawCount: LOTTERY_DRAW_COUNT,
-    prizeRate: LOTTERY_PRIZE_RATE, minPool: LOTTERY_MIN_POOL, maxPool: LOTTERY_MAX_POOL, prizePool: projection.prizePool, realWagered: projection.realWagered,
-    contribution: projection.contribution, basePrizePool: projection.basePrizePool, apostometerTopUp: projection.apostometerTopUp, entryCount: entries.length, myEntry: myEntry ? { id: myEntry.id, guess: Number(myEntry.guess), createdAt: myEntry.createdAt } : null,
+    minPool: LOTTERY_MIN_POOL, prizePool: projection.prizePool, realWagered: projection.realWagered, ticketSales: projection.ticketSales,
+    contribution: projection.contribution, basePrizePool: projection.basePrizePool, apostometerTopUp: projection.apostometerTopUp, entryCount: entries.length, plans: LOTTERY_TICKET_PLANS, prizeBands: LOTTERY_PRIZE_BANDS, myEntries: myEntries.map((entry) => ({ id: entry.id, numbers: entry.numbers || [], price: Number(entry.price || 0), createdAt: entry.createdAt })), myEntry: null, lastDraw,
     winningNumbers: round.status === 'drawn' ? round.winningNumbers : [], revealedSecret: round.status === 'drawn' ? round.revealedSecret : null,
     winners: round.status === 'drawn' ? (round.payouts || []).map((payout) => ({ displayName: names.get(payout.userId) || 'Conta removida', amount: Number(payout.amount || 0) })) : [], previous,
   };
@@ -2020,6 +2500,10 @@ function lotteryReminderForUser(user, date = new Date()) {
 
 function lotteryTimeLabelForNotification(value) {
   return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(value)).replace(':', 'h');
+}
+
+function curseExpiryLabelForNotification(value) {
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(value)).replace(',', ' às').replace(':', 'h');
 }
 
 // A single durable claim, persisted atomically with consuming the box (D1 CAS).
@@ -2041,8 +2525,8 @@ function grantMysteryBoxReward(user, box, localHalloweenPreview = false) {
   };
   if (roll < Number(box.creditChance)) return creditReward();
   const wantsPower = roll < Number(box.creditChance) + Number(box.powerChance);
-  const eligible = SHOP_CATALOG.filter((item) => isHalloweenShopAvailable(item, localHalloweenPreview) && !item.adminOnly && !item.cardPack && !item.mysteryBox && !item.service && (wantsPower ? item.type === 'power' : item.type !== 'power') && Number(item.price) >= Number(box.minRewardPrice) && Number(item.price) <= Number(box.maxRewardPrice) && (item.consumable || !ownedIds.has(item.id)));
-  const fallback = SHOP_CATALOG.filter((item) => isHalloweenShopAvailable(item, localHalloweenPreview) && !item.adminOnly && !item.cardPack && !item.mysteryBox && !item.service && (item.consumable || !ownedIds.has(item.id)));
+  const eligible = SHOP_CATALOG.filter((item) => !item.excludeMystery && isHalloweenShopAvailable(item, localHalloweenPreview) && !item.adminOnly && !item.cardPack && !item.mysteryBox && !item.service && (wantsPower ? item.type === 'power' : item.type !== 'power') && Number(item.price) >= Number(box.minRewardPrice) && (Number(item.price) <= Number(box.maxRewardPrice) || (box.id === 'box-master-imperial' && item.id === 'frame-cyberpunk')) && (item.consumable || !ownedIds.has(item.id)));
+  const fallback = SHOP_CATALOG.filter((item) => !item.excludeMystery && isHalloweenShopAvailable(item, localHalloweenPreview) && !item.adminOnly && !item.cardPack && !item.mysteryBox && !item.service && (item.consumable || !ownedIds.has(item.id)));
   const pool = eligible.length ? eligible : box.master ? [] : fallback;
   if (!pool.length) return creditReward();
   const reward = pool[Math.floor(Math.random() * pool.length)];
@@ -2078,6 +2562,15 @@ function weeklyMissionsFor(userId) {
 }
 
 function weeklyMissionFor(userId) { return weeklyMissionsFor(userId)[0]; }
+
+const BLACKSTAR_WORKSHOP_RECIPES = Object.freeze([
+  { id: 'pack-sector51', name: 'Pacote Setor 51', cost: 4, itemId: 'card-pack-sector51', type: 'pack' },
+  { id: 'pack-orbit', name: 'Pacote Órbita', cost: 8, itemId: 'card-pack-orbit', type: 'pack' },
+  { id: 'relic-rift', name: 'Relíquia da Fenda', cost: 14, itemId: 'badge-relic-rift', type: 'visual' },
+  { id: 'cursor-blackstar', name: 'Lança Blackstar', cost: 22, variants: { cyan: 'cursor-blackstar-cyan', gold: 'cursor-blackstar-gold', crimson: 'cursor-blackstar-crimson' }, type: 'visual' },
+  { id: 'theme-blackstar', name: 'Câmara Blackstar', cost: 26, variants: { cyan: 'site-blackstar-cyan', gold: 'site-blackstar-gold', crimson: 'site-blackstar-crimson' }, type: 'visual' },
+  { id: 'core-blackstar', name: 'Núcleo Blackstar', cost: 32, itemId: 'card-pack-core', type: 'pack' },
+]);
 
 function seasonPassIsEnabled(now = new Date()) {
   return (CARD_SEASON_LOCAL_PREVIEW || db.settings?.nextCardSeasonEnabled === true) && (CARD_SEASON_LOCAL_PREVIEW || passIsOpen(now));
@@ -2206,9 +2699,126 @@ function settleMarketDividends(now = new Date()) {
   return true;
 }
 
+function cryptoDailyIncomeFor(userId, dayKey = saoPauloDayKey()) {
+  const key = userId + ':' + dayKey;
+  const claimed = (db.economy.cryptoDailyIncomeClaims || []).some((entry) => entry.key === key);
+  const eligible = hasDailyEconomyActivity(userId, dayKey);
+  return { amount: CRYPTO_DAILY_INCOME, dayKey, claimed, eligible, available: !claimed && eligible };
+}
+
+function cryptoIncomeFor(userId, snapshot = null) {
+  const dayKey = saoPauloDayKey(); const market = snapshot || cryptoMarketForUser(db.economy, userId);
+  const paidToday = roundMoney(db.economy.creditAdjustments.filter((entry) => entry.userId === userId && entry.mode === 'crypto51-dividend' && dayKeyForTimestamp(entry.createdAt) === dayKey).reduce((sum, entry) => sum + Number(entry.amount || 0), 0));
+  return { dailyIncome: cryptoDailyIncomeFor(userId, dayKey), dividend: { dailyRate: CRYPTO_DIVIDEND_DAILY_RATE, dailyCap: CRYPTO_DIVIDEND_DAILY_CAP, paidToday, remainingToday: Math.max(0, roundMoney(CRYPTO_DIVIDEND_DAILY_CAP - paidToday)) }, holdingsValue: market.holdingsValue };
+}
+
+function settleCryptoDividends(now = new Date()) {
+  const market = ensureCryptoMarketState(db.economy); const slot = String(market.updatedAt || '');
+  if (!slot || market.status === 'stale' || market.dividendSlots.includes(slot)) return false;
+  const dayKey = saoPauloDayKey(now); const users = new Set(Object.keys(market.portfolios || {}));
+  market.dividendAccrual ||= {};
+  users.forEach((userId) => {
+    const value = cryptoHoldingsValueForUser(db.economy, userId); if (value <= 0) return;
+    const paidToday = db.economy.creditAdjustments.filter((entry) => entry.userId === userId && entry.mode === 'crypto51-dividend' && dayKeyForTimestamp(entry.createdAt) === dayKey).reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+    // Cada snapshot de cinco minutos recebe 1/288 da taxa diária. Assim não
+    // há multiplicação indevida se a página atualizar várias vezes.
+    const remaining = Math.max(0, CRYPTO_DIVIDEND_DAILY_CAP - paidToday);
+    const accrued = Math.min(remaining, Number(market.dividendAccrual[userId] || 0) + value * (CRYPTO_DIVIDEND_DAILY_RATE / 288));
+    const amount = Math.floor(accrued * 100 + 1e-8) / 100;
+    market.dividendAccrual[userId] = Math.max(0, accrued - amount);
+    if (amount < 0.01) return;
+    const before = walletFor(userId); addCredits(userId, amount);
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId, mode: 'crypto51-dividend', amount, before, after: walletFor(userId), reason: 'Dividendo simulado do Cripto 51', createdAt: now.toISOString(), slotKey: slot });
+  });
+  market.dividendSlots.push(slot); if (market.dividendSlots.length > 600) market.dividendSlots = market.dividendSlots.slice(-600);
+  return true;
+}
+
+function cancelMarketAutoOrdersWithoutPosition(userId, now = new Date()) {
+  const market = ensureMarketState(db.economy);
+  const portfolio = market.portfolios[userId] || {};
+  let changed = false;
+  for (const order of market.autoSellOrders || []) {
+    if (order.userId !== userId || order.status !== 'active') continue;
+    if (Number(portfolio[order.assetId] || 0) >= Number(order.quantity || 0)) continue;
+    order.status = 'cancelled';
+    order.cancelledAt = now.toISOString();
+    order.cancelReason = 'A posição foi alterada antes de a cotação alcançar o alvo.';
+    changed = true;
+  }
+  return changed;
+}
+
+function settleMarketAutoSales(now = new Date()) {
+  const market = ensureMarketState(db.economy);
+  const activeOrders = (market.autoSellOrders || []).filter((order) => order.status === 'active');
+  if (!activeOrders.length) return false;
+  let changed = false;
+  for (const order of activeOrders) {
+    const asset = MARKET_ASSETS.find((item) => item.id === order.assetId);
+    const held = Number(market.portfolios?.[order.userId]?.[order.assetId] || 0);
+    if (!asset || held < Number(order.quantity || 0)) {
+      order.status = 'cancelled';
+      order.cancelledAt = now.toISOString();
+      order.cancelReason = 'A posição não estava mais disponível quando a cotação atualizou.';
+      changed = true;
+      continue;
+    }
+    const currentPrice = roundMoney(market.prices[order.assetId] || asset.initialPrice);
+    if (currentPrice < Number(order.targetPrice || 0)) continue;
+    const operation = transactMarket(db.economy, order.userId, order.assetId, Number(order.quantity), 'sell', now);
+    const before = walletFor(order.userId);
+    addCredits(order.userId, operation.total);
+    operation.userId = order.userId;
+    operation.before = before;
+    operation.after = walletFor(order.userId);
+    operation.source = 'auto-sell';
+    operation.targetPrice = Number(order.targetPrice);
+    market.ledger.push({ ...operation });
+    if (market.ledger.length > 5000) market.ledger = market.ledger.slice(-5000);
+    db.economy.creditAdjustments.push({ id: operation.id, userId: order.userId, mode: 'investment-market-auto-sell', amount: operation.total, before, after: walletFor(order.userId), reason: `Venda automática de ${asset.name} ao atingir ${roundMoney(order.targetPrice)} Créditos 51`, createdAt: operation.createdAt, slotKey: market.slotKey, orderId: order.id });
+    settleMarketMissionsForUser(order.userId);
+    order.status = 'fulfilled';
+    order.fulfilledAt = now.toISOString();
+    order.operationId = operation.id;
+    order.executionPrice = operation.price;
+    changed = true;
+  }
+  if (market.autoSellOrders.length > 1200) market.autoSellOrders = market.autoSellOrders.slice(-1200);
+  return changed;
+}
+
 function syncMarketEconomy(now = new Date()) {
   const advanced = advanceMarket(db.economy, now);
+  // Só liquidamos depois de uma cotação efetivamente calculada, nunca na
+  // migração de versão do motor ou em um simples carregamento da página.
+  const autoSold = advanced && ensureMarketState(db.economy).updatedAt === now.toISOString() ? settleMarketAutoSales(now) : false;
   const rewarded = settleMarketDividends(now);
+  return advanced || autoSold || rewarded;
+}
+
+// A atualização é centralizada no servidor: uma única leitura das corretoras
+// alimenta toda a tripulação. Nenhum navegador recebe chave, nem consulta as
+// fontes diretamente.
+let cryptoFetchPending = false;
+let cryptoFetchStartedAt = 0;
+let cryptoFetchedPayload = null;
+async function syncCryptoEconomy(now = new Date()) {
+  // A leitura externa nunca espera dentro da fila que atende operações de
+  // saldo. O resultado é aplicado na próxima sincronização serializada.
+  let advanced = false;
+  if (cryptoFetchedPayload) {
+    const payload = cryptoFetchedPayload;
+    cryptoFetchedPayload = null;
+    advanced = await syncCryptoMarket(db.economy, now, payload);
+  }
+  const rewarded = advanced && ensureCryptoMarketState(db.economy).updatedAt === now.toISOString() ? settleCryptoDividends(now) : false;
+  const lastAttempt = Date.parse(ensureCryptoMarketState(db.economy).lastAttemptAt || '') || 0;
+  if (!cryptoFetchPending && !cryptoFetchedPayload && now.getTime() - Math.max(lastAttempt, cryptoFetchStartedAt) >= CRYPTO_REFRESH_MS) {
+    cryptoFetchPending = true;
+    cryptoFetchStartedAt = now.getTime();
+    void readCryptoSources().then((payload) => { cryptoFetchedPayload = payload; }).catch(() => { cryptoFetchedPayload = { quotes: {}, sources: {} }; }).finally(() => { cryptoFetchPending = false; });
+  }
   return advanced || rewarded;
 }
 
@@ -2341,6 +2951,14 @@ function seasonSummary(monthKey = monthKeyFor()) {
   return { monthKey, ...seasonMeta(monthKey), ranking: people.slice(0, 9), leader: champions[0] || null, champions };
 }
 
+function seasonSummaryWithLockedChampions(monthKey = monthKeyFor()) {
+  const summary = seasonSummary(monthKey);
+  const snapshot = (db.economy.seasonChampionSnapshots || []).find((entry) => entry.monthKey === monthKey);
+  if (!snapshot) return summary;
+  const champions = (snapshot.champions || []).map((entry) => ({ ...entry }));
+  return { ...summary, leader: champions[0] || null, champions };
+}
+
 const SEASON_CHAMPION_REWARD = 500;
 const SEASON_CHAMPION_REWARD_START_MONTH = '2026-09';
 
@@ -2349,14 +2967,21 @@ function settleSeasonChampionRewards() {
   // A premiação começa com a temporada que já está em andamento. Assim, não
   // altera saldos de campeonatos históricos anteriores à regra.
   if (completedMonth < SEASON_CHAMPION_REWARD_START_MONTH) return false;
-  const summary = seasonSummary(completedMonth);
+  const liveSummary = seasonSummary(completedMonth);
+  let snapshot = (db.economy.seasonChampionSnapshots || []).find((entry) => entry.monthKey === completedMonth);
+  let snapshotCreated = false;
+  if (!snapshot && liveSummary.champions?.length) {
+    snapshot = { id: randomUUID(), monthKey: completedMonth, champions: liveSummary.champions.map(({ id, displayName, points }) => ({ id, displayName, points })), lockedAt: new Date().toISOString() };
+    db.economy.seasonChampionSnapshots.push(snapshot); snapshotCreated = true;
+  }
+  const summary = seasonSummaryWithLockedChampions(completedMonth);
   const champions = summary.champions || [];
   if (!champions.length) return false;
   const paid = new Set((db.economy.seasonChampionRewards || [])
     .filter((entry) => entry.monthKey === completedMonth)
     .map((entry) => entry.userId));
   const recipients = champions.filter((person) => !paid.has(person.id));
-  if (!recipients.length) return false;
+  if (!recipients.length) return snapshotCreated;
   // Empate divide a mesma bolsa de 500 para que a ordem alfabética do placar
   // não escolha arbitrariamente quem recebe mais.
   const shares = lotterySplitPrize(SEASON_CHAMPION_REWARD, champions.map((person) => person.id));
@@ -2496,104 +3121,79 @@ function enforceLieVoteGate(req, route) {
   if (!auth || auth.user.role === 'admin') return;
   const stateRoute = req.method === 'GET' && (route === '/api/state' || route === '/api/sync');
   const logoutRoute = req.method === 'POST' && route === '/api/logout';
-  const voteRoute = req.method === 'POST' && /^\/api\/lie-meter\/[^/]+\/vote$/.test(route);
-  if (stateRoute || logoutRoute || voteRoute) return;
+  const announcementRoute = req.method === 'POST' && route === '/api/announcement/seen';
+  const voteRoute = req.method === 'POST' && (/^\/api\/lie-meter\/[^/]+\/vote$/.test(route) || /^\/api\/community-votes\/[^/]+\/vote$/.test(route));
+  if (stateRoute || logoutRoute || announcementRoute || voteRoute) return;
   const required = requiredLieVoteForUser(auth.user.id);
   if (required) throw new HttpError(423, 'Você precisa votar na mentira pendente antes de continuar.');
 }
 
-function activeDemocracyVoterIds() {
-  // A administração encerra e arquiva; os votos obrigatórios pertencem à
-  // tripulação participante. A fotografia do eleitorado é tirada na abertura.
-  return db.users.filter((user) => user.role !== 'admin' && user.active && user.approved !== false).map((user) => user.id);
-}
-
-function requiredDemocracyVoteForUser(userId) {
-  return db.democracyVotes
-    .filter((item) => item.status === 'open' && Array.isArray(item.requiredVoterIds) && item.requiredVoterIds.includes(userId) && !item.votes?.[userId])
-    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))[0] || null;
-}
-
-function enforceDemocracyVoteGate(req, route) {
+function enforceCommunityVoteGate(req, route) {
   const auth = sessionFor(req);
   if (!auth || auth.user.role === 'admin') return;
   const stateRoute = req.method === 'GET' && (route === '/api/state' || route === '/api/sync');
   const logoutRoute = req.method === 'POST' && route === '/api/logout';
-  const democracyRoute = /^\/api\/democracy(?:\/[^/]+\/vote)?$/.test(route);
-  if (stateRoute || logoutRoute || democracyRoute) return;
-  if (requiredDemocracyVoteForUser(auth.user.id)) throw new HttpError(423, 'Vote nas pautas democráticas pendentes antes de continuar.');
-}
-
-function sanitizeDemocracyVoters(now = new Date().toISOString()) {
-  if (!Array.isArray(db.democracyVotes)) return false;
-  const activeVoters = new Set(activeDemocracyVoterIds());
-  let changed = false;
-  db.democracyVotes.filter((item) => item.status === 'open').forEach((item) => {
-    const original = Array.isArray(item.requiredVoterIds) ? [...new Set(item.requiredVoterIds)] : [];
-    const next = original.filter((id) => activeVoters.has(id));
-    if (original.length !== next.length || original.some((id, index) => id !== next[index])) changed = true;
-    item.requiredVoterIds = next;
-    if (!item.votes || typeof item.votes !== 'object' || Array.isArray(item.votes)) { item.votes = {}; changed = true; }
-    Object.keys(item.votes).forEach((voterId) => { if (!next.includes(voterId)) { delete item.votes[voterId]; changed = true; } });
-    if (!next.length) {
-      item.status = 'archived'; item.archivedAt = now; item.archivedReason = 'Não havia participantes ativos para votar.'; changed = true;
-    }
-  });
-  return changed;
-}
-
-function democracyResultFor(item) {
-  const voterIds = Array.isArray(item.requiredVoterIds) ? item.requiredVoterIds : [];
-  const favor = voterIds.filter((id) => item.votes?.[id] === 'favor').length;
-  const against = voterIds.filter((id) => item.votes?.[id] === 'against').length;
-  const total = voterIds.length;
-  const received = favor + against;
-  return { favor, against, total, received, pending: Math.max(0, total - received), outcome: favor === against ? 'Empate' : favor > against ? 'A favor' : 'Contra' };
+  const announcementRoute = req.method === 'POST' && route === '/api/announcement/seen';
+  const voteRoute = req.method === 'POST' && (/^\/api\/community-votes\/[^/]+\/vote$/.test(route) || /^\/api\/lie-meter\/[^/]+\/vote$/.test(route));
+  const imageRoute = req.method === 'GET' && /^\/api\/community-votes\/[^/]+\/image$/.test(route);
+  if (stateRoute || logoutRoute || announcementRoute || voteRoute || imageRoute) return;
+  const required = requiredCommunityVoteForUser(auth.user.id);
+  if (required) throw new HttpError(423, 'Você precisa votar na pauta pendente antes do prazo terminar.');
 }
 
 export function lieVoteDecision(requiredVoterIds = [], votes = {}) {
   const voterIds = [...new Set(requiredVoterIds)];
   const lieVotes = voterIds.filter((id) => votes[id] === 'lie').length;
+  const strongLieVotes = voterIds.filter((id) => votes[id] === 'strong-lie').length;
   const truthVotes = voterIds.filter((id) => votes[id] === 'truth').length;
   // “Não ouvi” registra que a pessoa participou, mas é uma abstenção: não
   // pesa nem para confirmar nem para negar a acusação.
   const notHeardVotes = voterIds.filter((id) => votes[id] === 'not-heard').length;
-  const remaining = Math.max(0, voterIds.length - lieVotes - truthVotes - notHeardVotes);
-  const received = lieVotes + truthVotes;
+  const remaining = Math.max(0, voterIds.length - lieVotes - strongLieVotes - truthVotes - notHeardVotes);
   const everyoneAnswered = remaining === 0;
-  // A decisão é da maioria entre os votos válidos já recebidos. Exigimos três
-  // participações para evitar que só o autor e uma pessoa encerrem a acusação,
-  // mas não prendemos a equipe esperando quem não vai votar.
-  const quorumReached = received >= Math.min(3, voterIds.length);
-  const outcome = quorumReached && lieVotes !== truthVotes
-    ? (lieVotes > truthVotes ? 'lie' : 'truth')
-    // Mantém o desempate histórico quando todos votaram nas duas opções. Com
-    // pelo menos uma abstenção, encerrar sem maioria vira decisão neutra.
-    : everyoneAnswered ? (notHeardVotes > 0 ? 'not-heard' : (lieVotes > truthVotes ? 'lie' : 'truth')) : null;
-  return { outcome, lieVotes, truthVotes, notHeardVotes, remaining };
+  // Mentira e verdade só são definidas pela maioria absoluta da tripulação
+  // elegível. Assim, com 11 pessoas, três votos não podem encerrar o caso:
+  // são necessários seis votos para qualquer um dos lados.
+  const majorityThreshold = Math.floor(voterIds.length / 2) + 1;
+  // “Mentiu forte” também confirma que houve mentira. Para valer dois pontos,
+  // porém, a própria opção precisa atingir a maioria absoluta; uma mistura de
+  // votos Mentiu + Mentiu forte confirma a mentira normal, de um ponto.
+  const outcome = strongLieVotes >= majorityThreshold
+    ? 'strong-lie'
+    : lieVotes + strongLieVotes >= majorityThreshold
+      ? 'lie'
+    : truthVotes >= majorityThreshold
+      ? 'truth'
+      // Todos participaram, mas ninguém alcançou a maioria: não altera o
+      // placar e não fica travando a rodada.
+      : everyoneAnswered ? 'not-heard' : null;
+  return { outcome, lieVotes, strongLieVotes, truthVotes, notHeardVotes, remaining, majorityThreshold };
 }
 
 function resolveLieVoteIfDecided(item, now = new Date().toISOString()) {
   if (!item || item.status !== 'pending' || !Array.isArray(item.requiredVoterIds)) return false;
   item.votes ||= {};
-  const { outcome, lieVotes, truthVotes, notHeardVotes, remaining } = lieVoteDecision(item.requiredVoterIds, item.votes);
+  const { outcome, lieVotes, strongLieVotes, truthVotes, notHeardVotes, remaining } = lieVoteDecision(item.requiredVoterIds, item.votes);
   if (!outcome) return false;
 
-  if (outcome === 'lie') {
+  if (outcome === 'lie' || outcome === 'strong-lie') {
     item.status = 'confirmed';
     item.confirmedAt = now;
     item.validatedByUserId = null;
-    item.voteOutcome = 'lie';
+    item.voteOutcome = outcome;
+    item.delta = outcome === 'strong-lie' ? 2 : 1;
     const target = db.users.find((person) => person.id === item.targetUserId);
-    const resultText = remaining > 0 ? `maioria definida em ${lieVotes} a ${truthVotes}` : `votação ${lieVotes} a ${truthVotes}`;
-    db.anonymousPosts.push({ id: randomUUID(), authorId: null, system: true, authorName: 'Mentirômetro', message: '🤥 Mentira confirmada para ' + (target?.displayName || 'participante') + ': “' + (item.reason || 'Sem motivo registrado') + '” · ' + resultText + '.', createdAt: now });
+    const confirmedVotes = lieVotes + strongLieVotes;
+    const resultText = remaining > 0 ? `maioria definida em ${confirmedVotes} a ${truthVotes}` : `votação ${confirmedVotes} a ${truthVotes}`;
+    const strongText = outcome === 'strong-lie' ? '🤥💥 Mentira forte confirmada (+2 pontos) para ' : '🤥 Mentira confirmada para ';
+    db.anonymousPosts.push({ id: randomUUID(), authorId: null, system: true, authorName: 'Mentirômetro', message: strongText + (target?.displayName || 'participante') + ': “' + (item.reason || 'Sem motivo registrado') + '” · ' + resultText + '.', createdAt: now });
     if (db.anonymousPosts.length > 500) db.anonymousPosts = db.anonymousPosts.slice(-500);
   } else {
     item.status = 'rejected';
     item.rejectedAt = now;
     item.voteOutcome = outcome;
   }
-  item.decisionVotes = { lie: lieVotes, truth: truthVotes, notHeard: notHeardVotes, remaining };
+  item.decisionVotes = { lie: lieVotes, strongLie: strongLieVotes, truth: truthVotes, notHeard: notHeardVotes, remaining };
   return true;
 }
 
@@ -2607,7 +3207,7 @@ function settlePendingLieVotes(now = new Date().toISOString()) {
 
 function lieApprovalPeople(item) {
   const voterIds = Array.isArray(item.requiredVoterIds)
-    ? item.requiredVoterIds.filter((id) => item.votes?.[id] === 'lie')
+    ? item.requiredVoterIds.filter((id) => ['lie', 'strong-lie'].includes(item.votes?.[id]))
     : [];
   if (voterIds.length) return voterIds.map((id) => {
     const person = db.users.find((entry) => entry.id === id);
@@ -2670,7 +3270,8 @@ function availablePowerPurchases(userId, itemId) {
 }
 
 function consumePower(userId, itemId, details = {}) {
-  const purchase = availablePowerPurchases(userId, itemId)[0];
+  const purchases = availablePowerPurchases(userId, itemId);
+  const purchase = Object.hasOwn(details, 'sealed') ? purchases.find((entry) => Boolean(entry.sealed) === Boolean(details.sealed)) : purchases[0];
   if (!purchase) throw new HttpError(409, 'Você não possui este poder. Compre-o primeiro na loja.');
   db.economy.powerUses.push({ id: randomUUID(), purchaseId: purchase.id, userId, itemId, usedAt: new Date().toISOString(), ...details });
 }
@@ -2747,6 +3348,12 @@ function requireAdmin(req) {
   return auth;
 }
 
+// Davi também administra as entregas do servidor. A permissão fica no servidor
+// para que o painel não possa ser exposto por uma alteração no navegador.
+function canManageCobblemonServer(user) {
+  return user?.role === 'admin' || /^davi\b/i.test(String(user?.displayName || ''));
+}
+
 function publicDraw(result) {
   const { winnerUserId, ...safeResult } = result;
   return safeResult;
@@ -2769,9 +3376,48 @@ function broadcastRefresh(reason) {
   broadcastLive('refresh', { reason, serverTime: Date.now() });
 }
 
+// Automatic casino plays have their own result response. Coalesce their
+// economy broadcasts so six players do not cause six full state reads per spin.
+let casinoAutoRefreshTimer = null;
+function broadcastCasinoPlayRefresh(autoSessionId) {
+  if (!autoSessionId) { broadcastRefresh('economy'); return; }
+  if (casinoAutoRefreshTimer) return;
+  casinoAutoRefreshTimer = setTimeout(() => {
+    casinoAutoRefreshTimer = null;
+    broadcastRefresh('economy');
+  }, 6000);
+}
+
+const casinoAutoOwners = new Map();
+function authorizeCasinoAuto(userId, sessionId, game, bet, walletSource) {
+  const current = casinoAutoOwners.get(userId);
+  if (!sessionId) {
+    if (current && current.expiresAt > Date.now()) throw new HttpError(409, 'Há um giro automático ativo nesta conta. Pare a sequência antes de apostar manualmente.');
+    return;
+  }
+  if (!/^[a-zA-Z0-9-]{16,80}$/.test(sessionId)) throw new HttpError(400, 'Identificação do giro automático inválida.');
+  if (current && current.expiresAt > Date.now() && current.sessionId !== sessionId)
+    throw new HttpError(409, 'Já existe um giro automático nesta conta. Pare o outro antes de começar.');
+  if (current?.sessionId === sessionId && (current.game !== game || current.bet !== bet || current.walletSource !== walletSource))
+    throw new HttpError(409, 'Não altere o jogo, valor ou saldo durante o giro automático.');
+  if (current?.sessionId === sessionId && current.count >= 30)
+    throw new HttpError(409, 'O limite de 30 giros desta sequência foi atingido.');
+  casinoAutoOwners.set(userId, { sessionId, game, bet, walletSource, count: (current?.sessionId === sessionId ? current.count : 0) + 1, expiresAt: Date.now() + 45000 });
+}
+
+function compactCasinoPlayResponse(user, play) {
+  return { casinoResult: play, casinoBalances: {
+    promotional: Number(casinoAccountFor(user.id, true).balance),
+    shop: walletFor(user.id),
+    jackpot: Number(db.economy.casinoJackpot?.amount || CASINO_JACKPOT.seed),
+    closedBoxes: db.economy.mysteryBoxes.filter((item) => item.userId === user.id).length,
+  } };
+}
+
 function startLiveDraw(result, candidates, notify = true) {
-  const serverTime = Date.now();
-  const startedAt = serverTime + LIVE_DRAW_START_DELAY;
+  // A resposta HTTP do administrador e os eventos dos demais precisam chegar
+  // antes do início. O término é absoluto e igual para toda a tripulação.
+  const startedAt = Date.now() + 1400;
   const safeResult = publicDraw(result);
   const items = candidates.map((item) => result.type === 'theme'
     ? { id: item, label: item, detail: 'Tema' }
@@ -2781,7 +3427,7 @@ function startLiveDraw(result, candidates, notify = true) {
   liveDraw = {
     id: result.id, mode: result.type, result: safeResult, items,
     recipientUserId: result.winnerUserId || null,
-    serverTime, startedAt, duration: LIVE_DRAW_DURATION, endsAt: startedAt + LIVE_DRAW_DURATION,
+    startedAt, duration: LIVE_DRAW_DURATION, endsAt: startedAt + LIVE_DRAW_DURATION,
   };
   db.settings.liveDraw = liveDraw;
   if (notify) broadcastLive('draw', liveDraw);
@@ -2845,7 +3491,7 @@ function makeGayDrawResult({ roundId, participants, assignments, submissions, wi
     id: randomUUID(), type: 'gay', winnerId: winner.id, winnerUserId: winner.id,
     winner: winner.displayName, detail: 'Gay da Rodada', imageUrl: '/gay-da-rodada.png',
     roundId, votingId, watermarkSourceUrl: '/uploads/' + sourceSubmission.filename,
-    watermarkSourceTitle: sourceSubmission.title, watermarkedFilename: null, roundName: db.settings.roundName,
+    watermarkSourceTitle: sourceSubmission.title, roundName: db.settings.roundName,
     drawnBy, createdAt: new Date().toISOString(),
   };
   db.votings.push({
@@ -2913,9 +3559,74 @@ function feedbackForClient(user) {
   }));
 }
 
-const COMMUNITY_VOTE_GATE_DELAY_MS = 10 * 60 * 1000;
+const COMMUNITY_VOTE_DURATION_MS = 48 * 60 * 60 * 1000;
 function communityVotePeople() { return db.users.filter((person) => person.active && person.approved !== false); }
-function communityVotesForClient(user) { const now=Date.now(),people=new Map(communityVotePeople().map((person)=>[person.id,person]));const votes=(db.communityVotes||[]).slice(-80).reverse().map((item)=>{const ballot=(item.votes||[]).find((entry)=>entry.userId===user.id)||null;const voters=(item.votes||[]).map((entry)=>{const person=people.get(entry.userId);return {id:entry.userId,name:person?.displayName||entry.userName||'Conta removida',avatarDataUrl:person?.avatarDataUrl||null,vote:entry.vote,createdAt:entry.createdAt};});const comments=(item.comments||[]).slice(-50).map((entry)=>{const person=people.get(entry.userId);return {id:entry.id,userId:entry.userId,name:person?.displayName||entry.userName||'Conta removida',avatarDataUrl:person?.avatarDataUrl||null,message:entry.message,createdAt:entry.createdAt};});return {id:item.id,subject:item.subject,status:item.status==='open'?'open':item.status==='archived'?'archived':'closed',createdAt:item.createdAt,closedAt:item.closedAt||null,archivedAt:item.archivedAt||null,authorId:item.authorId,authorName:people.get(item.authorId)?.displayName||item.authorName||'Conta removida',authorAvatarDataUrl:people.get(item.authorId)?.avatarDataUrl||null,voters,comments,favor:voters.filter((entry)=>entry.vote==='favor').length,against:voters.filter((entry)=>entry.vote==='against').length,myVote:ballot?.vote||null,canVote:item.status==='open'&&people.has(user.id)&&!ballot,gateAt:new Date(Date.parse(item.createdAt)+COMMUNITY_VOTE_GATE_DELAY_MS).toISOString()};});return {votes,requiredVote:user.role==='admin'?null:votes.find((item)=>item.status==='open'&&item.canVote&&now>=Date.parse(item.gateAt))||null}; }
+function communityVoteExpiresAt(item) {
+  const createdAt = Date.parse(item?.createdAt || '');
+  const stored = Date.parse(item?.expiresAt || '');
+  return Number.isFinite(stored) ? stored : Number.isFinite(createdAt) ? createdAt + COMMUNITY_VOTE_DURATION_MS : Date.now() + COMMUNITY_VOTE_DURATION_MS;
+}
+function settleCommunityVoteByMajority(item, now = new Date().toISOString()) {
+  if (!item || item.status !== 'open') return false;
+  const eligibleIds = Array.isArray(item.eligibleVoterIds) && item.eligibleVoterIds.length ? item.eligibleVoterIds : communityVotePeople().map((person) => person.id);
+  item.eligibleVoterIds = [...new Set(eligibleIds)];
+  const threshold = Math.floor(item.eligibleVoterIds.length / 2) + 1;
+  const favor = (item.votes || []).filter((entry) => entry.vote === 'favor').length;
+  const against = (item.votes || []).filter((entry) => entry.vote === 'against').length;
+  const nowAt = Date.parse(now) || Date.now();
+  item.expiresAt ||= new Date(communityVoteExpiresAt(item)).toISOString();
+  if (nowAt >= communityVoteExpiresAt(item) && favor < threshold && against < threshold) {
+    item.status = 'closed'; item.outcome = 'rejected'; item.implementationStatus = null;
+    item.closedAt = new Date(nowAt).toISOString(); item.closedBy = 'automatic-deadline'; item.majorityThreshold = threshold;
+    return true;
+  }
+  if (favor < threshold && against < threshold) return false;
+  item.status = 'closed';
+  item.outcome = favor >= threshold ? 'approved' : 'rejected';
+  item.implementationStatus = item.outcome === 'approved' ? 'pending' : null;
+  item.closedAt = now;
+  item.closedBy = 'automatic-majority';
+  item.majorityThreshold = threshold;
+  return true;
+}
+function requiredCommunityVoteForUser(userId, now = Date.now()) {
+  const item = (db.communityVotes || []).filter((entry) => entry.status === 'open' && Array.isArray(entry.eligibleVoterIds) && entry.eligibleVoterIds.includes(userId) && !(entry.votes || []).some((vote) => vote.userId === userId))
+    .filter((entry) => now < communityVoteExpiresAt(entry))
+    .sort((left, right) => communityVoteExpiresAt(left) - communityVoteExpiresAt(right) || String(left.createdAt).localeCompare(String(right.createdAt)))[0];
+  if (!item) return null;
+  return { id: item.id, subject: item.subject, expiresAt: new Date(communityVoteExpiresAt(item)).toISOString() };
+}
+function communityVotesForClient(user) {
+  const people = new Map(communityVotePeople().map((person) => [person.id, person]));
+  const votes = (db.communityVotes || []).slice(-80).reverse().map((item) => {
+    settleCommunityVoteByMajority(item);
+    item.eligibleVoterIds ||= communityVotePeople().map((person) => person.id);
+    const ballot = (item.votes || []).find((entry) => entry.userId === user.id) || null;
+    const voters = (item.votes || []).map((entry) => {
+      const person = people.get(entry.userId);
+      return { id: entry.userId, name: person?.displayName || entry.userName || 'Conta removida', avatarDataUrl: person?.avatarDataUrl || null, vote: entry.vote, createdAt: entry.createdAt };
+    });
+    const comments = (item.comments || []).slice(-50).map((entry) => {
+      const person = people.get(entry.userId);
+      return { id: entry.id, userId: entry.userId, name: person?.displayName || entry.userName || 'Conta removida', avatarDataUrl: person?.avatarDataUrl || null, message: entry.message, createdAt: entry.createdAt, canDelete: entry.userId === user.id };
+    });
+    const eligibleTotal = item.eligibleVoterIds.length;
+    const favor = voters.filter((entry) => entry.vote === 'favor').length;
+    const against = voters.filter((entry) => entry.vote === 'against').length;
+    const outcome = item.outcome || (item.status === 'closed' ? (favor > against ? 'approved' : 'rejected') : null);
+    return {
+      id: item.id, subject: item.subject, imageUrl: item.imageFilename ? '/api/community-votes/' + encodeURIComponent(item.id) + '/image' : null, status: item.status === 'open' ? 'open' : item.status === 'archived' ? 'archived' : 'closed',
+      createdAt: item.createdAt, closedAt: item.closedAt || null, closedBy: item.closedBy || null, archivedAt: item.archivedAt || null,
+      authorId: item.authorId, authorName: people.get(item.authorId)?.displayName || item.authorName || 'Conta removida', authorAvatarDataUrl: people.get(item.authorId)?.avatarDataUrl || null,
+      voters, comments, favor, against, eligibleTotal, majorityThreshold: item.majorityThreshold || Math.floor(eligibleTotal / 2) + 1,
+      outcome, implementationStatus: item.implementationStatus || (outcome === 'approved' ? 'pending' : null), implementationReason: item.implementationReason || null, implementedAt: item.implementedAt || null,
+      myVote: ballot?.vote || null, canVote: item.status === 'open' && item.eligibleVoterIds.includes(user.id) && !ballot,
+      expiresAt: new Date(communityVoteExpiresAt(item)).toISOString(),
+      mandatoryAt: item.createdAt,
+    };
+  });
+  return { votes, requiredVote: user.role === 'admin' ? null : requiredCommunityVoteForUser(user.id) };
+}
 
 function openVoting() {
   return [...db.votings].reverse().find((item) => item.status === 'open') || null;
@@ -2991,7 +3702,7 @@ function stellarItemOffers(userId) {
     const item = SHOP_CATALOG.find((entry) => entry.id === purchase.itemId);
     if (!item || item.consumable || item.mysteryBox || item.service || item.adminOnly) return null;
     const value = stellarItemValue(purchase, item);
-    return { purchaseId: purchase.id, itemId: item.id, type: item.type || '', name: item.name, icon: item.icon || '🎁', value };
+    return { purchaseId: purchase.id, itemId: item.id, type: item.type || '', styleValue: item.value || '', name: item.name, icon: item.icon || '🎁', iconAsset: item.iconAsset || '', value };
   }).filter(Boolean).sort((a, b) => b.value - a.value).slice(0, 12);
 }
 
@@ -3010,7 +3721,7 @@ function stellarBlackMarketOffers(userId) {
     if (!isTradableVisual(item) || purchase.mysteryDecisionPending || basePrice <= 0 || reserved.has(purchase.id)) return null;
     if (item.type && equipped[item.type] === item.id) return null;
     const value = stellarItemValue(purchase, item);
-    return { purchaseId: purchase.id, itemId: item.id, type: item.type, name: item.name, icon: item.icon || '🕶️', paid: basePrice, value };
+    return { purchaseId: purchase.id, itemId: item.id, type: item.type || '', styleValue: item.value || '', name: item.name, icon: item.icon || '🕶️', iconAsset: item.iconAsset || '', paid: basePrice, value };
   }).filter(Boolean).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
 }
 
@@ -3068,17 +3779,26 @@ function finishVoting(voting) {
   if (votes.length && (!voting.bestWinnerId || !voting.worstWinnerId)) {
     const maxBest = Math.max(...totals.map((item) => item.best));
     const bestLeaders = totals.filter((item) => item.best === maxBest);
-    const bestWinner = bestLeaders[randomInt(bestLeaders.length)];
+    // Em empate para melhor, o voto negativo pesa: entre os mesmos votos de
+    // melhor, vence quem recebeu menos votos de pior.
+    const fewestWorstAmongBest = Math.min(...bestLeaders.map((item) => item.worst));
+    const bestAfterOppositeVote = bestLeaders.filter((item) => item.worst === fewestWorstAmongBest);
+    const bestWinner = bestAfterOppositeVote[randomInt(bestAfterOppositeVote.length)];
     const worstPool = totals.filter((item) => item.id !== bestWinner.id);
     const maxWorst = Math.max(...worstPool.map((item) => item.worst));
     const worstLeaders = worstPool.filter((item) => item.worst === maxWorst);
-    const worstWinner = worstLeaders[randomInt(worstLeaders.length)];
+    // Em empate para pior, a lógica se inverte: menos votos de melhor vence.
+    const fewestBestAmongWorst = Math.min(...worstLeaders.map((item) => item.best));
+    const worstAfterOppositeVote = worstLeaders.filter((item) => item.best === fewestBestAmongWorst);
+    const worstWinner = worstAfterOppositeVote[randomInt(worstAfterOppositeVote.length)];
     voting.bestWinnerId = bestWinner.id;
     voting.worstWinnerId = worstWinner.id;
     voting.bestWinnerVotes = bestWinner.best;
     voting.worstWinnerVotes = worstWinner.worst;
     voting.bestTiebreak = bestLeaders.length > 1;
     voting.worstTiebreak = worstLeaders.length > 1;
+    voting.bestTiebreakByOppositeVote = bestLeaders.length > bestAfterOppositeVote.length;
+    voting.worstTiebreakByOppositeVote = worstLeaders.length > worstAfterOppositeVote.length;
   }
   if (voting.scoresApplied) return;
   const bestSubmission = db.submissions.find((item) => item.id === voting.bestWinnerId);
@@ -3097,6 +3817,9 @@ function votingForClient(voting, user) {
   if (!voting) return null;
   const votes = voting.votes || [];
   const closed = voting.status === 'closed';
+  const votersRevealed = closed && votes.length >= voting.requiredVoterIds.length;
+  const voterNames = votersRevealed ? new Map(db.users.map((person) => [person.id, person.displayName])) : null;
+  const voterName = (vote) => voterNames.get(vote.userId) || 'Conta removida';
   const canViewEntries = closed || voting.requiredVoterIds.includes(user.id);
   const entries = voting.submissionIds.map((id) => {
     const item = db.submissions.find((submission) => submission.id === id);
@@ -3108,6 +3831,8 @@ function votingForClient(voting, user) {
       isMine: item.userId === user.id,
       revealed: closed, uploader: closed ? item.uploader : null,
       bestVotes: closed ? bestVotes : null, worstVotes: closed ? worstVotes : null,
+      bestVoters: votersRevealed ? votes.filter((vote) => vote.bestId === id).map(voterName) : null,
+      worstVoters: votersRevealed ? votes.filter((vote) => vote.worstId === id).map(voterName) : null,
       isBestWinner: closed && voting.bestWinnerId === item.id,
       isWorstWinner: closed && voting.worstWinnerId === item.id,
     };
@@ -3121,6 +3846,8 @@ function votingForClient(voting, user) {
     result: closed ? {
       bestWinnerId: voting.bestWinnerId, worstWinnerId: voting.worstWinnerId,
       bestTiebreak: Boolean(voting.bestTiebreak), worstTiebreak: Boolean(voting.worstTiebreak),
+      bestTiebreakByOppositeVote: Boolean(voting.bestTiebreakByOppositeVote),
+      worstTiebreakByOppositeVote: Boolean(voting.worstTiebreakByOppositeVote),
     } : null,
     openedAt: voting.openedAt, closedAt: voting.closedAt || null, entries,
   };
@@ -3136,9 +3863,7 @@ function liveTitleAssignments() {
   };
   const latestGay = [...db.draws].reverse().find((item) => item.type === 'gay');
   if (latestGay?.winnerId) give(latestGay.winnerId, { id: 'live-gay', icon: '🌈', name: 'Gay da Rodada', reason: 'Sorteado na rodada mais recente' });
-  for (const penalty of (db.economy.wallpaperDeadlinePenalties || []).filter((item) => !item.clearedAt)) {
-    give(penalty.userId, { id: 'live-wallpaper-deadline', icon: '🫏', name: 'Cusão da rodada', reason: 'Abduzido por falta de comprometimento' });
-  }
+  for (const penalty of (db.economy.wallpaperDeadlinePenalties || []).filter((item) => !item.clearedAt)) give(penalty.userId, { id: 'live-wallpaper-deadline', icon: '🫏', name: 'Cusão da rodada', reason: 'Abduzido por falta de comprometimento' });
 
   const activeUsers = db.users.filter((item) => item.active);
   const lieLeaders = activeUsers.map((person) => {
@@ -3285,6 +4010,8 @@ function profileFor(user, computed = {}) {
   const memes = Number(activityTotals.meme || db.dailyMemes.filter((item) => item.userId === user.id).length);
   const phrases = Number(activityTotals.phrase || db.dailyPhrases.filter((item) => item.userId === user.id).length);
   const forcedCursor = [...db.economy.forcedCursors].reverse().find((item) => item.targetUserId === user.id && isForcedCursorActive(item, db.settings.currentRoundId));
+  const curseHistory = (db.economy.curseHistory || []).filter((entry) => Date.parse(entry.createdAt) >= Date.parse(db.settings.cursePowersReleasedAt || '9999-12-31'));
+  const revealedCurseIds = new Set((db.economy.curseAuthorReveals || []).map((entry) => entry.curseId));
   const latestGayWinnerDraw = [...db.draws].reverse().find((item) => item.type === 'gay');
   const gayWinnerDraw = latestGayWinnerDraw?.winnerId === user.id && !isVisualPunishmentCleared(latestGayWinnerDraw.createdAt, db.settings.visualThemeClearedAt) ? latestGayWinnerDraw : null;
   const deadlinePenalty = activeWallpaperDeadlinePenalty(user.id);
@@ -3311,10 +4038,13 @@ function profileFor(user, computed = {}) {
   const showcaseSelected = savedShowcase.map((id) => showcaseOptions.find((item) => item.id === id)).filter(Boolean);
   const investmentMarket = marketForUser(db.economy, user.id);
   investmentMarket.income = marketIncomeFor(user.id, investmentMarket);
+  const cryptoMarket = cryptoMarketForUser(db.economy, user.id);
+  cryptoMarket.income = cryptoIncomeFor(user.id, cryptoMarket);
   return {
     wallet: walletFor(user.id), equipped: displayedEquipped,
     wallpaperDeadlinePenalty: deadlinePenalty ? { title: 'Abduzido por falta de comprometimento', badge: 'Cusão da rodada', streak: deadlinePenalty.streak, amount: deadlinePenalty.amount, createdAt: deadlinePenalty.createdAt } : null,
     investmentMarket,
+    cryptoMarket,
     cobblemon: {
       caught: Array.isArray(db.economy.cobblemonDex[user.id]) ? db.economy.cobblemonDex[user.id] : [],
       total: COBBLEMON_CATALOG.length,
@@ -3335,7 +4065,8 @@ function profileFor(user, computed = {}) {
         // Finish an in-progress capsule before moving to the next unopened one.
         // This keeps every purchase addressable when several capsules are bought
         // in the same week and prevents an older open capsule from becoming stale.
-        const openEntry = [...cycleEntries].reverse().find((entry) => entry.status === 'box-open') || [...cycleEntries].reverse().find((entry) => entry.status === 'box-closed');
+        const pendingBoxes = [...cycleEntries].reverse().filter((entry) => ['box-open', 'box-closed'].includes(entry.status));
+        const openEntry = pendingBoxes[0] || null;
         const dailyChoice = [...cycleEntries].reverse().find((entry) => entry.status === 'choice-pending');
         const weeklyChoice = [...cycleEntries].reverse().find((entry) => entry.status === 'weekly-choice-pending');
         const choice = weeklyChoice || dailyChoice;
@@ -3359,12 +4090,18 @@ function profileFor(user, computed = {}) {
         // is kept as history; the current entry fields are the authoritative
         // value after the player makes the daily choice.
         const candidateCard = pokemonCapsuleChoiceForEntry;
-        return { price: COBBLEMON_BOXES.pokemon.price, canPurchase, canOpen, choicePending: Boolean(choice), choiceStage: weeklyChoice ? 'weekly' : dailyChoice ? 'daily' : null, choice: toChoice(choice), weeklyChoicePending: Boolean(weeklyChoice), weeklyCandidates: weeklyCandidates.map(candidateCard), weeklyPurchaseCount, weeklyPurchasesRemaining: Math.max(0, 7 - weeklyPurchaseCount), weeklyOpeningsUsed, selectedCount: selectedEntries.length, openCount: weeklyCandidates.length, openRollCount, rollsRemaining: Math.max(0, 7 - weeklyCandidates.length), dailyRollsRemaining: Math.max(0, 3 - openRollCount), boxId: openEntry?.id || choice?.id || latest?.id || null, purchasedAt: latest?.createdAt || null, openedAt: openEntry?.openedAt || null, nextOpenAt, cycleId, deliveryDay: 'sexta-feira', resetDay: 'sábado' };
+        return { price: COBBLEMON_BOXES.pokemon.price, canPurchase, canOpen, choicePending: Boolean(choice), choiceStage: weeklyChoice ? 'weekly' : dailyChoice ? 'daily' : null, choice: toChoice(choice), weeklyChoicePending: Boolean(weeklyChoice), weeklyCandidates: weeklyCandidates.map(candidateCard), pendingBoxes: pendingBoxes.map((entry) => ({ id: entry.id, createdAt: entry.createdAt, openedAt: entry.openedAt || null, openRollCount: Number(entry.rolls?.length || entry.openCount || 0) })), weeklyPurchaseCount, weeklyPurchasesRemaining: Math.max(0, 7 - weeklyPurchaseCount), weeklyOpeningsUsed, selectedCount: selectedEntries.length, openCount: weeklyCandidates.length, openRollCount, rollsRemaining: Math.max(0, 7 - weeklyCandidates.length), dailyRollsRemaining: Math.max(0, 3 - openRollCount), boxId: openEntry?.id || choice?.id || latest?.id || null, purchasedAt: latest?.createdAt || null, openedAt: openEntry?.openedAt || null, nextOpenAt, cycleId, deliveryDay: 'sexta-feira', resetDay: 'sábado' };
       })(),
       // Entregas pendentes e o histórico do próprio usuário não podem ser
       // truncados: o limite anterior de 30 ocultava itens legítimos (como
       // pedras, balls e cápsulas) do painel do Davi/administradores.
-      deliveries: db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id || user.role === 'admin' || /^davi\b/i.test(String(user.displayName || ''))).reverse(),
+      deliveries: db.economy.cobblemonDeliveries
+        .filter((entry) => entry.userId === user.id || user.role === 'admin' || /^davi\b/i.test(String(user.displayName || '')))
+        .reverse()
+        // O identificador interno continua igual para não reescrever o
+        // histórico financeiro; a apresentação, inclusive compras antigas,
+        // usa a nomenclatura atual dos baús.
+        .map((entry) => ({ ...entry, boxName: cobblemonDisplayLabel(entry.boxName), name: cobblemonDisplayLabel(entry.name) })),
       balls: (() => {
         const dayKey = saoPauloDayKey();
         // A Poké Ball básica tem seu próprio limite diário. Arremessos com
@@ -3417,12 +4154,23 @@ function profileFor(user, computed = {}) {
       return { purchaseId: entry.id, itemId: entry.itemId, name: catalog?.name || 'Prêmio do baú', icon: catalog?.icon || '🎁', type: catalog?.type || '', sellPrice, equipped: equipped[catalog?.type] === entry.itemId, acquiredAt: entry.createdAt };
     }).sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt)),
     freeShopPurchaseAvailable: !db.economy.freeShopUses.includes(user.id),
+    curseRevealCandidates: curseHistory.filter((entry) => !revealedCurseIds.has(entry.id)).map((entry) => ({ id: entry.id, targetName: entry.targetName, style: entry.style, createdAt: entry.createdAt, active: Boolean(db.economy.forcedCursors.some((curse) => curse.id === entry.id && isForcedCursorActive(curse, db.settings.currentRoundId))) })).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    revealedCurseAuthors: curseHistory.filter((entry) => revealedCurseIds.has(entry.id)).map((entry) => ({ id: entry.id, targetName: entry.targetName, style: entry.style, createdAt: entry.createdAt, senderName: entry.senderName })).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    haterCurse: forcedCursor?.style === 'hater' ? {
+      id: forcedCursor.id, style: 'hater', createdAt: forcedCursor.createdAt, expiresAt: forcedCursor.expiresAt || null, sealed: Boolean(forcedCursor.sealed),
+      // Apenas as seis frases daquele envio chegam ao alvo; quem comprou o
+      // poder nunca é exposto nesta resposta.
+      phrases: Array.isArray(forcedCursor.phrases) ? forcedCursor.phrases : null,
+    } : null,
+    givaldoCurse: forcedCursor?.style === 'givaldo' ? {
+      id: forcedCursor.id, style: 'givaldo', createdAt: forcedCursor.createdAt, expiresAt: forcedCursor.expiresAt || null, sealed: Boolean(forcedCursor.sealed),
+    } : null,
     forcedCursor: gayWinnerDraw ? { style: 'gay', appliedBy: 'Sorteio Gay da Rodada', createdAt: gayWinnerDraw.createdAt, automatic: true }
       : overdueLoanFor(user.id) ? { style: 'giant-slow', appliedBy: 'Agiota Estelar — quite a dívida', createdAt: overdueLoanFor(user.id).dueAt, debt: true }
       // A pessoa alvo precisa saber que foi afetada, mas a autoria de uma
       // maldição comprada é propositalmente sigilosa. Nunca exponha o nome
       // salvo para auditoria no estado entregue ao navegador dela.
-      : forcedCursor ? { id: forcedCursor.id, style: forcedCursor.style || 'gay', appliedBy: 'Origem sigilosa', createdAt: forcedCursor.createdAt, expiresAt: forcedCursor.expiresAt || null } : null,
+      : forcedCursor && !['hater', 'givaldo'].includes(forcedCursor.style) ? { id: forcedCursor.id, style: forcedCursor.style || 'gay', appliedBy: 'Origem sigilosa', createdAt: forcedCursor.createdAt, expiresAt: forcedCursor.expiresAt || null, sealed: Boolean(forcedCursor.sealed) } : null,
     liveTitles: (computed.liveTitleMap || liveTitleAssignments()).get(user.id) || [],
     stats: { hydrationDays, memes, phrases, purchases: purchases.length, ...score },
     medals, showcase: { selected: showcaseSelected, selectedIds: showcaseSelected.map((item) => item.id), options: showcaseOptions, max: 4 },
@@ -3444,7 +4192,7 @@ function profileFor(user, computed = {}) {
         return entry.userId === user.id && !entry.mysteryDecisionPending && catalogItem?.type === 'power' && !db.economy.powerUses.some((use) => use.purchaseId === entry.id);
       }).map((entry) => {
         const catalogItem = SHOP_CATALOG.find((item) => item.id === entry.itemId);
-        return { purchaseId: entry.id, itemId: entry.itemId, name: catalogItem?.name || 'Poder da Loja 51', icon: catalogItem?.icon || '🎟️', detail: catalogItem?.description || 'Pronto para usar.' };
+        return { purchaseId: entry.id, itemId: entry.itemId, name: catalogItem?.name || 'Poder da Loja 51', icon: catalogItem?.icon || '🎟️', detail: entry.sealed ? 'Versão sem Antídoto, já paga: 5.000 Créditos 51.' : catalogItem?.description || 'Pronto para usar.', sealed: Boolean(entry.sealed) };
       }),
     },
     shop: SHOP_CATALOG.filter((item) => (!item.adminOnly || user.role === 'admin') && (!item.passExclusive || ownedIds.has(item.id)) && (isShopItemAvailable(item, localHalloweenPreview) || (!item.cardPack && ownedIds.has(item.id)))).map((item) => {
@@ -3455,20 +4203,23 @@ function profileFor(user, computed = {}) {
     }),
     giftOptions: {
       people: db.users.filter((item) => item.active && item.approved !== false && item.id !== user.id).map((item) => ({ id: item.id, displayName: item.displayName })),
-      items: SHOP_CATALOG.filter((item) => isShopItemAvailable(item, localHalloweenPreview) && !item.adminOnly && !item.mysteryBox && !item.service).map(({ id, name, price, type, consumable }) => ({ id, name, price, type, consumable: Boolean(consumable) })),
-      weeklyCreditLimit: WEEKLY_CREDIT_GIFT_LIMIT,
-      weeklyCreditRemaining: Math.max(0, WEEKLY_CREDIT_GIFT_LIMIT - db.economy.gifts.filter((item) => item.type === 'credits' && item.fromUserId === user.id && item.createdAt.slice(0, 10) >= saoPauloWeekKey()).reduce((sum, item) => sum + item.amount, 0)),
+      items: SHOP_CATALOG.filter((item) => isShopItemAvailable(item, localHalloweenPreview) && Number(item.price) > 0 && !item.adminOnly && !item.passExclusive && !item.mysteryBox && !item.service).map(({ id, name, price, type, consumable }) => ({ id, name, price, type, consumable: Boolean(consumable) })),
+      creditGiftUnlimited: true,
     },
   };
+}
+
+function cobblemonDisplayLabel(value) {
+  return String(value || '').replaceAll('Cápsula Pokémon', 'Baú Pokémon').replaceAll('Caixa das Pedras', 'Baú das Pedras');
 }
 
 function creditLedgerFor(userId) {
   const purchases = db.economy.purchases.filter((item) => (item.ledgerUserId || item.userId) === userId).map((item) => {
     const catalog = SHOP_CATALOG.find((candidate) => candidate.id === item.itemId);
-    const freeLabel = item.freePurchase ? 'Compra grátis: ' : item.sourceMysteryBoxId ? 'Prêmio recebido: ' : 'Compra: ';
-    return { id: 'purchase:' + item.id, icon: item.freePurchase || item.sourceMysteryBoxId ? '🎁' : '🛍️', label: freeLabel + (catalog?.name || 'Item da Loja 51'), amount: -Number(item.price || 0), createdAt: item.createdAt };
+    const freeLabel = item.source === 'season-pass' ? 'Recompensa do Passe: ' : item.freePurchase ? 'Compra grátis: ' : item.sourceMysteryBoxId ? 'Prêmio recebido: ' : 'Compra: ';
+    return { id: 'purchase:' + item.id, icon: item.source === 'season-pass' || item.freePurchase || item.sourceMysteryBoxId ? '🎁' : '🛍️', label: freeLabel + (catalog?.name || 'Item da Loja 51'), amount: -Number(item.price || 0), createdAt: item.createdAt };
   });
-  const adjustments = db.economy.creditAdjustments.filter((item) => item.userId === userId).map((item) => ({ id: 'adjustment:' + item.id, icon: Number(item.after) >= Number(item.before) ? '🪙' : '↘️', label: item.reason || 'Ajuste de saldo', amount: roundMoney(Number(item.after) - Number(item.before)), createdAt: item.createdAt }));
+  const adjustments = db.economy.creditAdjustments.filter((item) => item.userId === userId).map((item) => ({ id: 'adjustment:' + item.id, icon: Number(item.after) >= Number(item.before) ? '🪙' : '↘️', label: cobblemonDisplayLabel(item.reason || 'Ajuste de saldo'), amount: roundMoney(Number(item.after) - Number(item.before)), createdAt: item.createdAt }));
   const hydration = db.economy.waterRewardDays.filter((key) => key.startsWith(userId + ':')).map((key) => ({ id: 'water:' + key, icon: '💧', label: 'Meta diária de hidratação', amount: 45, createdAt: key.slice(userId.length + 1) + 'T12:00:00.000Z' }));
   const missions = db.economy.missionRewards.filter((key) => key.startsWith(userId + ':')).map((key) => {
     const parts = key.split(':'); const mission = WEEKLY_MISSIONS.find((item) => item.type === parts.at(-1));
@@ -3523,11 +4274,43 @@ function updatePostMentions(post) {
 
 function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   const roundId = db.settings.currentRoundId; const items = [];
-  const latestJackpot = [...(db.economy.casinoPlays || [])].reverse().find((play) => play.resultType === 'casinoJackpot');
-  if (latestJackpot) {
-    const winner = db.users.find((person) => person.id === latestJackpot.userId);
-    const payoutText = Number(latestJackpot.payout || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    items.push({ id: 'casino-jackpot:' + latestJackpot.id, icon: '✦', title: 'Jackpot da Tripulação liberado!', detail: `${winner?.displayName || latestJackpot.userName || 'Um participante'} recebeu ${payoutText} Créditos 51. O acumulado reiniciou para uma nova disputa.`, page: 'jogos', targetId: 'casinoJackpotValue', createdAt: latestJackpot.createdAt });
+  const basketTask = dailyDutyBasketTaskFor(user);
+  if (basketTask) {
+    const missing = [basketTask.missingPost && 'uma postagem no Feed', basketTask.missingWater && 'um registro de água'].filter(Boolean).join(' e ');
+    items.push({ id: 'daily-duty-basket:' + basketTask.dayKey + ':' + user.id, icon: '🧺', title: 'Seu dia de aviso começou', detail: 'Ontem faltou ' + missing + '. Encontre os 10 itens da sua cesta durante o dia; cada item reduz em 2h24 a punição de amanhã. A cesta é individual.', page: 'atualizacoes', targetId: 'dailyDutyBasketCard', createdAt: new Date(Date.parse(basketTask.dayKey + 'T00:00:00-03:00')).toISOString() });
+  }
+  const dailyPenalty = dailyDutyPenaltyFor(user);
+  if (dailyPenalty) {
+    items.push({ id: 'daily-duty:' + dailyPenalty.dayKey + ':' + user.id, icon: '⚠️', title: 'Punição diária ativa', detail: 'Sua cesta do dia ' + dailyPenalty.taskDay + ' terminou com ' + dailyPenalty.collectedCount + '/10 itens. O Site Desconfigurado e o bloqueio de Jogos terminam na contagem regressiva. Esta punição não aceita Antídoto.', page: 'memes', createdAt: new Date(Date.parse(dailyPenalty.dayKey + 'T00:00:00-03:00')).toISOString() });
+  }
+  for (const play of (db.economy.casinoPlays || []).filter((entry) => entry.resultType === 'casinoJackpot' && entry.notifyJackpot).slice(-5)) {
+    const winner = db.users.find((person) => person.id === play.userId);
+    items.push({ id: 'casino-jackpot:' + play.id, icon: '🏆', title: 'Jackpot da Tripulação saiu!', detail: (winner?.displayName || 'Um participante') + ' ganhou ' + roundMoney(play.jackpotWon).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' créditos no jackpot.', page: 'jogos', targetId: 'casinoRoulettePanel', createdAt: play.createdAt });
+  }
+  for (const grant of (db.economy.casinoBulkBonusGrants || []).filter((entry) => entry.notifyRecipients && (entry.recipients || []).some((recipient) => recipient.userId === user.id)).slice(-5)) {
+    items.push({ id: 'casino-bulk-bonus:' + grant.id, icon: '🎰', title: 'Você recebeu bônus no Cassino!', detail: roundMoney(grant.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' créditos promocionais para jogar. O bônus expira na virada do dia.', page: 'jogos', targetId: 'casinoRoulettePanel', createdAt: grant.createdAt });
+  }
+  // As marcações existem somente nas pautas e comentários criados após esta
+  // melhoria, evitando transformar todo o histórico em aviso novo.
+  for (const vote of (db.communityVotes || []).filter((item) => item.status === 'open' && item.notifyAll).slice(-4)) {
+    items.push({
+      id: 'community-vote-open:' + vote.id,
+      icon: '🗳️',
+      title: 'Nova pauta aberta para votação',
+      detail: (vote.authorName || 'Um participante') + ' propôs: ' + vote.subject,
+      page: 'votacoes', targetId: 'communityVotes', createdAt: vote.createdAt,
+    });
+  }
+  for (const vote of (db.communityVotes || []).filter((item) => item.status === 'open' && item.notifyAll)) {
+    for (const comment of (vote.comments || []).filter((entry) => entry.notifyAll && entry.userId !== user.id).slice(-4)) {
+      items.push({
+        id: 'community-vote-comment:' + comment.id,
+        icon: '💬',
+        title: 'Novo comentário em uma pauta',
+        detail: (comment.userName || 'Um participante') + ': ' + comment.message,
+        page: 'votacoes', targetId: 'communityVotes', createdAt: comment.createdAt,
+      });
+    }
   }
   for (const dispute of (db.lieDisputes || []).filter((item) => item.status === 'open' && item.participantIds.includes(user.id)).slice(-4)) {
     const lie = db.lieAccusations.find((item) => item.id === dispute.lieId);
@@ -3556,21 +4339,28 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   for (const announcement of (db.economy.powerAnnouncements || []).filter((item) => item.secretTargetedCurse || item.activatedByUserId !== user.id).slice(-8)) {
     const scope = announcement.roundId ? 'na rodada' : 'agora';
     const curseTarget = announcement.secretTargetedCurse ? String(announcement.targetName || 'um participante') : null;
-    const curseDuration = announcement.expiresAt ? ' Duração até ' + lotteryTimeLabelForNotification(announcement.expiresAt) + '.' : announcement.itemId === 'power-force-gay-cursor' ? ' Duração até o fim da rodada.' : ' Duração de 24 horas.';
-    items.push({ id: 'power-activation:' + announcement.id, icon: announcement.secretTargetedCurse ? '⚠️' : '⚡', title: announcement.secretTargetedCurse ? 'Maldição ativada na tripulação' : announcement.itemName + ' ativado ' + scope, detail: announcement.secretTargetedCurse ? curseTarget + ' foi prejudicado por ' + announcement.itemName + '.' + curseDuration + ' A autoria permanece sigilosa.' : 'Um poder da Loja 51 foi ativado. Confira os poderes e a rodada.', page: 'perfil', targetId: 'activePowersCard', createdAt: announcement.createdAt });
+    const curseDuration = announcement.expiresAt ? ' Termina em ' + curseExpiryLabelForNotification(announcement.expiresAt) + '.' : ' Duração de 24 horas.';
+    const revealed = (db.economy.curseAuthorReveals || []).some((entry) => entry.curseId === announcement.curseId);
+    items.push({ id: 'power-activation:' + announcement.id, icon: announcement.secretTargetedCurse ? '⚠️' : '⚡', title: announcement.secretTargetedCurse ? 'Maldição ativada na tripulação' : announcement.itemName + ' ativado ' + scope, detail: announcement.secretTargetedCurse ? curseTarget + ' foi prejudicado por ' + announcement.itemName + '.' + curseDuration + (revealed ? ' A autoria foi revelada; confira na Loja 51.' : ' A autoria permanece sigilosa.') : 'Um poder da Loja 51 foi ativado. Confira os poderes e a rodada.', page: 'perfil', targetId: 'activePowersCard', createdAt: announcement.createdAt });
+  }
+  for (const reveal of (db.economy.curseAuthorReveals || []).slice(-8)) {
+    const curse = (db.economy.curseHistory || []).find((entry) => entry.id === reveal.curseId);
+    if (!curse) continue;
+    items.push({ id: 'curse-author-reveal:' + curse.id, icon: '🕵️', title: 'Autoria de maldição revelada', detail: curse.senderName + ' enviou a maldição para ' + curse.targetName + '. Confira na Loja 51.', page: 'loja', targetId: 'curseRevealBoard', createdAt: reveal.revealedAt });
   }
   const lotteryReminder = lotteryReminderForUser(user);
-  if (lotteryReminder) items.push({ id: 'lottery-reminder:' + lotteryReminder.roundId + ':' + user.id, icon: '⏰', title: 'Faltam 10 minutos para a Loteria 51', detail: 'Você ainda não registrou seu palpite. Escolha um número antes das ' + lotteryTimeLabelForNotification(lotteryReminder.closeAt) + '.', page: 'loteria', targetId: 'loteria', createdAt: new Date(Date.parse(lotteryReminder.closeAt) - 10 * 60 * 1000).toISOString() });
+  if (lotteryReminder) items.push({ id: 'lottery-reminder:' + lotteryReminder.roundId + ':' + user.id, icon: '⏰', title: 'Faltam 10 minutos para a Mega 51', detail: 'Você ainda não comprou um bilhete. Escolha seus números antes das ' + lotteryTimeLabelForNotification(lotteryReminder.closeAt) + '.', page: 'loteria', targetId: 'loteria', createdAt: new Date(Date.parse(lotteryReminder.closeAt) - 10 * 60 * 1000).toISOString() });
   for (const round of (db.economy.lottery?.rounds || []).filter((item) => item.status === 'drawn').slice(-6)) {
-    const entry = (db.economy.lottery?.entries || []).find((item) => item.roundId === round.id && item.userId === user.id);
-    if (!entry) continue;
-    const payout = (round.payouts || []).find((item) => item.userId === user.id);
+    const entries = (db.economy.lottery?.entries || []).filter((item) => item.roundId === round.id && item.userId === user.id);
+    if (!entries.length) continue;
+    const payouts = (round.payouts || []).filter((item) => item.userId === user.id);
+    const payout = payouts.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const numbers = (round.winningNumbers || []).join(', ');
     items.push({
       id: 'lottery-result:' + round.id + ':' + user.id,
       icon: payout ? '🏆' : '🎟️',
-      title: payout ? 'Você ganhou na Loteria 51!' : 'Resultado da Loteria 51',
-      detail: payout ? `Sorteados: ${numbers} · prêmio de ${roundMoney(payout.amount)} Créditos 51.` : `Sorteados: ${numbers} · seu palpite foi ${entry.guess}.`,
+      title: payout ? 'Você ganhou na Mega 51!' : 'Resultado da Mega 51',
+      detail: payout ? `Sorteados: ${numbers} · prêmio de ${roundMoney(payout)} Créditos 51.` : `Sorteados: ${numbers} · seus ${entries.length} bilhete(s) foram conferidos.`,
       page: 'loteria', targetId: 'loteria', createdAt: round.drawnAt,
     });
   }
@@ -3602,6 +4392,7 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
       page: 'cobblemon',
       targetId: 'cobblemonDexCard',
       pokemonId: Number(capture.pokemonId),
+      isShiny: Boolean(capture.isShiny),
       captureUserId: capture.userId,
       createdAt: capture.createdAt,
     });
@@ -3658,7 +4449,12 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
     createdAt: pendingGayShield.createdAt,
   });
   const forcedCursor = [...db.economy.forcedCursors].reverse().find((item) => item.targetUserId === user.id && isForcedCursorActive(item, roundId));
-  if (forcedCursor) items.push({ id: 'forced-cursor:' + forcedCursor.id, icon: forcedCursor.style === 'giant-slow' ? '🐌' : forcedCursor.style === 'adhd' ? '⚡' : '🌈', title: 'Você foi alvo de uma maldição', detail: forcedCursor.style === 'giant-slow' ? 'Mouse Gigante e Lento ativo por 24 horas. A autoria permanece sigilosa.' : forcedCursor.style === 'adhd' ? 'Maldição TDAH ativa: o cursor pode assumir o controle por cerca de 30 segundos, durante 24 horas. A autoria permanece sigilosa.' : 'Seta Gay Compulsória ativa por 24 horas. A autoria permanece sigilosa.', page: 'perfil', targetId: 'activePowersCard', createdAt: forcedCursor.createdAt });
+  if (forcedCursor) {
+    const endsAt = forcedCursor.expiresAt || new Date(Date.parse(forcedCursor.createdAt) + 86400000).toISOString();
+    const effects = { hater: ['Maldição do Hater ativa: provocações aparecerão na tela.', '🖕'], givaldo: ['Maldição Givaldo ativa: fotos e frases aparecerão na tela sem bloquear o site.', '🎭'], 'giant-slow': ['Mouse Gigante e Lento ativo.', '🐌'], adhd: ['Maldição TDAH ativa: o cursor pode assumir o controle por cerca de 30 segundos.', '⚡'], 'dev-dark': ['Maldição do Dev ativa.', '💡'], cleaning: ['Maldição da Limpeza ativa: uma nova sujeira aparece a cada hora.', '🧹'], gay: ['Seta Gay Compulsória ativa.', '🌈'] };
+    const [effect, icon] = effects[forcedCursor.style] || ['Maldição ativa.', '⚠️'];
+    items.push({ id: 'forced-cursor:' + forcedCursor.id, icon, title: 'Você foi alvo de uma maldição', detail: effect + ' Termina em ' + curseExpiryLabelForNotification(endsAt) + '. A autoria permanece sigilosa.', page: 'perfil', targetId: 'activePowersCard', createdAt: forcedCursor.createdAt });
+  }
   const assignment = db.assignments.find((item) => item.roundId === roundId && item.userId === user.id && item.revealed);
   if (assignment) items.push({ id: 'assignment:' + assignment.id, icon: '🖼️', title: 'Seu wallpaper chegou', detail: assignment.seenAt ? 'Wallpaper visualizado.' : 'Abra o Sorteio para visualizar.', page: 'sorteio', targetId: 'receivedWallpaperCard', createdAt: assignment.revealedAt || assignment.createdAt });
   const voting = openVoting();
@@ -3674,7 +4470,8 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   }));
   const invalidatedLotteryRounds = new Set((db.economy.lottery?.rounds || []).filter((item) => item.status === 'void').map((item) => item.id));
   const invalidatedLotteryPrizeIds = new Set((db.economy.lottery?.rounds || []).flatMap((item) => item.voidedPayoutAdjustmentIds || []));
-  creditLedger.filter((item) => item.amount > 0 && !item.id.startsWith('gift:') && !invalidatedLotteryPrizeIds.has(item.id) && !(item.lotteryRoundId && invalidatedLotteryRounds.has(item.lotteryRoundId))).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + roundMoney(item.amount) + ' Créditos 51', detail: item.label, page: 'perfil', targetId: 'creditLedger', createdAt: item.createdAt }));
+  const quietGameAdjustments = new Set(db.economy.creditAdjustments.filter((item) => item.userId === user.id && item.mode === 'casino-shop' && ['Resultado da Roleta 51 usando saldo da loja', 'Resultado do Caça-Níquel 51 usando saldo da loja'].includes(item.reason)).map((item) => 'adjustment:' + item.id));
+  creditLedger.filter((item) => item.amount > 0 && !quietGameAdjustments.has(item.id) && !item.id.startsWith('gift:') && !invalidatedLotteryPrizeIds.has(item.id) && !(item.lotteryRoundId && invalidatedLotteryRounds.has(item.lotteryRoundId))).slice(0, 5).forEach((item) => items.push({ id: 'credit:' + item.id, icon: item.icon, title: 'Você recebeu ' + roundMoney(item.amount) + ' Créditos 51', detail: item.label, page: 'perfil', targetId: 'creditLedger', createdAt: item.createdAt }));
   db.economy.gifts.filter((item) => item.toUserId === user.id).slice(-5).forEach((item) => items.push({ id: 'gift:' + item.id, icon: '🎁', title: 'Você recebeu um presente secreto', targetId: item.type === 'credits' ? 'creditLedger' : 'collectionCatalog', detail: item.type === 'credits' ? roundMoney(item.amount) + ' Créditos 51' : (SHOP_CATALOG.find((catalog) => catalog.id === item.itemId)?.name || 'Item da Loja 51'), page: 'perfil', createdAt: item.createdAt }));
   const readAt = db.notificationsReadAt[user.id] || null;
   const sorted = items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 15).map((item) => ({ ...item, unread: !readAt || item.createdAt > readAt }));
@@ -3757,15 +4554,10 @@ function buildStateFor(user, options = {}) {
   const draws = db.draws
     .filter((draw) => draw.type !== 'theme' || (draw.themeStage !== 'finalist' && db.settings.themes.includes(draw.winner)))
     .slice(-30).reverse().map((draw) => {
-    const { winnerUserId, ...safeDraw } = draw;
+    const { winnerUserId, watermarkedFilename, ...safeDraw } = draw;
     if (draw.type === 'gay') {
-      const canAccessMarkedWallpaper = draw.winnerId === user.id || user.role === 'admin';
-      return {
-        ...safeDraw,
-        imageUrl: draw.watermarkedFilename && canAccessMarkedWallpaper ? '/uploads/' + draw.watermarkedFilename : safeDraw.imageUrl,
-        watermarkSourceUrl: canAccessMarkedWallpaper ? safeDraw.watermarkSourceUrl : null,
-        watermarkSourceTitle: canAccessMarkedWallpaper ? safeDraw.watermarkSourceTitle : null,
-      };
+      const canManageWatermark = user.role === 'admin' || winnerUserId === user.id;
+      return { ...safeDraw, watermarkedUrl: watermarkedFilename && canManageWatermark ? '/api/draw/gay-watermark/' + encodeURIComponent(draw.id) : null, watermarkedExtension: watermarkedFilename?.endsWith('.jpg') ? 'jpg' : 'png', canGenerateWatermark: !watermarkedFilename && canManageWatermark };
     }
     if (draw.type !== 'wallpaper') return safeDraw;
     const item = db.submissions.find((submission) => submission.id === draw.submissionId);
@@ -3781,7 +4573,7 @@ function buildStateFor(user, options = {}) {
     };
   });
   const liveTitleMap = liveTitleAssignments();
-  const previousSeason = seasonSummary(previousMonthKey());
+  const previousSeason = seasonSummaryWithLockedChampions(previousMonthKey());
   const creditLedger = creditLedgerFor(user.id);
   const cardAlbum = albumFor(db, user.id, saoPauloDayKey(), seasonalAlbumOptions(localHalloweenPreview));
   const rankingUsers = db.users.filter((item) => item.active).map((item) => ({
@@ -3801,6 +4593,27 @@ function buildStateFor(user, options = {}) {
       invested,
     };
   }).sort((a, b) => b.invested - a.invested || a.displayName.localeCompare(b.displayName));
+  // Transparência do Agiota: este placar expõe apenas a dívida contratada e
+  // ainda pendente. Saldo da Loja, pagamentos anteriores e empréstimos já
+  // quitados continuam privados.
+  const loanRanking = db.economy.loans.filter((loan) => loan.status === 'active' && Number(loan.remainingDue) > 0).map((loan) => {
+    const borrower = db.users.find((item) => item.id === loan.userId);
+    if (!borrower?.active) return null;
+    const dueAt = loan.dueAt ? Date.parse(loan.dueAt) : NaN;
+    const overdueMs = Number.isFinite(dueAt) ? Math.max(0, Date.now() - dueAt) : 0;
+    return {
+      id: borrower.id,
+      displayName: borrower.displayName,
+      liveTitles: liveTitleMap.get(borrower.id) || [],
+      remainingDue: roundMoney(Number(loan.remainingDue)),
+      totalDue: roundMoney(Number(loan.totalDue)),
+      principal: roundMoney(Number(loan.principal)),
+      createdAt: loan.createdAt || null,
+      dueAt: loan.dueAt || null,
+      overdue: overdueMs > 0,
+      overdueHours: Math.floor(overdueMs / 3600000),
+    };
+  }).filter(Boolean).sort((a, b) => b.remainingDue - a.remainingDue || Number(b.overdue) - Number(a.overdue) || a.displayName.localeCompare(b.displayName));
   const hydrationDay = saoPauloDayKey();
   const todayWaterEntries = db.waterEntries.filter((item) => item.dayKey === hydrationDay);
   const hydrationPeople = db.users.filter((item) => item.active).map((person) => ({
@@ -3814,10 +4627,22 @@ function buildStateFor(user, options = {}) {
     serverTime: Date.now(), musicEpoch: MUSIC_EPOCH, musicLoopMs: MUSIC_LOOP_MS,
     realtimeTransport: runtimeEnv ? 'adaptive-poll' : 'sse',
     me: { ...safeUser(user), cosmetics: cosmeticsFor(user.id) }, settings: { ...db.settings, featureFlags: featureFlags(), announcement: undefined },
+    dailyDutyPenalty: dailyDutyPenaltyFor(user),
+    dailyDutyBasketTask: dailyDutyBasketTaskFor(user),
     // A foto do próprio usuário já está em `me`; não a duplique no payload.
     avatars: Object.fromEntries(db.users.filter((item) => item.active && item.id !== user.id).map((item) => [item.id, item.avatarDataUrl || null])),
     identities: Object.fromEntries(db.users.filter((item) => item.active).map((item) => [item.id, publicIdentityFor(item.id, localHalloweenPreview)])),
-    announcement: db.settings.announcement ? { id: db.settings.announcement.id, title: db.settings.announcement.title, message: db.settings.announcement.message, createdAt: db.settings.announcement.createdAt, createdBy: db.settings.announcement.createdBy, unread: !db.settings.announcement.seenUserIds.includes(user.id), seenCount: user.role === 'admin' ? db.settings.announcement.seenUserIds.length : undefined } : null,
+    announcement: db.settings.announcement ? (() => {
+      const item = db.settings.announcement;
+      // Avisos criados em versões anteriores usavam nomes distintos. A leitura
+      // precisa ser compatível para que uma notificação antiga nunca impeça o
+      // carregamento da sessão inteira.
+      const seenUserIds = Array.isArray(item.seenUserIds) ? item.seenUserIds : (Array.isArray(item.seenBy) ? item.seenBy : []);
+      // Aviso coletivo é uma mídia própria (DB/settings.announcement + arquivo
+      // announcement-*). Ele reutiliza somente o transporte autenticado já
+      // existente para imagens, nunca a permissão ou os dados dos wallpapers.
+      return { id: item.id || `release-${item.version || 'current'}`, title: item.title || '', message: item.message || '', imageUrl: item.imageFilename ? '/uploads/' + encodeURIComponent(item.imageFilename) : null, createdAt: item.createdAt || item.publishedAt || null, unread: !seenUserIds.includes(user.id), seenCount: user.role === 'admin' ? seenUserIds.length : undefined };
+    })() : null,
     liveDraw: liveDraw && liveDraw.endsAt > Date.now() ? drawForUser(liveDraw, user.id) : null,
     profile: profileFor(user, { liveTitleMap, previousSeason, creditLedger, cardAlbum, localHalloweenPreview }), notifications: notificationsFor(user, creditLedger), roundRecap: roundRecapFor(recapVoting),
     onlinePeople: sharedOnlinePeople.length ? sharedOnlinePeople : [{ id: user.id, displayName: user.displayName }],
@@ -3828,20 +4653,22 @@ function buildStateFor(user, options = {}) {
       const liveTotalPlays = db.economy.casinoPlays.length;
       const archiveSummary = db.economy.casinoArchiveSummary || { totalPlays: 0, shopWagered: 0 };
       let playsToday = 0; let totalWagered = Number(archiveSummary.shopWagered || 0);
-      const recentRoulette = [];
-      // O histórico pode ficar grande. Uma única passagem preserva os mesmos
-      // totais, a contagem diária e as seis jogadas recentes, sem repetir
-      // filtros sobre todo o registro a cada carregamento de sessão.
+      const recentRoulette = []; const recentPlinko = []; const recentSlots = [];
+      // Uma única passagem preserva totais e os históricos independentes dos jogos.
       for (let index = liveTotalPlays - 1; index >= 0; index -= 1) {
         const play = db.economy.casinoPlays[index];
         if (play.walletSource === 'shop') totalWagered += Number(play.bet || 0);
         if (play.userId !== user.id) continue;
         if (play.dayKey === dayKey) playsToday += 1;
-        if (play.resultType !== 'flight' && recentRoulette.length < 6) recentRoulette.push(play);
+        if (play.resultType === 'plinko') { if (recentPlinko.length < 6) recentPlinko.push(play); }
+        else if (play.resultType === 'slots') { if (recentSlots.length < 6) recentSlots.push(play); }
+        else if (play.resultType !== 'flight' && recentRoulette.length < 6) recentRoulette.push(play);
       }
+      playsToday += Number(archiveSummary.playsByDayUser?.[dayKey + ':' + user.id] || 0);
       const totalPlays = Number(archiveSummary.totalPlays || 0) + liveTotalPlays;
-      const cashoutThreshold = casinoCashoutThresholdForDay(dayKey);
-      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: casinoDailyBonusForDay(dayKey), monthStartBonus: dayKey === CASINO_MONTH_START_BONUS_DAY ? CASINO_MONTH_START_BONUS : 0, cashoutThreshold, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= cashoutThreshold, cashedOut: Boolean(account.cashedOut), playsToday, totalWagered: roundMoney(totalWagered), totalPlays, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette, lottery: lotteryForUser(user) };
+      const cashoutThreshold = casinoCashoutThresholdForAccount(account);
+      const jackpot = db.economy.casinoJackpot || { amount: CASINO_JACKPOT.seed };
+      return { wallet: Number(account.balance), shopWallet: walletFor(user.id), dailyBonus: casinoInitialBonusForDay(dayKey), monthStartBonus: dayKey === CASINO_MONTH_START_BONUS_DAY ? CASINO_MONTH_START_BONUS : 0, cashoutThreshold, cashoutAmount: Number(account.balance), canCashOut: !account.cashedOut && Number(account.balance) >= cashoutThreshold, cashedOut: Boolean(account.cashedOut), playsToday, totalWagered: roundMoney(totalWagered), totalPlays, closedBoxes: db.economy.mysteryBoxes.filter((entry) => entry.userId === user.id).length, recentRoulette, recentPlinko, recentSlots, jackpot: { amount: roundMoney(Math.max(CASINO_JACKPOT.seed, Number(jackpot.amount || CASINO_JACKPOT.seed))), chance: CASINO_JACKPOT.chance, minBet: CASINO_JACKPOT.minBet }, plinkoProfiles: PLINKO_PROFILES, slotOutcomes: SLOT_OUTCOMES.map(({ id, chance, multiplier, symbols, label }) => ({ id, chance, multiplier, symbols, label })), slotReturnPercent: SLOT_RETURN_PERCENT, lottery: lotteryForUser(user) };
     })(),
     visualTheme: activeVisualPenalty?.kind || 'user-choice', visualThemeEndsAt: activeVisualPenalty?.endsAt || null,
     themes: db.settings.themes.map((name) => ({ id: name, name })),
@@ -3877,7 +4704,7 @@ function buildStateFor(user, options = {}) {
       id: item.id, title: item.title,
       imageUrl: roundUsers.some((person) => person.id === user.id) || user.role === 'admin' ? '/uploads/' + item.filename : null,
       size: item.size, createdAt: item.createdAt, isMine: item.userId === user.id,
-      canDelete: roundAssignments.length === 0 && (item.userId === user.id || user.role === 'admin'),
+      canDelete: false,
       assigned: assignedSubmissionIds.has(item.id),
       revealed: revealedIds.has(item.id) || authorRevealedForUser,
       uploader: revealedIds.has(item.id) || authorRevealedForUser ? item.uploader : null,
@@ -3896,7 +4723,7 @@ function buildStateFor(user, options = {}) {
         isNew: assignment.userId === user.id && !assignment.seenAt,
       } : null;
     }).filter(Boolean),
-    draws, voting: votingForClient(voting, user), rankings: { best: bestRanking, worst: worstRanking, gay: gayRanking }, financeRanking, mystery: mysteryForClient(user), impostor: impostorForClient(user),
+    draws, voting: votingForClient(voting, user), rankings: { best: bestRanking, worst: worstRanking, gay: gayRanking }, financeRanking, loanRanking, mystery: mysteryForClient(user), impostor: impostorForClient(user),
     season: { current: seasonSummary(), previous: previousSeason, challenges: seasonalChallengesFor(user.id) },
     seasonalEvent: currentHalloweenEvent(localHalloweenPreview),
     dailyWall: {
@@ -3945,15 +4772,16 @@ function buildStateFor(user, options = {}) {
             vote: item.votes?.[voterId] || null,
           })),
           lieVotes: (item.requiredVoterIds || []).filter((voterId) => item.votes?.[voterId] === 'lie').length,
+          strongLieVotes: (item.requiredVoterIds || []).filter((voterId) => item.votes?.[voterId] === 'strong-lie').length,
           truthVotes: (item.requiredVoterIds || []).filter((voterId) => item.votes?.[voterId] === 'truth').length,
           notHeardVotes: (item.requiredVoterIds || []).filter((voterId) => item.votes?.[voterId] === 'not-heard').length,
           canVote: (item.requiredVoterIds || []).includes(user.id),
           canCancel: user.id === item.createdByUserId || user.role === 'admin',
         };
       }),
-      history: db.lieAccusations.filter((item) => ['confirmed', 'rejected'].includes(item.status) && Object.values(item.votes || {}).some((vote) => ['lie', 'truth', 'not-heard'].includes(vote))).slice(-12).reverse().map((item) => {
+      history: db.lieAccusations.filter((item) => ['confirmed', 'rejected'].includes(item.status) && Object.values(item.votes || {}).some((vote) => ['lie', 'strong-lie', 'truth', 'not-heard'].includes(vote))).slice(-12).reverse().map((item) => {
         const voterIds = [...new Set(item.requiredVoterIds || Object.keys(item.votes || {}))];
-        const votes = voterIds.filter((voterId) => ['lie', 'truth', 'not-heard'].includes(item.votes?.[voterId])).map((voterId) => ({
+        const votes = voterIds.filter((voterId) => ['lie', 'strong-lie', 'truth', 'not-heard'].includes(item.votes?.[voterId])).map((voterId) => ({
           id: voterId,
           name: db.users.find((person) => person.id === voterId)?.displayName || 'Conta removida',
           vote: item.votes[voterId],
@@ -3966,6 +4794,7 @@ function buildStateFor(user, options = {}) {
           targetName: db.users.find((person) => person.id === item.targetUserId)?.displayName || 'Usuário removido',
           creatorName: db.users.find((person) => person.id === item.createdByUserId)?.displayName || 'Usuário removido',
           lieVotes: votes.filter((entry) => entry.vote === 'lie').length,
+          strongLieVotes: votes.filter((entry) => entry.vote === 'strong-lie').length,
           truthVotes: votes.filter((entry) => entry.vote === 'truth').length,
           notHeardVotes: votes.filter((entry) => entry.vote === 'not-heard').length,
           voters: votes,
@@ -3985,35 +4814,6 @@ function buildStateFor(user, options = {}) {
         };
       }),
     },
-    democracy: (() => {
-      const person = (id) => db.users.find((entry) => entry.id === id);
-      const itemForClient = (item) => {
-        const result = democracyResultFor(item);
-        const author = person(item.authorId);
-        const voters = (item.requiredVoterIds || []).map((id) => {
-          const voter = person(id);
-          return { id, name: voter?.displayName || 'Conta removida', vote: item.votes?.[id] || null };
-        });
-        return {
-          id: item.id, title: item.title, subject: item.subject, status: item.status,
-          createdAt: item.createdAt, closedAt: item.closedAt || null, archivedAt: item.archivedAt || null,
-          archivedReason: item.archivedReason || null,
-          author: { id: item.authorId, name: author?.displayName || item.authorName || 'Conta removida' },
-          voters, ...result, myVote: item.votes?.[user.id] || null,
-          canVote: item.status === 'open' && (item.requiredVoterIds || []).includes(user.id),
-          canClose: user.role === 'admin' && item.status === 'open',
-          canArchive: user.role === 'admin' && item.status === 'open',
-        };
-      };
-      const open = db.democracyVotes.filter((item) => item.status === 'open').slice(-60).reverse().map(itemForClient);
-      const history = db.democracyVotes.filter((item) => ['closed', 'archived'].includes(item.status)).slice(-60).reverse().map(itemForClient);
-      const required = user.role === 'admin' ? null : requiredDemocracyVoteForUser(user.id);
-      return {
-        open, history,
-        requiredVote: required ? { id: required.id, title: required.title, subject: required.subject, authorName: person(required.authorId)?.displayName || required.authorName || 'Participante' } : null,
-        canCreate: user.active && user.approved !== false && !db.democracyVotes.some((item) => item.status === 'open' && item.authorId === user.id),
-      };
-    })(),
     communityVotes: communityVotesForClient(user),
     hydration: {
       dayKey: hydrationDay, goalMl: 2500,
@@ -4026,21 +4826,27 @@ function buildStateFor(user, options = {}) {
           id: entry.id, ml: entry.ml, createdAt: entry.createdAt,
           displayName: person ? person.displayName : 'Participante',
           isMine: entry.userId === user.id,
-          canDelete: entry.userId === user.id,
+          canDelete: false,
         };
       }),
       teamMission: teamMissionFor(),
     },
-    meHasSubmitted: activeSubmitterIds.has(user.id),
-    meCanUpload: phase === 'uploads' && roundUsers.some((item) => item.id === user.id) && !activeSubmitterIds.has(user.id),
+    meHasSubmitted: db.submissions.some((item) => item.roundId === roundId && item.userId === user.id),
+    meCanUpload: phase === 'uploads' && roundUsers.some((item) => item.id === user.id) && !db.submissions.some((item) => item.roundId === roundId && item.userId === user.id),
     adminUploadOptions: user.role === 'admin' && phase === 'uploads' ? roundUsers.map((person) => {
-      const submission = activeItems.find((item) => item.userId === person.id);
+      const submission = db.submissions.find((item) => item.roundId === roundId && item.userId === person.id);
       return { id: person.id, displayName: person.displayName, hasSubmission: Boolean(submission), assisted: Boolean(submission?.uploadedByAdminId), submittedAt: submission?.createdAt || null };
     }) : undefined,
     adminUsers: user.role === 'admin' ? db.users.map((person) => {
       const { avatarDataUrl, ...summary } = safeUser(person);
       return { ...summary, wallet: walletFor(person.id) };
     }) : undefined,
+    cobblemonServerManagement: canManageCobblemonServer(user) ? db.users.filter((person) => person.active).map((person) => {
+      const roster = db.settings.cobblemonServerRoster[person.id] || {};
+      const paymentStatus = ['paid', 'unpaid', 'exempt'].includes(roster.paymentStatus) ? roster.paymentStatus : 'unpaid';
+      return { id: person.id, displayName: person.displayName, username: person.username, avatarDataUrl: person.avatarDataUrl || null,
+        plays: Boolean(roster.plays), playerName: String(roster.playerName || ''), paymentStatus, updatedAt: roster.updatedAt || null };
+    }).sort((a, b) => Number(b.plays) - Number(a.plays) || a.displayName.localeCompare(b.displayName, 'pt-BR')) : undefined,
     adminProgress: user.role === 'admin' ? {
       missingUploads: missingParticipants.map(({ id, displayName }) => ({ id, displayName })),
       pendingAssignments: roundUsers.filter((participant) => !revealedAssignments.some((assignment) => assignment.userId === participant.id))
@@ -4076,10 +4882,11 @@ function buildStateFor(user, options = {}) {
 
 function stateFor(user, options = {}) {
   const localHalloweenPreview = Boolean(options.localHalloweenPreview);
-  const key = stateRevision + ':' + user.id + (localHalloweenPreview ? ':halloween-preview' : '');
+  const key = stateRevision + ':' + user.id + ':' + saoPauloDayKey() + (localHalloweenPreview ? ':halloween-preview' : '');
   const cached = stateResponseCache.get(key);
   const now = Date.now();
   if (cached && now - cached.createdAt < STATE_RESPONSE_CACHE_MS) return cached.value;
+  if (cached) stateResponseCache.delete(key);
   const value = buildStateFor(user, { localHalloweenPreview });
   const body = JSON.stringify(value);
   serializedJsonCache.set(value, { body, bytes: Buffer.byteLength(body) });
@@ -4155,7 +4962,9 @@ function setSession(user, remember = false) {
   const ttl = remember ? REMEMBER_TTL : SESSION_TTL;
   const expiresAt = Date.now() + ttl;
   sessions.set(token, { userId: user.id, expiresAt });
-  db.rememberTokens = db.rememberTokens.filter((item) => item.userId !== user.id && item.expiresAt > Date.now());
+  // A new login must not revoke the same account's other devices. Those
+  // sessions are still valid until their own expiry, logout or account reset.
+  db.rememberTokens = db.rememberTokens.filter((item) => item.expiresAt > Date.now());
   db.rememberTokens.push({ userId: user.id, tokenHash: createHash('sha256').update(token).digest('hex'), expiresAt, remember: Boolean(remember) });
   return { 'Set-Cookie': 'sorteios_session=' + token + '; HttpOnly; SameSite=Lax; Path=/; Max-Age=' + Math.floor(ttl / 1000) };
 }
@@ -4232,19 +5041,67 @@ async function handleApi(req, res, route) {
     json(res, 200, stateFor(user, { localHalloweenPreview: localHalloweenPreviewRequest(req) })); return;
   }
 
+  if (req.method === 'GET' && route === '/api/daily-duty/basket/status') {
+    const { user } = requireAuth(req);
+    json(res, 200, { dailyDutyBasketTask: dailyDutyBasketTaskFor(user), serverTime: Date.now() }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/daily-duty/basket/collect') {
+    const { user } = requireAuth(req);
+    const body = await readJson(req);
+    const itemId = String(body.itemId || '').slice(0, 40);
+    const today = saoPauloDayKey();
+    const task = dailyDutyBasketTaskFor(user);
+    if (!task) throw new HttpError(403, 'Você não tem uma cesta de aviso ativa hoje.');
+    const existing = db.economy.dailyDutyBasketCollections.find((entry) => entry.userId === user.id && entry.dayKey === today && entry.itemId === itemId);
+    if (existing) {
+      json(res, 200, { collected: true, duplicate: true, dailyDutyBasketTask: task, serverTime: Date.now() }); return;
+    }
+    if (!task.activeItem || task.activeItem.id !== itemId) throw new HttpError(409, 'Este item não está disponível agora. Os itens ficam no portal por 10 minutos.');
+    db.economy.dailyDutyBasketCollections.push({ userId: user.id, dayKey: today, itemId, collectedAt: new Date().toISOString() });
+    await persist();
+    broadcastRefresh('daily-duty-basket');
+    json(res, 200, { collected: true, duplicate: false, dailyDutyBasketTask: dailyDutyBasketTaskFor(user), serverTime: Date.now() }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/admin/daily-duty/penalties/clear') {
+    const { user } = requireAdmin(req);
+    const today = saoPauloDayKey();
+    const penalties = db.users.filter((target) => dailyDutyPenaltyFor(target));
+    const existing = Array.isArray(db.economy.dailyDutyPenaltyClears) ? db.economy.dailyDutyPenaltyClears : [];
+    const retained = existing.filter((entry) => entry.dayKey === today);
+    const clearedIds = new Set(retained.map((entry) => entry.userId));
+    const now = new Date().toISOString();
+    let changed = existing.length !== retained.length;
+    db.economy.dailyDutyPenaltyClears = retained;
+    let clearedCount = 0;
+    for (const target of penalties) {
+      if (clearedIds.has(target.id)) continue;
+      db.economy.dailyDutyPenaltyClears.push({ userId: target.id, dayKey: today, clearedAt: now, clearedByUserId: user.id });
+      clearedIds.add(target.id);
+      clearedCount++;
+      changed = true;
+    }
+    if (changed) {
+      await persist();
+      broadcastRefresh('daily-duty-penalties-cleared');
+    }
+    json(res, 200, { ...stateFor(user), dailyDutyClearedCount: clearedCount }); return;
+  }
+
   if (req.method === 'GET' && route === '/api/admin/runtime-health') {
     requireAdmin(req);
     const runtime = typeof runtimeEnv.RUNTIME_HEALTH === 'function' ? runtimeEnv.RUNTIME_HEALTH() : { ok: false };
     json(res, 200, { runtime }); return;
   }
 
-  enforceDemocracyVoteGate(req, route);
   enforceLieVoteGate(req, route);
+  enforceCommunityVoteGate(req, route);
 
   if (req.method !== 'GET') {
     if (route.startsWith('/api/impostor/')) { requireAuth(req); requireFeature('impostor'); }
     if (route === '/api/mystery' || route.startsWith('/api/mystery/')) { requireAuth(req); requireFeature('mystery'); }
-    if (route === '/api/casino/play' || route === '/api/casino/flight/start' || route === '/api/lottery/entry') { requireAuth(req); requireFeature('casino'); }
+    if (route === '/api/casino/play' || route === '/api/casino/plinko/play' || route === '/api/casino/slots/play' || route === '/api/casino/flight/start' || route === '/api/lottery/entry') { requireAuth(req); requireFeature('casino'); }
     if (route === '/api/shop/purchase' || route === '/api/shop/free-purchase' || route === '/api/gifts/item' || route === '/api/loans/borrow' || route === '/api/loans/offer-item' || route === '/api/black-market/sell') { requireAuth(req); requireFeature('shop'); }
     if (route === '/api/uploads' || route === '/api/admin/uploads') { requireAuth(req); requireFeature('uploads'); }
   }
@@ -4424,16 +5281,23 @@ async function handleApi(req, res, route) {
       const seasonChampionSettled = settleSeasonChampionRewards();
       const pokemonCapsulesSettled = settlePokemonCapsules();
       const marketAdvanced = syncMarketEconomy();
+      const cryptoAdvanced = await syncCryptoEconomy();
       const lotterySettled = settleLotteryRounds();
       const lieVotesSettled = settlePendingLieVotes();
+  const communityVotesSettled = (db.communityVotes || []).reduce(
+    (changed, item) => settleCommunityVoteByMajority(item) || changed,
+    false,
+  );
       const wallpaperDeadlineSettled = settleWallpaperDeadline();
       const dailyCobblemonBonus = grantCobblemonDailyBallBonus(user.id);
       await settleCardSeasonTransitionFor(user);
+      const casinoArchived = db.economy.casinoPlays.length > 3000 && await archiveCasinoPlaysBefore(new Date().toISOString());
       lotteryReminder = lotteryReminderForUser(user);
-      if (cleanNameSettled || seasonalChallengesSettled || seasonChampionSettled || pokemonCapsulesSettled || marketAdvanced || lotterySettled || lieVotesSettled || wallpaperDeadlineSettled || dailyCobblemonBonus) {
+      if (cleanNameSettled || seasonalChallengesSettled || seasonChampionSettled || pokemonCapsulesSettled || marketAdvanced || cryptoAdvanced || lotterySettled || lieVotesSettled || communityVotesSettled || wallpaperDeadlineSettled || dailyCobblemonBonus || casinoArchived) {
         await persist();
         if (lotterySettled) broadcastRefresh('lottery');
         if (wallpaperDeadlineSettled) broadcastRefresh('wallpaper-deadline');
+        if (communityVotesSettled) broadcastRefresh('community-vote');
       }
     } catch {
       // Se outra instância do Worker ganhar a mesma virada, recarregamos o
@@ -4448,6 +5312,7 @@ async function handleApi(req, res, route) {
       revision: stateRevision,
       lotteryReminder,
       requiredLieVote: user.role === 'admin' ? null : requiredLieVoteForUser(user.id),
+      dailyDutyPenalty: dailyDutyPenaltyFor(user),
       loanOverdue: Boolean(overdueLoanFor(user.id)),
       serverTime: Date.now(),
       releaseVersion: Math.max(0, Number(db.settings.releaseVersion || 0)),
@@ -4551,7 +5416,7 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'GET' && route === '/api/card-season/pass-preview') {
     const { user } = requireAuth(req);
-    json(res, 200, { ...seasonPassFor(db.economy, user.id), activationEnabled: db.settings?.nextCardSeasonEnabled === true, active: seasonPassIsEnabled() });
+    json(res, 200, { ...seasonPassFor(db.economy, user.id), recipes: BLACKSTAR_WORKSHOP_RECIPES, activationEnabled: db.settings?.nextCardSeasonEnabled === true, active: seasonPassIsEnabled() });
     return;
   }
 
@@ -4579,9 +5444,12 @@ async function handleApi(req, res, route) {
     const createdAt = new Date().toISOString(); const reward = claim.reward;
     const packId = ({ 'Pacote Setor 51': 'card-pack-sector51', 'Pacote Órbita': 'card-pack-orbit', 'Pacote Núcleo': 'card-pack-core' })[reward.name];
     const cosmeticId = SEASON_PASS_COSMETIC_REWARDS[reward.name];
-    if (reward.name === 'Créditos 51') {
+    if (reward.name === 'Fragmentos Blackstar') {
+      const account = ensureSeasonPassAccount(db.economy, user.id);
+      account.fragments = Math.max(0, Math.floor(Number(account.fragments) || 0)) + Math.max(1, Math.floor(Number(reward.quantity) || 1));
+    } else if (reward.name === 'Créditos 51' || reward.name === 'Crédito de Renovação') {
       const amount = Number(reward.quantity || 0); const before = walletFor(user.id); addCredits(user.id, amount);
-      db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'season-pass-reward', amount, before, after: walletFor(user.id), reason: 'Recompensa do Passe · nível ' + claim.level, createdAt, seasonId: SEASON_PASS.id });
+      db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: reward.name === 'Crédito de Renovação' ? 'season-pass-renewal' : 'season-pass-reward', amount, before, after: walletFor(user.id), reason: reward.name + ' · Passe · nível ' + claim.level, createdAt, seasonId: SEASON_PASS.id });
     } else if (packId) {
       const quantity = Math.max(1, Math.floor(Number(reward.quantity) || 1));
       for (let index = 0; index < quantity; index += 1) {
@@ -4591,9 +5459,36 @@ async function handleApi(req, res, route) {
       if (!db.economy.purchases.some((item) => item.userId === user.id && item.itemId === cosmeticId)) {
         db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: cosmeticId, price: 0, originalPrice: 0, source: 'season-pass', seasonId: SEASON_PASS.id, createdAt });
       }
+      const cosmetic = SHOP_CATALOG.find((item) => item.id === cosmeticId);
+      // O emblema do Passe fica visível ao ser resgatado, sem remover uma
+      // escolha pessoal que a pessoa já esteja usando.
+      if (cosmetic?.type === 'badge') {
+        db.economy.equipped[user.id] ||= {};
+        if (!db.economy.equipped[user.id].badge) db.economy.equipped[user.id].badge = cosmeticId;
+      }
     } else {
       db.economy.seasonPassInventory.push({ id: randomUUID(), userId: user.id, seasonId: SEASON_PASS.id, track: claim.track, level: claim.level, name: reward.name, quantity: reward.quantity, createdAt });
     }
+    await persist(); broadcastRefresh('season-pass'); json(res, 200, stateFor(user)); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/card-season/forge') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    if (!seasonPassIsEnabled()) throw new HttpError(409, 'O Passe da Temporada ainda não está ativo.');
+    const recipe = BLACKSTAR_WORKSHOP_RECIPES.find((entry) => entry.id === String(body.recipeId || ''));
+    if (!recipe) throw new HttpError(400, 'Receita da Oficina inválida.');
+    const variant = recipe.variants ? String(body.variant || '') : null;
+    const itemId = recipe.variants ? recipe.variants[variant] : recipe.itemId;
+    if (!itemId) throw new HttpError(400, 'Escolha uma cor válida para esta receita.');
+    const account = ensureSeasonPassAccount(db.economy, user.id);
+    account.fragments = Math.max(0, Math.floor(Number(account.fragments) || 0)); account.forged ||= [];
+    if (account.fragments < recipe.cost) throw new HttpError(409, 'Fragmentos Blackstar insuficientes.');
+    const forgeKey = recipe.id + (variant ? ':' + variant : '');
+    if (account.forged.includes(forgeKey)) throw new HttpError(409, 'Esta versão já foi forjada nesta temporada.');
+    account.fragments -= recipe.cost; account.forged.push(forgeKey);
+    const createdAt = new Date().toISOString();
+    if (recipe.type === 'pack') db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId, price: 0, source: 'season-forge', seasonId: SEASON_PASS.id, createdAt });
+    else if (!db.economy.purchases.some((item) => item.userId === user.id && item.itemId === itemId)) db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId, price: 0, originalPrice: 0, source: 'season-forge', seasonId: SEASON_PASS.id, createdAt });
     await persist(); broadcastRefresh('season-pass'); json(res, 200, stateFor(user)); return;
   }
 
@@ -4635,82 +5530,108 @@ async function handleApi(req, res, route) {
   }
   if (await handleCommunityExtras(req, res, route)) return;
 
+  if (req.method === 'POST' && route === '/api/casino/auto/stop') {
+    const { user } = requireAuth(req);
+    const body = await readJson(req);
+    const current = casinoAutoOwners.get(user.id);
+    if (current?.sessionId === String(body.autoSessionId || '')) casinoAutoOwners.delete(user.id);
+    json(res, 200, { stopped: true }); return;
+  }
   if (req.method === 'POST' && route === '/api/casino/play') {
     const { user } = requireAuth(req);
-    const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional';
+    const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional'; const autoSessionId = body.autoSessionId == null ? null : String(body.autoSessionId);
     const requestId = body.requestId == null ? null : String(body.requestId);
     if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da aposta inválida.');
-    const previous = requestId && db.economy.casinoPlays.find(play => play.userId === user.id && play.requestId === requestId && play.resultType !== 'flight');
-    if (previous) {
-      if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra aposta.');
-      json(res, 200, body.compact ? { casinoResult: previous } : { ...stateFor(user), casinoResult: previous }); return;
-    }
+    const previous = requestId && (db.economy.casinoPlays.find(play => play.userId === user.id && play.requestId === requestId && play.resultType !== 'flight') || await archivedCasinoPlay(user.id, requestId, 'roulette'));
+    if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra aposta.'); json(res, 200, body.compact ? compactCasinoPlayResponse(user, previous) : { ...stateFor(user), casinoResult: previous }); return; }
+    if (dailyDutyPenaltyFor(user)) throw new HttpError(423, 'Jogos bloqueados pela punição diária até o fim da contagem regressiva.');
+    authorizeCasinoAuto(user.id, autoSessionId, 'roulette', bet, walletSource);
     if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
-    const dayKey = saoPauloDayKey();
-    const casinoAccount = casinoAccountFor(user.id, true);
-    const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
+    const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
     if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta aposta.' : 'Saldo promocional do cassino insuficiente para esta aposta.');
-    const segments = CASINO_WHEEL_OUTCOMES.map((value, index) => ({ value, index }));
-    const numericSegments = segments.filter(({ value }) => typeof value === 'number');
-    // Apostas maiores melhoram a chance do baú, mas o teto evita que um saldo alto
-    // transforme a roleta em fonte garantida de itens.
-    const boxChance = Math.min(.12, .01 + Math.log10(Math.max(1, bet)) / 50);
-    let eligibleSegments = numericSegments;
-    if (Math.random() < boxChance) {
-      const desiredBox = bet >= 70 ? (Math.random() < .38 ? 'box-area51' : Math.random() < .62 ? 'box-cosmic' : 'box-sonda') : bet >= 30 ? (Math.random() < .48 ? 'box-cosmic' : 'box-sonda') : 'box-sonda';
-      eligibleSegments = segments.filter(({ value }) => value === desiredBox);
-    }
-    const segmentIndex = eligibleSegments[Math.floor(Math.random() * eligibleSegments.length)].index;
-    const outcome = CASINO_WHEEL_OUTCOMES[segmentIndex]; const before = sourceBalance; const createdAt = new Date().toISOString();
-    let multiplier = null; let payout = 0; let net = -bet; let mysteryBox = null; let resultType = 'multiplier';
-    if (typeof outcome === 'string' && outcome.startsWith('box-')) {
-      resultType = 'mysteryBox'; net = 0; payout = bet;
-      mysteryBox = addMysteryBox(user.id, outcome, 'casino', bet);
-    } else {
-      multiplier = Number(outcome); payout = roundMoney(bet * multiplier); net = roundMoney(payout - bet);
-    }
+    const jackpot = db.economy.casinoJackpot ||= { amount: CASINO_JACKPOT.seed, updatedAt: new Date().toISOString() };
+    const jackpotEligible = bet >= CASINO_JACKPOT.minBet;
+    if (jackpotEligible) { jackpot.amount = roundMoney(Math.max(CASINO_JACKPOT.seed, Number(jackpot.amount || CASINO_JACKPOT.seed)) + bet * CASINO_JACKPOT.contribution); jackpot.updatedAt = new Date().toISOString(); }
+    const segments = CASINO_WHEEL_OUTCOMES.map((value, index) => ({ value, index })); const numericSegments = segments.filter(({ value }) => typeof value === 'number');
+    const boxChance = Math.min(.12, .01 + Math.log10(Math.max(1, bet)) / 50); let eligibleSegments = numericSegments;
+    if (Math.random() < boxChance) { const desiredBox = bet >= 70 ? (Math.random() < .38 ? 'box-area51' : Math.random() < .62 ? 'box-cosmic' : 'box-sonda') : bet >= 30 ? (Math.random() < .48 ? 'box-cosmic' : 'box-sonda') : 'box-sonda'; eligibleSegments = segments.filter(({ value }) => value === desiredBox); }
+    const segmentIndex = eligibleSegments[Math.floor(Math.random() * eligibleSegments.length)].index; const outcome = CASINO_WHEEL_OUTCOMES[segmentIndex]; const before = sourceBalance; const createdAt = new Date().toISOString();
+    let multiplier = null; let payout = 0; let net = -bet; let mysteryBox = null; let resultType = 'multiplier'; let jackpotWon = 0;
+    if (jackpotEligible && Math.random() < CASINO_JACKPOT.chance) { resultType = 'casinoJackpot'; jackpotWon = roundMoney(Math.max(CASINO_JACKPOT.seed, Number(jackpot.amount || CASINO_JACKPOT.seed))); payout = jackpotWon; net = roundMoney(payout - bet); multiplier = roundMoney(payout / bet); jackpot.amount = CASINO_JACKPOT.seed; jackpot.updatedAt = createdAt; }
+    else if (typeof outcome === 'string' && outcome.startsWith('box-')) { resultType = 'mysteryBox'; net = 0; payout = bet; mysteryBox = addMysteryBox(user.id, outcome, 'casino', bet); }
+    else { multiplier = Number(outcome); if (multiplier === 3) { const bonus = Math.random(); if (bonus < .005) multiplier = 10; else if (bonus < .055) multiplier = 5; } payout = roundMoney(bet * multiplier); net = roundMoney(payout - bet); }
     let adjustment = null;
-    if (walletSource === 'shop') {
-      addCredits(user.id, net);
-      if (net !== 0) {
-        adjustment = { id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before, after: roundMoney(before + net), reason: 'Resultado da Roleta 51 usando saldo da loja', createdAt };
-        db.economy.creditAdjustments.push(adjustment);
-      }
-    } else casinoAccount.balance = roundMoney(before + net);
+    if (walletSource === 'shop') { addCredits(user.id, net); if (net !== 0) { adjustment = { id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before, after: roundMoney(before + net), reason: resultType === 'casinoJackpot' ? 'Jackpot da Tripulação na Roleta 51' : 'Resultado da Roleta 51 usando saldo da loja', createdAt }; db.economy.creditAdjustments.push(adjustment); } }
+    else casinoAccount.balance = roundMoney(before + net);
     const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : roundMoney(casinoAccount.balance);
-    const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType, segmentIndex, wheelValue: outcome, multiplier, payout, net, mysteryBox, balanceAfter, createdAt };
-    db.economy.casinoPlays.push(play);
-    await persistCasinoPlay(user.id, play, adjustment, resultType === 'mysteryBox' ? db.economy.mysteryBoxes.at(-1) : null);
-    broadcastRefresh('economy'); json(res, 200, body.compact ? { casinoResult: play } : { ...stateFor(user), casinoResult: play }); return;
+    const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType, segmentIndex, wheelValue: outcome, multiplier, payout, net, mysteryBox, jackpotWon, jackpotContribution: jackpotEligible ? roundMoney(bet * CASINO_JACKPOT.contribution) : 0, balanceAfter, createdAt, ...(resultType === 'casinoJackpot' ? { notifyJackpot: true } : {}) };
+    db.economy.casinoPlays.push(play); await persistCasinoPlay(user.id, play, adjustment, resultType === 'mysteryBox' ? db.economy.mysteryBoxes.at(-1) : null, jackpot); broadcastCasinoPlayRefresh(autoSessionId); json(res, 200, body.compact ? compactCasinoPlayResponse(user, play) : { ...stateFor(user), casinoResult: play }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/casino/plinko/play') {
+    const { user } = requireAuth(req); const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional'; const risk = String(body.risk || 'medium'); const profile = PLINKO_PROFILES[risk]; const requestId = body.requestId == null ? null : String(body.requestId);
+    if (!profile) throw new HttpError(400, 'Escolha um risco válido para o Plinko.');
+    if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da esfera inválida.');
+    const previous = requestId && (db.economy.casinoPlays.find(play => play.userId === user.id && play.requestId === requestId && play.resultType === 'plinko') || await archivedCasinoPlay(user.id, requestId, 'plinko'));
+    if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource || previous.plinko?.risk !== risk) throw new HttpError(400, 'Esta identificação já pertence a outra jogada.'); json(res, 200, body.compact ? { casinoResult: previous } : { ...stateFor(user), casinoResult: previous }); return; }
+    if (dailyDutyPenaltyFor(user)) throw new HttpError(423, 'Jogos bloqueados pela punição diária até o fim da contagem regressiva.');
+    if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
+    const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
+    if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta esfera.' : 'Saldo promocional do cassino insuficiente para esta esfera.');
+    const path = Array.from({ length: 10 }, () => Math.random() < .5 ? 1 : 0); const slot = path.reduce((sum, step) => sum + step, 0); const multiplier = Number(profile.multipliers[slot]); const payout = roundMoney(bet * multiplier); const net = roundMoney(payout - bet); const createdAt = new Date().toISOString(); let adjustment = null;
+    if (walletSource === 'shop') { addCredits(user.id, net); if (net !== 0) { adjustment = { id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before: sourceBalance, after: roundMoney(sourceBalance + net), reason: 'Resultado do Plinko 51 usando saldo da loja', createdAt }; db.economy.creditAdjustments.push(adjustment); } }
+    else casinoAccount.balance = roundMoney(sourceBalance + net);
+    const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : roundMoney(casinoAccount.balance); const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType: 'plinko', multiplier, payout, net, plinko: { risk, slot, path }, balanceAfter, createdAt };
+    db.economy.casinoPlays.push(play); await persistCasinoPlay(user.id, play, adjustment, null); broadcastRefresh('economy'); json(res, 200, body.compact ? { casinoResult: play } : { ...stateFor(user), casinoResult: play }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/casino/slots/play') {
+    const { user } = requireAuth(req); const body = await readJson(req); const bet = parseMoney(body.bet, { min: 0.01 }); const walletSource = body.walletSource === 'shop' ? 'shop' : 'promotional'; const requestId = body.requestId == null ? null : String(body.requestId); const autoSessionId = body.autoSessionId == null ? null : String(body.autoSessionId);
+    if (requestId && !/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação da rodada inválida.');
+    const previous = requestId && (db.economy.casinoPlays.find((play) => play.userId === user.id && play.requestId === requestId && play.resultType === 'slots') || await archivedCasinoPlay(user.id, requestId, 'slots'));
+    if (previous) { if (previous.bet !== bet || previous.walletSource !== walletSource) throw new HttpError(400, 'Esta identificação já pertence a outra rodada.'); json(res, 200, body.compact ? compactCasinoPlayResponse(user, previous) : { ...stateFor(user), casinoResult: previous }); return; }
+    if (dailyDutyPenaltyFor(user)) throw new HttpError(423, 'Jogos bloqueados pela punição diária até o fim da contagem regressiva.');
+    authorizeCasinoAuto(user.id, autoSessionId, 'slots', bet, walletSource);
+    if (bet === null) throw new HttpError(400, 'A aposta deve ter no máximo duas casas decimais e ser de pelo menos 0,01 crédito.');
+    const dayKey = saoPauloDayKey(); const casinoAccount = casinoAccountFor(user.id, true); const sourceBalance = walletSource === 'shop' ? walletFor(user.id) : Number(casinoAccount.balance);
+    if (sourceBalance < bet) throw new HttpError(409, walletSource === 'shop' ? 'Saldo da Loja 51 insuficiente para esta rodada.' : 'Saldo promocional do cassino insuficiente para esta rodada.');
+    const outcome = slotOutcome(); const multiplier = Number(outcome.multiplier); const payout = roundMoney(bet * multiplier); const net = roundMoney(payout - bet); const createdAt = new Date().toISOString(); let adjustment = null;
+    if (walletSource === 'shop') { addCredits(user.id, net); if (net !== 0) { adjustment = { id: randomUUID(), userId: user.id, mode: 'casino-shop', amount: net, before: sourceBalance, after: roundMoney(sourceBalance + net), reason: 'Resultado do Caça-Níquel 51 usando saldo da loja', createdAt }; db.economy.creditAdjustments.push(adjustment); } }
+    else casinoAccount.balance = roundMoney(sourceBalance + net);
+    const balanceAfter = walletSource === 'shop' ? walletFor(user.id) : roundMoney(casinoAccount.balance); const play = { id: randomUUID(), requestId, userId: user.id, dayKey, walletSource, bet, resultType: 'slots', multiplier, payout, net, slots: { id: outcome.id, label: outcome.label, symbols: outcome.symbols }, balanceAfter, createdAt };
+    db.economy.casinoPlays.push(play); await persistCasinoPlay(user.id, play, adjustment, null); broadcastCasinoPlayRefresh(autoSessionId); json(res, 200, body.compact ? compactCasinoPlayResponse(user, play) : { ...stateFor(user), casinoResult: play }); return;
   }
 
   if (req.method === 'POST' && route === '/api/lottery/entry') {
-    const { user } = requireAuth(req); const body = await readJson(req); const guess = Number(body.guess);
+    const { user } = requireAuth(req); const body = await readJson(req); const numbers = [...new Set((Array.isArray(body.numbers) ? body.numbers : []).map(Number))].sort((a, b) => a - b); const requestId = String(body.requestId || '');
     const settled = settleLotteryRounds(); const round = currentLotteryRound();
     if (settled) await persist();
-    if (!Number.isInteger(guess) || guess < 1 || guess > LOTTERY_NUMBER_MAX) throw new HttpError(400, `Escolha um número inteiro entre 1 e ${LOTTERY_NUMBER_MAX}.`);
-    if (round.status !== 'open' || Date.parse(round.closeAt) <= Date.now()) throw new HttpError(409, 'Esta rodada já foi encerrada. Aguarde a próxima rodada semanal.');
-    const previous = db.economy.lottery.entries.find((item) => item.roundId === round.id && item.userId === user.id);
+    if (!/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificação do bilhete inválida.');
+    const price = LOTTERY_TICKET_PLANS[numbers.length];
+    if (!price || numbers.some((number) => !Number.isInteger(number) || number < 1 || number > LOTTERY_NUMBER_MAX)) throw new HttpError(400, 'Escolha de 6 a 10 números diferentes entre 1 e 50.');
+    const previous = db.economy.lottery.entries.find((item) => item.requestId === requestId && item.userId === user.id);
     if (previous) {
-      if (Number(previous.guess) !== guess) throw new HttpError(409, 'Você já registrou um palpite nesta rodada.');
+      if (JSON.stringify(previous.numbers) !== JSON.stringify(numbers)) throw new HttpError(409, 'Esta identificação já pertence a outro bilhete.');
       json(res, 200, { ...stateFor(user), lotteryEntry: previous, duplicate: true }); return;
     }
-    const entry = { id: randomUUID(), roundId: round.id, userId: user.id, guess, createdAt: new Date().toISOString() };
+    if (round.status !== 'open' || Date.parse(round.closeAt) <= Date.now()) throw new HttpError(409, 'Esta rodada já foi encerrada. Aguarde o próximo sorteio.');
+    const before = walletFor(user.id);
+    if (before < price) throw new HttpError(409, 'Saldo da Loja 51 insuficiente para comprar este bilhete.');
+    addCredits(user.id, -price);
+    const entry = { id: randomUUID(), requestId, roundId: round.id, userId: user.id, numbers, price, createdAt: new Date().toISOString() };
     db.economy.lottery.entries.push(entry);
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'lottery-ticket', amount: -price, before, after: walletFor(user.id), reason: `Bilhete da Mega 51 · ${numbers.length} números · rodada ${round.id.slice(-10)}`, createdAt: entry.createdAt, lotteryRoundId: round.id, lotteryEntryId: entry.id });
     await persist(); broadcastRefresh('lottery'); json(res, 201, { ...stateFor(user), lotteryEntry: entry }); return;
   }
 
   if (req.method === 'POST' && route === '/api/casino/cashout') {
     const { user } = requireAuth(req); const account = casinoAccountFor(user.id, true);
     if (account.cashedOut) throw new HttpError(409, 'O lucro promocional de hoje já foi resgatado.');
-    const cashoutThreshold = casinoCashoutThresholdForDay(account.dayKey);
+    const cashoutThreshold = casinoCashoutThresholdForAccount(account);
     if (Number(account.balance) < cashoutThreshold) throw new HttpError(409, `Chegue a ${cashoutThreshold} créditos promocionais para liberar o lucro na loja.`);
     const amount = roundMoney(account.balance); const before = walletFor(user.id); const createdAt = new Date().toISOString();
     addCredits(user.id, amount); account.balance = 0; account.cashedOut = true; account.cashedOutAt = createdAt; account.cashedOutAmount = amount;
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'casino-cashout', amount, before, after: roundMoney(before + amount), reason: 'Saldo promocional liberado pelo Cassino 51 após atingir a meta', createdAt });
-    // Durante o prazo, o resgate pertence integralmente ao saldo da pessoa.
-    // A cobrança automática do Agiota só começa quando a dívida está vencida;
-    // o pagamento manual e a entrega voluntária de item continuam disponíveis.
     const debtPayment = overdueLoanFor(user.id) ? applyLoanPayment(user.id, amount, 'Abatimento automático de dívida vencida no resgate promocional') : 0;
     await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), casinoCashout: amount - debtPayment, debtPayment }); return;
   }
@@ -4746,8 +5667,9 @@ async function handleApi(req, res, route) {
     const { user } = requireAuth(req);
     if (user.mustChangePassword) throw new HttpError(403, 'Troque a senha inicial antes de enviar uma mensagem.');
     const body = await readJson(req);
-    const type = 'bug';
+    const type = ['bug', 'improvement', 'praise'].includes(body.type) ? body.type : null;
     const message = String(body.message || '').trim().replace(/\r\n/g, '\n');
+    if (!type) throw new HttpError(400, 'Escolha entre bug, melhoria ou elogio/denúncia.');
     if (message.length < 3) throw new HttpError(400, 'Conte um pouco mais sobre a ideia ou o problema.');
     if (message.length > 800) throw new HttpError(400, 'A mensagem deve ter no máximo 800 caracteres.');
     let imageFilename = null;
@@ -4815,42 +5737,113 @@ async function handleApi(req, res, route) {
     json(res, 200, { messages: feedbackForClient(user) }); return;
   }
 
-  if (req.method === 'GET' && route === '/api/community-votes') { const {user}=requireAuth(req);json(res,200,communityVotesForClient(user));return; }
-  if (req.method === 'POST' && route === '/api/community-votes') { const {user}=requireAuth(req);const body=await readJson(req);const subject=String(body.subject||'').trim().replace(/\s+/g,' ');if(user.mustChangePassword)throw new HttpError(403,'Troque a senha inicial antes de propor uma votação.');if(subject.length<8||subject.length>280)throw new HttpError(400,'A pauta deve ter entre 8 e 280 caracteres.');if(db.communityVotes.some((item)=>item.status==='open'&&item.subject.toLocaleLowerCase('pt-BR')===subject.toLocaleLowerCase('pt-BR')))throw new HttpError(409,'Esta pauta já está aberta para votação.');if(db.communityVotes.filter((item)=>item.status==='open'&&item.authorId===user.id).length>=3)throw new HttpError(409,'Aguarde uma de suas três pautas abertas encerrar antes de propor outra.');const now=new Date().toISOString();db.communityVotes.push({id:randomUUID(),subject,authorId:user.id,authorName:user.displayName,createdAt:now,status:'open',votes:[],comments:[]});await persist();broadcastRefresh('community-vote');json(res,201,stateFor(user));return; }
-  const communityVoteMatch=route.match(/^\/api\/community-votes\/([^/]+)\/vote$/);
-  if(req.method==='POST'&&communityVoteMatch){const {user}=requireAuth(req);const body=await readJson(req),item=db.communityVotes.find((entry)=>entry.id===communityVoteMatch[1]);if(!item)throw new HttpError(404,'Votação não encontrada.');if(item.status!=='open')throw new HttpError(409,'Esta votação já foi encerrada.');if(!communityVotePeople().some((person)=>person.id===user.id))throw new HttpError(403,'Sua conta não está habilitada para votar.');if(!['favor','against'].includes(body.vote))throw new HttpError(400,'Escolha A favor ou Contra.');if((item.votes||[]).some((entry)=>entry.userId===user.id))throw new HttpError(409,'Você já registrou seu voto nesta pauta.');item.votes.push({userId:user.id,userName:user.displayName,vote:body.vote,createdAt:new Date().toISOString()});await persist();broadcastRefresh('community-vote');json(res,200,stateFor(user));return;}
-  const communityVoteCommentMatch=route.match(/^\/api\/community-votes\/([^/]+)\/comments$/);
-  if(req.method==='POST'&&communityVoteCommentMatch){
-    const {user}=requireAuth(req); const body=await readJson(req); const item=db.communityVotes.find((entry)=>entry.id===communityVoteCommentMatch[1]);
-    if(!item)throw new HttpError(404,'Votação não encontrada.');
-    if(item.status!=='open')throw new HttpError(409,'Os comentários desta pauta foram encerrados.');
-    if(user.mustChangePassword)throw new HttpError(403,'Troque a senha inicial antes de comentar.');
-    const message=String(body.message||'').trim();
-    if(!message||message.length>500)throw new HttpError(400,'Escreva um comentário entre 1 e 500 caracteres.');
-    item.comments ||= [];
-    if(item.comments.length>=50)throw new HttpError(409,'Esta pauta atingiu o limite de 50 comentários.');
-    const lastComment=item.comments.filter((entry)=>entry.userId===user.id).at(-1);
-    if(lastComment&&Date.now()-Date.parse(lastComment.createdAt)<2500)throw new HttpError(429,'Aguarde alguns segundos antes de comentar novamente.');
-    item.comments.push({id:randomUUID(),userId:user.id,userName:user.displayName,message,createdAt:new Date().toISOString()});
-    await persist(); broadcastRefresh('community-vote'); json(res,201,stateFor(user)); return;
+  if (req.method === 'GET' && route === '/api/community-votes') {
+    const { user } = requireAuth(req); json(res, 200, communityVotesForClient(user)); return;
   }
-
-  const communityVoteAdminMatch=route.match(/^\/api\/admin\/community-votes\/([^/]+)$/);
-  if(req.method==='PATCH'&&communityVoteAdminMatch){const {user}=requireAdmin(req);const body=await readJson(req),item=db.communityVotes.find((entry)=>entry.id===communityVoteAdminMatch[1]);if(!item)throw new HttpError(404,'Votação não encontrada.');if(!['close','archive'].includes(body.action))throw new HttpError(400,'Ação inválida.');const now=new Date().toISOString();if(body.action==='close'){if(item.status!=='open')throw new HttpError(409,'Esta pauta já não está aberta.');item.status='closed';item.closedAt=now;item.closedBy=user.id;}else{item.status='archived';item.archivedAt=now;item.archivedBy=user.id;}await persist();broadcastRefresh('community-vote');json(res,200,stateFor(user));return;}
+  const communityVoteImageMatch = route.match(/^\/api\/community-votes\/([^/]+)\/image$/);
+  if (req.method === 'GET' && communityVoteImageMatch) {
+    requireAuth(req);
+    const item = db.communityVotes.find((entry) => entry.id === communityVoteImageMatch[1]);
+    if (!item?.imageFilename) throw new HttpError(404, 'Esta imagem não está disponível.');
+    await serveMemoryImage(res, item.imageFilename); return;
+  }
+  if (req.method === 'POST' && route === '/api/community-votes') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    if (user.mustChangePassword) throw new HttpError(403, 'Troque a senha inicial antes de propor uma votação.');
+    const subject = String(body.subject || '').trim().replace(/\s+/g, ' ');
+    if (subject.length < 8 || subject.length > 280) throw new HttpError(400, 'A pauta deve ter entre 8 e 280 caracteres.');
+    if (db.communityVotes.some((item) => item.status === 'open' && item.subject.toLocaleLowerCase('pt-BR') === subject.toLocaleLowerCase('pt-BR'))) throw new HttpError(409, 'Esta pauta já está aberta para votação.');
+    const ownOpen = db.communityVotes.filter((item) => item.status === 'open' && item.authorId === user.id).length;
+    if (ownOpen >= 3) throw new HttpError(409, 'Encerre ou aguarde uma de suas três pautas abertas antes de propor outra.');
+    let imageFilename = null;
+    if (body.imageDataUrl) {
+      const match = String(body.imageDataUrl).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
+      if (!match) throw new HttpError(400, 'Anexe uma imagem PNG, JPG ou WEBP válida.');
+      const image = Buffer.from(match[2], 'base64');
+      if (!image.length || image.length > 2000000 || !hasValidImageSignature(image, match[1])) throw new HttpError(400, 'A imagem deve ser válida e ter no máximo 2 MB.');
+      imageFilename = 'community-vote-' + randomUUID() + '.' + ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[match[1]]);
+      await storeImage(imageFilename, image, match[1]);
+    }
+    const now = new Date().toISOString();
+    db.communityVotes.push({ id: randomUUID(), subject, imageFilename, authorId: user.id, authorName: user.displayName, createdAt: now, expiresAt: new Date(Date.parse(now) + COMMUNITY_VOTE_DURATION_MS).toISOString(), status: 'open', eligibleVoterIds: communityVotePeople().map((person) => person.id), votes: [], comments: [], notifyAll: true });
+    await persist(); broadcastRefresh('community-vote'); json(res, 201, stateFor(user)); return;
+  }
+  const communityVoteMatch = route.match(/^\/api\/community-votes\/([^/]+)\/vote$/);
+  if (req.method === 'POST' && communityVoteMatch) {
+    const { user } = requireAuth(req); const body = await readJson(req); const item = db.communityVotes.find((entry) => entry.id === communityVoteMatch[1]);
+    if (!item) throw new HttpError(404, 'Votação não encontrada.');
+    if (item.status !== 'open') throw new HttpError(409, 'Esta votação já foi encerrada.');
+    item.eligibleVoterIds ||= communityVotePeople().map((person) => person.id);
+    if (!item.eligibleVoterIds.includes(user.id)) throw new HttpError(403, 'Sua conta não está habilitada para votar.');
+    if (!['favor', 'against'].includes(body.vote)) throw new HttpError(400, 'Escolha A favor ou Contra.');
+    if ((item.votes || []).some((entry) => entry.userId === user.id)) throw new HttpError(409, 'Você já registrou seu voto nesta pauta.');
+    item.votes.push({ userId: user.id, userName: user.displayName, vote: body.vote, createdAt: new Date().toISOString() });
+    settleCommunityVoteByMajority(item);
+    await persist(); broadcastRefresh('community-vote'); json(res, 200, stateFor(user)); return;
+  }
+  const communityVoteCommentMatch = route.match(/^\/api\/community-votes\/([^/]+)\/comments$/);
+  if (req.method === 'POST' && communityVoteCommentMatch) {
+    const { user } = requireAuth(req); const body = await readJson(req); const item = db.communityVotes.find((entry) => entry.id === communityVoteCommentMatch[1]);
+    if (!item) throw new HttpError(404, 'Votação não encontrada.');
+    if (item.status !== 'open') throw new HttpError(409, 'Os comentários desta pauta foram encerrados.');
+    if (user.mustChangePassword) throw new HttpError(403, 'Troque a senha inicial antes de comentar.');
+    const message = String(body.message || '').trim();
+    if (!message || message.length > 500) throw new HttpError(400, 'Escreva um comentário entre 1 e 500 caracteres.');
+    item.comments ||= [];
+    if (item.comments.length >= 50) throw new HttpError(409, 'Esta pauta atingiu o limite de 50 comentários.');
+    const lastComment = item.comments.filter((entry) => entry.userId === user.id).at(-1);
+    if (lastComment && Date.now() - Date.parse(lastComment.createdAt) < 2500) throw new HttpError(429, 'Aguarde alguns segundos antes de comentar novamente.');
+    const normalizedMessage = message.replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
+    if (item.comments.some((entry) => entry.userId === user.id && String(entry.message || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR') === normalizedMessage)) throw new HttpError(409, 'Este comentário já foi publicado nesta pauta.');
+    item.comments.push({ id: randomUUID(), userId: user.id, userName: user.displayName, message, createdAt: new Date().toISOString(), notifyAll: true });
+    await persist(); broadcastRefresh('community-vote'); json(res, 201, stateFor(user)); return;
+  }
+  const communityVoteCommentDeleteMatch = route.match(/^\/api\/community-votes\/([^/]+)\/comments\/([^/]+)$/);
+  if (req.method === 'DELETE' && communityVoteCommentDeleteMatch) {
+    const { user } = requireAuth(req); const [, voteId, commentId] = communityVoteCommentDeleteMatch;
+    const item = db.communityVotes.find((entry) => entry.id === voteId);
+    if (!item) throw new HttpError(404, 'Votação não encontrada.');
+    const comment = (item.comments || []).find((entry) => entry.id === commentId);
+    if (!comment) throw new HttpError(404, 'Comentário não encontrado.');
+    if (comment.userId !== user.id) throw new HttpError(403, 'Você só pode excluir seu próprio comentário.');
+    item.comments = item.comments.filter((entry) => entry.id !== commentId);
+    await persist(); broadcastRefresh('community-vote'); json(res, 200, stateFor(user)); return;
+  }
+    const communityVoteAdminMatch = route.match(/^\/api\/admin\/community-votes\/([^/]+)$/);
+  if (req.method === 'PATCH' && communityVoteAdminMatch) {
+    const { user } = requireAuth(req); const body = await readJson(req); const item = db.communityVotes.find((entry) => entry.id === communityVoteAdminMatch[1]);
+    if (!item) throw new HttpError(404, 'Votação não encontrada.');
+    if (!['close', 'archive', 'implemented'].includes(body.action)) throw new HttpError(400, 'Ação inválida.');
+    if (user.mustChangePassword) throw new HttpError(403, 'Troque a senha inicial primeiro.');
+    if (user.role !== 'admin') throw new HttpError(403, 'Ação exclusiva da administração da pauta.');
+    const now = new Date().toISOString();
+    if (body.action === 'close') {
+      if (item.status !== 'open') throw new HttpError(409, 'Esta pauta já não está aberta.');
+      const favor = (item.votes || []).filter((entry) => entry.vote === 'favor').length;
+      const against = (item.votes || []).filter((entry) => entry.vote === 'against').length;
+      item.status = 'closed'; item.outcome = favor > against ? 'approved' : 'rejected'; item.implementationStatus = item.outcome === 'approved' ? 'pending' : null; item.closedAt = now; item.closedBy = user.id;
+    } else if (body.action === 'implemented') {
+      if (item.status !== 'closed' || item.outcome !== 'approved') throw new HttpError(409, 'Apenas uma pauta aprovada pode ser marcada como implementada.');
+      item.implementationStatus = 'done'; item.implementedAt = now; item.implementedBy = user.id;
+    } else { item.status = 'archived'; item.archivedAt = now; item.archivedBy = user.id; }
+    await persist(); broadcastRefresh('community-vote'); json(res, 200, stateFor(user)); return;
+  }
 
   if (req.method === 'POST' && route === '/api/daily-wall/phrases') {
     const { user } = requireAuth(req);
     if (user.mustChangePassword) throw new HttpError(403, 'Troque a senha inicial antes de publicar.');
     const body = await readJson(req);
-    const phrase = String(body.phrase || '').trim().replace(/\s+/g, ' ');
+    const phrase = String(body.phrase || '').trim().replace(/\r\n?/g, '\n');
     if (!phrase) throw new HttpError(400, 'Digite a frase do dia.');
-    if (phrase.length > 180) throw new HttpError(400, 'A frase deve ter no máximo 180 caracteres.');
+    if (phrase.length > 2000) throw new HttpError(400, 'A publicação deve ter no máximo 2.000 caracteres.');
     const post = {
       id: randomUUID(), userId: user.id, authorName: user.displayName, anonymous: Boolean(body.anonymous),
       phrase, createdAt: new Date().toISOString(),
     };
     updatePostMentions(post);
     db.dailyPhrases.push(post);
+    db.economy.dailyDutyPosts ||= [];
+    if (!db.economy.dailyDutyPosts.some((entry) => entry.userId === user.id && entry.dayKey === saoPauloDayKey())) db.economy.dailyDutyPosts.push({ userId: user.id, dayKey: saoPauloDayKey() });
     awardEngagementCard(db,user.id,'phrase',saoPauloDayKey(),Math.random,engagementCardOptions());
     recordActivity(user.id, 'phrase');
     rewardDailyMissions(user.id);
@@ -4884,7 +5877,7 @@ async function handleApi(req, res, route) {
       const body = await readJson(req);
       if (typeof body.text !== 'string') throw new HttpError(400, 'Texto inválido.');
       const text = body.text.trim();
-      if (text.length > (type === 'meme' ? 500 : 180) || (type === 'phrase' && !text)) throw new HttpError(400, type === 'meme' ? 'A legenda deve ter até 500 caracteres.' : 'A frase deve ter de 1 a 180 caracteres.');
+      if (text.length > 2000 || (type === 'phrase' && !text)) throw new HttpError(400, 'A publicação deve ter até 2.000 caracteres e uma frase não pode ficar vazia.');
       post[type === 'meme' ? 'caption' : 'phrase'] = text;
       updatePostMentions(post);
       post.updatedAt = new Date().toISOString();
@@ -4957,7 +5950,7 @@ async function handleApi(req, res, route) {
     const lastPost = memePostTimes.get(user.id) || 0;
     if (now - lastPost < 2500) throw new HttpError(429, 'Aguarde alguns segundos antes de enviar outro meme.');
     const { dataUrl = '', caption = '', anonymous = false } = await readJson(req);
-    if (typeof caption !== 'string' || caption.length > 500) throw new HttpError(400, 'A legenda deve ter até 500 caracteres.');
+    if (typeof caption !== 'string' || caption.length > 2000) throw new HttpError(400, 'A legenda deve ter até 2.000 caracteres.');
     const match = String(dataUrl).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
     if (!match) throw new HttpError(400, 'Envie uma imagem PNG, JPG ou WEBP.');
     const image = Buffer.from(match[2], 'base64');
@@ -4975,6 +5968,8 @@ async function handleApi(req, res, route) {
     };
     updatePostMentions(post);
     db.dailyMemes.push(post);
+    db.economy.dailyDutyPosts ||= [];
+    if (!db.economy.dailyDutyPosts.some((entry) => entry.userId === user.id && entry.dayKey === saoPauloDayKey())) db.economy.dailyDutyPosts.push({ userId: user.id, dayKey: saoPauloDayKey() });
     awardEngagementCard(db,user.id,'meme',saoPauloDayKey(),Math.random,engagementCardOptions());
     recordActivity(user.id, 'meme');
     rewardDailyMissions(user.id);
@@ -5070,7 +6065,7 @@ async function handleApi(req, res, route) {
     if (!item) throw new HttpError(404, 'Votação de mentira não encontrada.');
     if (!item.requiredVoterIds?.includes(user.id)) throw new HttpError(403, 'Você não participa desta votação.');
     const vote = String(body.vote || '');
-    if (!['truth', 'lie', 'not-heard'].includes(vote)) throw new HttpError(400, 'Escolha Mentiu, Não mentiu ou Não ouvi.');
+    if (!['truth', 'lie', 'strong-lie', 'not-heard'].includes(vote)) throw new HttpError(400, 'Escolha Mentiu, Mentiu forte, Não mentiu ou Não ouvi.');
     item.votes ||= {}; item.votes[user.id] = vote;
     resolveLieVoteIfDecided(item);
     await persist(); broadcastRefresh('lie-meter'); json(res, 200, stateFor(user)); return;
@@ -5109,47 +6104,6 @@ async function handleApi(req, res, route) {
     await persist(); broadcastRefresh('lie-meter'); json(res, 200, stateFor(user)); return;
   }
 
-  if (req.method === 'POST' && route === '/api/democracy') {
-    const { user } = requireAuth(req);
-    if (user.mustChangePassword) throw new HttpError(403, 'Troque a senha inicial antes de publicar uma pauta.');
-    if (db.democracyVotes.some((item) => item.status === 'open' && item.authorId === user.id)) throw new HttpError(409, 'Você já possui uma pauta aberta. Aguarde ela ser encerrada ou arquivada antes de propor outra.');
-    const body = await readJson(req);
-    const title = String(body.title || '').trim().replace(/\s+/g, ' ');
-    const subject = String(body.subject || '').trim().replace(/\r\n/g, '\n');
-    if (title.length < 3 || title.length > 90) throw new HttpError(400, 'O título precisa ter entre 3 e 90 caracteres.');
-    if (subject.length < 3 || subject.length > 700) throw new HttpError(400, 'Explique a pauta em 3 a 700 caracteres.');
-    const requiredVoterIds = activeDemocracyVoterIds();
-    if (!requiredVoterIds.length) throw new HttpError(409, 'Não há participantes ativos para abrir esta votação.');
-    const createdAt = new Date().toISOString();
-    db.democracyVotes.push({ id: randomUUID(), title, subject, authorId: user.id, authorName: user.displayName, status: 'open', createdAt, requiredVoterIds, votes: {} });
-    if (db.democracyVotes.length > 500) db.democracyVotes = db.democracyVotes.slice(-500);
-    await persist(); broadcastRefresh('democracy'); json(res, 201, stateFor(user)); return;
-  }
-
-  const democracyVoteMatch = route.match(/^\/api\/democracy\/([^/]+)\/vote$/);
-  if (req.method === 'POST' && democracyVoteMatch) {
-    const { user } = requireAuth(req); const body = await readJson(req);
-    const item = db.democracyVotes.find((entry) => entry.id === democracyVoteMatch[1] && entry.status === 'open');
-    if (!item) throw new HttpError(404, 'Esta pauta não está mais aberta.');
-    if (!item.requiredVoterIds?.includes(user.id)) throw new HttpError(403, 'Sua conta não faz parte do eleitorado desta pauta.');
-    if (item.votes?.[user.id]) throw new HttpError(409, 'Seu voto já foi registrado e não pode ser alterado.');
-    const vote = String(body.vote || '');
-    if (!['favor', 'against'].includes(vote)) throw new HttpError(400, 'Escolha A favor ou Contra.');
-    item.votes ||= {}; item.votes[user.id] = vote;
-    await persist(); broadcastRefresh('democracy'); json(res, 200, stateFor(user)); return;
-  }
-
-  const democracyAdminMatch = route.match(/^\/api\/democracy\/([^/]+)\/(close|archive)$/);
-  if (req.method === 'PATCH' && democracyAdminMatch) {
-    const { user } = requireAdmin(req);
-    const item = db.democracyVotes.find((entry) => entry.id === democracyAdminMatch[1] && entry.status === 'open');
-    if (!item) throw new HttpError(404, 'Esta pauta não está mais aberta.');
-    const now = new Date().toISOString();
-    if (democracyAdminMatch[2] === 'close') { item.status = 'closed'; item.closedAt = now; item.closedByUserId = user.id; item.result = democracyResultFor(item); }
-    else { item.status = 'archived'; item.archivedAt = now; item.archivedByUserId = user.id; item.archivedReason = 'Arquivada pela administração.'; }
-    await persist(); broadcastRefresh('democracy'); json(res, 200, stateFor(user)); return;
-  }
-
   if (req.method === 'POST' && route === '/api/water') {
     const { user } = requireAuth(req);
     if (user.mustChangePassword) throw new HttpError(403, 'Troque a senha inicial antes de registrar água.');
@@ -5170,6 +6124,28 @@ async function handleApi(req, res, route) {
     await persist(); broadcastRefresh('hydration'); json(res, 201, stateFor(user)); return;
   }
 
+  if (req.method === 'POST' && route === '/api/market/auto-sell') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    syncMarketEconomy();
+    const assetId = String(body.assetId || ''); const quantity = Number(body.quantity); const targetPrice = roundMoney(Number(body.targetPrice));
+    const asset = MARKET_ASSETS.find((item) => item.id === assetId); if (!asset) throw new HttpError(400, 'Ativo não encontrado.');
+    const market = ensureMarketState(db.economy); const held = Number(market.portfolios?.[user.id]?.[assetId] || 0); const currentPrice = roundMoney(market.prices[assetId] || asset.initialPrice);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > held) throw new HttpError(409, 'Escolha uma quantidade que esteja na sua carteira.');
+    if (!Number.isFinite(targetPrice) || targetPrice <= currentPrice || targetPrice > 1000000) throw new HttpError(400, `Defina um alvo acima da cotação atual (${currentPrice.toFixed(2)}).`);
+    if (market.autoSellOrders.some((order) => order.userId === user.id && order.assetId === assetId && order.status === 'active')) throw new HttpError(409, 'Você já possui uma venda automática ativa para esta moeda. Cancele-a ou aguarde a execução.');
+    const order = { id: randomUUID(), userId: user.id, assetId, quantity, targetPrice, status: 'active', createdAt: new Date().toISOString(), createdSlot: market.slotKey };
+    market.autoSellOrders.push(order);
+    await persist(); broadcastRefresh('economy'); json(res, 201, { profile: profileFor(user), order: { id: order.id, assetId, quantity, targetPrice } }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/market/auto-sell/cancel') {
+    const { user } = requireAuth(req); const body = await readJson(req); const market = ensureMarketState(db.economy);
+    const order = market.autoSellOrders.find((item) => item.id === String(body.orderId || '') && item.userId === user.id && item.status === 'active');
+    if (!order) throw new HttpError(404, 'A ordem automática não está mais ativa.');
+    order.status = 'cancelled'; order.cancelledAt = new Date().toISOString(); order.cancelReason = 'Cancelada pelo participante.';
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user) }); return;
+  }
+
   if (req.method === 'POST' && (route === '/api/market/buy' || route === '/api/market/sell')) {
     const { user } = requireAuth(req); const body = await readJson(req); const side = route.endsWith('/buy') ? 'buy' : 'sell';
     syncMarketEconomy(); const assetId = String(body.assetId || ''); const quantity = Number(body.quantity);
@@ -5184,6 +6160,7 @@ async function handleApi(req, res, route) {
     operation.userId = user.id; operation.before = before; operation.after = after;
     market.ledger.push({ ...operation }); if (market.ledger.length > 5000) market.ledger = market.ledger.slice(-5000);
     db.economy.creditAdjustments.push({ id: operation.id, userId: user.id, mode: 'investment-market-' + side, amount: side === 'buy' ? -operation.total : operation.total, before, after, reason: `${side === 'buy' ? 'Compra' : 'Venda'} de ${asset.name}`, createdAt: operation.createdAt });
+    if (side === 'sell') cancelMarketAutoOrdersWithoutPosition(user.id);
     settleMarketMissionsForUser(user.id);
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), operation }); return;
   }
@@ -5200,9 +6177,40 @@ async function handleApi(req, res, route) {
     settleMarketMissionsForUser(user.id, dayKey);
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), amount: MARKET_DAILY_INCOME }); return;
   }
+
+  if (req.method === 'POST' && route === '/api/crypto/daily-income') {
+    const { user } = requireAuth(req); const dayKey = saoPauloDayKey(); const status = cryptoDailyIncomeFor(user.id, dayKey);
+    if (status.claimed) throw new HttpError(409, 'A Renda Cripto 51 de hoje já foi resgatada.');
+    if (!status.eligible) throw new HttpError(409, 'Faça uma atividade válida hoje para liberar a Renda Cripto 51.');
+    const before = walletFor(user.id); addCredits(user.id, CRYPTO_DAILY_INCOME);
+    db.economy.cryptoDailyIncomeClaims ||= []; db.economy.cryptoDailyIncomeClaims.push({ id: randomUUID(), key: user.id + ':' + dayKey, userId: user.id, dayKey, amount: CRYPTO_DAILY_INCOME, createdAt: new Date().toISOString() });
+    if (db.economy.cryptoDailyIncomeClaims.length > 10000) db.economy.cryptoDailyIncomeClaims = db.economy.cryptoDailyIncomeClaims.slice(-10000);
+    db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'crypto51-daily-income', amount: CRYPTO_DAILY_INCOME, before, after: walletFor(user.id), reason: 'Renda diária do Cripto 51', createdAt: new Date().toISOString() });
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), amount: CRYPTO_DAILY_INCOME }); return;
+  }
+
+  if (req.method === 'POST' && (route === '/api/crypto/buy' || route === '/api/crypto/sell')) {
+    const { user } = requireAuth(req); const body = await readJson(req); const side = route.endsWith('/buy') ? 'buy' : 'sell';
+    const assetId = String(body.assetId || ''); const quantity = Number(body.quantity);
+    const asset = CRYPTO_ASSETS.find((item) => item.id === assetId); if (!asset) throw new HttpError(400, 'Ativo do Cripto 51 não encontrado.');
+    const market = ensureCryptoMarketState(db.economy);
+    const assetUpdatedAt = Date.parse(market.assetUpdatedAt?.[asset.id] || '');
+    // Uma tentativa global pode falhar mesmo quando este ativo ainda possui
+    // consenso recente. Compra e venda usam a janela individual de 15 min.
+    if (!Number.isFinite(assetUpdatedAt) || Date.now() - assetUpdatedAt > 15 * 60 * 1000) throw new HttpError(503, 'A cotação deste ativo está temporariamente indisponível. Aguarde a próxima sincronização.');
+    const price = Number(market.prices[asset.id] || 0); const total = Math.ceil(price * quantity * 100 - 1e-9) / 100;
+    if (!Number.isFinite(Number(body.expectedPrice)) || Number(body.expectedPrice) !== price) throw new HttpError(409, 'A cotação mudou. Atualize os valores e confirme a ordem novamente.');
+    if (side === 'buy' && (!Number.isFinite(quantity) || quantity <= 0 || walletFor(user.id) < total)) throw new HttpError(409, 'Quantidade inválida ou Créditos 51 insuficientes.');
+    let operation; try { operation = transactCryptoMarket(db.economy, user.id, assetId, quantity, side); } catch (error) { throw new HttpError(400, error.message); }
+    const before = walletFor(user.id); const signedTotal = side === 'buy' ? -operation.total : operation.total; const after = roundMoney(before + signedTotal);
+    db.economy.wallets[user.id] = after; operation.userId = user.id; operation.before = before; operation.after = after;
+    market.ledger.push({ ...operation });
+    db.economy.creditAdjustments.push({ id: operation.id, userId: user.id, mode: 'crypto51-' + side, amount: signedTotal, before, after, reason: `${side === 'buy' ? 'Compra' : 'Venda'} de ${asset.name}`, createdAt: operation.createdAt });
+    await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), operation }); return;
+  }
   if (req.method === 'POST' && route === '/api/cobblemon/box/purchase') {
     const { user } = requireAuth(req); const body = await readJson(req); const box = COBBLEMON_BOXES[body.boxId];
-    if (!box?.monthlyPokemon) throw new HttpError(404, 'Cápsula Pokémon não encontrada.');
+    if (!box?.monthlyPokemon) throw new HttpError(404, 'Baú Pokémon não encontrado.');
     const cycleId = pokemonCapsuleCycleKey();
     const cycleEntries = db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.boxId === body.boxId && entry.cycleId === cycleId && !['cycle-discarded', 'cycle-expired', 'replaced', 'reset-refunded'].includes(entry.status));
     if (cycleEntries.some((entry) => ['weekly-choice-pending', 'awaiting-delivery', 'delivered', 'claimed-no-delivery'].includes(entry.status))) throw new HttpError(409, 'A escolha da semana já foi encerrada. A próxima compra libera no sábado.');
@@ -5224,13 +6232,17 @@ async function handleApi(req, res, route) {
     if (box.retired) throw new HttpError(409, 'A Caixa de Treinador foi aposentada. As Poké Balls continuam disponíveis pelo painel de captura.');
     if (box.monthlyPokemon) {
       const closedBox = db.economy.cobblemonDeliveries.find((entry) => entry.id === body.inventoryId && entry.userId === user.id && entry.boxId === body.boxId && ['box-closed', 'box-open'].includes(entry.status));
-      if (!closedBox) throw new HttpError(404, 'Sua Cápsula fechada não foi encontrada. Compre o baú antes de abrir.');
+      if (!closedBox) throw new HttpError(404, 'Seu Baú Pokémon fechado não foi encontrado. Compre o baú antes de abrir.');
       const cycleEntries = db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.cycleId === closedBox.cycleId && entry.boxId === 'pokemon');
-      if (cycleEntries.some((entry) => ['weekly-choice-pending', 'awaiting-delivery', 'delivered', 'claimed-no-delivery'].includes(entry.status))) throw new HttpError(409, 'A escolha da semana já foi encerrada. Aguarde o próximo sábado.');
+      // A escolha semanal pendente pertence a outra abertura e não pode
+      // impedir os sorteios de um Baú Pokémon que já foi comprado. Ela segue
+      // preservada para decisão posterior; somente uma entrega já fechada
+      // encerra de fato o ciclo.
+      if (cycleEntries.some((entry) => ['awaiting-delivery', 'delivered', 'claimed-no-delivery'].includes(entry.status))) throw new HttpError(409, 'A entrega da semana já foi encerrada. Aguarde o próximo sábado.');
       const selectedCount = cycleEntries.filter((entry) => ['cycle-candidate', 'weekly-choice-pending'].includes(entry.status)).length;
       if (selectedCount >= 7) throw new HttpError(409, 'Os sete Pokémon desta semana já foram escolhidos.');
       const dailyRollCount = Number(closedBox.rolls?.length || closedBox.openCount || 0);
-      if (dailyRollCount >= 3) throw new HttpError(409, 'Os três sorteios desta cápsula já foram feitos. Escolha um Pokémon.');
+      if (dailyRollCount >= 3) throw new HttpError(409, 'Os três sorteios deste Baú Pokémon já foram feitos. Escolha um Pokémon.');
       const roll = monthlyCobblemonPokemonReward(user.id, closedBox.cycleId);
       closedBox.rolls = Array.isArray(closedBox.rolls) ? closedBox.rolls : (closedBox.roll ? [closedBox.roll] : []);
       closedBox.rolls.push(roll); closedBox.roll = roll; closedBox.openedAt = new Date().toISOString(); closedBox.openCount = closedBox.rolls.length;
@@ -5243,7 +6255,11 @@ async function handleApi(req, res, route) {
     const price = roundMoney(box.price);
     if (walletFor(user.id) < price) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const before = walletFor(user.id), reward = weightedCobblemonReward(box), createdAt = new Date().toISOString(); addCredits(user.id, -price);
-    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, rewardId: reward.id, name: reward.name, sprite: localCobblemonItemSprite(reward.sprite), sellPrice: reward.sellPrice, status: reward.forceDelivery || box.forceDelivery ? 'awaiting-delivery' : 'decision-pending', forceDelivery: Boolean(reward.forceDelivery || box.forceDelivery), deliveryNote: reward.deliveryNote || null, pokemonId: reward.pokemonId || null, rarity: reward.rarity || null, isShiny: Boolean(reward.isShiny), purchasePrice: price, createdAt };
+    // O prêmio é persistido antes da animação. Para o Premium, a decisão fica
+    // pendente até o participante escolher receber ou vender; após F5/queda,
+    // o mesmo registro continua no painel, sem novo sorteio nem duplicidade.
+    const premiumSaleEligible = body.boxId === 'master';
+    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: body.boxId, boxName: box.name, rewardId: reward.id, name: reward.name, sprite: reward.sprite, sellPrice: premiumSaleEligible ? premiumCobblemonSellPrice(reward.weight) : reward.sellPrice, status: premiumSaleEligible ? 'decision-pending' : (reward.forceDelivery || box.forceDelivery ? 'awaiting-delivery' : 'decision-pending'), forceDelivery: premiumSaleEligible ? false : Boolean(reward.forceDelivery || box.forceDelivery), premiumSaleEligible, deliveryByDavi: Boolean(reward.forceDelivery || box.forceDelivery), deliveryNote: reward.deliveryNote || null, pokemonId: reward.pokemonId || null, rarity: reward.rarity || null, isShiny: Boolean(reward.isShiny), purchasePrice: price, createdAt };
     db.economy.cobblemonDeliveries.push(delivery); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-box', amount: -price, before, after: roundMoney(before - price), reason: box.name, createdAt });
     await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
   }
@@ -5254,7 +6270,7 @@ async function handleApi(req, res, route) {
     if (cycleSpins.filter((entry) => !entry.freeSpin).length >= COBBLEMON_ROULETTE.weeklyLimit) throw new HttpError(409, 'Você já usou os sete giros deste ciclo. Um novo ciclo começa no sábado.');
     if (walletFor(user.id) < COBBLEMON_ROULETTE.price) throw new HttpError(409, 'Créditos 51 insuficientes para girar.');
     const price = roundMoney(COBBLEMON_ROULETTE.price); const before = walletFor(user.id), reward = weightedCobblemonReward(COBBLEMON_ROULETTE), createdAt = new Date(now).toISOString(); addCredits(user.id, -price);
-    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: 'roulette', boxName: 'Roleta Cobblemon', rewardId: reward.id, itemId: reward.itemId || null, name: reward.name, sprite: localCobblemonItemSprite(reward.sprite), sellPrice: reward.sellPrice, status: reward.noPrize ? 'no-prize' : reward.forceDelivery ? 'awaiting-delivery' : 'decision-pending', noPrize: Boolean(reward.noPrize), forceDelivery: Boolean(reward.forceDelivery), deliveryNote: reward.deliveryNote || null, createdAt };
+    const delivery = { id: randomUUID(), userId: user.id, userName: user.displayName, boxId: 'roulette', boxName: 'Roleta Cobblemon', rewardId: reward.id, itemId: reward.itemId || null, name: reward.name, sprite: reward.sprite, sellPrice: reward.sellPrice, status: reward.noPrize ? 'no-prize' : reward.forceDelivery ? 'awaiting-delivery' : 'decision-pending', noPrize: Boolean(reward.noPrize), forceDelivery: Boolean(reward.forceDelivery), deliveryNote: reward.deliveryNote || null, createdAt };
     if (!reward.noPrize) db.economy.cobblemonDeliveries.push(delivery);
     db.economy.cobblemonRouletteSpins.push({ id: randomUUID(), userId: user.id, rewardId: reward.id, rewardName: reward.name, spinNumber: cycleSpins.length + 1, cycleId, dayKey, createdAt });
     if (db.economy.cobblemonRouletteSpins.length > 1000) db.economy.cobblemonRouletteSpins = db.economy.cobblemonRouletteSpins.slice(-1000);
@@ -5262,8 +6278,24 @@ async function handleApi(req, res, route) {
     await persist(); broadcastRefresh('economy'); json(res, 200, { reward: delivery, profile: profileFor(user) }); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/reward/decision') {
-    const { user } = requireAuth(req); const body = await readJson(req); const wantsWeeklyImmediate = body.action === 'choose-weekly-now'; const wantsCandidateSale = body.action === 'sell-candidate'; const reward = db.economy.cobblemonDeliveries.find((entry) => entry.userId === user.id && (entry.id === body.id || (wantsCandidateSale && entry.rewardId === body.id)) && (['decision-pending', 'box-open', 'choice-pending', 'weekly-choice-pending'].includes(entry.status) || ((wantsWeeklyImmediate || wantsCandidateSale) && entry.status === 'cycle-candidate')));
-    if (!reward) throw new HttpError(404, 'Este prêmio já teve sua decisão concluída.');
+    const { user } = requireAuth(req); const body = await readJson(req); const wantsWeeklyImmediate = body.action === 'choose-weekly-now'; const wantsCandidateSale = body.action === 'sell-candidate';
+    const belongsToRequest = (entry) => entry.userId === user.id && (entry.id === body.id || (wantsCandidateSale && entry.rewardId === body.id));
+    const existingReward = db.economy.cobblemonDeliveries.find(belongsToRequest);
+    const reward = db.economy.cobblemonDeliveries.find((entry) => belongsToRequest(entry) && (['decision-pending', 'box-open', 'choice-pending', 'weekly-choice-pending'].includes(entry.status) || ((wantsWeeklyImmediate || wantsCandidateSale) && entry.status === 'cycle-candidate')));
+    if (!reward) {
+      // A rede ou um toque repetido pode reenviar a mesma decisão depois que ela
+      // já foi persistida. Responder com o estado atual torna a operação
+      // idempotente: nunca repete venda, crédito ou fila de entrega.
+      const actionAlreadyApplied = existingReward && (
+        (body.action === 'sell' && existingReward.status === 'sold') ||
+        (wantsCandidateSale && existingReward.status === 'sold') ||
+        (wantsWeeklyImmediate && existingReward.status === 'awaiting-delivery' && existingReward.deliveryLocked) ||
+        ((body.action === 'choose' || body.action === 'choose-now') && ['cycle-candidate', 'weekly-choice-pending', 'awaiting-delivery'].includes(existingReward.status)) ||
+        ((body.action === 'keep' || !body.action) && ['awaiting-delivery', 'claimed-no-delivery'].includes(existingReward.status))
+      );
+      if (actionAlreadyApplied) { json(res, 200, { profile: profileFor(user), alreadyDecided: true }); return; }
+      throw new HttpError(existingReward ? 409 : 404, existingReward ? 'Este prêmio já foi concluído com outra decisão.' : 'Prêmio não encontrado.');
+    }
     let automaticWeeklySales = null;
     if (wantsCandidateSale) {
       if (!['cycle-candidate', 'weekly-choice-pending'].includes(reward.status) || reward.deliveryLocked) throw new HttpError(409, 'Este Pokémon já foi escolhido para entrega e não pode ser vendido.');
@@ -5277,7 +6309,7 @@ async function handleApi(req, res, route) {
       reward.autoSoldCandidates = automaticWeeklySales;
     } else if (body.action === 'choose' || body.action === 'choose-now') {
       if (body.action === 'choose-now' || reward.status === 'box-open') throw new HttpError(409, 'Faça os três sorteios antes de escolher um Pokémon para a lista semanal.');
-      if (!['choice-pending', 'weekly-choice-pending'].includes(reward.status)) throw new HttpError(409, 'Esta cápsula não está aguardando uma escolha.');
+      if (!['choice-pending', 'weekly-choice-pending'].includes(reward.status)) throw new HttpError(409, 'Este Baú Pokémon não está aguardando uma escolha.');
       const weeklyChoice = reward.status === 'weekly-choice-pending';
       const choice = (reward.choices || []).find((item) => item.entryId === body.choiceId || item.id === body.choiceId);
       if (!choice) throw new HttpError(400, 'Escolha um Pokémon válido.');
@@ -5298,20 +6330,45 @@ async function handleApi(req, res, route) {
           reward.choices = candidates.map(pokemonCapsuleChoiceForEntry);
         }
       }
-    } else if (body.action === 'sell') { if (reward.status !== 'decision-pending') throw new HttpError(409, 'A cápsula só pode ser escolhida após as três aberturas.'); const before = walletFor(user.id); const amount = roundMoney(reward.sellPrice); addCredits(user.id, amount); reward.status = 'sold'; reward.decidedAt = new Date().toISOString(); db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'cobblemon-sale', amount, before, after: roundMoney(before + amount), reason: 'Venda de ' + reward.name, createdAt: reward.decidedAt }); }
+    } else if (body.action === 'sell') { if (reward.status !== 'decision-pending') throw new HttpError(409, reward.boxId === 'master' ? 'Este prêmio Premium já teve a decisão concluída.' : 'O Baú Pokémon só pode ser escolhido após as três aberturas.'); const before = walletFor(user.id); const amount = roundMoney(reward.sellPrice); addCredits(user.id, amount); reward.status = 'sold'; reward.decidedAt = new Date().toISOString(); reward.soldAt = reward.decidedAt; reward.saleAmount = amount; db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: reward.boxId === 'master' ? 'cobblemon-premium-sale' : 'cobblemon-sale', amount, before, after: roundMoney(before + amount), reason: 'Venda de ' + reward.name, createdAt: reward.decidedAt }); }
     else {
-      if (reward.status === 'box-open') throw new HttpError(409, 'Escolha um Pokémon agora ou continue os sorteios desta cápsula.');
+      if (reward.status === 'box-open') throw new HttpError(409, 'Escolha um Pokémon agora ou continue os sorteios deste Baú Pokémon.');
       if (reward.deliveryLocked) { reward.status = 'claimed-no-delivery'; reward.decidedAt = new Date().toISOString(); }
       else {
-        db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.boxId === 'pokemon' && entry.status === 'awaiting-delivery' && entry.id !== reward.id).forEach((entry) => { entry.status = 'replaced'; entry.replacedAt = new Date().toISOString(); });
+        // Só uma nova confirmação de Baú Pokémon pode substituir outro
+        // Pokémon pendente. Prêmios da Roleta e dos outros baús são entregas
+        // independentes e não devem mexer na escolha semanal.
+        if (reward.boxId === 'pokemon') {
+          db.economy.cobblemonDeliveries.filter((entry) => entry.userId === user.id && entry.boxId === 'pokemon' && entry.status === 'awaiting-delivery' && entry.id !== reward.id).forEach((entry) => { entry.status = 'replaced'; entry.replacedAt = new Date().toISOString(); });
+        }
         reward.status = 'awaiting-delivery'; reward.decidedAt = new Date().toISOString(); reward.deliveryLocked = true;
+        if (reward.boxId === 'master') { reward.lockReason = 'Prêmio Premium confirmado para entrega; revenda encerrada'; reward.receivedAt = reward.decidedAt; }
       }
     }
+    // Depois da escolha diária, recalcule já a decisão semanal. Assim o
+    // próximo passo aparece na mesma resposta, sem depender de recarregar a
+    // página nem de uma requisição de outro participante.
+    settlePokemonCapsules();
     await persist(); broadcastRefresh('economy'); json(res, 200, { profile: profileFor(user), autoSold: automaticWeeklySales || reward.autoSoldCandidates || null, nextChoice: reward.status === 'weekly-choice-pending' ? { id: reward.id, name: reward.name, sprite: reward.sprite, choices: reward.choices, choiceStage: 'weekly' } : null }); return;
   }
   if (req.method === 'POST' && route === '/api/admin/cobblemon/delivered') {
     const { user } = requireAuth(req); if (user.role !== 'admin' && !/^davi\b/i.test(String(user.displayName || ''))) throw new HttpError(403, 'Apenas Davi ou administradores.'); const body = await readJson(req); const reward = db.economy.cobblemonDeliveries.find((entry) => entry.id === body.id && entry.status === 'awaiting-delivery');
     if (!reward) throw new HttpError(404, 'Entrega pendente não encontrada.'); reward.status = 'delivered'; reward.deliveredAt = new Date().toISOString(); reward.deliveredBy = user.displayName; await persist(); broadcastRefresh('economy'); json(res, 200, stateFor(user)); return;
+  }
+  const cobblemonMemberMatch = route.match(/^\/api\/cobblemon\/server-members\/([a-f0-9-]+)$/);
+  if (req.method === 'PATCH' && cobblemonMemberMatch) {
+    const { user } = requireAuth(req);
+    if (!canManageCobblemonServer(user)) throw new HttpError(403, 'Apenas Davi ou administradores podem gerenciar o servidor Cobblemon.');
+    if (user.mustChangePassword) throw new HttpError(403, 'Troque a senha inicial primeiro.');
+    const target = db.users.find((person) => person.id === cobblemonMemberMatch[1] && person.active);
+    if (!target) throw new HttpError(404, 'Participante não encontrado.');
+    const body = await readJson(req);
+    const plays = body.plays === true;
+    const playerName = String(body.playerName || '').trim().replace(/\s+/g, ' ').slice(0, 32);
+    if (plays && playerName.length < 3) throw new HttpError(400, 'Informe o nome deste jogador no servidor.');
+    const paymentStatus = ['paid', 'unpaid', 'exempt'].includes(body.paymentStatus) ? body.paymentStatus : 'unpaid';
+    db.settings.cobblemonServerRoster[target.id] = { plays, playerName: plays ? playerName : '', paymentStatus: plays ? paymentStatus : 'unpaid', updatedAt: new Date().toISOString(), updatedByUserId: user.id };
+    await persist(); broadcastRefresh('cobblemon-server-management'); json(res, 200, stateFor(user)); return;
   }
   if (req.method === 'POST' && route === '/api/cobblemon/encounter') {
     const auth = requireAuth(req); const { user } = auth;
@@ -5494,6 +6551,10 @@ async function handleApi(req, res, route) {
     if (!item) throw new HttpError(404, 'Item da loja não encontrado.');
     if (!isShopItemAvailable(item, localHalloweenPreview)) throw new HttpError(409, 'Este item não está disponível nesta temporada.');
     if (item.service) throw new HttpError(400, 'Use a ação específica deste serviço.');
+    const sealedPurchase = body.sealed === true;
+    const purchasableCurse = ['forceGayCursor', 'forceGiantCursor', 'forceAdhdCursor', 'forceDevDarkness', 'forceCleaningCurse', 'forceHaterCurse', 'forceGivaldoCurse'].includes(item.value);
+    if (sealedPurchase && !purchasableCurse) throw new HttpError(400, 'A opção sem Antídoto só existe para maldições.');
+    if (item.value === 'cleanseCursor' && db.economy.forcedCursors.some((entry) => entry.targetUserId === user.id && entry.sealed && isForcedCursorActive(entry, db.settings.currentRoundId))) throw new HttpError(409, 'Você está sob uma maldição lacrada. O Antídoto não pode ser comprado enquanto ela estiver ativa.');
     if (item.adminOnly) throw new HttpError(403, 'Este item é concedido exclusivamente a administradores.');
     const quantity = body.quantity === undefined ? 1 : Number(body.quantity);
     const acceptsQuantity = Boolean(item.mysteryBox || item.cardPack || (item.type === 'power' && item.consumable));
@@ -5506,13 +6567,14 @@ async function handleApi(req, res, route) {
       if(quantity>remaining)throw new HttpError(409,remaining?'Você pode comprar mais '+remaining+' deste pacote hoje.':'Limite diário deste pacote atingido.');
     }
     if (!item.consumable && !item.mysteryBox && db.economy.purchases.some((purchase) => purchase.userId === user.id && purchase.itemId === item.id)) throw new HttpError(409, 'Você já possui este item.');
-    const totalPrice = roundMoney(Number(item.price) * quantity);
+    const unitPrice = sealedPurchase ? 5000 : Number(item.price);
+    const totalPrice = roundMoney(unitPrice * quantity);
     if (walletFor(user.id) < totalPrice) throw new HttpError(409, 'Créditos 51 insuficientes para comprar esta quantidade.');
     addCredits(user.id, -totalPrice);
     const createdAt = new Date().toISOString();
     const mysteryBoxes = [];
     for (let index = 0; index < quantity; index += 1) {
-      db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: item.id, price: roundMoney(item.price), closedBox: Boolean(item.mysteryBox), createdAt });
+      db.economy.purchases.push({ id: randomUUID(), userId: user.id, itemId: item.id, price: roundMoney(unitPrice), sealed: sealedPurchase, closedBox: Boolean(item.mysteryBox), createdAt });
       if (item.mysteryBox) mysteryBoxes.push(addMysteryBox(user.id, item.id, 'shop'));
     }
     if (!item.consumable && !item.mysteryBox) {
@@ -5546,7 +6608,39 @@ async function handleApi(req, res, route) {
     db.economy.mysteryBoxes.splice(index, 1);
     const mysteryReward = grantMysteryBoxReward(user, box, localHalloweenPreview);
     await persist(); broadcastRefresh('economy');
-    json(res, 200, { ...stateFor(user, { localHalloweenPreview }), mysteryReward, openedBox: { id: inventoryItem.id, name: box.name, icon: box.icon } }); return;
+    const openedBox = { id: inventoryItem.id, name: box.name, icon: box.icon };
+    json(res, 200, body.compact
+      ? { profile: profileFor(user, { localHalloweenPreview }), mysteryReward, openedBox }
+      : { ...stateFor(user, { localHalloweenPreview }), mysteryReward, openedBox }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/mystery-boxes/open-all') {
+    const localHalloweenPreview = localHalloweenPreviewRequest(req);
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const requestId = String(body.requestId || '').slice(0, 80);
+    const inventoryIds = Array.isArray(body.inventoryIds) ? body.inventoryIds.map((id) => String(id).slice(0, 100)) : [];
+    if (!/^[A-Za-z0-9_-]{16,80}$/.test(requestId)) throw new HttpError(400, 'Identificador da abertura em massa inválido.');
+    if (!inventoryIds.length || inventoryIds.length > 100 || new Set(inventoryIds).size !== inventoryIds.length) throw new HttpError(400, 'Selecione entre 1 e 100 baús diferentes.');
+    db.economy.mysteryBoxOpenBatches ||= [];
+    const previousBatch = db.economy.mysteryBoxOpenBatches.find((batch) => batch.id === requestId && batch.userId === user.id);
+    if (previousBatch) {
+      json(res, 200, { ...stateFor(user, { localHalloweenPreview }), batchId: requestId, results: previousBatch.results, replayed: true }); return;
+    }
+    const selected = inventoryIds.map((id) => {
+      const inventoryItem = db.economy.mysteryBoxes.find((entry) => entry.id === id && entry.userId === user.id);
+      if (!inventoryItem) throw new HttpError(404, 'Um dos baús selecionados não está mais no seu inventário. Atualize o perfil e tente novamente.');
+      const box = SHOP_CATALOG.find((item) => item.id === inventoryItem.boxId && item.mysteryBox);
+      if (!box) throw new HttpError(404, 'Um dos tipos de baú selecionados não existe mais.');
+      return { inventoryItem, box };
+    });
+    const results = selected.map(({ inventoryItem, box }) => {
+      db.economy.mysteryBoxes.splice(db.economy.mysteryBoxes.indexOf(inventoryItem), 1);
+      return { openedBox: { id: inventoryItem.id, name: box.name, icon: box.icon }, mysteryReward: grantMysteryBoxReward(user, box, localHalloweenPreview) };
+    });
+    db.economy.mysteryBoxOpenBatches.push({ id: requestId, userId: user.id, createdAt: new Date().toISOString(), results });
+    db.economy.mysteryBoxOpenBatches = db.economy.mysteryBoxOpenBatches.slice(-25);
+    await persist(); broadcastRefresh('economy');
+    json(res, 200, { ...stateFor(user, { localHalloweenPreview }), batchId: requestId, results, replayed: false }); return;
   }
 
   if (req.method === 'POST' && route === '/api/mystery-boxes/sell') {
@@ -5560,7 +6654,8 @@ async function handleApi(req, res, route) {
     db.economy.mysteryBoxes.splice(index, 1); addCredits(user.id, amount);
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'mystery-box-sale', amount, before, after: roundMoney(before + amount), reason: 'Venda de ' + box.name, createdAt });
     await persist(); broadcastRefresh('economy');
-    json(res, 200, { ...stateFor(user), soldBox: { name: box.name, amount } }); return;
+    const soldBox = { name: box.name, amount };
+    json(res, 200, body.compact ? { profile: profileFor(user), soldBox } : { ...stateFor(user), soldBox }); return;
   }
 
   if (req.method === 'POST' && route === '/api/mystery-rewards/sell') {
@@ -5581,7 +6676,8 @@ async function handleApi(req, res, route) {
     addCredits(user.id, amount);
     db.economy.creditAdjustments.push({ id: randomUUID(), userId: user.id, mode: 'mystery-reward-sale', amount, before, after: roundMoney(before + amount), reason: 'Revenda de prêmio: ' + item.name, createdAt });
     await persist(); broadcastRefresh('economy');
-    json(res, 200, { ...stateFor(user), soldReward: { name: item.name, amount } }); return;
+    const soldReward = { name: item.name, amount };
+    json(res, 200, body.compact ? { profile: profileFor(user), soldReward } : { ...stateFor(user), soldReward }); return;
   }
 
   if (req.method === 'POST' && route === '/api/mystery-rewards/keep') {
@@ -5589,7 +6685,8 @@ async function handleApi(req, res, route) {
     const purchase = db.economy.purchases.find((entry) => entry.id === body.purchaseId && entry.userId === user.id && entry.sourceMysteryBoxId && entry.mysteryDecisionPending);
     if (!purchase) throw new HttpError(404, 'Este prêmio já teve sua decisão concluída.');
     purchase.mysteryDecisionPending = false; purchase.mysteryDecisionAt = new Date().toISOString();
-    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), keptReward: true }); return;
+    await persist(); broadcastRefresh('economy');
+    json(res, 200, body.compact ? { profile: profileFor(user), keptReward: true } : { ...stateFor(user), keptReward: true }); return;
   }
 
   if (req.method === 'POST' && route === '/api/shop/sell-best-win') {
@@ -5622,11 +6719,9 @@ async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/gifts/credits') {
     const { user } = requireAuth(req); const body = await readJson(req);
     const target = db.users.find((item) => item.id === body.targetId && item.active && item.approved !== false);
-    const amount = parseMoney(body.amount, { min: 0.01, max: WEEKLY_CREDIT_GIFT_LIMIT }); const weekKey = saoPauloWeekKey();
+    const amount = parseMoney(body.amount, { min: 0.01 });
     if (!target || target.id === user.id) throw new HttpError(404, 'Participante escolhido não encontrado.');
-    if (amount === null) throw new HttpError(400, 'Envie um valor entre 0,01 e ' + WEEKLY_CREDIT_GIFT_LIMIT + ' créditos, com no máximo duas casas decimais.');
-    const sent = db.economy.gifts.filter((item) => item.type === 'credits' && item.fromUserId === user.id && item.createdAt.slice(0, 10) >= weekKey).reduce((sum, item) => sum + item.amount, 0);
-    if (roundMoney(sent + amount) > WEEKLY_CREDIT_GIFT_LIMIT) throw new HttpError(409, 'Seu limite semanal restante é de ' + roundMoney(Math.max(0, WEEKLY_CREDIT_GIFT_LIMIT - sent)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' créditos.');
+    if (amount === null) throw new HttpError(400, 'Envie um valor a partir de 0,01 crédito, com no máximo duas casas decimais.');
     if (walletFor(user.id) < amount) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const now = new Date().toISOString(); addCredits(user.id, -amount); addCredits(target.id, amount);
     db.economy.gifts.push({ id: randomUUID(), type: 'credits', fromUserId: user.id, toUserId: target.id, amount, createdAt: now });
@@ -5636,13 +6731,16 @@ async function handleApi(req, res, route) {
   if (req.method === 'POST' && route === '/api/gifts/item') {
     const { user } = requireAuth(req); const localHalloweenPreview = localHalloweenPreviewRequest(req); const body = await readJson(req);
     const target = db.users.find((entry) => entry.id === body.targetId && entry.active && entry.approved !== false);
-    const item = SHOP_CATALOG.find((entry) => entry.id === body.itemId && !entry.adminOnly && isShopItemAvailable(entry, localHalloweenPreview));
+    const item = SHOP_CATALOG.find((entry) => entry.id === body.itemId && Number(entry.price) > 0 && !entry.adminOnly && !entry.passExclusive && !entry.mysteryBox && !entry.service && isShopItemAvailable(entry, localHalloweenPreview));
     if (!target || target.id === user.id) throw new HttpError(404, 'Participante escolhido não encontrado.');
     if (!item) throw new HttpError(404, 'Item não disponível para presente.');
     if (!item.consumable && db.economy.purchases.some((purchase) => purchase.userId === target.id && purchase.itemId === item.id)) throw new HttpError(409, 'Essa pessoa já possui este item.');
     if (walletFor(user.id) < item.price) throw new HttpError(409, 'Créditos 51 insuficientes.');
     const now = new Date().toISOString(); addCredits(user.id, -item.price);
     db.economy.purchases.push({ id: randomUUID(), userId: target.id, itemId: item.id, price: 0, giftedPrice: item.price, createdAt: now });
+    if (['site-team-dragon-ball', 'site-cyberpunk-premium'].includes(item.id)) for (const bundledId of item.bundleItems || []) {
+      if (!db.economy.purchases.some((purchase) => purchase.userId === target.id && purchase.itemId === bundledId)) db.economy.purchases.push({ id: randomUUID(), userId: target.id, itemId: bundledId, price: 0, bundledFrom: item.id, createdAt: now });
+    }
     db.economy.gifts.push({ id: randomUUID(), type: 'item', fromUserId: user.id, toUserId: target.id, itemId: item.id, amount: item.price, createdAt: now });
     await persist(); broadcastRefresh('economy'); json(res, 200, stateFor(user, { localHalloweenPreview })); return;
   }
@@ -5674,14 +6772,25 @@ async function handleApi(req, res, route) {
     const roundId = db.settings.currentRoundId;
     let targetedCurseTarget = null;
     let targetedCurseExpiresAt = null;
+    let targetedCurseId = null;
+    let curseAuthorReveal = null;
     if (item.value === 'cleanseCursor') {
-      if (activeWallpaperDeadlinePenalty(user.id)) throw new HttpError(409, 'A punição por não enviar wallpaper não pode ser removida por item ou acessório. Seu poder não foi consumido.');
-      if ([...db.draws].reverse().find((draw) => draw.type === 'gay' && !isVisualPunishmentCleared(draw.createdAt, db.settings.visualThemeClearedAt))?.winnerId === user.id) throw new HttpError(409, 'O cursor do sorteado é obrigatório. Seu poder não foi consumido.');
-      if (overdueLoanFor(user.id)) throw new HttpError(409, 'Quite a dívida para remover a cobrança do Agiota. Seu poder não foi consumido.');
       const curse = db.economy.forcedCursors.find((entry) => entry.targetUserId === user.id && isForcedCursorActive(entry, roundId));
+      if (curse?.sealed) throw new HttpError(409, 'Esta maldição foi lacrada até o fim das 24 horas. Seu Antídoto não foi consumido.');
+      if (!['hater', 'givaldo'].includes(curse?.style) && activeWallpaperDeadlinePenalty(user.id)) throw new HttpError(409, 'A punição por não enviar wallpaper não pode ser removida por item ou acessório. Seu poder não foi consumido.');
+      if (!['hater', 'givaldo'].includes(curse?.style) && [...db.draws].reverse().find((draw) => draw.type === 'gay' && !isVisualPunishmentCleared(draw.createdAt, db.settings.visualThemeClearedAt))?.winnerId === user.id) throw new HttpError(409, 'O cursor do sorteado é obrigatório. Seu poder não foi consumido.');
+      if (!['hater', 'givaldo'].includes(curse?.style) && overdueLoanFor(user.id)) throw new HttpError(409, 'Quite a dívida para remover a cobrança do Agiota. Seu poder não foi consumido.');
       if (!curse) throw new HttpError(409, 'Você não tem uma maldição comprada ativa. O cursor do sorteado não pode ser removido.');
       consumePower(user.id, item.id, { roundId });
       db.economy.forcedCursors = db.economy.forcedCursors.filter((entry) => entry !== curse);
+    } else if (item.value === 'revealCurseAuthor') {
+      const curseId = String(body.curseId || '');
+      const curse = (db.economy.curseHistory || []).find((entry) => entry.id === curseId && Date.parse(entry.createdAt) >= Date.parse(db.settings.cursePowersReleasedAt || '9999-12-31'));
+      if (!curse) throw new HttpError(409, 'Escolha uma maldição enviada após a estreia do rastreador. Seu poder não foi consumido.');
+      if ((db.economy.curseAuthorReveals || []).some((entry) => entry.curseId === curse.id)) throw new HttpError(409, 'A autoria desta maldição já foi revelada a todos. Seu poder não foi consumido.');
+      consumePower(user.id, item.id, { curseId: curse.id });
+      db.economy.curseAuthorReveals.push({ userId: user.id, curseId: curse.id, revealedAt: new Date().toISOString() });
+      curseAuthorReveal = { id: curse.id, targetName: curse.targetName, senderName: curse.senderName, style: curse.style, createdAt: curse.createdAt };
     } else if (item.value === 'loanExtension') {
       const loan = activeLoanFor(user.id);
       if (!loan?.dueAt || loan.extendedAt) throw new HttpError(409, 'É necessário um empréstimo com prazo que ainda não tenha sido prorrogado. Seu poder não foi consumido.');
@@ -5732,26 +6841,48 @@ async function handleApi(req, res, route) {
       const prospective = [...reservations, { targetId: target.id, submissionId: submission.id, allowSelf: item.value === 'chooseWallpaper' }];
       if (!buildAssignmentMap(participants, submissions, prospective)) throw new HttpError(409, 'Esta escolha impediria uma distribuição válida para o restante da equipe. Escolha outro wallpaper.');
       consumePower(user.id, item.id, { roundId, targetId: target.id, submissionId: submission.id });
-    } else if (item.value === 'forceGayCursor' || item.value === 'forceGiantCursor' || item.value === 'forceAdhdCursor') {
+    } else if (item.value === 'forceGayCursor' || item.value === 'forceGiantCursor' || item.value === 'forceAdhdCursor' || item.value === 'forceDevDarkness' || item.value === 'forceCleaningCurse' || item.value === 'forceHaterCurse' || item.value === 'forceGivaldoCurse') {
       const giant = item.value === 'forceGiantCursor';
       const adhd = item.value === 'forceAdhdCursor';
-      if (!giant && !adhd && !roundId) throw new HttpError(409, 'Use este poder durante uma rodada ativa.');
-      const target = (giant ? db.users.filter((person) => person.active && person.approved !== false) : eligibleUsers()).find((person) => person.id === body.targetId);
-      if (!target) throw new HttpError(404, 'Participante escolhido não encontrado nesta rodada.');
-      // A Maldição TDAH é sempre enviada a outra pessoa. Nunca a consuma
-      // silenciosamente no próprio usuário, mesmo que o cliente envie esse ID.
-      if (adhd && target.id === user.id) throw new HttpError(409, 'A Maldição TDAH deve ser enviada para outra pessoa. Seu poder não foi consumido.');
+      const gayCursor = item.value === 'forceGayCursor';
+      const devDarkness = item.value === 'forceDevDarkness';
+      const cleaningCurse = item.value === 'forceCleaningCurse';
+      const haterCurse = item.value === 'forceHaterCurse';
+      const givaldoCurse = item.value === 'forceGivaldoCurse';
+      let haterPhrases = null;
+      if (haterCurse) {
+        if (!Array.isArray(body.haterPhrases) || body.haterPhrases.length !== 6) throw new HttpError(400, 'Escreva exatamente seis frases para a Maldição do Hater.');
+        haterPhrases = body.haterPhrases.map((phrase) => String(phrase || '').trim().replace(/\s+/g, ' '));
+        if (haterPhrases.some((phrase) => !phrase || Array.from(phrase).length > 110)) throw new HttpError(400, 'Cada frase deve ter entre 1 e 110 caracteres. Emojis são aceitos.');
+        const uniquePhrases = new Set(haterPhrases.map((phrase) => phrase.toLocaleLowerCase('pt-BR')));
+        if (uniquePhrases.size !== 6) throw new HttpError(400, 'As seis frases precisam ser diferentes.');
+      }
+      // As três maldições de cursor duram 24 horas. Só os poderes que afetam
+      // o sorteio dependem de rodada; a Seta Gay não escolhe o Gay da Rodada.
+      const targetPool = giant || adhd || gayCursor || devDarkness || cleaningCurse || haterCurse || givaldoCurse ? db.users.filter((person) => person.active && person.approved !== false) : eligibleUsers();
+      const target = targetPool.find((person) => person.id === body.targetId);
+      if (!target) throw new HttpError(404, 'Participante ativo não encontrado.');
+      // Toda maldição de cursor é enviada a outra pessoa. A validação é feita
+      // no servidor também para que ninguém consiga se selecionar pela requisição.
+      if (target.id === user.id) throw new HttpError(409, 'Esta maldição deve ser enviada para outra pessoa. Seu poder não foi consumido.');
       if (giant && [...db.draws].reverse().find((draw) => draw.type === 'gay' && !isVisualPunishmentCleared(draw.createdAt, db.settings.visualThemeClearedAt))?.winnerId === target.id) throw new HttpError(409, 'O sorteado está com cursor obrigatório. Escolha outro participante; seu poder não foi consumido.');
       if (db.economy.forcedCursors.some((entry) => entry.targetUserId === target.id && isForcedCursorActive(entry, roundId))) {
-        throw new HttpError(409, 'Essa pessoa já tem um cursor obrigatório ativo. Seu poder não foi consumido.');
+        throw new HttpError(409, 'Essa pessoa já está sob uma maldição ativa. Nenhuma nova maldição foi enviada e seu poder não foi consumido.');
       }
+      const sealed = body.sealed === true;
+      if (!availablePowerPurchases(user.id, item.id).some((purchase) => Boolean(purchase.sealed) === sealed)) throw new HttpError(409, sealed ? 'Compre esta maldição na versão sem Antídoto por 5.000 Créditos 51 antes de enviá-la. Seu poder não foi consumido.' : 'Compre a versão normal desta maldição antes de enviá-la. Seu poder não foi consumido.');
       targetedCurseTarget = target;
       targetedCurseExpiresAt = new Date(Date.now() + 86400000).toISOString();
-      consumePower(user.id, item.id, { roundId, targetId: target.id });
-      db.economy.forcedCursors.push({
-        id: randomUUID(), roundId: giant || adhd ? null : roundId, expiresAt: targetedCurseExpiresAt, targetUserId: target.id, targetName: target.displayName,
-        style: giant ? 'giant-slow' : adhd ? 'adhd' : 'gay', usedByUserId: user.id, usedByName: user.displayName, createdAt: new Date().toISOString(),
-      });
+      consumePower(user.id, item.id, { roundId, targetId: target.id, sealed });
+      const curseRecord = {
+        id: randomUUID(), roundId: null, expiresAt: targetedCurseExpiresAt, targetUserId: target.id, targetName: target.displayName,
+        style: giant ? 'giant-slow' : adhd ? 'adhd' : devDarkness ? 'dev-dark' : cleaningCurse ? 'cleaning' : haterCurse ? 'hater' : givaldoCurse ? 'givaldo' : 'gay',
+        ...(haterPhrases ? { phrases: haterPhrases } : {}),
+        usedByUserId: user.id, usedByName: user.displayName, createdAt: new Date().toISOString(), sealed,
+      };
+      db.economy.forcedCursors.push(curseRecord);
+      targetedCurseId = curseRecord.id;
+      if (Date.parse(curseRecord.createdAt) >= Date.parse(db.settings.cursePowersReleasedAt || '9999-12-31')) db.economy.curseHistory.push({ id: curseRecord.id, targetUserId: target.id, targetName: target.displayName, senderUserId: user.id, senderName: user.displayName, style: curseRecord.style, createdAt: curseRecord.createdAt, expiresAt: curseRecord.expiresAt, sealed });
     } else if (item.value === 'chooseGay') {
       if (!roundId) throw new HttpError(409, 'Não há uma rodada ativa.');
       if (db.draws.some((draw) => draw.type === 'gay' && draw.roundId === roundId)) throw new HttpError(409, 'O Gay da Rodada já foi definido.');
@@ -5763,12 +6894,12 @@ async function handleApi(req, res, route) {
       db.economy.forcedGay = { roundId, userId: user.id, userName: user.displayName, targetId: target.id, targetName: target.displayName, createdAt: new Date().toISOString() };
     }
     const announcementRoundId = db.settings.currentRoundId || roundId;
-    if ((announcementRoundId || ['forceAdhdCursor', 'forceGiantCursor'].includes(item.value)) && item.value !== 'loanExtension') {
-      const secretTargetedCurse = ['forceGayCursor', 'forceGiantCursor', 'forceAdhdCursor'].includes(item.value);
-      db.economy.powerAnnouncements.push({ id: randomUUID(), roundId: announcementRoundId, itemId: item.id, itemName: item.name, activatedByUserId: user.id, secretTargetedCurse, targetUserId: secretTargetedCurse ? targetedCurseTarget?.id || null : null, targetName: secretTargetedCurse ? targetedCurseTarget?.displayName || null : null, expiresAt: secretTargetedCurse ? targetedCurseExpiresAt : null, createdAt: new Date().toISOString() });
+    const secretTargetedCurse = ['forceGayCursor', 'forceGiantCursor', 'forceAdhdCursor', 'forceDevDarkness', 'forceCleaningCurse', 'forceHaterCurse', 'forceGivaldoCurse'].includes(item.value);
+    if (secretTargetedCurse) {
+      db.economy.powerAnnouncements.push({ id: randomUUID(), roundId: announcementRoundId, itemId: item.id, itemName: item.name, activatedByUserId: user.id, secretTargetedCurse, curseId: targetedCurseId, targetUserId: secretTargetedCurse ? targetedCurseTarget?.id || null : null, targetName: secretTargetedCurse ? targetedCurseTarget?.displayName || null : null, expiresAt: secretTargetedCurse ? targetedCurseExpiresAt : null, createdAt: new Date().toISOString() });
       db.economy.powerAnnouncements = db.economy.powerAnnouncements.slice(-100);
     }
-    await persist(); broadcastRefresh('economy'); json(res, 200, stateFor(user)); return;
+    await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(user), ...(curseAuthorReveal ? { curseAuthorReveal } : {}) }); return;
   }
 
   if (req.method === 'POST' && route === '/api/powers/cancel') {
@@ -5789,13 +6920,8 @@ async function handleApi(req, res, route) {
 
   const deleteWaterMatch = route.match(/^\/api\/water\/([^/]+)$/);
   if (req.method === 'DELETE' && deleteWaterMatch) {
-    const { user } = requireAuth(req);
-    const entryIndex = db.waterEntries.findIndex((item) => item.id === deleteWaterMatch[1]);
-    if (entryIndex < 0) throw new HttpError(404, 'Registro de água não encontrado.');
-    const entry = db.waterEntries[entryIndex];
-    if (entry.userId !== user.id) throw new HttpError(403, 'Você só pode desfazer o seu próprio registro de água.');
-    db.waterEntries.splice(entryIndex, 1);
-    await persist(); broadcastRefresh('hydration'); json(res, 200, stateFor(user)); return;
+    requireAuth(req);
+    throw new HttpError(409, 'O registro de água é definitivo e não pode ser removido.');
   }
 
   const deleteAnonymousMatch = route.match(/^\/api\/admin\/anonymous-posts\/([^/]+)$/);
@@ -5858,6 +6984,12 @@ async function handleApi(req, res, route) {
   if (req.method === 'GET' && route === '/api/my-wallpaper') {
     const { user } = requireAuth(req);
     const roundId = db.settings.currentRoundId;
+    const gayDraw = [...db.draws].reverse().find((item) => item.type === 'gay' && item.roundId === roundId && !item.pendingShield);
+    if (!gayDraw) throw new HttpError(409, 'O download do wallpaper será liberado depois do sorteio do Gay da Rodada.');
+    if (gayDraw?.winnerUserId === user.id) {
+      if (!gayDraw.watermarkedFilename) throw new HttpError(409, 'Seu wallpaper com a logo ainda não foi gerado. Use “Gerar wallpaper com logo” no resultado do sorteio.');
+      await serveMemoryImage(res, gayDraw.watermarkedFilename, 'gay-da-rodada-' + String(gayDraw.winner || 'wallpaper') + (gayDraw.watermarkedFilename.endsWith('.jpg') ? '.jpg' : '.png')); return;
+    }
     const assignment = db.assignments.find((item) => item.roundId === roundId && item.userId === user.id && item.revealed);
     if (!assignment) throw new HttpError(404, 'Seu wallpaper ainda não foi sorteado nesta rodada.');
     const submission = db.submissions.find((item) => item.id === assignment.submissionId && item.active);
@@ -5920,8 +7052,12 @@ async function handleApi(req, res, route) {
     if (!roundId || !db.settings.currentTheme) throw new HttpError(409, 'Aguarde o administrador sortear o tema antes de enviar.');
     if (!eligibleUsers().some((item) => item.id === user.id)) throw new HttpError(403, 'Sua conta entrará somente na próxima rodada.');
     if (db.assignments.some((item) => item.roundId === roundId)) throw new HttpError(409, 'Os envios foram encerrados porque a distribuição já começou.');
-    if (db.submissions.some((item) => item.roundId === roundId && item.userId === user.id && item.active))
-      throw new HttpError(400, 'Cada pessoa pode enviar somente 1 wallpaper por rodada.');
+    if (db.submissions.some((item) => item.roundId === roundId && item.userId === user.id))
+      throw new HttpError(409, 'Seu wallpaper desta rodada já foi confirmado e não pode ser removido ou trocado.');
+    const uploadKey = roundId + ':' + user.id;
+    if (wallpaperUploadsInFlight.has(uploadKey)) throw new HttpError(409, 'O envio deste wallpaper já está em andamento. Aguarde a confirmação.');
+    wallpaperUploadsInFlight.add(uploadKey);
+    try {
     const { dataUrl = '' } = await readJson(req);
     const { image, mimeType, extension } = decodeWallpaperDataUrl(dataUrl);
     const usedMemory = [...imageStore.values()].reduce((total, entry) => total + entry.buffer.length, 0);
@@ -5935,6 +7071,7 @@ async function handleApi(req, res, route) {
       title: 'Wallpaper ' + anonymousCode,
       filename, mimeType, size: image.length, active: true, createdAt: new Date().toISOString() });
     await persist(); broadcastRefresh('submissions'); json(res, 201, stateFor(user)); return;
+    } finally { wallpaperUploadsInFlight.delete(uploadKey); }
   }
 
   if (req.method === 'POST' && route === '/api/admin/uploads') {
@@ -5947,55 +7084,29 @@ async function handleApi(req, res, route) {
     const { targetUserId = '', dataUrl = '' } = await readJson(req);
     const target = eligibleUsers().find((item) => item.id === String(targetUserId));
     if (!target) throw new HttpError(404, 'Esta pessoa não participa da rodada atual.');
-    const existing = db.submissions.find((item) => item.roundId === roundId && item.userId === target.id && item.active);
+    if (db.submissions.some((item) => item.roundId === roundId && item.userId === target.id))
+      throw new HttpError(409, 'O wallpaper desta pessoa já foi confirmado e não pode ser removido ou trocado.');
+    const uploadKey = roundId + ':' + target.id;
+    if (wallpaperUploadsInFlight.has(uploadKey)) throw new HttpError(409, 'O envio do wallpaper desta pessoa já está em andamento.');
+    wallpaperUploadsInFlight.add(uploadKey);
+    try {
     const { image, mimeType, extension } = decodeWallpaperDataUrl(dataUrl);
     const usedMemory = [...imageStore.values()].reduce((total, entry) => total + entry.buffer.length, 0);
-    if (usedMemory - Number(existing?.size || 0) + image.length > MAX_IMAGE_MEMORY) throw new HttpError(507, 'O limite de 200 MB de imagens desta rodada foi atingido.');
+    if (usedMemory + image.length > MAX_IMAGE_MEMORY) throw new HttpError(507, 'O limite de 200 MB de imagens desta rodada foi atingido.');
     const filename = randomUUID() + '.' + extension;
     await storeImage(filename, image, mimeType);
-    if (existing) existing.active = false;
     const anonymousCode = randomBytes(2).toString('hex').toUpperCase();
     db.submissions.push({ id: randomUUID(), roundId, userId: target.id, uploader: target.displayName,
       title: 'Wallpaper ' + anonymousCode, filename, mimeType, size: image.length, active: true,
       uploadedByAdminId: admin.id, uploadedByAdminName: admin.displayName, createdAt: new Date().toISOString() });
-    if (existing && !db.draws.some((draw) => draw.imageUrl === '/uploads/' + existing.filename)) await deleteStoredImage(existing.filename);
     await persist(); broadcastRefresh('submissions'); json(res, 201, stateFor(admin)); return;
+    } finally { wallpaperUploadsInFlight.delete(uploadKey); }
   }
 
   const deleteMatch = route.match(/^\/api\/uploads\/([a-f0-9-]+)$/);
   if (req.method === 'DELETE' && deleteMatch) {
-    const { user } = requireAuth(req);
-    const roundId = db.settings.currentRoundId;
-    if (db.assignments.some((entry) => entry.roundId === roundId)) throw new HttpError(409, 'Não é possível remover imagens depois que a distribuição começou.');
-    const item = db.submissions.find((entry) => entry.id === deleteMatch[1] && entry.active && entry.roundId === roundId);
-    if (!item) throw new HttpError(404, 'Wallpaper não encontrado.');
-    if (item.userId !== user.id && user.role !== 'admin') throw new HttpError(403, 'Você não pode excluir esta inscrição.');
-    item.active = false; await persist(); broadcastRefresh('submissions');
-    const usedInHistory = db.draws.some((draw) => draw.imageUrl === '/uploads/' + item.filename);
-    if (!usedInHistory) await deleteStoredImage(item.filename);
-    json(res, 200, stateFor(user)); return;
-  }
-
-  if (req.method === 'POST' && route === '/api/draw/gay-watermark') {
-    const { user } = requireAuth(req);
-    const { drawId = '', dataUrl = '' } = await readJson(req);
-    const draw = db.draws.find((item) => item.id === String(drawId) && item.type === 'gay');
-    if (!draw) throw new HttpError(404, 'Sorteio do Gay da Rodada não encontrado.');
-    if (draw.winnerId !== user.id && user.role !== 'admin') throw new HttpError(403, 'Somente o sorteado ou o administrador pode salvar este wallpaper marcado.');
-    const { image, mimeType, extension } = decodeWallpaperDataUrl(dataUrl);
-    const previousFilename = draw.watermarkedFilename;
-    const filename = randomUUID() + '.' + extension;
-    const usedMemory = [...imageStore.values()].reduce((total, entry) => total + entry.buffer.length, 0);
-    if (usedMemory - Number(previousFilename ? imageStore.get(previousFilename)?.buffer.length || 0 : 0) + image.length > MAX_IMAGE_MEMORY) {
-      throw new HttpError(507, 'Não há espaço para salvar a versão marcada deste wallpaper.');
-    }
-    await storeImage(filename, image, mimeType);
-    draw.watermarkedFilename = filename;
-    draw.watermarkedMimeType = mimeType;
-    if (previousFilename && previousFilename !== filename) await deleteStoredImage(previousFilename);
-    await persist();
-    broadcastRefresh('gay-wallpaper-watermarked');
-    json(res, 201, { watermarkedUrl: '/uploads/' + filename }); return;
+    requireAuth(req);
+    throw new HttpError(409, 'O wallpaper confirmado não pode ser removido ou trocado nesta rodada.');
   }
 
   if (req.method === 'POST' && route === '/api/draw/gay-shield') {
@@ -6049,6 +7160,29 @@ async function handleApi(req, res, route) {
     await persist();
     if (action === 'use') broadcastRefresh('gay-shield-used:' + user.displayName);
     respondLiveDraw(res, user, startedDraw); return;
+  }
+
+  const gayWatermarkMatch = route.match(/^\/api\/draw\/gay-watermark\/([a-f0-9-]+)$/);
+  if (req.method === 'GET' && gayWatermarkMatch) {
+    const { user } = requireAuth(req);
+    const draw = db.draws.find((item) => item.id === gayWatermarkMatch[1] && item.type === 'gay');
+    if (!draw?.watermarkedFilename) throw new HttpError(404, 'O cartão marcado ainda não foi gerado.');
+    if (user.role !== 'admin' && draw.winnerUserId !== user.id) throw new HttpError(403, 'Este download pertence ao sorteado.');
+    await serveMemoryImage(res, draw.watermarkedFilename, 'gay-da-rodada-' + String(draw.winner || 'wallpaper') + (draw.watermarkedFilename.endsWith('.jpg') ? '.jpg' : '.png')); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/draw/gay-watermark') {
+    const { user } = requireAuth(req); const body = await readJson(req);
+    const draw = db.draws.find((item) => item.id === String(body.drawId || '') && item.type === 'gay');
+    if (!draw) throw new HttpError(404, 'Sorteio do Gay da Rodada não encontrado.');
+    if (user.role !== 'admin' && draw.winnerUserId !== user.id) throw new HttpError(403, 'Somente o sorteado pode gerar este download.');
+    const { image, mimeType } = decodeWallpaperDataUrl(body.dataUrl);
+    const filename = 'gay-card-' + draw.id + (mimeType === 'image/jpeg' ? '.jpg' : '.png');
+    await storeImage(filename, image, mimeType);
+    draw.watermarkedFilename = filename;
+    draw.watermarkedAt = new Date().toISOString();
+    await persist();
+    json(res, 200, { watermarkedUrl: '/api/draw/gay-watermark/' + encodeURIComponent(draw.id), extension: mimeType === 'image/jpeg' ? 'jpg' : 'png' }); return;
   }
 
   if (req.method === 'POST' && route === '/api/draw') {
@@ -6144,11 +7278,19 @@ async function handleApi(req, res, route) {
 
   if (req.method === 'POST' && route === '/api/vote') {
     const { user } = requireAuth(req);
-    const voting = openVoting();
-    if (!voting) throw new HttpError(409, 'Não há votação aberta neste momento.');
-    if (!voting.requiredVoterIds.includes(user.id)) throw new HttpError(403, 'Sua conta não está elegível para esta votação.');
-    if (voting.votes.some((vote) => vote.userId === user.id)) throw new HttpError(409, 'Seu voto já foi registrado.');
     const { bestId, worstId } = await readJson(req);
+    const voting = openVoting();
+    if (!voting) {
+      const confirmed = [...db.votings].reverse().some((item) => item.submissionIds?.includes(bestId) && item.submissionIds?.includes(worstId) && item.votes?.some((vote) => vote.userId === user.id && vote.bestId === bestId && vote.worstId === worstId));
+      if (confirmed) { json(res, 200, stateFor(user)); return; }
+      throw new HttpError(409, 'Não há votação aberta neste momento.');
+    }
+    if (!voting.requiredVoterIds.includes(user.id)) throw new HttpError(403, 'Sua conta não está elegível para esta votação.');
+    const previousVote = voting.votes.find((vote) => vote.userId === user.id);
+    if (previousVote) {
+      if (previousVote.bestId === bestId && previousVote.worstId === worstId) { json(res, 200, stateFor(user)); return; }
+      throw new HttpError(409, 'Seu voto já foi registrado.');
+    }
     if (bestId === worstId) throw new HttpError(400, 'Escolha wallpapers diferentes para melhor e pior.');
     if (!voting.submissionIds.includes(bestId) || !voting.submissionIds.includes(worstId)) {
       throw new HttpError(400, 'Escolha duas opções válidas desta votação.');
@@ -6288,9 +7430,9 @@ async function handleApi(req, res, route) {
     db.notificationsReadAt ||= {}; db.economy.wallets ||= {}; db.economy.purchases ||= [];
     db.economy.equipped ||= {}; db.economy.missionProgress ||= {}; db.economy.missionRewards ||= [];
     db.economy.dailyMissionRewards ||= []; db.economy.cleanNameRewards ||= [];
-    db.economy.teamMissionRewards ||= []; db.economy.seasonChallengeRewards ||= []; db.economy.seasonChampionRewards ||= []; db.economy.gifts ||= []; db.economy.activityTotals ||= {};
+    db.economy.teamMissionRewards ||= []; db.economy.seasonChallengeRewards ||= []; db.economy.seasonChampionRewards ||= []; db.economy.seasonChampionSnapshots ||= []; db.economy.gifts ||= []; db.economy.activityTotals ||= {};
     db.economy.powerUses ||= []; db.economy.shields ||= []; db.economy.authorReveals ||= [];
-    db.economy.creditAdjustments ||= []; db.economy.bulkCreditGrants ||= []; db.economy.forcedCursors ||= [];
+    db.economy.creditAdjustments ||= []; db.economy.bulkCreditGrants ||= []; db.economy.casinoBulkBonusGrants ||= []; db.economy.forcedCursors ||= [];
     db.economy.mysteryBoxes ||= []; db.economy.casinoPlays ||= []; db.economy.casinoAccounts ||= {}; db.economy.lottery ||= { rounds: [], entries: [] }; db.economy.lottery.rounds ||= []; db.economy.lottery.entries ||= [];
     db.settings.roundSchedule ||= { submissionsAt: '', drawAt: '', voteAt: '' };
     db.settings.featureFlags = { ...DEFAULT_FEATURE_FLAGS, ...db.settings.featureFlags };
@@ -6333,6 +7475,38 @@ async function handleApi(req, res, route) {
     db.economy.bulkCreditGrants.push(bulkGrant);
     if (db.economy.bulkCreditGrants.length > 1000) db.economy.bulkCreditGrants = db.economy.bulkCreditGrants.slice(-1000);
     await persist(); broadcastRefresh('economy'); json(res, 200, { ...stateFor(admin), bulkGrant, duplicate: false }); return;
+  }
+
+  if (req.method === 'POST' && route === '/api/admin/casino/bonus/bulk') {
+    const { user: admin } = requireAdmin(req); const body = await readJson(req);
+    const amount = parseMoney(body.amount, { min: 0.01, max: 100000 });
+    if (amount === null) throw new HttpError(400, 'Informe um bônus entre 0,01 e 100.000 créditos, com no máximo duas casas decimais.');
+    const grantId = String(body.grantId || '').trim();
+    if (!/^[a-zA-Z0-9_-]{12,120}$/.test(grantId)) throw new HttpError(400, 'Identificador do bônus inválido. Tente novamente.');
+    const previous = (db.economy.casinoBulkBonusGrants || []).find((entry) => entry.id === grantId);
+    if (previous) { json(res, 200, { ...stateFor(admin), casinoBulkBonusGrant: previous, duplicate: true }); return; }
+    const targets = db.users.filter((person) => person.active && person.approved !== false);
+    if (!targets.length) throw new HttpError(409, 'Não há contas ativas para receber o bônus.');
+    const createdAt = new Date().toISOString(); const dayKey = saoPauloDayKey(); const recipients = [];
+    targets.forEach((target) => {
+      const account = casinoAccountFor(target.id, true);
+      const beforeBalance = roundMoney(account.balance);
+      const beforeThreshold = casinoCashoutThresholdForAccount(account);
+      const wasCashedOut = Boolean(account.cashedOut);
+      const startsCollectiveBank = wasCashedOut || beforeBalance <= 0;
+      account.balance = roundMoney(beforeBalance + amount);
+      // Banca zerada ou sacada começa uma meta nova; saldo restante mantém a
+      // meta anterior e acrescenta o dobro do bônus recebido.
+      account.cashoutThreshold = startsCollectiveBank ? roundMoney(amount * 2) : roundMoney(beforeThreshold + amount * 2);
+      account.cashedOut = false;
+      delete account.cashedOutAt; delete account.cashedOutAmount;
+      account.lastCollectiveBonusAt = createdAt;
+      recipients.push({ userId: target.id, beforeBalance, afterBalance: account.balance, beforeThreshold, cashoutThreshold: account.cashoutThreshold, reopened: wasCashedOut, freshCollectiveBank: startsCollectiveBank });
+    });
+    const casinoBulkBonusGrant = { id: grantId, amount, recipientCount: targets.length, total: roundMoney(amount * targets.length), dayKey, adminId: admin.id, adminName: admin.displayName, createdAt, recipients, notifyRecipients: true };
+    db.economy.casinoBulkBonusGrants.push(casinoBulkBonusGrant);
+    if (db.economy.casinoBulkBonusGrants.length > 1000) db.economy.casinoBulkBonusGrants = db.economy.casinoBulkBonusGrants.slice(-1000);
+    await persist(); broadcastRefresh('casino-bonus'); json(res, 200, { ...stateFor(admin), casinoBulkBonusGrant, duplicate: false }); return;
   }
 
   const creditMatch = route.match(/^\/api\/admin\/users\/([a-f0-9-]+)\/credits$/);
@@ -6412,7 +7586,6 @@ async function handleApi(req, res, route) {
     await deleteStoredImages(db.dailyMemes.filter((item) => item.userId === target.id));
     db.users.splice(targetIndex, 1);
     sanitizePendingLieVoters();
-    sanitizeDemocracyVoters();
     db.submissions = db.submissions.filter((item) => item.userId !== target.id);
     db.assignments = db.assignments.filter((item) => item.userId !== target.id && !submissionIds.has(item.submissionId));
     db.votings.forEach((voting) => {
@@ -6476,16 +7649,25 @@ async function handleApi(req, res, route) {
   }
 
   if (req.method === 'POST' && route === '/api/admin/announcement') {
-    const { user } = requireAdmin(req); const body = await readJson(req);
+    const { user } = requireAdmin(req); const body = await readJson(req, 11 * 1024 * 1024);
     const title = String(body.title || '').trim().replace(/\s+/g, ' ').slice(0, 70);
     const message = String(body.message || '').trim().replace(/\r\n/g, '\n').slice(0, 700);
-    if (title.length < 3 || message.length < 3) throw new HttpError(400, 'Informe um título e uma mensagem para publicar o aviso.');
-    db.settings.announcement = { id: randomUUID(), title, message, createdAt: new Date().toISOString(), createdBy: user.displayName, seenUserIds: [] };
+    let imageFilename = null;
+    if (body.imageDataUrl) {
+      const { image, mimeType, extension } = decodeWallpaperDataUrl(body.imageDataUrl);
+      imageFilename = 'announcement-' + randomUUID() + '.' + extension;
+      await storeImage(imageFilename, image, mimeType);
+    }
+    if (!imageFilename && (title.length < 3 || message.length < 3)) throw new HttpError(400, 'Escreva título e mensagem ou envie uma imagem para publicar o aviso.');
+    const previous = db.settings.announcement;
+    db.settings.announcement = { id: randomUUID(), title, message, imageFilename, createdAt: new Date().toISOString(), createdBy: user.displayName, seenUserIds: [] };
+    if (previous?.imageFilename) await deleteStoredImage(previous.imageFilename);
     await persist(); broadcastRefresh('announcement'); json(res, 200, stateFor(user)); return;
   }
 
   if (req.method === 'DELETE' && route === '/api/admin/announcement') {
-    const { user } = requireAdmin(req); db.settings.announcement = null;
+    const { user } = requireAdmin(req); const previous = db.settings.announcement; db.settings.announcement = null;
+    if (previous?.imageFilename) await deleteStoredImage(previous.imageFilename);
     await persist(); broadcastRefresh('announcement'); json(res, 200, stateFor(user)); return;
   }
 
@@ -6649,9 +7831,8 @@ async function handleApi(req, res, route) {
     const roundId = db.settings.currentRoundId;
     const voting = currentVoting();
     if (!voting || voting.status !== 'closed') throw new HttpError(409, 'Conclua a votação antes de limpar a rodada.');
-    if (!db.draws.some((item) => item.type === 'gay' && item.roundId === roundId)) {
-      throw new HttpError(409, 'Baixe a imagem do Gay da Rodada antes de encerrar.');
-    }
+    const gayDraw = [...db.draws].reverse().find((item) => item.type === 'gay' && item.roundId === roundId);
+    if (!gayDraw?.watermarkedFilename) throw new HttpError(409, 'Gere e salve o wallpaper com a logo do Gay da Rodada antes de limpar as imagens. A origem ainda é necessária.');
     const roundImages = db.submissions.filter((item) => item.roundId === roundId);
     roundImages.forEach((item) => { item.active = false; });
     await deleteStoredImages(roundImages);
@@ -6662,9 +7843,7 @@ async function handleApi(req, res, route) {
     db.settings.currentRoundRecoveredAt = null;
     db.settings.lastCleanupAt = new Date().toISOString();
     db.economy.pendingGayDraw = null;
-    for (const penalty of (db.economy.wallpaperDeadlinePenalties || [])) {
-      if (!penalty.clearedAt) { penalty.clearedAt = db.settings.lastCleanupAt; penalty.clearedByUserId = user.id; }
-    }
+    for (const penalty of (db.economy.wallpaperDeadlinePenalties || [])) if (!penalty.clearedAt) { penalty.clearedAt = db.settings.lastCleanupAt; penalty.clearedByUserId = user.id; }
     db.economy.forcedCursors = db.economy.forcedCursors.filter((item) => item.roundId !== roundId || item.expiresAt);
     await persist(); broadcastRefresh('round-cleared');
     json(res, 200, { ...stateFor(user), storageCleanup: { deletedWallpapers: roundImages.length } }); return;
@@ -6762,9 +7941,8 @@ export async function requestHandler(req, res) {
       const { user } = requireAuth(req);
       const filename = path.basename(decodeURIComponent(url.pathname.slice(9)));
       const submission = db.submissions.find((item) => item.filename === filename && item.active);
-      const markedGayDraw = db.draws.find((item) => item.type === 'gay' && item.watermarkedFilename === filename);
-      const canViewMarkedGayWallpaper = markedGayDraw && (markedGayDraw.winnerId === user.id || user.role === 'admin');
-      if ((!submission || !canViewSubmission(user, submission)) && !canViewMarkedGayWallpaper) throw new HttpError(403, 'Este wallpaper pertence a outra pessoa.');
+      const isCurrentAnnouncement = db.settings?.announcement?.imageFilename === filename;
+      if ((!submission || !canViewSubmission(user, submission)) && !isCurrentAnnouncement) throw new HttpError(403, 'Esta imagem não está disponível para sua conta.');
       await serveMemoryImage(res, filename); return;
     }
     if (url.pathname.startsWith('/memes/')) {

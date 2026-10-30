@@ -109,7 +109,7 @@ function ensureAlbumControls(host){
 function renderCardPacks(profile) {
   if(cardPackOpening || !profile)return;
   const closed=profile.cardPacks || [],history=profile.openedCardPacks || [];
-  document.querySelector('#cardPackInventory').innerHTML=closed.length?'<p>'+closed.length+' pacote(s) fechado(s)</p><div class="closed-pack-grid">'+closed.map(p=>'<button class="closed-pack pack-'+escapeHtml(p.value||'cosmic')+'" type="button" data-open-card-pack="'+escapeHtml(p.id)+'" data-pack-name="'+escapeHtml(p.name||'Pacotinho')+'" data-pack-icon="'+escapeHtml(p.icon||'🎴')+'" data-pack-art="'+escapeHtml(p.packArt||'')+'" data-pack-tier="'+escapeHtml(p.value||'cosmic')+'">'+(p.packArt?'<span class="closed-pack-art"><img src="'+escapeHtml(p.packArt)+'" alt=""></span>':'<span class="closed-pack-icon">'+escapeHtml(p.icon||'🎴')+'</span>')+'<div><strong>'+escapeHtml(p.name||'Pacotinho')+'</strong><small>3 cartas · '+Number(p.rareChance||10)+'% de rara por carta</small><b>Arraste o lacre para abrir</b></div></button>').join('')+'</div>':'<p>Nenhum pacote fechado. Encontre os pacotinhos na Loja.</p>';
+  document.querySelector('#cardPackInventory').innerHTML=closed.length?'<p>'+closed.length+' pacote(s) fechado(s)</p><div class="closed-pack-grid">'+closed.map(p=>'<button class="closed-pack pack-'+escapeHtml(p.value||'cosmic')+'" type="button" data-open-card-pack="'+escapeHtml(p.id)+'" data-pack-name="'+escapeHtml(p.name||'Pacotinho')+'" data-pack-icon="'+escapeHtml(p.icon||'🎴')+'" data-pack-art="'+escapeHtml(p.packArt||'')+'" data-pack-tier="'+escapeHtml(p.value||'cosmic')+'">'+(p.packArt?'<span class="closed-pack-art"><img src="'+escapeHtml(p.packArt)+'" alt=""></span>':'<span class="closed-pack-icon">'+escapeHtml(p.icon||'🎴')+'</span>')+'<div><strong>'+escapeHtml(p.name||'Pacotinho')+'</strong><small>3 cartas · '+Number(p.rareChance||10)+'% de rara por carta</small><b>Abrir pacote</b></div></button>').join('')+'</div>':'<p>Nenhum pacote fechado. Encontre os pacotinhos na Loja.</p>';
   document.querySelector('#cardPackHistory').innerHTML=history.length?'<details><summary>Últimos pacotes abertos</summary>'+history.map(p=>'<p>'+p.cards.map(c=>escapeHtml(c.icon+' '+c.name)+(c.rarity==='rare'?' ★ RARA':'')).join(' · ')+'</p>').join('')+'</details>':'';
 }
 document.querySelector('#cardPackInventory').addEventListener('click',async event=>{
@@ -134,10 +134,11 @@ async function openSelectedCardPack(){
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     result.innerHTML='<p class="card-pack-opening-copy">Puxando o lacre cósmico…</p>';packet.classList.add('opening');
     await new Promise(resolve=>setTimeout(resolve,reduced?100:650));
-    result.innerHTML='<p class="card-pack-opening-copy">Rasgando o pacote…</p>';packet.classList.add('torn');
+    result.innerHTML='<p class="card-pack-opening-copy">Rasgando o pacote…</p>';packet.classList.add('torn');window.AREA51_OPENING_SOUNDS?.packTear?.();
     await new Promise(resolve=>setTimeout(resolve,reduced?120:1000));
     result.innerHTML='<p class="card-pack-opening-copy">Revelando as cartas…</p>';packet.classList.add('revealed');
     await new Promise(resolve=>setTimeout(resolve,reduced?120:600));
+    data.cardPackResult.forEach((card,index)=>setTimeout(()=>window.AREA51_OPENING_SOUNDS?.packReveal?.(card.rarity==='rare'),index*(reduced?45:150)));
     result.innerHTML='<div class="pack-reveal">'+data.cardPackResult.map((c,index)=>'<article class="album-card owned pack-card-reveal '+(c.rarity==='rare'?'album-rare':'')+'" style="--reveal-delay:'+(index*150)+'ms"><small>'+(c.rarity==='rare'?'★ RARA':'NOVA CARTA')+'</small>'+(c.art?'<img class="pack-reveal-art" src="'+escapeHtml(c.art)+'" alt="'+escapeHtml(c.name)+'">':'<span>'+escapeHtml(c.icon)+'</span>')+'<strong>'+escapeHtml(c.name)+'</strong><b>'+ (c.rarity==='rare'?'RARA':'BÁSICA') +'</b></article>').join('')+'</div><p class="card-pack-added">✓ As três cartas foram adicionadas ao Álbum.</p>';
     selectedCardPackId='';applyState(data);
   } catch(error) { result.textContent=error.message+' Se a conexão caiu, tente novamente: o mesmo pacote não será consumido duas vezes.'; }

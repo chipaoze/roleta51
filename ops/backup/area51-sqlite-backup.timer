@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Area 51 SQLite backup at 05:30 UTC
+
+[Timer]
+OnCalendar=*-*-* 05:30:00 UTC
+Persistent=true
+Unit=area51-sqlite-backup.service
+
+[Install]
+WantedBy=timers.target

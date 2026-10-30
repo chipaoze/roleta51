@@ -1,0 +1,23 @@
+/* Coleções Team Dragon Ball e Cyberpunk. */
+body.profile-theme-team-dragon-ball .app{background:linear-gradient(90deg,#07162ca8,#08162a32),url('/team-themes/dragon-wallpaper.webp') center/cover fixed!important}
+body.profile-theme-cyberpunk-premium .app{background:linear-gradient(90deg,#080a1da8,#080a1d32),url('/team-themes/cyber-wallpaper.webp') center/cover fixed!important}
+body.profile-theme-team-dragon-ball :is(.section,.card,.shop-item){background:linear-gradient(145deg,#092343e8,#122945e8)!important;border-color:#e5a74a!important}
+body.profile-theme-cyberpunk-premium :is(.section,.card,.shop-item){background:linear-gradient(145deg,#111329ef,#21102ce8)!important;border-color:#45d9f4!important}
+.theme-preview-team-dragon-ball{background:linear-gradient(90deg,#07162caa,#07162c22),url('/team-themes/dragon-wallpaper.webp') center/cover!important}
+.theme-preview-cyberpunk-premium{background:linear-gradient(90deg,#080a1daa,#080a1d22),url('/team-themes/cyber-wallpaper.webp') center/cover!important}
+html[data-active-cursor="team-dragon"],html[data-active-cursor="team-dragon"] body,html[data-active-cursor="team-dragon"] :is(a,button,label,summary,select,[role="button"]){cursor:url('/team-themes/dragon-cursor-clean.png') 9 7,auto!important}
+html[data-active-cursor="cyber-cyan"],html[data-active-cursor="cyber-cyan"] body,html[data-active-cursor="cyber-cyan"] :is(a,button,label,summary,select,[role="button"]){cursor:url('/team-themes/cyber-cyan.png') 10 3,auto!important}
+html[data-active-cursor="cyber-amber"],html[data-active-cursor="cyber-amber"] body,html[data-active-cursor="cyber-amber"] :is(a,button,label,summary,select,[role="button"]){cursor:url('/team-themes/cyber-amber.png') 10 3,auto!important}
+html:is([data-active-cursor="team-dragon"],[data-active-cursor="cyber-cyan"],[data-active-cursor="cyber-amber"]) :is(input,textarea){cursor:text!important}
+html.team-shop-cursor-preview .unicorn-mouse-cursor{display:none!important}
+html.team-shop-cursor-preview[data-active-cursor="team-dragon"] body *{cursor:url('/team-themes/dragon-cursor.png') 9 7,auto!important}
+html.team-shop-cursor-preview[data-active-cursor="cyber-cyan"] body *{cursor:url('/team-themes/cyber-cyan.png') 10 3,auto!important}
+html.team-shop-cursor-preview[data-active-cursor="cyber-amber"] body *{cursor:url('/team-themes/cyber-amber.png') 10 3,auto!important}
+html.team-shop-cursor-preview :is(input,textarea){cursor:text!important}
+.cursor-linked-effect.effect-cyber-cyan{color:#5aeaff;text-shadow:0 0 8px #ff42df;font-size:10px}
+.cursor-linked-effect.effect-cyber-amber{color:#ffc059;text-shadow:0 0 8px #30e9ff;font-size:10px}
+:is(.participant-identity,#profileDisplayName,#userName,#menuUserName)[data-badge="team-dragon"]:after,:is(.participant-identity,#profileDisplayName,#userName,#menuUserName)[data-badge="cyberpunk-premium"]:after{content:""!important;display:inline-block;width:1.55em;height:1.55em;min-width:1.55em;margin-left:.18em;background:center/contain no-repeat!important;vertical-align:-.42em}
+:is(.participant-identity,#profileDisplayName,#userName,#menuUserName)[data-badge="team-dragon"]:after{background-image:url('/team-themes/dragon-badge.png')!important}
+:is(.participant-identity,#profileDisplayName,#userName,#menuUserName)[data-badge="cyberpunk-premium"]:after{background-image:url('/team-themes/cyber-badge.png')!important}
+:is(.profile-identity-card,.top-profile-button,.site-menu-user,.frame-preview).frame-team-dragon{border:16px solid transparent!important;border-image:url('/team-themes/dragon-frame.png') 92 / 16px stretch!important;box-shadow:0 0 12px #fff4b477!important}
+:is(.profile-identity-card,.top-profile-button,.site-menu-user,.frame-preview).frame-cyberpunk-premium{border:12px solid transparent!important;border-image:url('/team-themes/cyber-frame.png') 65 / 12px stretch!important;box-shadow:0 0 14px #26eaff88!important}

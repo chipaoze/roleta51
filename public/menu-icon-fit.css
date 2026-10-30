@@ -1,0 +1,31 @@
+/* As artes v2 incluem a própria moldura horizontal. O contêiner antigo,
+   quadrado e com outra borda, as fazia parecer espremidas. */
+#siteMenu nav a,
+#siteMenu .menu-install-button {
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+
+#siteMenu nav a > span,
+#siteMenu .menu-install-button > span,
+#siteMenu nav a > span.pass-menu-art {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px;
+  overflow: hidden;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#siteMenu nav a > span > img,
+#siteMenu .menu-install-button > span > img,
+#siteMenu nav a > span.pass-menu-art > img {
+  display: block;
+  width: 44px !important;
+  height: 44px !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  filter: none;
+}

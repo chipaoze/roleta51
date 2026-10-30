@@ -1,5 +1,5 @@
 {
-  "version": "20261015-caca-menu-sem-blur-v297",
-  "title": "Caça com menu legível",
-  "notes": "Corrigimos a camada do menu durante a caça Cobblemon: ela não desfoca mais a navegação. Atualize para carregar."
+  "version": "20261030-mega-tue-thu-v1",
+  "title": "Mega 51 agora sorteia às terças e quintas",
+  "notes": "A Mega 51 passa a sortear 6 números entre 50 às terças e quintas, às 16h. Os bilhetes já comprados para a rodada atual continuam válidos no próximo sorteio. O prêmio começa em 50.000 Créditos 51 em cada nova rodada e as faixas sem ganhador acumulam para o sorteio seguinte. As demais regras e preços dos bilhetes permanecem iguais."
 }

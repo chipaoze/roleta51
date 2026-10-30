@@ -1,5 +1,6 @@
 // Posts reuse the existing mural records, reactions and mission rules.
 let communityFeedSignature = '';
+const expandedFeedPosts = new Set();
 function mentionPeople() { return (appState?.powerParticipants || []).filter(person => person.id !== appState?.me?.id); }
 function mentionParts(message, people) {
   const names = [...people].sort((a,b) => b.displayName.length-a.displayName.length);
@@ -66,7 +67,8 @@ function chooseMention(input, id) {
   const person=mentionPeople().find(p=>p.id===id), query=mentionQuery(input.value,input.selectionStart ?? input.value.length);
   if (!person || !query) return;
   const insertion='@'+person.displayName+' ', value=input.value.slice(0,query.start)+insertion+input.value.slice(query.end);
-  if (value.length>300) {showToast('O comentário pode ter até 300 caracteres.','error');return;}
+  const maxLength = input.maxLength > 0 ? input.maxLength : 300;
+  if (value.length>maxLength) {showToast('O texto pode ter até '+maxLength+' caracteres.','error');return;}
   input.value=value; input.focus(); input.setSelectionRange(query.start+insertion.length,query.start+insertion.length);refreshMentions(input,false);
 }
 
@@ -103,11 +105,13 @@ function renderCommunityFeed(wall) {
     const anonymous = Boolean(post.anonymous);
     const authorName = anonymous ? 'Anônimo' : formatDisplayName(post.authorName);
     const avatarUrl = post.userId === appState?.me?.id ? appState.me.avatarDataUrl : avatars[post.userId];
+    const longText = (post.phrase || post.caption || '').length > 320 || (post.phrase || post.caption || '').split('\n').length > 5;
+    const expanded = expandedFeedPosts.has(post.type + ':' + post.id);
     const avatar = anonymous ? '<span class="feed-avatar feed-avatar-fallback anonymous" aria-hidden="true">🕵️</span>' : (avatarUrl ? `<img class="feed-avatar" src="${escapeHtml(avatarUrl)}" alt="Foto de ${escapeHtml(post.authorName)}">` : `<span class="feed-avatar feed-avatar-fallback" aria-hidden="true">${escapeHtml((post.authorName || '?').slice(0,1).toUpperCase())}</span>`);
     return `<article id="feed-post-${escapeHtml(post.id)}" class="feed-post">
     <header><div class="feed-author">${avatar}<div><strong>${anonymous ? '🕵️ Anônimo' : visualName({ id: post.userId, displayName: post.authorName })}</strong><time>${escapeHtml(formatDate(post.createdAt))}</time></div></div>
     <div class="feed-post-actions">${post.canEdit ? `<button type="button" data-feed-edit="${escapeHtml(post.id)}" data-feed-type="${post.type}">Editar</button>` : ''}${post.canDelete ? `<button type="button" data-feed-delete="${escapeHtml(post.id)}" data-feed-type="${post.type}">Excluir</button>` : ''}</div></header>
-    <p class="feed-post-text">${highlightedPost(post)}</p>
+    <p class="feed-post-text${longText && !expanded ? ' feed-text-collapsed' : ''}">${highlightedPost(post)}</p>${longText ? `<button type="button" class="feed-expand" data-feed-expand="${escapeHtml(post.id)}" data-feed-type="${post.type}" aria-expanded="${expanded}">${expanded ? 'Ver menos' : 'Ver mais'}</button>` : ''}
     ${youtubeEmbedMarkup(post.phrase || post.caption || '')}
     ${socialEmbedMarkup(post.phrase || post.caption || '')}
     ${post.imageUrl ? `<a href="${escapeHtml(post.imageUrl)}" target="_blank" rel="noopener"><img loading="lazy" decoding="async" src="${escapeHtml(post.imageUrl)}" alt="Publicação de ${escapeHtml(authorName)}"></a>` : ''}
@@ -120,6 +124,16 @@ ${(post.comments || []).map((comment) => `<div class="feed-comment" id="feed-com
   </article>`; }).join('') || '<p>A primeira publicação pode ser sua!</p>';
 }
 document.querySelector('#communityFeed').addEventListener('click', async (event) => {
+  const expand = event.target.closest('[data-feed-expand]');
+  if (expand) {
+    const key = expand.dataset.feedType + ':' + expand.dataset.feedExpand;
+    const expanded = !expandedFeedPosts.has(key);
+    if (expanded) expandedFeedPosts.add(key); else expandedFeedPosts.delete(key);
+    expand.closest('.feed-post').querySelector('.feed-post-text').classList.toggle('feed-text-collapsed', !expanded);
+    expand.setAttribute('aria-expanded', String(expanded)); expand.textContent = expanded ? 'Ver menos' : 'Ver mais'; return;
+  }
+  const cancelEdit = event.target.closest('[data-feed-edit-cancel]');
+  if (cancelEdit) { cancelEdit.closest('form').remove(); return; }
   const choice=event.target.closest('[data-mention-choice]');
   if (choice) {chooseMention(choice.closest('form').elements.message,choice.dataset.mentionChoice);return;}
   if (event.target.closest('[data-cancel-comment]')) {event.target.closest('form').remove();return;}
@@ -149,14 +163,12 @@ document.querySelector('#communityFeed').addEventListener('click', async (event)
   }
   const edit = event.target.closest('[data-feed-edit]');
   if (edit) {
-    const current = edit.closest('.feed-post').querySelector('.feed-post-text').textContent;
-    const text = prompt(edit.dataset.feedType === 'meme' ? 'Editar legenda (até 500 caracteres):' : 'Editar frase (até 180 caracteres):', current);
-    if (text === null || text === current) return;
-    edit.disabled = true;
-    try {
-      const data = await api('/api/daily-wall/posts/' + edit.dataset.feedType + '/' + encodeURIComponent(edit.dataset.feedEdit), { method: 'PATCH', body: { text } });
-      edit.blur(); communityFeedSignature = ''; applyState(data); showToast('Publicação atualizada!');
-    } catch (error) { showToast(error.message, 'error'); edit.disabled = false; }
+    const post = edit.closest('.feed-post');
+    if (post.querySelector('[data-feed-edit-form]')) return;
+    const form = document.createElement('form'); form.dataset.feedEditForm = edit.dataset.feedEdit; form.dataset.feedType = edit.dataset.feedType; form.className = 'feed-edit-form';
+    form.innerHTML = '<label>Editar publicação <textarea name="text" maxlength="2000" rows="6"></textarea></label><small>Até 2.000 caracteres</small><div><button type="submit">Salvar</button> <button type="button" data-feed-edit-cancel>Cancelar</button></div>';
+    const input = form.elements.text; input.value = post.querySelector('.feed-post-text').textContent; input.required = edit.dataset.feedType === 'phrase';
+    post.querySelector('.feed-post-text').insertAdjacentElement('afterend', form); input.focus();
     return;
   }
   const button = event.target.closest('[data-feed-delete]');
@@ -176,6 +188,15 @@ document.querySelector('#communityFeed').addEventListener('change', (event) => {
 });
 
 document.querySelector('#communityFeed').addEventListener('submit', async (event) => {
+  const editForm = event.target.closest('[data-feed-edit-form]');
+  if (editForm) {
+    event.preventDefault(); const text = editForm.elements.text.value.trim();
+    if (text.length > 2000 || (editForm.dataset.feedType === 'phrase' && !text)) { showToast('Confira o texto: máximo de 2.000 caracteres.', 'error'); return; }
+    setBusy(editForm, true);
+    try { const data = await api('/api/daily-wall/posts/' + editForm.dataset.feedType + '/' + encodeURIComponent(editForm.dataset.feedEditForm), { method: 'PATCH', body: { text } }); document.activeElement?.blur(); communityFeedSignature = ''; applyState(data); showToast('Publicação atualizada!'); }
+    catch (error) { showToast(error.message, 'error'); setBusy(editForm, false); }
+    return;
+  }
   const form = event.target.closest('[data-comment-id]'); if (!form) return;
   event.preventDefault(); const input = form.elements.message; const message = input.value.trim();
   if (!message) return;

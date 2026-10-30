@@ -1,6 +1,433 @@
 {
   "releases": [
     {
+      "version": "20261030-mega-tue-thu-v1",
+      "title": "Mega 51 agora sorteia às terças e quintas",
+      "notes": [
+        "A Mega 51 passa a sortear 6 números entre 50 às terças e quintas, às 16h.",
+        "Os bilhetes já comprados para a rodada atual continuam válidos no próximo sorteio.",
+        "O prêmio começa em 50.000 Créditos 51 em cada nova rodada; as faixas sem ganhador acumulam para o sorteio seguinte.",
+        "As regras de compra, preços e divisão dos prêmios permanecem iguais."
+      ],
+      "publishedAt": "2026-10-30"
+    },
+    {
+      "version": "20261030-daily-duty-basket-v1",
+      "title": "Cesta básica de aviso e correções de recursos",
+      "notes": [
+        "Se no dia anterior faltar uma postagem no Feed ou um registro de água, a pessoa recebe no dia seguinte uma tarefa individual de aviso. Quem cumpriu as duas metas não vê a cesta.",
+        "Dez itens básicos aparecem em horários e páginas aleatórios do portal. Cada item fica disponível por 10 minutos; ao coletá-lo, ele aparece dentro da arte da cesta e o progresso fica salvo só para aquele usuário.",
+        "Cada item encontrado reduz em 2h24 a punição do dia seguinte. Completar os dez evita a punição; se a cesta ficar incompleta, o Site Desconfigurado e o bloqueio de Jogos duram o tempo restante calculado. A punição não aceita Antídoto.",
+        "Corrigimos o carregamento do gabinete e dos símbolos do caça-níquel.",
+        "Restauramos as artes da abertura de baús que estavam ausentes no pacote publicado.",
+        "Corrigimos outros recursos estáticos que estavam ausentes: artes de abertura de baús e da maldição Givaldo, arquivos visuais de temas, ícone de missão, áudio da rodada e módulo usado na entrega Cobblemon.",
+        "A animação de abertura agora gera o efeito sonoro localmente e não solicita um arquivo de áudio ausente."
+      ],
+      "publishedAt": "2026-10-30"
+    },
+    {
+      "version": "20261029-daily-duty-clear-admin-v1",
+      "title": "Atualização do portal",
+      "notes": [
+        "Aplicamos ajustes de funcionamento e melhorias internas na Área 51. Atualize o portal para usar a versão mais recente."
+      ],
+      "publishedAt": "2026-10-29"
+    },
+    {
+      "version": "20261029-mega-api-retry-and-ui-fixes-v1",
+      "publishedAt": "2026-10-29",
+      "title": "Compra da Mega mais confiável e correções visuais",
+      "notes": [
+        "Se a conexão falhar após o servidor registrar uma compra da Mega, os números e a identificação do pedido ficam preservados no navegador. Reenviar o mesmo bilhete recupera a compra sem uma segunda cobrança, inclusive após o fechamento do sorteio.",
+        "Durante a caça Cobblemon, o menu, o cabeçalho e os avisos ficam acima do efeito visual em todos os temas.",
+        "O cartão do Raio-X de Autoria na Loja agora usa a largura completa para mostrar sua descrição."
+      ]
+    },
+    {
+      "version": "20261028-mercado-devolucao-v1",
+      "publishedAt": "2026-10-28",
+      "title": "Devolução dos investimentos do Mercado 51",
+      "notes": [
+        "Devolvemos ao saldo de cada participante o custo pago pelas ações do Mercado 51 que ainda estavam em sua carteira. Ações já vendidas não foram pagas novamente.",
+        "Todas as posições antigas do Mercado 51 foram zeradas e as ordens de venda automática relacionadas foram canceladas. O saldo devolvido pode ser usado para comprar ações novamente.",
+        "O histórico registra as operações como Devolução para conferência. As cotações, tendências, variações e demais regras do Mercado 51 seguem iguais.",
+        "A Cripto 51 e suas posições não foram alteradas."
+      ]
+    },
+    {
+      "version": "20261028-postagem-agua-v1",
+      "publishedAt": "2026-10-28",
+      "title": "Postagem e água diárias",
+      "notes": [
+        "A partir de 28/10, todos devem publicar ao menos uma frase ou imagem no feed e registrar água ao menos uma vez por dia. Uma única meta não substitui a outra.",
+        "À meia-noite de Brasília, quem não cumpriu alguma meta do dia anterior recebe o Site Desconfigurado por 24 horas, sem Antídoto e com a página de Jogos bloqueada.",
+        "A punição mostra qual meta faltou e o tempo restante. Cumprir as metas durante o dia punido evita nova punição no dia seguinte.",
+        "Maldições compradas continuam independentes e podem ser tratadas com Antídoto conforme suas regras. Registros de água agora são definitivos e não podem ser removidos."
+      ]
+    },
+    {
+      "version": "20261027-pautas-obrigatorias-v1",
+      "publishedAt": "2026-10-27",
+      "title": "Voto obrigatório nas pautas",
+      "notes": [
+        "A proposta do Davi foi implementada: cada participante elegível precisa votar A favor ou Contra em uma pauta aberta antes de continuar usando o portal.",
+        "Se houver várias pautas pendentes, elas aparecem uma por vez, começando pela que encerra primeiro. Após votar, a próxima aparece automaticamente.",
+        "A votação continua com prazo de 48 horas e encerra ao atingir a maioria. A ausência de quem não acessou não vira voto.",
+        "A pauta original terminou como não aprovada por falta de votos no prazo; esse resultado e os votos foram preservados. A implementação ocorreu por decisão administrativa."
+      ]
+    },
+    {
+      "version": "20261027-wallpaper-once-v1",
+      "publishedAt": "2026-10-27",
+      "title": "Envio definitivo do wallpaper",
+      "notes": [
+        "A pauta aprovada do Rafael foi implementada: antes de enviar o wallpaper, você confirma se escolheu a imagem certa.",
+        "Se responder Não, a imagem continua na prévia e você pode escolher outra. Se responder Sim, o envio é concluído e não pode ser removido nem trocado nesta rodada.",
+        "A mesma regra vale para envios assistidos pela administração. Uma nova escolha fica disponível apenas na próxima rodada."
+      ]
+    },
+    {
+      "version": "20261027-wallpaper-voters-v1",
+      "publishedAt": "2026-10-27",
+      "title": "Veja quem votou em cada wallpaper",
+      "notes": [
+        "A pauta aprovada do Rafael foi implementada: ao terminar a votação de wallpapers, os totais de melhor e pior mostram quem votou em cada opção ao passar o mouse.",
+        "No celular, toque no total para abrir a lista; toque novamente ou fora dela para fechar. Os nomes permanecem ocultos até todos os participantes elegíveis votarem.",
+        "A lista usa os votos já registrados e chega na resposta normal da página, sem novas consultas à API."
+      ]
+    },
+    {
+      "version": "20261027-casino-auto-v2",
+      "publishedAt": "2026-10-27",
+      "title": "Giro automático na Roleta e no Caça-Níquel",
+      "notes": [
+        "A pauta aprovada do Pastel foi implementada nos dois jogos: escolha 10, 20 ou 30 giros e defina o valor de cada aposta.",
+        "O giro automático aceita bônus diário ou saldo próprio da Loja 51. Cada giro é cobrado separadamente; parar impede o próximo giro após o resultado em andamento.",
+        "O portal agrupa avisos de economia e recebe respostas leves durante a sequência para reduzir consultas e processamento. Ao terminar, o saldo e o histórico são sincronizados."
+      ]
+    },
+    {
+      "version": "20261026-session-api-wheel-v1",
+      "publishedAt": "2026-10-26",
+      "title": "Acesso e jogos mais estáveis",
+      "notes": [
+        "Entrar em outro aparelho não encerra uma sessão ainda válida. A tela de login distingue melhor uma sessão expirada de um acesso sem sessão.",
+        "O histórico antigo do cassino foi preservado fora do estado ativo para reduzir o processamento de votos, roleta e caça-níquel em momentos de maior uso.",
+        "Se a resposta de uma aposta ou voto confirmado se perder, repetir a mesma ação recupera a confirmação sem cobrar ou registrar outra vez.",
+        "A roleta mantém roda e números sincronizados ao trocar de página; resultado, aviso e saldo aparecem depois que o giro termina."
+      ]
+    },
+    {
+      "version": "20261025-givaldo-wallpaper-v1",
+      "publishedAt": "2026-10-25",
+      "title": "Maldição Givaldo e wallpaper com logo",
+      "notes": [
+        "A Maldição Givaldo foi adicionada à Loja 51: três fotos e frases aparecem e somem em intervalos ao longo de 24 horas, sem impedir a navegação.",
+        "A compra normal custa 490 Créditos 51 e permite Antídoto. A versão sem defesa custa 5.000 Créditos 51 e bloqueia o Antídoto até o fim das 24 horas. Cada compra fica no inventário para envio posterior.",
+        "O envio da maldição permanece anônimo. O Rastreador de Autoria pode selecionar uma maldição elegível e revelar seu remetente a todos.",
+        "O download de wallpapers agora só libera após o sorteio do Gay da Rodada. O sorteado recebe apenas a imagem com logo; se ela ainda não estiver salva, o download fica bloqueado.",
+        "Se a geração da imagem com logo falhar, o sorteado ou administrador pode tentar novamente. O administrador também pode enviar o wallpaper correto para o site aplicar a logo. O sorteio ao vivo foi sincronizado pelo horário do servidor."
+      ]
+    },
+    {
+      "version": "20261022-maldicoes-v2",
+      "publishedAt": "2026-10-22",
+      "title": "Maldições: preço normal ou 5.000 sem defesa",
+      "notes": [
+        "Cada maldição mostra seu preço normal atual e a alternativa de 5.000 Créditos 51 no total, sem defesa. São opções de compra, não valores somados.",
+        "A versão sem defesa impede o Antídoto durante a duração normal de 24 horas. O Lacre separado foi removido; ninguém havia comprado esse item.",
+        "O Rastreador de Autoria permanece por 2.500 Créditos 51: escolha uma maldição elegível para revelar a autoria a todos."
+      ]
+    },
+    {
+      "version": "20261022-mega51-v4",
+      "publishedAt": "2026-10-22",
+      "title": "Mega 51: bilhetes pagos e prêmio de 50 mil",
+      "notes": [
+        "Toda quinta-feira, às 16h, são sorteados 6 números entre 50.",
+        "Não existe mais palpite grátis: participe comprando um ou mais bilhetes. Cada jogo fica em Meus bilhetes, com sua própria arte e seus números.",
+        "O prêmio inicial é de 50.000 Créditos 51. As vendas de bilhetes não entram no prêmio; faixas sem ganhador acumulam para a rodada seguinte.",
+        "Os palpites gratuitos da rodada aberta foram removidos. A seleção limpa após cada compra, e cada bilhete comprado mostra sua arte e de 6 a 10 números.",
+        "A arte do bilhete não exibe mais espaços vazios para números: as 6 a 10 dezenas aparecem numa faixa própria abaixo; vários bilhetes ficam numa lista rolável.",
+        "O card das rodadas anteriores fica compacto e só se expande ao clicar. As rodadas aparecem em ordem de data. Os ícones do menu foram ajustados para exibir sua arte sem compressão."
+      ]
+    },
+    {
+      "version": "20261022-icones-menu-v2",
+      "publishedAt": "2026-10-22",
+      "title": "Ícones do menu mais fáceis de diferenciar",
+      "notes": [
+        "Ouvimos o relato do Pastel sobre a dificuldade de diferenciar alguns atalhos do menu.",
+        "Cada área recebeu símbolo e cor próprios: Mercado, Classificação, Cripto, Passe, Atualizações e os demais itens não compartilham mais a mesma arte.",
+        "Os atalhos reutilizados de Perfil e Água receberam a mesma arte nova, sem alterar páginas, rotas ou funcionalidades."
+      ]
+    },
+    {
+      "version": "20261022-cache-estatico",
+      "publishedAt": "2026-10-22",
+      "title": "Portal mais rápido em retornos ao site",
+      "notes": [
+        "CSS e JavaScript versionados passam a ficar armazenados no navegador de forma segura, reduzindo carregamentos repetidos.",
+        "Imagens e fontes públicas recebem cache moderado; HTML, saldo, compras, Mercado, Cripto 51, notificações e APIs continuam sem cache de dados pessoais."
+      ]
+    },
+    {
+      "version": "20261021-cripto51",
+      "publishedAt": "2026-10-21",
+      "title": "Cripto 51 chegou",
+      "notes": [
+        "As cotações reais em dólar são convertidas na proporção de US$ 1 para 1 Crédito 51; as negociações são simuladas.",
+        "Compre e venda frações usando o saldo compartilhado, acompanhe gráficos e consulte sua carteira, histórico, renda e dividendos separados.",
+        "Os nomes do menu foram simplificados, sem alterar as páginas e seus endereços."
+      ]
+    },
+    {
+      "version": "20261021-doacao-ilimitada",
+      "publishedAt": "2026-10-21",
+      "title": "Doações de créditos sem limite semanal",
+      "notes": [
+        "As doações anônimas de Créditos 51 entre participantes não têm mais teto semanal.",
+        "O envio continua limitado ao saldo disponível, exige confirmação e mantém os registros da transferência."
+      ]
+    },
+    {
+      "version": "20261021-graficos-mercado",
+      "publishedAt": "2026-10-21",
+      "title": "Leitura dos gráficos do Mercado 51",
+      "notes": [
+        "Os cards de cada moeda agora usam exatamente o mesmo período do gráfico principal.",
+        "A evolução, a linha e o percentual exibidos ficam consistentes ao trocar entre 1 dia, 7 dias e os demais períodos."
+      ]
+    },
+    {
+      "version": "20261021-hater-personalizado",
+      "publishedAt": "2026-10-21",
+      "title": "Maldição do Hater personalizada",
+      "notes": [
+        "Quem usar a Maldição do Hater agora pode escrever as seis frases que aparecerão ao alvo durante 24 horas.",
+        "O envio permanece anônimo, aceita emojis e continua podendo ser removido pelo Antídoto."
+      ]
+    },
+    {
+      "version": "20261021-correcao-feed",
+      "publishedAt": "2026-10-21",
+      "title": "Correção nas publicações do feed",
+      "notes": [
+        "Corrigido o erro exibido depois de publicar uma foto ou texto no feed."
+      ]
+    },
+    {
+      "version": "20261021-maldicao-hater",
+      "publishedAt": "2026-10-21",
+      "title": "Nova maldição e novidades nos baús",
+      "notes": [
+        "Maldição do Hater disponível na loja por 24 horas; o antídoto remove o efeito.",
+        "Peças avulsas Dragon Ball e Cyberpunk podem ser encontradas nos baús elegíveis; as coleções completas continuam fora."
+      ]
+    },
+    {
+      "version": "20261021-cobblemon-mercado",
+      "publishedAt": "2026-10-21",
+      "title": "Entregas Cobblemon e melhorias no mercado",
+      "notes": [
+        "Davi e administradores podem copiar os comandos das entregas do Cobblemon.",
+        "Os campos do mercado são preservados quando as cotações e informações são atualizadas."
+      ]
+    },
+    {
+      "version": "20261020-cabecalho-celular",
+      "publishedAt": "2026-10-20",
+      "title": "Cabeçalho adaptado para celulares",
+      "notes": [
+        "O cabeçalho foi reorganizado em telas pequenas para manter o menu e os atalhos acessíveis, sem cortes."
+      ]
+    },
+    {
+      "version": "20261020-moldura-obsidiana",
+      "publishedAt": "2026-10-20",
+      "title": "Correção da Moldura Escama de Obsidiana",
+      "notes": [
+        "A Moldura Escama de Obsidiana agora é aplicada corretamente no perfil, cabeçalho e menu."
+      ]
+    },
+    {
+      "version": "20261020-molduras-cursor-ajuste",
+      "publishedAt": "2026-10-20",
+      "title": "Ajuste visual de molduras e Team Dragon",
+      "notes": [
+        "Removemos a borda visual extra das molduras no perfil, cabeçalho e menu.",
+        "Corrigimos o cursor Team Dragon e contivemos os ícones das coleções premium nos cards da loja."
+      ]
+    },
+    {
+      "version": "20261020-temas-premium-hotfix",
+      "publishedAt": "2026-10-20",
+      "title": "Temas premium restaurados",
+      "notes": [
+        "Restauramos a ativação do fundo e do cursor dos temas premium Cyberpunk e Team Dragon."
+      ]
+    },
+    {
+      "version": "20261020-molduras-v3",
+      "publishedAt": "2026-10-20",
+      "title": "Ajuste de molduras",
+      "notes": [
+        "Corrigimos a exibição do nome, avatar e moldura no cabeçalho e no menu.",
+        "As prévias padronizadas da loja foram preservadas."
+      ]
+    },
+    {
+      "version": "20261020-molduras-v2",
+      "publishedAt": "2026-10-20",
+      "title": "Molduras padronizadas",
+      "notes": [
+        "Todas as molduras foram ajustadas na loja, no perfil, no cabeçalho e no menu.",
+        "A arte agora fica na frente do cartão, sem recortes, bordas extras ou ultrapassar os limites."
+      ]
+    },
+    {
+      "version": "20261020-molduras-v1",
+      "publishedAt": "2026-10-20",
+      "title": "Molduras ajustadas",
+      "notes": [
+        "As prévias das molduras na loja foram corrigidas e padronizadas, incluindo as versões de Halloween.",
+        "O tamanho e a exibição das molduras no perfil, no cabeçalho e no menu foram ajustados."
+      ]
+    },
+    {
+      "version": "20261020-feed-reacoes-cassino",
+      "publishedAt": "2026-10-20",
+      "title": "Feed e notificações melhorados",
+      "notes": [
+        "O feed aceita publicações de até 2.000 caracteres, com opção de expandir textos longos e editar publicações.",
+        "Adicionamos novas reações e removemos notificações repetitivas dos resultados da Roleta e do Caça-Níquel."
+      ]
+    },
+    {
+      "version": "20261020-team-dragon-cyberpunk-v2",
+      "publishedAt": "2026-10-20",
+      "title": "Coleções Team Dragon Ball e Cyberpunk",
+      "notes": [
+        "Dois temas premium chegaram à loja, com cursores, molduras e insígnias disponíveis também separadamente.",
+        "O cursor Cyberpunk tem duas cores compradas separadamente. Teste os visuais antes de comprar e envie itens de presente pelo Perfil."
+      ]
+    },
+    {
+      "version": "20261019-abertura-baus",
+      "publishedAt": "2026-10-19",
+      "title": "Nova abertura dos baús",
+      "notes": [
+        "Os baús ganharam uma abertura visual com som de cadeado e carrossel sincronizado.",
+        "No Baú Pokémon, os três sorteios preservam suas regras e têm sons de resultado para Pokémon comuns, raros e shiny."
+      ]
+    },
+    {
+      "version": "20261019-jackpot-roleta-sons",
+      "publishedAt": "2026-10-19",
+      "title": "Jackpot e Roleta Cobblemon",
+      "notes": [
+        "Quando o jackpot sair, a tripulação receberá uma notificação com o ganhador e o valor.",
+        "A Roleta Cobblemon ganhou som para o giro, para a vitória e para o resultado sem prêmio.",
+        "O valor do jackpot passou a ser salvo junto com cada jogada."
+      ]
+    },
+    {
+      "version": "20261019-ajuste-cadeado",
+      "publishedAt": "2026-10-19",
+      "title": "Ajuste na abertura dos baús",
+      "notes": [
+        "O som do cadeado agora tem mais tempo para tocar antes do carrossel começar."
+      ]
+    },
+    {
+      "version": "20261019-sons-aberturas",
+      "publishedAt": "2026-10-19",
+      "title": "Sons nas aberturas",
+      "notes": [
+        "Baús, cápsulas Pokémon e pacotinhos agora têm sons próprios de abertura e revelação.",
+        "Recompensas comuns usam um toque discreto; raras, shiny e lendárias recebem o som especial."
+      ]
+    },
+    {
+      "version": "20261019-resultado-votacao-visual",
+      "publishedAt": "2026-10-19",
+      "title": "Resultado da votação mais claro",
+      "notes": [
+        "O resultado destaca os autores do melhor e do pior wallpaper, com imagem, título e votos recebidos.",
+        "A autoria continua secreta enquanto a votação estiver aberta."
+      ]
+    },
+    {
+      "version": "20261019-cobblemon-resultado-pokedex",
+      "publishedAt": "2026-10-19",
+      "title": "Resultado da captura em Pokédex",
+      "notes": [
+        "Capturas e fugas agora mostram uma ficha Pokédex com o sprite do Pokémon, nome, número, nível, raridade, bola e indicação de shiny quando aplicável.",
+        "A ficha aparece por cinco segundos e desaparece automaticamente."
+      ]
+    },
+    {
+      "version": "20261019-cobblemon-captura-visual",
+      "publishedAt": "2026-10-19",
+      "title": "Captura Cobblemon renovada",
+      "notes": [
+        "A captura ganhou clarão, partículas pixeladas, anel de energia e balanço da Poké Ball.",
+        "O resultado de captura ou fuga agora aparece em um aviso compacto com Pokémon, nível, raridade e bola utilizada, incluindo a indicação de shiny."
+      ]
+    },
+    {
+      "version": "20261016-passe-blackstar-oficina-v318",
+      "publishedAt": "2026-10-16",
+      "title": "Passe Blackstar: trilha, fragmentos e Forja",
+      "notes": [
+        "A trilha existente saiu da Classificação e agora tem uma página própria no menu, junto do saldo de Fragmentos Blackstar e da Oficina.",
+        "Fragmentos da trilha grátis e Premium viraram uma moeda única; Premium entrega mais da mesma moeda em seus níveis.",
+        "Quem já tinha resgatado fragmentos recebeu o saldo equivalente automaticamente, sem duplicação.",
+        "A Forja permite montar pacotes, moldura, cursor e tema Blackstar; cursor e tema têm versões azul, obsidiana/ouro e carmesim com confirmação antes da montagem.",
+        "Ao completar o nível 30 do Passe Premium, 590 Créditos 51 são creditados como renovação para o próximo Passe ou uso na Loja."
+      ]
+    },
+    {
+      "version": "20261016-ranking-agiota-v317",
+      "publishedAt": "2026-10-16",
+      "title": "Classificação do Agiota Estelar",
+      "notes": [
+        "A Classificação ganhou o quadro Maiores devedores, ordenado pelo saldo ainda pendente de cada empréstimo ativo.",
+        "O quadro mostra valor em aberto, valor do contrato, prazo e tempo de atraso quando vencido.",
+        "Saldo da Loja, pagamentos anteriores e empréstimos quitados permanecem privados."
+      ]
+    },
+    {
+      "version": "20261016-sextou-roleta-v314",
+      "publishedAt": "2026-10-16",
+      "title": "Bônus de Sextou na Roleta",
+      "notes": [
+        "Todos de pau duro e coração mole: o Cassino liberou 500 créditos promocionais.",
+        "Quem ainda tinha os 250 diários intactos ficou com 750 e saca ao dobrar para 1.500; quem abriu depois recebe 500 e saca ao dobrar para 1.000.",
+        "Amanhã o ciclo volta automaticamente ao normal: 250 créditos diários e meta de saque 500."
+      ]
+    },
+    {
+      "version": "20261016-perfil-layout-v313",
+      "publishedAt": "2026-10-16",
+      "title": "Layout do Perfil corrigido",
+      "notes": [
+        "O pacote fechado passou a usar o card compacto correto, sem o botão cinza padrão.",
+        "A abertura do pacote foi reduzida e reorganizada para focar na arte e no lacre.",
+        "Os visuais ativos agora usam texto mais explícito, incluindo o estilo de nome equipado."
+      ]
+    },
+    {
+      "version": "20261016-perfil-preview-v312",
+      "publishedAt": "2026-10-16",
+      "title": "Perfil, teste de tema e maldições ajustados",
+      "notes": [
+        "Os pacotes de cartas e os visuais ativos do Perfil agora têm cartões separados e leitura mais clara.",
+        "O teste de um tema mostra o conjunto visual completo por 20 segundos, mesmo se uma maldição estiver ativa; ao terminar, a maldição volta a valer.",
+        "O alerta de uma mesma maldição não reaparece a cada atualização, e a vassoura da Limpeza ficou menor e mais nítida."
+      ]
+    },
+    {
       "version": "20261014-light-loading-v280",
       "publishedAt": "2026-10-14",
       "title": "Portal mais leve na abertura",
@@ -18,6 +445,329 @@
         "A página da caça continua sendo sorteada aleatoriamente e não é revelada ao jogador.",
         "Ao abrir o setor escolhido, o Pokémon permanece visível corretamente até a captura ou o fim do cronômetro.",
         "A correção evita que a Pokédex recrie uma cópia escondida do alvo durante a busca."
+      ]
+    },
+    {
+      "version": "20261009-sextou-cobblemon-fixes-v251",
+      "publishedAt": "2026-10-09",
+      "title": "Sextou no Cassino e entregas Cobblemon corrigidas",
+      "notes": [
+        "O Cassino recebeu 1.000 créditos promocionais extras nesta sexta; quem ainda não tinha aberto hoje começa com 1.250 e meta de 2.500. Amanhã o ciclo volta a 250 com meta 500.",
+        "A Roleta Cobblemon mantém textos, ícones e o centro na orientação correta durante e após o giro.",
+        "Uma confirmação da Roleta ou de outro baú não pode mais cancelar o Pokémon já escolhido para entrega; entregas afetadas no ciclo atual foram restauradas."
+      ]
+    },
+    {
+      "version": "20261008-curses-and-season-track-v238",
+      "publishedAt": "2026-10-08",
+      "title": "Novas maldições e trilha corrigida",
+      "notes": [
+        "A Trilha da Operação agora mantém nome, quantidade, resgate e nível em colunas próprias, sem deslocamento após resgatar uma recompensa.",
+        "A Maldição do Dev escurece o portal e usa um cursor-seta com lâmpada para iluminar o caminho por 24 horas.",
+        "A Maldição da Limpeza cobre o portal de poeira e terra; a vassoura precisa limpar toda a tela antes de liberar o uso, mesmo após atualizar a página."
+      ]
+    },
+    {
+      "version": "20261008-cobblemon-navigation-v229",
+      "publishedAt": "2026-10-08",
+      "title": "Navegação livre durante a captura",
+      "notes": [
+        "Durante a caçada, a película continua focando o Pokémon e a Poké Ball.",
+        "A barra superior e o menu ficam acima dela, nítidos e clicáveis para procurar o Pokémon em qualquer setor."
+      ]
+    },
+    {
+      "version": "20261008-cobblemon-focus-v228",
+      "publishedAt": "2026-10-08",
+      "title": "Foco na captura Cobblemon",
+      "notes": [
+        "A caçada não troca nem recarrega a página atual.",
+        "Enquanto o Pokémon estiver escondido, uma película opaca destaca alvo, Poké Ball, cronômetro e escolhas de bola sem expor os cards da tela anterior."
+      ]
+    },
+    {
+      "version": "20261008-curses-notifications-v227",
+      "publishedAt": "2026-10-08",
+      "title": "Maldições padronizadas e avisos legíveis",
+      "notes": [
+        "Seta Gay Compulsória, Maldição do Mouse Gigante e Maldição TDAH agora sempre exigem outro participante ativo; a regra também é protegida no servidor.",
+        "A central de notificações ganhou letras maiores, contraste melhor e cartões mais espaçosos para que os avisos possam ser lidos sem esforço."
+      ]
+    },
+    {
+      "version": "20261008-gay-cursor-v226",
+      "publishedAt": "2026-10-08",
+      "title": "Seta Gay Compulsória liberada",
+      "notes": [
+        "A Seta Gay Compulsória deixa de exigir rodada ativa.",
+        "Ela pode ser enviada a qualquer participante ativo e continua por 24 horas.",
+        "O Controle Gay da Rodada permanece separado e continua restrito à rodada ativa."
+      ]
+    },
+    {
+      "version": "20261008-strong-lie-v225",
+      "publishedAt": "2026-10-08",
+      "title": "Mentiu forte aprovado",
+      "notes": [
+        "A votação coletiva de mentira agora tem quatro opções: Mentiu forte (+2), Mentiu, Não mentiu e Não ouvi.",
+        "Mentiu forte precisa, sozinho, da maioria absoluta da equipe elegível para aplicar dois pontos.",
+        "Se Mentiu e Mentiu forte juntos confirmarem a mentira, mas Mentiu forte não tiver maioria própria, a confirmação continua valendo um ponto."
+      ]
+    },
+    {
+      "version": "20261008-master-box-icons-v224",
+      "publishedAt": "2026-10-08",
+      "title": "Ícones dos cinco baús unificados",
+      "notes": [
+        "Baú Master Aurora ganhou um cofre cósmico de prata, ciano e violeta com cristal central.",
+        "Baú Master Imperial ganhou um cofre de obsidiana, ouro e vermelho com coroa e rubi central.",
+        "Os cinco baús usam sua própria arte na loja, inventário, coleção, chances, abertura, histórico e venda; nenhuma chance ou regra econômica foi alterada."
+      ]
+    },
+    {
+      "version": "20261008-cobblemon-inline-save-v223",
+      "publishedAt": "2026-10-08",
+      "title": "Cadastro Cobblemon sem recarregar a tela",
+      "notes": [
+        "Salvar atualiza somente o controle privado de participantes, sem reconstruir a página toda.",
+        "A pessoa muda entre Jogam e Não jogam após confirmação do servidor, mas a aba atual permanece aberta para o próximo cadastro.",
+        "Nome no servidor, situação de pagamento e todas as validações anteriores continuam iguais."
+      ]
+    },
+    {
+      "version": "20261008-roulette-box-icons-v222",
+      "publishedAt": "2026-10-08",
+      "title": "Baús da Roleta 51 unificados",
+      "notes": [
+        "Caixa Sonda, Caixa Cósmica e Cofre Área 51 agora usam a mesma arte oficial da roleta na loja, inventário, coleção, histórico, tela de chances e abertura.",
+        "O visual acompanha o baú até a decisão de abrir ou vender; não há mais emoji antigo nesses fluxos.",
+        "Chances, preços, regras de venda, prêmios, saldo e resultado no servidor não foram alterados."
+      ]
+    },
+    {
+      "version": "20261008-cobblemon-roster-save-v221",
+      "publishedAt": "2026-10-08",
+      "title": "Cadastro de participantes Cobblemon corrigido",
+      "notes": [
+        "O botão Salvar agora usa uma ação explícita, delegada e confirmada pelo servidor, sem depender do submit do formulário dinâmico.",
+        "Marcar que joga exige nome no servidor e, após a confirmação, move o participante para Jogam; desmarcar move para Não jogam.",
+        "Alterar o nome de alguém que já joga salva e mantém a pessoa na aba Jogam."
+      ]
+    },
+    {
+      "version": "20261008-cobblemon-roster-tabs-v220",
+      "publishedAt": "2026-10-08",
+      "title": "Aba de participantes Cobblemon corrigida",
+      "notes": [
+        "As abas Jogam e Não jogam alternam corretamente no painel restrito do Cobblemon.",
+        "A proteção contra perda de texto agora atua apenas enquanto um campo de participante está em edição."
+      ]
+    },
+    {
+      "version": "20261008-roulette-labels-roster-v219",
+      "publishedAt": "2026-10-08",
+      "title": "Avisos, Roleta e Cobblemon corrigidos",
+      "notes": [
+        "Imagens enviadas nos avisos coletivos agora usam uma rota própria autenticada e voltam a abrir para toda a equipe.",
+        "Durante o giro da Roleta 51, multiplicadores e baús acompanham os setores, mas permanecem retos e legíveis; a duração e os cliques continuam sincronizados.",
+        "O painel restrito do Cobblemon foi dividido em abas: Jogam é a visão padrão de cobrança e Não jogam mantém os demais usuários disponíveis para reativação futura."
+      ]
+    },
+    {
+      "version": "20261008-roulette-cobblemon-notices-v218",
+      "publishedAt": "2026-10-08",
+      "title": "Roleta, avisos e Cobblemon atualizados",
+      "notes": [
+        "A Roleta 51 passou a usar 16 setores visuais com multiplicadores centralizados, cores consistentes por prêmio e os três baús separados por raridade.",
+        "O som de cada clique acompanha a passagem real dos setores durante o giro; resultado, chances das 40 casas, saldo, histórico e jackpot continuam definidos no servidor.",
+        "O aviso coletivo aceita uma imagem como conteúdo único e não exibe mais o nome de quem publicou.",
+        "Davi e a administração ganharam um painel privado no Cobblemon para registrar quem joga, nome no servidor e situação da mensalidade: pago, falta pagar ou abonado."
+      ]
+    },
+    {
+      "version": "20261008-roulette-art-v217",
+      "publishedAt": "2026-10-08",
+      "title": "Roleta 51: arte, baús e leitura refeitos",
+      "notes": [
+        "A roda agora ocupa uma área maior, sem aro decorativo externo; o chifre fica fixo no topo como ponteiro.",
+        "Os multiplicadores aparecem diretamente nos setores visuais, com escala única e sem cápsulas ou texto cortado.",
+        "Caixa Sonda, Caixa Cósmica e Cofre Área 51 receberam ícones próprios e coerentes com suas raridades.",
+        "As quarenta casas reais, suas probabilidades, resultado no servidor, saldo, histórico, sons e jackpot não foram alterados."
+      ]
+    },
+    {
+      "version": "20261008-roulette-layout-v216",
+      "publishedAt": "2026-10-08",
+      "title": "Roleta 51: leitura maior e padronizada",
+      "notes": [
+        "A roda ocupa melhor o espaço disponível no computador, mantendo a versão compacta no celular.",
+        "As 40 casas reais continuam exatamente na mesma ordem e agora usam uma posição única de leitura; x1,5 recebe a mesma placa em todas as ocorrências.",
+        "Os três baús mantêm os mesmos ícones na legenda e nas casas da roleta.",
+        "O aviso de supersorte x5/x10 saiu de baixo da roda e foi para o painel lateral, sem ocultar nenhum setor.",
+        "Som, animação, probabilidades, jackpot, saldos, regras e histórico não foram alterados."
+      ]
+    },
+    {
+      "version": "20261008-games-reliability-v215",
+      "publishedAt": "2026-10-08",
+      "title": "Jogos 51: ações mais confiáveis",
+      "notes": [
+        "Uma decisão repetida de receber ou vender item Cobblemon agora é reconhecida como a mesma operação; ela não cria uma nova venda, crédito ou entrega.",
+        "Os botões continuam bloqueados enquanto a resposta chega e a tela informa quando a decisão já estava registrada.",
+        "Sessões expiradas mostram um aviso claro para entrar novamente.",
+        "Saldos, probabilidades, regras de jogo, itens e histórico não foram alterados."
+      ]
+    },
+    {
+      "version": "20261008-roulette-visibility-v214",
+      "publishedAt": "2026-10-08",
+      "title": "Roleta 51: setores visíveis",
+      "notes": [
+        "O aro decorativo não cobre mais a área da roleta.",
+        "Setores, multiplicadores e baús voltam a ficar visíveis durante o giro.",
+        "Sons, regras, probabilidades, saldos e histórico não foram alterados."
+      ]
+    },
+    {
+      "version": "20261008-games-deliveries-and-comments-v213",
+      "publishedAt": "2026-10-08",
+      "title": "Correções nos Jogos 51 e nas pautas",
+      "notes": [
+        "A Roleta 51 voltou a exibir todos os setores, multiplicadores e os três baús durante o giro; a moldura não cobre mais a roda.",
+        "Os efeitos sonoros do giro permanecem ativos; regras, probabilidades, saldos e histórico não foram alterados.",
+        "Depois de publicar um comentário em uma pauta, o campo é limpo somente após o servidor confirmar o envio. Se houver falha, o texto permanece para não ser perdido.",
+        "A área de Jogos 51 agora identifica corretamente Roleta e Caça-Níquel — o texto antigo de Plinko foi removido.",
+        "Uma decisão premium pendente de entrega foi revisada de forma individual, com venda única registrada no saldo e trilha de auditoria.",
+        "Todos os navegadores abertos recebem o aviso de nova versão com o botão para atualizar."
+      ]
+    },
+    {
+      "version": "20261007-casino-launch-bonus-v211",
+      "publishedAt": "2026-10-07",
+      "title": "Bônus de inauguração dos Jogos 51",
+      "notes": [
+        "Hoje, cada conta recebeu +500 créditos promocionais para experimentar a Roleta 51 e o Caça-Níquel.",
+        "A meta é pessoal: saldo promocional existente + 500, tudo dobrado. Exemplo: 120 + 500 = 620; meta de saque: 1.240.",
+        "É uma ação exclusiva de hoje. Amanhã, o bônus diário volta a 250 créditos e a meta normal volta a 500.",
+        "A distribuição dos resultados também foi equilibrada, com mais empates e ganhos pequenos frequentes."
+      ]
+    },
+    {
+      "version": "20261005-shop-cleanup-v194",
+      "publishedAt": "2026-10-05",
+      "title": "Loja 51: passe grátis utilizado oculto",
+      "notes": [
+        "O card da Compra Grátis 51 deixa de aparecer assim que o passe individual for usado.",
+        "O registro da utilização continua salvo no servidor, portanto o passe não retorna nem pode ser usado novamente.",
+        "Nenhum saldo, compra anterior ou item visual foi alterado."
+      ]
+    },
+    {
+      "version": "20261005-cobblemon-capture-speed-v193",
+      "publishedAt": "2026-10-05",
+      "title": "Caçada Pokémon: resultado mais rápido",
+      "notes": [
+        "A confirmação da captura agora é iniciada no instante em que a Poké Ball é solta e acontece em paralelo à animação.",
+        "O resultado continua sendo calculado e gravado pelo servidor; chances, consumo da Poké Ball e bônus não foram alterados.",
+        "A alteração reduz a espera depois do impacto, sem aumentar requisições ou custo do plano gratuito."
+      ]
+    },
+    {
+      "version": "20261005-market-history-v192",
+      "publishedAt": "2026-10-05",
+      "title": "Mercado 51: histórico mais compacto",
+      "notes": [
+        "O Livro de cotações exibe inicialmente apenas as seis atualizações mais recentes.",
+        "Use “Ver histórico completo” para consultar todas as janelas guardadas; “Recolher histórico” retorna ao modo compacto.",
+        "O filtro por moeda, o gráfico e todos os dados do Worker continuam disponíveis e inalterados."
+      ]
+    },
+    {
+      "version": "20261005-market-layout-v191",
+      "publishedAt": "2026-10-05",
+      "title": "Mercado 51: tela de operação mais limpa",
+      "notes": [
+        "Cada moeda agora mostra apenas uma ação manual por vez: Comprar ou Vender, alternadas no mesmo bloco.",
+        "O gráfico e o resumo da posição continuam visíveis, mas os formulários repetidos deixaram de ocupar a tela toda.",
+        "“Vender no alvo” virou uma configuração opcional recolhida; quando já existir uma ordem ativa, ela aparece em um cartão curto com opção de cancelar.",
+        "Nenhuma cotação, saldo, carteira ou regra de venda automática foi alterada — esta atualização é somente de apresentação."
+      ]
+    },
+    {
+      "version": "20261005-market-auto-sell-v190",
+      "publishedAt": "2026-10-05",
+      "title": "Mercado 51: venda automática no alvo",
+      "notes": [
+        "Agora cada moeda em carteira pode ter uma venda automática com quantidade e valor-alvo definidos pelo participante.",
+        "A ordem fica guardada no servidor: atualizar a página, fechar o portal ou trocar de aparelho não a apaga.",
+        "A execução acontece somente após uma nova cotação de 15 minutos atingir ou ultrapassar o alvo; o histórico identifica a venda automática e o valor recebido.",
+        "Há uma ordem ativa por moeda e participante. Se a posição for reduzida manualmente antes da execução, a ordem é cancelada com segurança para não vender mais do que existe."
+      ]
+    },
+    {
+      "version": "20261005-premium-sale-v189",
+      "publishedAt": "2026-10-05",
+      "title": "Baú Premium: receber ou vender com segurança",
+      "notes": [
+        "Cada item do Baú Premium agora mostra uma revenda opcional proporcional à raridade: 550, 700, 900 ou 1.100 Créditos 51 conforme a chance do prêmio.",
+        "O resultado é registrado no servidor antes da animação. Fechar a página, atualizar ou perder a conexão não sorteia novamente nem perde a decisão.",
+        "Escolher “Receber no servidor” envia o item para a fila do Davi e encerra definitivamente a possibilidade de vendê-lo; vender só é possível enquanto a decisão estiver pendente.",
+        "A operação é individual e protegida contra cliques ou abas duplicadas. Saldos, entregas e prêmios já concluídos não foram alterados."
+      ]
+    },
+    {
+      "version": "20261005-round-audio-removal-v188",
+      "publishedAt": "2026-10-05",
+      "title": "Áudio da rodada removido por votação",
+      "notes": [
+        "A trilha contínua da rodada foi removida conforme a pauta aprovada pela tripulação.",
+        "Os efeitos úteis da Roleta 51 — giro, prêmio positivo e resultado negativo — continuam normalmente.",
+        "Nenhum saldo, histórico, sorteio ou configuração de rodada foi alterado."
+      ]
+    },
+    {
+      "version": "20261005-pokemon-opening-lock-v187",
+      "publishedAt": "2026-10-05",
+      "title": "Baú Pokémon sem interrupções",
+      "notes": [
+        "Os três sorteios do Baú Pokémon agora formam um único fluxo protegido.",
+        "Notificações, sincronizações e avisos de atualização ficam aguardando até a escolha terminar.",
+        "A tela não antecipa mais as opções de Pokémon no meio da animação.",
+        "Ao concluir, o portal sincroniza o estado mais recente e exibe normalmente os avisos pendentes."
+      ]
+    },
+    {
+      "version": "20261005-live-draw-sync-v186",
+      "publishedAt": "2026-10-05",
+      "title": "Sorteios e envios sincronizados ao vivo",
+      "notes": [
+        "Corrigimos o atraso que aparecia depois de alguns minutos sem clicar ou movimentar o mouse.",
+        "Sorteio e inscrições continuam sincronizando enquanto a pessoa estiver apenas assistindo.",
+        "Ao entrar na página, voltar para a aba ou focar a janela, o portal verifica imediatamente o estado mais recente.",
+        "Contagem de wallpapers, tema sorteado e resultado da roleta não dependem mais de recarregar a página."
+      ]
+    },
+    {
+      "version": "20261005-community-vote-filters-v185",
+      "publishedAt": "2026-10-05",
+      "title": "Votação 51 mais limpa e organizada",
+      "notes": [
+        "Por padrão, a página mostra somente as votações que ainda estão abertas.",
+        "Aprovadas para implementar, implementadas e não aprovadas ficam separadas em filtros próprios.",
+        "Cada filtro mostra um contador e somente seus cards são montados na tela, reduzindo a poluição visual.",
+        "O histórico completo, os votos e os comentários continuam preservados."
+      ]
+    },
+    {
+      "version": "20261005-community-majority-v184",
+      "publishedAt": "2026-10-05",
+      "title": "Votação 51 decidida por maioria",
+      "notes": [
+        "Cada proposta registra quem estava apto a votar no momento em que foi aberta e calcula a maioria necessária.",
+        "A votação encerra automaticamente assim que A favor ou Contra alcança a maioria absoluta.",
+        "Propostas aprovadas ficam em “Aprovadas para implementar”; as recusadas ficam em “Não aprovadas”.",
+        "Depois de concluir uma melhoria aprovada, o administrador pode marcá-la como implementada sem apagar o histórico.",
+        "Autores, votos e comentários permanecem visíveis para consulta."
       ]
     },
     {

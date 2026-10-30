@@ -1,0 +1,11 @@
+[Unit]
+Description=Verified Area 51 SQLite backup before OCI volume snapshot
+
+[Service]
+Type=oneshot
+User=area51
+Group=area51
+ExecStart=/usr/bin/python3 /opt/area51/ops/backup_sqlite.py
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
