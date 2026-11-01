@@ -1,5 +1,5 @@
 {
-  "version": "20261030-roleta-automacao-v1",
-  "title": "Roleta 51: proteção contra automações externas",
-  "notes": "Detectamos automações da Roleta feitas fora do site. A API agora exige 5 segundos entre apostas novas da mesma conta, acompanhando o tempo do giro na tela. O giro manual não tem cota diária; o modo automático aceita até 120 giros em 10 minutos e 1.000 por dia, além do limite de 30 por sequência. A aposta mínima continua em 0,10 Crédito 51 e qualquer baú só pode sair a partir de 100 Créditos 51."
+  "version": "20261101-cesta-dias-uteis-v1",
+  "title": "Cesta básica e punição só em dias úteis",
+  "notes": "O aviso da cesta e a punição por falta de postagem ou água passam a funcionar de segunda a sexta. Não há cesta nem punição no sábado ou domingo; na segunda, a verificação usa a sexta-feira. Uma cesta incompleta na sexta pode gerar punição na segunda. Melhoramos a organização do aviso, a leitura das informações e o alinhamento dos itens perdidos na cesta."
 }

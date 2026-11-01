@@ -9,6 +9,7 @@ import { MARKET_ASSETS, MARKET_UPDATE_TIMES, ensureMarketState, advanceMarket, m
 import { CRYPTO_ASSETS, CRYPTO_REFRESH_MS, readCryptoSources, ensureCryptoMarketState, syncCryptoMarket, cryptoMarketForUser, cryptoHoldingsValueForUser, transactCryptoMarket } from './lib/crypto-market.mjs';
 import { ROULETTE_BOX_MIN_BET, ROULETTE_MIN_BET, rouletteBoxChance } from './lib/roulette-economy.mjs';
 import { roulettePaceAllowed, rouletteTrafficDecision } from './lib/roulette-traffic.mjs';
+import { isDailyDutyWorkday, previousDailyDutyWorkday } from './lib/daily-duty-workdays.mjs';
 import { casinoPlayStatePatch } from './lib/casino-state-patch.mjs';
 import COBBLEMON_CATALOG from './lib/cobblemon-catalog.mjs';
 import { cobblemonDeliveryMinimumLevel, cobblemonDeliverySpec, rollCobblemonDeliveryGender } from './lib/cobblemon-delivery-metadata.mjs';
@@ -1181,9 +1182,6 @@ const DAILY_DUTY_BASKET_FOODS = [
   { id: 'sardines', name: 'Sardinha', spriteIndex: 9 },
 ];
 const DAILY_DUTY_BASKET_PAGES = ['sorteio', 'inscricoes', 'memes', 'anonimos', 'agua', 'mentirometro', 'misterio', 'impostor', 'perfil', 'cobblemon', 'album', 'loja', 'loteria', 'mercado', 'crypto51', 'votacoes', 'classificacao', 'passe', 'atualizacoes'];
-function previousSaoPauloDayKey(dayKey) {
-  return saoPauloDayKey(new Date(Date.parse(dayKey + 'T12:00:00-03:00') - 86400000));
-}
 function dailyDutyPostRecorded(userId, dayKey) {
   const matches = (post) => post.userId === userId && dayKeyForTimestamp(post.createdAt) === dayKey;
   return (db.economy.dailyDutyPosts || []).some((entry) => entry.userId === userId && entry.dayKey === dayKey)
@@ -1226,8 +1224,8 @@ function dailyDutyBasketScheduleFor(userId, dayKey, now = new Date()) {
   });
 }
 function dailyDutyBasketTaskForDay(user, dayKey, now = new Date()) {
-  if (dayKey < DAILY_DUTY_BASKET_START_DAY || !user?.active || user.approved === false) return null;
-  const checkedDay = previousSaoPauloDayKey(dayKey);
+  if (dayKey < DAILY_DUTY_BASKET_START_DAY || !isDailyDutyWorkday(dayKey) || !user?.active || user.approved === false) return null;
+  const checkedDay = previousDailyDutyWorkday(dayKey);
   if (checkedDay < DAILY_DUTY_FIRST_DAY || saoPauloDayKey(new Date(user.createdAt || 0)) > checkedDay) return null;
   const posted = dailyDutyPostRecorded(user.id, checkedDay);
   const drankWater = db.waterEntries.some((entry) => entry.userId === user.id && entry.dayKey === checkedDay);
@@ -1257,8 +1255,8 @@ function dailyDutyBasketTaskFor(user, now = new Date()) {
 }
 function dailyDutyPenaltyFor(user, now = new Date()) {
   const today = saoPauloDayKey(now);
-  if (today <= DAILY_DUTY_BASKET_START_DAY || !user?.active || user.approved === false) return null;
-  const checkedDay = previousSaoPauloDayKey(today);
+  if (today <= DAILY_DUTY_BASKET_START_DAY || !isDailyDutyWorkday(today) || !user?.active || user.approved === false) return null;
+  const checkedDay = previousDailyDutyWorkday(today);
   if ((db.economy.dailyDutyPenaltyClears || []).some((entry) => entry.userId === user.id && entry.dayKey === today)) return null;
   const warningTask = dailyDutyBasketTaskForDay(user, checkedDay, new Date(Date.parse(today + 'T00:00:00-03:00') - 1));
   if (!warningTask || warningTask.completed) return null;
@@ -4304,7 +4302,7 @@ function notificationsFor(user, creditLedger = creditLedgerFor(user.id)) {
   const basketTask = dailyDutyBasketTaskFor(user);
   if (basketTask) {
     const missing = [basketTask.missingPost && 'uma postagem no Feed', basketTask.missingWater && 'um registro de água'].filter(Boolean).join(' e ');
-    items.push({ id: 'daily-duty-basket:' + basketTask.dayKey + ':' + user.id, icon: '🧺', title: 'Seu dia de aviso começou', detail: 'Ontem faltou ' + missing + '. Encontre os 10 itens da sua cesta durante o dia; cada item reduz em 2h24 a punição de amanhã. A cesta é individual.', page: 'atualizacoes', targetId: 'dailyDutyBasketCard', createdAt: new Date(Date.parse(basketTask.dayKey + 'T00:00:00-03:00')).toISOString() });
+    items.push({ id: 'daily-duty-basket:' + basketTask.dayKey + ':' + user.id, icon: '🧺', title: 'Seu dia de aviso começou', detail: 'No último dia útil faltou ' + missing + '. Encontre os 10 itens da sua cesta durante o dia; cada item reduz em 2h24 a punição do próximo dia útil. A cesta é individual.', page: 'atualizacoes', targetId: 'dailyDutyBasketCard', createdAt: new Date(Date.parse(basketTask.dayKey + 'T00:00:00-03:00')).toISOString() });
   }
   const dailyPenalty = dailyDutyPenaltyFor(user);
   if (dailyPenalty) {
